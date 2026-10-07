@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "protonumber",
+  "main": "자동마킹.js",
+  "compatibility_date": "2026-10-07",
+  "workers_dev": true,
+  "keep_vars": true,
+  "kv_namespaces": [
+    {
+      "binding": "PROTO_DATA",
+      "id": "40d0aa574fd544639513fa58882a36bd"
+    },
+    {
+      "binding": "PROTO_KV",
+      "id": "40d0aa574fd544639513fa58882a36bd"
+    }
+  ],
+  "secrets": {
+    "required": [
+      "THE_ODDS_API_KEY"
+    ]
+  }
+}
