@@ -1,0 +1,19 @@
+name: Export R283 JS
+on:
+  push:
+    branches:
+      - work-export-r283
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Work JS
+        run: cp "자동마킹.js" "자동마킹_R283_Work.js"
+      - name: Upload JS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 자동마킹_R283_Work
+          path: 자동마킹_R283_Work.js
+          if-no-files-found: error
+          retention-days: 3
