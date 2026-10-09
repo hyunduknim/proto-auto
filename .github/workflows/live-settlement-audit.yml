@@ -16,12 +16,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Fetch LIVE Cloudflare Worker diagnostics
+      - name: Compare homepage and settlement API response
         run: |
-          curl --fail --location --silent --show-error --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 35 "https://protonumber.mystyle276.workers.dev/api/diagnostics" -o "$RUNNER_TEMP/live-diagnostics.json"
-          test -s "$RUNNER_TEMP/live-diagnostics.json"
+          set +e
+          echo "Probing homepage (bypasses Durable Object)"
+          curl --location --silent --show-error --connect-timeout 5 --max-time 15 -o "$RUNNER_TEMP/live-homepage.html" -w 'HOME_RESPONSE: http=%{http_code} dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} first_byte=%{time_starttransfer} total=%{time_total} ip=%{remote_ip}\n' "https://protonumber.mystyle276.workers.dev/"
+          echo "HOME_EXIT=$?"
+          echo "Probing durable-object settlement diagnostics"
+          curl --location --silent --show-error --connect-timeout 5 --max-time 20 -o "$RUNNER_TEMP/live-diagnostics.json" -w 'DIAGNOSTICS_RESPONSE: http=%{http_code} dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} first_byte=%{time_starttransfer} total=%{time_total} ip=%{remote_ip}\n' "https://protonumber.mystyle276.workers.dev/api/diagnostics"
+          echo "DIAGNOSTICS_EXIT=$?"
+          if test -s "$RUNNER_TEMP/live-diagnostics.json"; then echo "HAS_DIAGNOSTICS_JSON=yes"; else echo "HAS_DIAGNOSTICS_JSON=no"; fi
+          exit 0
       - name: Report actual settlement and alarm status
         run: |
+          if ! test -s "$RUNNER_TEMP/live-diagnostics.json"; then echo 'LIVE_DIAGNOSTICS_UNAVAILABLE'; exit 1; fi
           node - "$RUNNER_TEMP/live-diagnostics.json" <<'NODE'
           const fs=require('node:fs');
           const d=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
