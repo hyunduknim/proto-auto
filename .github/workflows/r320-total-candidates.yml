@@ -1,0 +1,56 @@
+name: R320 inspect real total market alternatives
+on:
+  pull_request:
+    branches: [main]
+    paths: [.github/workflows/r320-total-candidates.yml, "자동마킹.js"]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Compare every pregame Under and Over offer using live analysis
+        shell: bash
+        run: |
+          curl -fSs --max-time 35 "https://protonumber.mystyle276.workers.dev/api/analysis?check=$GITHUB_RUN_ID" -o "$RUNNER_TEMP/a.json"
+          curl -fSs --max-time 30 "https://protonumber.mystyle276.workers.dev/api/state?check=$GITHUB_RUN_ID" -o "$RUNNER_TEMP/s.json"
+          node - "$RUNNER_TEMP/a.json" "$RUNNER_TEMP/s.json" <<'NODE'
+          const fs=require('fs'),a=JSON.parse(fs.readFileSync(process.argv[2])),s=JSON.parse(fs.readFileSync(process.argv[3]));
+          const now=Date.now(),num=x=>Number(x??NaN),active=(s.markingGames||[]).filter(m=>m.pick&&!m.resultFinal&&Date.parse(m.date+'T'+m.time.slice(0,5)+':00+09:00')>now);
+          const names=new Map(active.map(m=>[[m.date,m.time,m.home,m.away].join('|'),m]));
+          const totals=[];
+          for(const g of a.games||[]){
+            const rep=names.get([g.date,g.time,g.home,g.away].join('|'));
+            if(!rep)continue;
+            for(const m of g.markets||[]){
+              if(m.marketFamily!=='TOTAL')continue;
+              const x=m.analysis||{};
+              const choices=Object.entries(x).filter(([k,v])=>/choices|rows/i.test(k));
+              totals.push({no:m.no,date:g.date,time:g.time,game:g.game,repPick:rep.pick,
+                repGrade:rep.displayGrade,repFamily:rep.marketFamily,repNo:rep.no,
+                market:m.market,analysis:x});
+            }
+          }
+          console.log('TOTAL_ANALYSIS_SHAPE='+JSON.stringify(totals.slice(0,1)).slice(0,3500));
+          const strong=[];const directions={};
+          for(const x of totals){
+            const t=x.analysis,rows=t.choices||t.rows||t.options||t.predictions||t.outcomes||[];
+            const norm=Array.isArray(rows)?rows:Object.values(rows);
+            for(const q of norm){
+              const pick=String(q.pick||q.label||q.outcome||'');
+              if(!['오버','언더'].includes(pick))continue;
+              const p=num(q.calibratedP??q.calibratedProbability??q.hitProbability??q.probability),
+                mp=num(q.marketP??q.marketProbability),odds=num(q.odds);
+              if(!(p>0&&mp>0&&odds>1))continue;
+              (directions[pick]??=[]).push({no:x.no,game:x.game,repPick:x.repPick,repGrade:x.repGrade,
+                p,mp,odds,edge:Number((p-mp).toFixed(4)),ev:Number((p*odds-1).toFixed(4)),
+                quality:q.quality,rel:q.reliability,opp:q.gradeAxisOppositionCount});
+            }
+          }
+          for(const [k,v] of Object.entries(directions))console.log('DIRECTION_'+k+'='+JSON.stringify({
+            total:v.length,positiveEdge:v.filter(q=>q.edge>0).length,positiveEV:v.filter(q=>q.ev>0).length,
+            top:v.sort((a,b)=>b.ev-a.ev).slice(0,18)}));
+          console.log('TOTAL_SHAPE='+JSON.stringify({version:a.version,active:active.length,marketAnalyses:totals.length,
+            keys:totals[0]?Object.keys(totals[0].analysis):[]}));
+          NODE
