@@ -30,8 +30,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R305-ELITE-VALUE-GATE";
-const BUILD_ID = "proto-betman-core-r305-elite-quality-direction-balance";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R308-ELITE-RESTORE-SETTLEMENT";
+const BUILD_ID = "proto-betman-core-r308-relative-elite-official-settlement-resilience";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -72,18 +72,18 @@ const JB_BOOTSTRAP_VERSION = "R252_ROUND117_CORRECTED_SETTLED_SEED_V2";
 const JB_BOOTSTRAP_V1 = Object.freeze([["260117",5888,"축구","TOTAL",2.5,"오버",[["언더",2.15],["오버",1.49]]],["260117",5890,"기타","MONEYLINE",null,"패",[["승",2.43],["패",1.38]]],["260117",5895,"기타","HANDICAP",1.5,"패",[["승",2.24],["패",1.45]]],["260117",5899,"축구","HANDICAP",1,"승",[["승",1.72],["무",3.65],["패",3.55]]],["260117",5904,"기타","TOTAL",140.5,"언더",[["언더",1.87],["오버",1.66]]],["260117",5907,"기타","HANDICAP",1.5,"패",[["승",2.11],["패",1.51]]],["260117",5910,"축구","MONEYLINE",null,"패",[["승",1.39],["무",4.2],["패",5.2]]],["260117",5915,"축구","HANDICAP",-1,"무",[["승",1.33],["무",4.45],["패",5.8]]],["260117",5920,"야구","MONEYLINE",null,"승",[["승",1.87],["패",1.66]]],["260117",5927,"야구","HANDICAP",2.5,"승",[["승",1.54],["패",2.05]]],["260117",5931,"기타","HANDICAP",1.5,"승",[["승",2.11],["패",1.51]]],["260117",5936,"기타","TOTAL",146.5,"오버",[["언더",1.87],["오버",1.66]]],["260117",5938,"축구","MONEYLINE",null,"무",[["승",3.15],["무",3.1],["패",2.01]]],["260117",5945,"축구","TOTAL",2.5,"언더",[["언더",1.91],["오버",1.63]]],["260117",5952,"축구","TOTAL",2.5,"오버",[["언더",1.5],["오버",2.13]]],["260117",5956,"축구","TOTAL",2.5,"오버",[["언더",1.4],["오버",2.37]]],["260117",5974,"축구","TOTAL",2.5,"오버",[["언더",1.41],["오버",2.34]]],["260117",5976,"축구","MONEYLINE",null,"무",[["승",1.36],["무",4.25],["패",5.6]]],["260117",5980,"축구","MONEYLINE",null,"승",[["승",1.41],["무",4.3],["패",4.8]]],["260117",5986,"축구","TOTAL",2.5,"언더",[["언더",1.59],["오버",1.97]]],["260117",5988,"축구","MONEYLINE",null,"승",[["승",1.44],["무",4.1],["패",4.75]]],["260117",5993,"축구","HANDICAP",1,"승",[["승",1.51],["무",3.8],["패",4.45]]],["260117",5996,"축구","MONEYLINE",null,"무",[["승",5.3],["무",3.35],["패",1.51]]],["260117",6001,"축구","HANDICAP",-1,"무",[["승",4.2],["무",3.45],["패",1.61]]],["260117",6004,"축구","MONEYLINE",null,"승",[["승",4.95],["무",3.35],["패",1.54]]],["260117",6010,"축구","TOTAL",2.5,"언더",[["언더",1.55],["오버",2.04]]],["260117",6013,"기타","HANDICAP",1.5,"패",[["승",2.34],["패",1.41]]],["260117",6018,"기타","TOTAL",179.5,"언더",[["언더",1.81],["오버",1.71]]],["260117",6022,"축구","TOTAL",2.5,"언더",[["언더",1.59],["오버",1.97]]],["260117",6025,"기타","HANDICAP",-1.5,"패",[["승",2.46],["패",1.37]]],["260117",6033,"축구","HANDICAP",-1,"패",[["승",5.0],["무",3.5],["패",1.51]]],["260117",6037,"축구","HANDICAP",1,"승",[["승",1.45],["무",3.5],["패",5.7]]],["260117",6043,"야구","TOTAL",8.5,"오버",[["언더",1.79],["오버",1.73]]],["260117",6050,"야구","HANDICAP",-2.5,"패",[["승",2.56],["패",1.34]]],["260117",6058,"야구","HANDICAP",-2.5,"승",[["승",2.53],["패",1.35]]],["260117",6066,"야구","HANDICAP",-2.5,"승",[["승",2.56],["패",1.34]]],["260117",6072,"야구","MONEYLINE",null,"패",[["승",1.54],["패",2.05]]],["260117",6082,"야구","HANDICAP",2.5,"승",[["승",1.36],["패",2.49]]],["260117",6085,"농구","MONEYLINE",null,"패",[["승",1.89],["패",1.65]]],["260117",6093,"농구","TOTAL",168.5,"언더",[["언더",1.84],["오버",1.69]]],["260117",6095,"축구","MONEYLINE",null,"무",[["승",4.9],["무",3.9],["패",1.48]]],["260117",6105,"축구","TOTAL",2.5,"오버",[["언더",1.93],["오버",1.62]]],["260117",6107,"축구","MONEYLINE",null,"무",[["승",1.61],["무",3.55],["패",4.05]]],["260117",6112,"기타","HANDICAP",-2.5,"패",[["승",1.81],["패",1.71]]],["260117",6116,"기타","HANDICAP",1.5,"승",[["승",2.37],["패",1.4]]],["260117",6119,"농구","MONEYLINE",null,"승",[["승",1.49],["패",2.15]]],["260117",6126,"축구","TOTAL",2.5,"오버",[["언더",2.04],["오버",1.55]]],["260117",6130,"축구","TOTAL",2.5,"오버",[["언더",1.46],["오버",2.22]]],["260117",6134,"농구","TOTAL",175.5,"오버",[["언더",1.74],["오버",1.78]]]]);
 
 const CFG = Object.freeze({
-  sourcePollMs: 10000,
+  sourcePollMs: 60000,
   resultPollMs: 1500,
   fast23ResultPollMs: 1000,
-  sourceRemoteMinMs: 8000,
+  sourceRemoteMinMs: 60000,
   kvMinWriteGapMs: 1500,
   historyMaxMarkets: 2000,
   kvHeartbeatMs: 5 * 60 * 1000,
-  resultRemoteMinMs: 2000,
-  fast23ResultRemoteMinMs: 1500,
+  resultRemoteMinMs: 12000,
+  fast23ResultRemoteMinMs: 10000,
   overdueResultFastAfterMs: 90 * 60 * 1000,
   fetchTimeoutMs: 15000,
-  settlementFetchTimeoutMs: 5000,
+  settlementFetchTimeoutMs: 7000,
   minRepOdds: 1.31,
   gradeBestRate: 0.20,
   gradeRecommendRate: 0.30,
@@ -1032,7 +1032,8 @@ async function postBetman(url,payload,referer,timeoutMs=Number(CFG.fetchTimeoutM
     if(!res.ok)throw new Error(`BETMAN_HTTP_${res.status}`);
     let data; try{ data=JSON.parse(text); }catch{ throw new Error("BETMAN_JSON_PARSE"); }
     return data;
-  }finally{ clearTimeout(timer); }
+  }catch(e){if(ac.signal.aborted)throw new Error(`BETMAN_TIMEOUT_${timeoutMs}MS_${url===BETMAN.resultApi?"RESULT":url===BETMAN.gameApi?"GAMEINFO":"SOURCE"}`);throw e;}
+  finally{ clearTimeout(timer); }
 }
 
 function nestedObjects(root,maxDepth=5){
@@ -1066,7 +1067,8 @@ async function fetchActiveRound(currentGmTs=null){
   return {active:true,gmId:BETMAN.gameId,gmTs,round:roundFromGmTs(gmTs),rawCount:games.length,listed:[...new Set(listed)]};
 }
 
-async function betmanRetry(fn){let last;for(let i=0;i<2;i++){try{return await fn(i);}catch(e){last=e;}}throw last;}
+// R308: When a remote request aborts, retrying instantly doubles the DO alarm queue delay.
+async function betmanRetry(fn){return fn(0);}
 async function fetchGameInfo(gmTs){
   const ref=`${BETMAN.gameSlip}?gmId=${BETMAN.gameId}&gmTs=${encodeURIComponent(gmTs)}`;
   return betmanRetry(()=>postBetman(BETMAN.gameApi,{gmId:BETMAN.gameId,gmTs:String(gmTs),gameYear:"",_sbmInfo:{debugMode:"false"}},ref,CFG.settlementFetchTimeoutMs));
@@ -1870,6 +1872,18 @@ function gradeCaps(totalN){
   for(let i=0;i<remain;i++)counts[byRemainder[i%byRemainder.length].key]++;
   return counts;
 }
+// R308: "가장추천" is the highest-quality relative shortlist, not a claim of positive EV.
+// The strong R305 gate takes priority. If it leaves all slots blank, fill with verified STRICT
+// candidates only; never use manual picks, negative evidence, or low-data DEEP_REVIEW candidates.
+function relativeEliteFallbackPasses(m){
+  if(!m||m.selectionMode!=="STRICT"||m.manualOverride||m.sportRisk?.gradeLimited)return false;
+  const p=Number(m.hitProbability),mp=Number(m.marketProbability),o=Number(m.finalOdds);
+  if(![p,mp,o].every(Number.isFinite)||p<=0||p>=1||mp<=0||mp>=1||o<CFG.minRepOdds)return false;
+  return p-mp>=.01&&p*o-1>=-.12&&Number(m.dataReliability||0)>=.57&&
+    Number(m.aiQuality||0)>=.60&&Number(m.crossAgreement||0)>=.55&&
+    Number(m.dataIntegrityScore||0)>=.52&&Number(m.independentGroupCount||0)>=2&&
+    Number(m.axisOppositionCount||0)===0&&Number(m.gradeAxisOppositionCount||0)===0;
+}
 function assignGrades(state){
   const reps=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&m.marked&&m.representativeSelected&&Number(m.finalOdds)>=CFG.minRepOdds);
   const locked=reps.filter(m=>m.resultFinal||started(m)),rows=reps.filter(m=>!m.resultFinal&&!started(m)),totalN=reps.length,totalCap=gradeCaps(totalN);
@@ -1877,14 +1891,17 @@ function assignGrades(state){
   for(const m of rows)m.displayGrade="일반";
   const bestSlots=Math.max(0,totalCap["가장추천"]-lockedCounts["가장추천"]),recSlots=Math.max(0,totalCap["추천"]-lockedCounts["추천"]);
   const ranked=rows.slice().sort((a,b)=>Number(gradePasses(b,"가장추천"))-Number(gradePasses(a,"가장추천"))||Number(gradePasses(b,"추천"))-Number(gradePasses(a,"추천"))||gradeScore(b)-gradeScore(a)||marketSort(a,b));
-  const bestRows=ranked.filter(m=>gradePasses(m,"가장추천")).slice(0,bestSlots),bestSet=new Set(bestRows);for(const m of bestRows)m.displayGrade="가장추천";
+  const bestRows=ranked.filter(m=>gradePasses(m,"가장추천")).slice(0,bestSlots);
+  const bestFallback=ranked.filter(m=>!bestRows.includes(m)&&relativeEliteFallbackPasses(m)).slice(0,Math.max(0,bestSlots-bestRows.length));
+  bestRows.push(...bestFallback);
+  const bestSet=new Set(bestRows);for(const m of bestRows)m.displayGrade="가장추천";
   const recRank=ranked.filter(m=>!bestSet.has(m)).sort((a,b)=>Number(gradePasses(b,"추천"))-Number(gradePasses(a,"추천"))||gradeScore(b)-gradeScore(a)||marketSort(a,b));
   const recRows=recRank.filter(m=>gradePasses(m,"추천")).slice(0,recSlots);for(const m of recRows)m.displayGrade="추천";
   const counts={"가장추천":0,"추천":0,"일반":0};for(const m of reps){const g=["가장추천","추천","일반"].includes(m.displayGrade)?m.displayGrade:"일반";counts[g]++;}
   const activeCounts={"가장추천":bestRows.length,"추천":recRows.length,"일반":rows.length-bestRows.length-recRows.length};
   const shortfall={"가장추천":Math.max(0,totalCap["가장추천"]-counts["가장추천"]),"추천":Math.max(0,totalCap["추천"]-counts["추천"]),"일반":Math.max(0,totalCap["일반"]-counts["일반"])};
   const excess={"가장추천":Math.max(0,counts["가장추천"]-totalCap["가장추천"]),"추천":Math.max(0,counts["추천"]-totalCap["추천"]),"일반":Math.max(0,counts["일반"]-totalCap["일반"])};
-  state.gradeAudit={at:nowIso(),mode:"QUALITY_GATED_TARGET_20_30_50",target:{"가장추천":20,"추천":30,"일반":50},targetPolicy:"ELIGIBLE_ONLY_20_30_PERCENT_CAPS",targetCounts:totalCap,counts,total:totalN,activeCounts,lockedCounts,locked:locked.length,eligibleCounts:{"가장추천":rows.filter(m=>gradePasses(m,"가장추천")).length,"추천":rows.filter(m=>gradePasses(m,"추천")).length},pct:Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:Object.values(shortfall).every(v=>v===0)&&Object.values(excess).every(v=>v===0),deviation:Object.values(shortfall).reduce((a,b)=>a+b,0)+Object.values(excess).reduce((a,b)=>a+b,0),ranking:"R305 가치/교차근거 품질 게이트 통과 대표픽만 프리미엄 배정, 부족 시 일반 유지",qualityGate:{"가장추천":{minProbability:"2way max(.55,market+.015);3way max(.32,market+.015)",minConservativeProbability:"2way max(.50,market-.055);3way max(.28,market-.055)",minReliability:CFG.gradeBestMinReliability,minQuality:CFG.gradeBestMinQuality,minConfidence:CFG.gradeBestMinConfidence,minCrossAgreement:CFG.gradeBestMinCrossAgreement},"추천":{minProbability:CFG.gradeRecommendMinProbability,minConservativeProbability:CFG.gradeRecommendMinConservativeProbability,minReliability:CFG.gradeRecommendMinReliability,minQuality:CFG.gradeRecommendMinQuality,minConfidence:CFG.gradeRecommendMinConfidence,minCrossAgreement:CFG.gradeRecommendMinCrossAgreement}},scope:"CURRENT_ROUND_ALL_REPRESENTATIVES"};
+  state.gradeAudit={at:nowIso(),mode:"R308_ELITE_RELATIVE_FALLBACK_20_30_50",fallbackBestCount:bestFallback.length,strictBestCount:bestRows.length-bestFallback.length,target:{"가장추천":20,"추천":30,"일반":50},targetPolicy:"R305_STRICT_GATE_PLUS_R308_STRICT_RELATIVE_FALLBACK_CAPS",targetCounts:totalCap,counts,total:totalN,activeCounts,lockedCounts,locked:locked.length,eligibleCounts:{"가장추천":rows.filter(m=>gradePasses(m,"가장추천")).length,"추천":rows.filter(m=>gradePasses(m,"추천")).length},pct:Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:Object.values(shortfall).every(v=>v===0)&&Object.values(excess).every(v=>v===0),deviation:Object.values(shortfall).reduce((a,b)=>a+b,0)+Object.values(excess).reduce((a,b)=>a+b,0),ranking:"R308 기존 품질게이트 우선, 부족분은 STRICT 상대평가(절대 EV 플러스 보장 아님)로 20% 보완",qualityGate:{"가장추천":{minProbability:"2way max(.55,market+.015);3way max(.32,market+.015)",minConservativeProbability:"2way max(.50,market-.055);3way max(.28,market-.055)",minReliability:CFG.gradeBestMinReliability,minQuality:CFG.gradeBestMinQuality,minConfidence:CFG.gradeBestMinConfidence,minCrossAgreement:CFG.gradeBestMinCrossAgreement},"추천":{minProbability:CFG.gradeRecommendMinProbability,minConservativeProbability:CFG.gradeRecommendMinConservativeProbability,minReliability:CFG.gradeRecommendMinReliability,minQuality:CFG.gradeRecommendMinQuality,minConfidence:CFG.gradeRecommendMinConfidence,minCrossAgreement:CFG.gradeRecommendMinCrossAgreement}},scope:"CURRENT_ROUND_ALL_REPRESENTATIVES"};
   return state.gradeAudit;
 }
 function buildFiveApkAudit(state){
@@ -2237,7 +2254,7 @@ function applyOfficialMarketStatusSettlement(state){
 }
 
 async function refreshBetmanSource(state,env,force=false){
-  const now=Date.now(); if(MEM.sourceRunning)return false; if(!force&&now-MEM.lastSourceAttempt<CFG.sourceRemoteMinMs)return false;
+  const now=Date.now(); if(MEM.sourceRunning)return false; const wait=state?.sourceAudit?.ok===false&&state?.sourceAudit?.error?90000:CFG.sourceRemoteMinMs; if(!force&&now-MEM.lastSourceAttempt<wait)return false;
   MEM.sourceRunning=true;MEM.lastSourceAttempt=now;
   try{
     const r=await fetchActiveRound(state.gmTs);
@@ -2495,7 +2512,11 @@ function isOverdueSettlementMarket(m){const t=gameTimeMs(m);return !!(m&&m.marke
 function hasOverdueSettlementPending(state){return (state?.markets||[]).some(isOverdueSettlementMarket);}
 function hasFastSettlementPending(state){return hasFast23SettlementPending(state)||hasOverdueSettlementPending(state);}
 function resultPollMsForState(state){ return hasFastSettlementPending(state)?CFG.fast23ResultPollMs:CFG.resultPollMs; }
-function resultRemoteMinMsForState(state){ return hasFastSettlementPending(state)?CFG.fast23ResultRemoteMinMs:CFG.resultRemoteMinMs; }
+function resultRemoteMinMsForState(state){
+  // Outage backoff stops repeated abort storms; new official results remain pending, never guessed.
+  if(state?.resultAudit?.ok===false&&(state.resultAudit.errors||[]).length)return 45000;
+  return hasFastSettlementPending(state)?CFG.fast23ResultRemoteMinMs:CFG.resultRemoteMinMs;
+}
 
 async function refreshBetmanResults(state,env,force=false){
   const pending=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&started(m)&&!m.resultFinal&&settlementAllowed(m));
@@ -2639,6 +2660,16 @@ function selfTest(){
     t("R305 no edge fails elite",!gradePasses({...m,marketProbability:.65},"가장추천"));
     const q=createState();q.markets=Array.from({length:10},(_,i)=>({...m,no:100000+i,date:"2099-12-31",time:"12:00",home:"QH"+i,away:"QA"+i,marketProbability:.65,finalOdds:1.6,marked:true,representativeSelected:true}));assignGrades(q);
     t("R305 weak favorites stay normal and marked",q.gradeAudit.counts["가장추천"]===0&&q.gradeAudit.counts["추천"]===0&&q.markets.every(x=>x.marked&&x.displayGrade==="일반"));
+  }
+  {
+    const base={gmTs:"260120",sourceRound:120,date:"2099-12-31",time:"12:00",sport:"야구",market:"일반승",marketFamily:"MONEYLINE",selectionMode:"STRICT",line:null,choices:[{label:"승",odds:1.7},{label:"패",odds:2.1}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.65,hitProbability:.62,marketProbability:.59,safeHitProbability:.57,aiQuality:.67,dataReliability:.65,crossAgreement:.70,dataIntegrityScore:.71,independentGroupCount:2,axisOppositionCount:0,gradeAxisOppositionCount:0};
+    const state=createState();state.gmTs="260120";state.round=120;
+    state.markets=Array.from({length:10},(_,i)=>({...base,no:81000+i,home:"EH"+i,away:"EA"+i}));
+    assignGrades(state);
+    t("R308 relative elite fills strong STRICT top 20%",state.gradeAudit.counts["가장추천"]===2&&state.gradeAudit.fallbackBestCount===2);
+    t("R308 premium never promotes low-evidence candidate",!relativeEliteFallbackPasses({...base,aiQuality:.3}));
+    t("R308 premium refuses manual pick",!relativeEliteFallbackPasses({...base,manualOverride:true}));
+    t("R308 official failure backoff",resultRemoteMinMsForState({resultAudit:{ok:false,errors:["timeout"]}})===45000);
   }
   {
     const rs=createState();rs.round=117;rs.gmTs="260117";rs.performanceModel.teams={KEEP:{name:"KEEP",games:5}};rs.markets=[{gmTs:"260117",sourceRound:117,no:1,marketFamily:"MONEYLINE",choices:[{label:"승",odds:1.5},{label:"패",odds:2.2}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.5,resultFinal:true,result:"승",hit:true,settlementStatus:"적중"}];const changed=applyRound118FreshStart(rs);t("R266 round118 reset purges pre118 active odds",changed&&rs.round===118&&rs.gmTs===null&&rs.markets.length===0&&!rs.comboBook);t("R255 round118 reset keeps learning model",rs.performanceModel.teams.KEEP?.games===5);t("R255 round118 reset idempotent",applyRound118FreshStart(rs)===false);
@@ -2934,8 +2965,8 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     check("23h pending detected",hasFast23SettlementPending({markets:[f23]})===true);
     check("non-23h not fast",hasFast23SettlementPending({markets:[f22]})===false);
     check("23h ui poll 1s",resultPollMsForState({markets:[f23]})===1000);
-    check("23h remote min 1.5s",resultRemoteMinMsForState({markets:[f23]})===1500);
-    check("R263 default settlement cadence 1.5s/2s",resultPollMsForState({markets:[f22]})===1500&&resultRemoteMinMsForState({markets:[f22]})===2000);
+    check("23h remote min 1.5s",resultRemoteMinMsForState({markets:[f23]})===10000);
+    check("R263 default settlement cadence 1.5s/2s",resultPollMsForState({markets:[f22]})===1500&&resultRemoteMinMsForState({markets:[f22]})===12000);
     check("grade diagnostic text removed",!INDEX.includes("추천"+" 미달")&&!representativeGames.toString().includes("grade"+"Diagnostic"));
     check("large result retained",INDEX.includes("resultValue")&&INDEX.includes("resultLabel"));
     check("client bootstrap is top-level",!INDEX.includes("function clock(){function clock(){")&&INDEX.includes("setInterval(clock,1000);clock();")&&INDEX.includes("let layersHidden=false")&&INDEX.includes("applyLayerVisibility();")&&INDEX.includes("load();"));
@@ -3090,7 +3121,7 @@ async function runTickInternal(env){
   const s=await loadState(env);let cur=MEM.state||s;
   if(hasLivePending(cur))await refreshBetmanResults(cur,env,false);
   cur=MEM.state||cur;await refreshBetmanSource(cur,env,false);
-  cur=MEM.state||cur;if(hasLivePending(cur))await refreshBetmanResults(cur,env,false);
+  // Next DO alarm handles the next official result check; no duplicate long remote call in one tick.
   return MEM.state||cur;
 }
 function doStub(env){const ns=env?.PROTO_DO;if(!ns||typeof ns.idFromName!=="function")return null;return ns.get(ns.idFromName("main"));}
@@ -3100,7 +3131,7 @@ function retainTask(ctx,task){if(ctx&&typeof ctx.waitUntil==="function")ctx.wait
 function queueStateMaintenance(env,ctx){
   if(STATE_MAINTENANCE||SOURCE_REQUEST_TASK)return;
   const s=MEM.state;
-  if(s&&Date.now()-MEM.lastSourceAttempt<CFG.sourcePollMs&&(!hasLivePending(s)||Date.now()-MEM.lastResultAttempt<resultPollMsForState(s)))return;
+  if(s&&Date.now()-MEM.lastSourceAttempt<CFG.sourcePollMs&&(!hasLivePending(s)||Date.now()-MEM.lastResultAttempt<resultRemoteMinMsForState(s)))return;
   STATE_MAINTENANCE=runTick(env).catch(e=>{MEM.lastAlarmError=String(e?.message||e);}).finally(()=>{STATE_MAINTENANCE=null;});
   retainTask(ctx,STATE_MAINTENANCE);
 }
@@ -3118,6 +3149,8 @@ async function handleApp(req,env,ctx){
   const u=new URL(req.url);
   if(u.pathname==="/")return html(INDEX);
   // 화면 읽기는 네트워크 갱신 대기열 밖에서 마지막 저장 상태를 즉시 반환한다.
+  // R308: diagnostics reads existing state without waiting for the remote-fetch operation queue.
+  if(u.pathname==="/api/diagnostics"&&req.method==="GET")return handleAppInternal(req,env,ctx);
   if(u.pathname==="/api/state"&&req.method==="GET"){
     const s=await loadState(env);queueStateMaintenance(env,ctx);
     return json({...publicState(s),refreshRequest:SOURCE_REQUEST?{...SOURCE_REQUEST}:null});
