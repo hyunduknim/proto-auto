@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R336-QUALITY-TOTAL-ELIGIBILITY";
-const BUILD_ID = "proto-betman-core-r336-quality-total-eligibility";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R337-TOTAL-MARGIN-AWARE";
+const BUILD_ID = "proto-betman-core-r337-total-margin-aware";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1713,7 +1713,9 @@ function r336TotalQualityBackstop(x,bestUtility){
   const gap=bestUtility-utility,edge=p-marketP,ev=p*odds-1;
   const support=Number(q.independentGroupCount||0)>=1&&Number(q.gradeAxisOppositionCount||0)===0;
   const integrity=Number(q.dataIntegrity||0)>=.30&&Number(q.reliability||0)>=.50;
-  return gap>=0&&gap<=.16&&edge>=0&&ev>=-.035&&
+  // Bookmaker margin can leave every U/O with slightly negative EV;
+  // compare small negative EV with the alternatives instead of excluding the family wholesale.
+  return gap>=0&&gap<=.12&&edge>=.005&&ev>=-.095&&
     safe>=marketP-.07&&support&&integrity;
 }
 function currentRoundMarket(m,state){return !state?.gmTs||String(m?.gmTs||"")===String(state.gmTs);}
@@ -1951,7 +1953,9 @@ function assignRepresentativeMarkets(state){
     viable:{MONEYLINE:0,HANDICAP:0,TOTAL:0},
     qualityAllowed:{MONEYLINE:0,HANDICAP:0,TOTAL:0},
     totalGapBuckets:{within045:0,within10:0,within16:0,within25:0,over25:0},
-    totalPositiveEdge:0,totalPositiveEV:0,totalBackstopEligible:0};
+    totalPositiveEdge:0,totalPositiveEV:0,totalBackstopEligible:0,
+    totalEVBuckets:{geZero:0,geNeg035:0,geNeg07:0,geNeg095:0,ltNeg095:0},
+    totalWithIndependentEvidence:0,totalWithReliability:0};
   for(const g of games){
     const offered=new Set(g.ms.map(m=>m.marketFamily));
     for(const fam of ["MONEYLINE","HANDICAP","TOTAL"]){
@@ -1965,7 +1969,13 @@ function assignRepresentativeMarkets(state){
       const bucket=gap<=.045?"within045":gap<=.10?"within10":gap<=.16?"within16":gap<=.25?"within25":"over25";
       familyAvailability.totalGapBuckets[bucket]++;
       if(Number(q.calibratedP)>=Number(q.marketP))familyAvailability.totalPositiveEdge++;
-      if(Number(q.calibratedP)*Number(q.odds)>=1)familyAvailability.totalPositiveEV++;
+      const totalEV=Number(q.calibratedP)*Number(q.odds)-1;
+      if(totalEV>=0)familyAvailability.totalPositiveEV++;
+      const evBucket=totalEV>=0?"geZero":totalEV>=-.035?"geNeg035":
+        totalEV>=-.07?"geNeg07":totalEV>=-.095?"geNeg095":"ltNeg095";
+      familyAvailability.totalEVBuckets[evBucket]++;
+      if(Number(q.independentGroupCount||0)>=1)familyAvailability.totalWithIndependentEvidence++;
+      if(Number(q.reliability||0)>=.50&&Number(q.dataIntegrity||0)>=.30)familyAvailability.totalWithReliability++;
       if(r336TotalQualityBackstop(total,g.bestUtility))familyAvailability.totalBackstopEligible++;
     }
   }
@@ -2638,7 +2648,7 @@ async function writeStoredState(env,str){
 }
 // R308: apply elite grade policy to persisted marked games immediately after deployment.
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
-const R317_MARKET_MIX_ID="R336_QUALITY_TOTAL_ELIGIBILITY_REPICK";
+const R317_MARKET_MIX_ID="R337_TOTAL_MARGIN_AWARE_REPICK";
 async function refreshR308GradePolicy(state,env){
   if(!state?.markets?.length)return false;
   if(state.marketRebalanceAudit?.id!==R317_MARKET_MIX_ID){
