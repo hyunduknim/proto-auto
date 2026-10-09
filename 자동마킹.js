@@ -1,4 +1,4 @@
-// R293: v2.5 FINAL + 120회차 R283 작업지시서 재통합. 30/30/40은 완전 모니터링 전용, #6970 오버는 해당 경기만 고정, 축구 일반무·핸디무는 no-vig Edge/EV·보수우위·교차근거·점수분포로 자동 경쟁.\n// R292: 축구 무승부/핸디무를 2-way 시장과 절대확률로 직접 비교하지 않고, no-vig 시장확률 대비 Edge·EV·보수우위·교차근거·점수분포로 정규화 비교. 강제 무승부 비율 없음.\n// R291: #6970 시카고 화이트삭스-클리블랜드 가디언스 경기 1건만 오버로 수동변경. 이후 경기에는 승계하지 않음.\n// R290: 시카고-클리블랜드 현재회차 경기 1건만 오버로 수동 지정하고, 기존 저장상태도 1회 재분석해 즉시 반영. 이후 경기는 건드리지 않음.
+// R294: v2.5 FINAL + 120회차 R283 작업지시서 재통합. 30/30/40은 완전 모니터링 전용, #6970 오버는 해당 경기만 고정, 축구 일반무·핸디무는 no-vig Edge/EV·보수우위·교차근거·점수분포로 자동 경쟁 + 배포 직후 현재 미시작 경기 1회 재분석.\n// R292: 축구 무승부/핸디무를 2-way 시장과 절대확률로 직접 비교하지 않고, no-vig 시장확률 대비 Edge·EV·보수우위·교차근거·점수분포로 정규화 비교. 강제 무승부 비율 없음.\n// R291: #6970 시카고 화이트삭스-클리블랜드 가디언스 경기 1건만 오버로 수동변경. 이후 경기에는 승계하지 않음.\n// R290: 시카고-클리블랜드 현재회차 경기 1건만 오버로 수동 지정하고, 기존 저장상태도 1회 재분석해 즉시 반영. 이후 경기는 건드리지 않음.
 // R289: 현재회차 첫 경기 1건만 오버로 수동 지정. 최소배당 1.31 및 미시작 조건 유지, 이후 경기로 자동 승계하지 않음.
 // R288: 올마킹 공백 방지, 현재회차/이전회차 중복 잠금 분리, 방향 산식 대칭성 강화, 종목별 AUX 보조검증, 가장추천 DEEP_REVIEW 구조적 0개 경로 수정.
 // R283: 핸디캡 공식 점수에 이미 소수점(.5)이 반영된 경우 라인을 중복 적용하지 않고 소수점 점수를 정확히 파싱·재정산. 지난경기 공식결과도 마킹이 아닌 실제 결과를 표시.
@@ -30,8 +30,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R293";
-const BUILD_ID = "proto-betman-core-r293-two-report-draw-auto";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R294";
+const BUILD_ID = "proto-betman-core-r294-two-report-draw-auto-reanalyze";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1628,6 +1628,14 @@ function applyR292DrawEngineMigration(state){
   return true;
 }
 
+const R294_REANALYZE_ID="R294_TWO_REPORT_DRAW_AUTO_REANALYZE_V1";
+function applyR294ReportDrawReanalysisMigration(state){
+  if(state?.analysisMigrationAudit?.id===R294_REANALYZE_ID)return false;
+  const previous=state?.analysisMigrationAudit?.id||null;
+  state.analysisMigrationAudit={id:R294_REANALYZE_ID,previousId:previous,appliedAt:nowIso(),rule:"v2.5 FINAL + 120회차 지시서 재통합 · 현재 미시작 경기 1회 재분석 · 일반무/핸디무 정상 자동후보 · 30/30/40 감점 없음"};
+  return true;
+}
+
 function applyR291Proto6970Over(state){
   if(state?.manualOverrideAudit?.id===R291_OVERRIDE_ID)return false;
   const target=(state?.markets||[]).find(m=>
@@ -2078,8 +2086,8 @@ async function writeStoredState(env,str){
 }
 async function loadState(env){
   if(MEM.state){
-    const removed=purgeMidnightMarkets(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),manualOverrideChanged=applyR291Proto6970Over(MEM.state),drawEngineChanged=applyR292DrawEngineMigration(MEM.state);
-    if(removed||settlementRepaired||jbCorrected||roundReset||round119Reset||manualOverrideChanged||drawEngineChanged){markState(MEM.state);MEM.state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;await persistState(env,true);}
+    const removed=purgeMidnightMarkets(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),manualOverrideChanged=applyR291Proto6970Over(MEM.state),drawEngineChanged=applyR292DrawEngineMigration(MEM.state),reportReanalysisChanged=applyR294ReportDrawReanalysisMigration(MEM.state);
+    if(removed||settlementRepaired||jbCorrected||roundReset||round119Reset||manualOverrideChanged||drawEngineChanged||reportReanalysisChanged){markState(MEM.state);MEM.state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;await persistState(env,true);}
     return MEM.state;
   }
   let loadedPurgeRemoved=0,loadedNeedsPersist=false;
@@ -2090,9 +2098,9 @@ async function loadState(env){
   if(MEM.lastPersistSig==null){MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();}
   // 저장 시 제외한 분석 스냅샷이 없는 경기전 시장은 즉시 재분석한다.
   const needsAnalysis=(MEM.state.markets||[]).some(m=>!m.sharedAnalysis&&!started(m)&&!m.resultFinal);
-  const purgeRemoved=purgeMidnightMarkets(MEM.state),resetChanged=applyR212ResetMigration(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),perfBoot=bootstrapPerformanceFromSettledState(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),jbBoot=bootstrapJeongbaedangModel(MEM.state),manualOverrideChanged=applyR291Proto6970Over(MEM.state),drawEngineChanged=applyR292DrawEngineMigration(MEM.state);
-  if(needsAnalysis&&!(loadedNeedsPersist||loadedPurgeRemoved||purgeRemoved||resetChanged||settlementRepaired||perfBoot||jbCorrected||roundReset||round119Reset||jbBoot.addedMarkets||manualOverrideChanged||drawEngineChanged)){markState(MEM.state);MEM.publicCacheKey=null;MEM.publicCache=null;}
-  if(loadedNeedsPersist||loadedPurgeRemoved||purgeRemoved||resetChanged||settlementRepaired||perfBoot||jbCorrected||roundReset||round119Reset||jbBoot.addedMarkets||manualOverrideChanged||drawEngineChanged){
+  const purgeRemoved=purgeMidnightMarkets(MEM.state),resetChanged=applyR212ResetMigration(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),perfBoot=bootstrapPerformanceFromSettledState(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),jbBoot=bootstrapJeongbaedangModel(MEM.state),manualOverrideChanged=applyR291Proto6970Over(MEM.state),drawEngineChanged=applyR292DrawEngineMigration(MEM.state),reportReanalysisChanged=applyR294ReportDrawReanalysisMigration(MEM.state);
+  if(needsAnalysis&&!(loadedNeedsPersist||loadedPurgeRemoved||purgeRemoved||resetChanged||settlementRepaired||perfBoot||jbCorrected||roundReset||round119Reset||jbBoot.addedMarkets||manualOverrideChanged||drawEngineChanged||reportReanalysisChanged)){markState(MEM.state);MEM.publicCacheKey=null;MEM.publicCache=null;}
+  if(loadedNeedsPersist||loadedPurgeRemoved||purgeRemoved||resetChanged||settlementRepaired||perfBoot||jbCorrected||roundReset||round119Reset||jbBoot.addedMarkets||manualOverrideChanged||drawEngineChanged||reportReanalysisChanged){
     markState(MEM.state);MEM.state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
     await persistState(env,true);
   }
@@ -2884,7 +2892,7 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     chk("full-mark audit has zero gaps",st.fullMarkAudit?.pricedGames===1&&st.fullMarkAudit?.markedGames===1&&st.fullMarkAudit?.gapGames===0,JSON.stringify(st.fullMarkAudit));
   }
   {
-    const check=(name,ok,detail="")=>t("R293 two-report/draw auto: "+name,ok,detail);
+    const check=(name,ok,detail="")=>t("R294 two-report/draw auto: "+name,ok,detail);
     const auxH={marketFamily:"HANDICAP",auxFeatures:{handicapDrawProbability:.34},choices:[{label:"승",odds:2.7},{label:"무",odds:3.1},{label:"패",odds:2.2}]};
     check("authorized handicap draw probability is accepted",Math.abs(Number(explicitAuxChoiceProbability(auxH,{label:"무"}))-.34)<1e-12,String(explicitAuxChoiceProbability(auxH,{label:"무"})));
     const drawX={m:{sport:"축구",marketFamily:"MONEYLINE",choices:[{label:"승",odds:2.8},{label:"무",odds:3.2},{label:"패",odds:2.7}]},gatePassed:true,q:{pick:"무",decisionProbability:.36,calibratedP:.36,conservativeP:.33,marketP:.30,ev:.15,reliability:.68,quality:.66,confidenceScore:.67,crossAgreement:.70,dataIntegrity:.65,independentGroupCount:3,gradeAxisOppositionCount:0,layers:{sportAux:{drawProbability:.37}}}};
@@ -2895,6 +2903,8 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     const games=[{key:gameSeed(t6970),ms:[t6970],c:{}},{key:gameSeed(next),ms:[next],c:{}}],assigned=new Map(),ov=applyFirstGameOverOverride(st,games,assigned);
     check("manual over remains pinned only to proto 6970",ov?.no===6970&&assigned.has(gameSeed(t6970))&&!assigned.has(gameSeed(next)),JSON.stringify({ov,keys:[...assigned.keys()]}));
     check("30/30/40 remains monitor-only",CFG.marketMixDeviationPenalty===0);
+    const mig=createState();mig.analysisMigrationAudit={id:R292_DRAW_ENGINE_ID};const mig1=applyR294ReportDrawReanalysisMigration(mig),mig2=applyR294ReportDrawReanalysisMigration(mig);
+    check("R294 current-round reanalysis migration is one-shot",mig1===true&&mig2===false&&mig.analysisMigrationAudit.id===R294_REANALYZE_ID,JSON.stringify(mig.analysisMigrationAudit));
   }
   const ok=tests.every(x=>x.ok);return{ok,passed:tests.filter(x=>x.ok).length,total:tests.length,tests,version:APP_VERSION,build:BUILD_ID};
 }
