@@ -84,12 +84,24 @@ jobs:
             for(const ts of rounds){
               try{
                 const gameInfo=await officialGameInfo(ts);
-                const r=await fetch(base+"/api/official-gameinfo-relay",{
-                  method:"POST",headers:{"authorization":"Bearer "+token,"content-type":"application/json"},
-                  body:JSON.stringify({gmTs:ts,gameInfo}),signal:timeout(60000)
-                });
-                const data=await r.json().catch(()=>({}));
-                if(!r.ok||!data.ok)throw Error("Worker relay HTTP "+r.status+" "+String(data.error||"").slice(0,130));
+                // GitHub push triggers this workflow before Cloudflare Workers Builds finishes.
+                // Retry the relay endpoint only during the deployment race; never modify market data.
+                let data={};let deliveredToWorker=false;
+                for(let deliveryAttempt=1;deliveryAttempt<=10;deliveryAttempt++){
+                  const r=await fetch(base+"/api/official-gameinfo-relay",{
+                    method:"POST",headers:{"authorization":"Bearer "+token,"content-type":"application/json"},
+                    body:JSON.stringify({gmTs:ts,gameInfo}),signal:timeout(45000)
+                  });
+                  data=await r.json().catch(()=>({}));
+                  if(r.ok&&data.ok){deliveredToWorker=true;break;}
+                  if((r.status===404||r.status===503)&&deliveryAttempt<10){
+                    console.log("Worker deploying, relay endpoint retry",deliveryAttempt,"of 10",r.status);
+                    await new Promise(resolve=>setTimeout(resolve,5000));
+                    continue;
+                  }
+                  throw Error("Worker relay HTTP "+r.status+" "+String(data.error||"").slice(0,130));
+                }
+                if(!deliveredToWorker)throw Error("Official relay failed after deployment retries");
                 console.log("OFFICIAL_SETTLEMENT_RELAY="+JSON.stringify({
                   gmTs:ts,verifiedRows:data.verifiedRows,settledNow:data.settledNow,
                   pendingBefore:data.pendingBefore,pendingAfter:data.pendingAfter
