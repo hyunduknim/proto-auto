@@ -30,6 +30,16 @@ const api = new Function(
     "A materially weaker total must not be selected just to hit market ratios");
   assert.equal(api.r336TotalQualityBackstop({...totalCandidate,q:{...totalCandidate.q,calibratedP:.49}},totalUtility+.08),false,
     "Negative-edge U/O picks must not be promoted by the fallback");
+  const mildlyNegativeTotal={...totalCandidate,q:{...totalCandidate.q,
+    calibratedP:.54,decisionProbability:.54,marketP:.52,conservativeP:.51,odds:1.70}};
+  const mildUtility=api.candidateUtility(mildlyNegativeTotal);
+  assert.equal(api.r336TotalQualityBackstop(mildlyNegativeTotal,mildUtility+.07),true,
+    "A small bookmaker-margin negative EV with positive no-vig edge may remain eligible");
+  const severelyNegativeTotal={...mildlyNegativeTotal,q:{...mildlyNegativeTotal.q,odds:1.55}};
+  const severeUtility=api.candidateUtility(severelyNegativeTotal);
+  assert.equal(api.r336TotalQualityBackstop(severelyNegativeTotal,severeUtility+.07),false,
+    "Large negative EV must remain excluded");
+
   assert.equal(api.r336TotalQualityBackstop({...totalCandidate,q:{...totalCandidate.q,independentGroupCount:0}},totalUtility+.08),false,
     "U/O picks without independent provenance must not be promoted");
 
