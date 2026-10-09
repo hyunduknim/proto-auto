@@ -2257,8 +2257,8 @@ async function writeStoredState(env,str){
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
 async function refreshR308GradePolicy(state,env){
   if(!state?.markets?.length||state.gradeAudit?.mode==="R316_RELATIVE_QUALITY_UO_ONLY_20_30_50")return false;
-  // One-time recalculation of only unlocked pregame picks. Official/started results stay locked.
-  markState(state);state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
+  // R316 changes grading only. Never reselect an existing match or touch the settlement ledger.
+  assignGrades(state);state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
   await persistState(env,true);return true;
 }
 async function loadState(env){
