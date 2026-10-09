@@ -1,1 +1,3 @@
 R324 Cloudflare Workers build retry. The deployed application source remains unchanged.
+
+R327 retry 2026-10-10: retry existing Cloudflare Workers Builds integration without modifying application logic; verify production version before marking deployment successful.
