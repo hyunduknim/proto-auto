@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R334-PREGAME-REPICK";
-const BUILD_ID = "proto-betman-core-r333-moneyline-guard";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R335-TOTAL-MARKET-IMPORT";
+const BUILD_ID = "proto-betman-core-r335-total-market-import";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1169,7 +1169,7 @@ function sportFromItem(code,league=""){
 
 function marketFamilyName(text){
   const x=String(text||"");
-  if(/언더\s*오버|언더\/오버|언오버/i.test(x))return "TOTAL";
+  if(/언더[\s\/·ㆍ-]*오버|오버[\s\/·ㆍ-]*언더|언오버|\b(?:U\s*\/\s*O|O\s*\/\s*U|UO|OU|OVER\s*\/\s*UNDER|UNDER\s*\/\s*OVER)\b/i.test(x))return "TOTAL";
   if(/핸디/i.test(x))return "HANDICAP";  if(/승무패|승패|일반승|일반\s*승/i.test(x))return "MONEYLINE";
   return "OTHER";
 }
@@ -1251,8 +1251,11 @@ function compScheduleObjects(data){
 function parseBetmanMarkets(data,gmTs){
   const votes=voteMap(data),tips=tooltipMap(data),out=[];
   for(const s of compScheduleObjects(data)){
-    const marketText=String(s.betNm||s.betTypNm||""); if(hiddenBetmanMarket(marketText))continue;
-    const family=marketFamilyName(marketText); if(family==="OTHER")continue;
+    const betName=String(s.betNm||""),typeName=String(s.betTypNm||"");
+    if(hiddenBetmanMarket(typeName+" "+betName))continue;
+    // Betman may publish a generic betNm while betTypNm carries the U/O subtype.
+    const typed=marketFamilyName(typeName),family=typed!=="OTHER"?typed:marketFamilyName(betName);
+    if(family==="OTHER")continue;
     const no=Number(s.matchSeq); if(!Number.isFinite(no)||no<=0)continue;
     const date=kstDateFromMs(s.gameDate),time=kstTimeFromMs(s.gameDate); if(!date||date<CUTOFF_DATE||isPurgedMidnightMarket({date,time}))continue;
     const league=String(s.leagueShortName||s.leagueName||"").trim(),sport=sportFromItem(s.itemCode,league);
@@ -1927,6 +1930,18 @@ function assignRepresentativeMarkets(state){
   }
   const lockedCounts={MONEYLINE:0,HANDICAP:0,TOTAL:0};for(const x of lockedCurrent)if(lockedCounts[x.m.marketFamily]!=null)lockedCounts[x.m.marketFamily]++;
   const totalN=games.length+lockedCurrent.length,totalTarget=targetCounts(totalN,CFG.marketTarget);
+  // Distinguish source-offered markets, viable odds, and quality-guard exclusion.
+  const familyAvailability={offered:{MONEYLINE:0,HANDICAP:0,TOTAL:0},
+    viable:{MONEYLINE:0,HANDICAP:0,TOTAL:0},
+    qualityAllowed:{MONEYLINE:0,HANDICAP:0,TOTAL:0}};
+  for(const g of games){
+    const offered=new Set(g.ms.map(m=>m.marketFamily));
+    for(const fam of ["MONEYLINE","HANDICAP","TOTAL"]){
+      if(offered.has(fam))familyAvailability.offered[fam]++;
+      if(g.allC?.[fam])familyAvailability.viable[fam]++;
+      if(g.c?.[fam])familyAvailability.qualityAllowed[fam]++;
+    }
+  }
   const manualAssigned=new Map(),firstGameOverOverride=applyFirstGameOverOverride(state,games,manualAssigned),manualKeys=new Set(manualAssigned.keys());
   const flexibleGames=games.filter(g=>!manualKeys.has(g.key)),fixedCounts={...lockedCounts};for(const x of manualAssigned.values())fixedCounts[x.m.marketFamily]=Number(fixedCounts[x.m.marketFamily]||0)+1;
   // R325: 전역 최적화는 유지하되 경기별 최고 근거 대비 품질 격차가 큰 시장 후보는 제외한다. 30/30/40보다 대표픽 품질을 우선한다.
@@ -1982,7 +1997,7 @@ function assignRepresentativeMarkets(state){
   const shortfall=Object.fromEntries(Object.keys(totalTarget).map(k=>[k,Math.max(0,(totalTarget[k]||0)-(totalCounts[k]||0))]));
   const excess=Object.fromEntries(Object.keys(totalTarget).map(k=>[k,Math.max(0,(totalCounts[k]||0)-(totalTarget[k]||0))]));
   const currentReps=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&m.marked&&m.representativeSelected),drawSelections=currentReps.filter(m=>m.sport==="축구"&&m.finalPick==="무").length;
-  state.marketMixAudit={at:nowIso(),mode:"FORCED_RATIO_30_30_40",target:{MONEYLINE:30,HANDICAP:30,TOTAL:40},targetPolicy:"R324_GLOBAL_MIN_DEVIATION_THEN_MAX_QUALITY",qualityGapUsed:Number.isFinite(effectiveQualityGap)?effectiveQualityGap:"ALL_VALID_FAMILIES",deviationPenalty:CFG.marketMixDeviationPenalty,drawSelections,drawVisibility,totalDirectionBalance,targetCounts:totalTarget,counts:totalCounts,activeCounts:counts,total:totalN,pct:Object.fromEntries(Object.entries(totalCounts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:allocation.exact,deviation:allocation.deviation,allocationPolicy:allocation.policy,qualityScore:r3(allocation.qualityScore||0),qualityScoreScope:"BASE_ALLOCATION_BEFORE_EVIDENCE_DRAW_CONSTRAINT",postDrawQualityScore:r3([...assigned.values()].reduce((sum,x)=>sum+candidateUtility(x),0)),objective:r3(allocation.objective||0),locked:lockedCurrent.length,lockedCounts,lockedAllRounds:locked.length,scope:"CURRENT_ROUND_REPRESENTATIVES"};
+  state.marketMixAudit={at:nowIso(),mode:"FORCED_RATIO_30_30_40",target:{MONEYLINE:30,HANDICAP:30,TOTAL:40},targetPolicy:"R324_GLOBAL_MIN_DEVIATION_THEN_MAX_QUALITY",qualityGapUsed:Number.isFinite(effectiveQualityGap)?effectiveQualityGap:"ALL_VALID_FAMILIES",deviationPenalty:CFG.marketMixDeviationPenalty,drawSelections,drawVisibility,totalDirectionBalance,targetCounts:totalTarget,counts:totalCounts,activeCounts:counts,total:totalN,pct:Object.fromEntries(Object.entries(totalCounts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:allocation.exact,deviation:allocation.deviation,allocationPolicy:allocation.policy,qualityScore:r3(allocation.qualityScore||0),qualityScoreScope:"BASE_ALLOCATION_BEFORE_EVIDENCE_DRAW_CONSTRAINT",postDrawQualityScore:r3([...assigned.values()].reduce((sum,x)=>sum+candidateUtility(x),0)),objective:r3(allocation.objective||0),locked:lockedCurrent.length,lockedCounts,lockedAllRounds:locked.length,candidateAvailability:familyAvailability,scope:"CURRENT_ROUND_REPRESENTATIVES"};
   return state.marketMixAudit;
 }
 function buildFullMarkAudit(state){
@@ -2596,7 +2611,7 @@ async function writeStoredState(env,str){
 }
 // R308: apply elite grade policy to persisted marked games immediately after deployment.
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
-const R317_MARKET_MIX_ID="R334_PREGAME_REPICK_AFTER_PLUS_TOTAL_AND_MONEYLINE_FIX";
+const R317_MARKET_MIX_ID="R335_TOTAL_MARKET_IMPORT_REPICK";
 async function refreshR308GradePolicy(state,env){
   if(!state?.markets?.length)return false;
   if(state.marketRebalanceAudit?.id!==R317_MARKET_MIX_ID){
@@ -3118,7 +3133,7 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
   MEM.publicCacheKey=key;MEM.publicCache=value;return value;
 }
 function exportSafeConfig(){
@@ -3273,6 +3288,12 @@ function selfTest(){
   const future=Date.parse("2099-10-02T09:00:00+09:00");
   const fixture={voteStatus:[{GM_SEQ:101,W_BET_CNT:60,D_BET_CNT:0,L_BET_CNT:40},{GM_SEQ:102,W_BET_CNT:52,D_BET_CNT:0,L_BET_CNT:48},{GM_SEQ:103,W_BET_CNT:55,D_BET_CNT:0,L_BET_CNT:45}],tooltipList:[{GM_SEQ:101,BCHG_W_ODDS:190,BCHG_L_ODDS:195},{GM_SEQ:102,BCHG_W_ODDS:185,BCHG_L_ODDS:175},{GM_SEQ:103,BCHG_W_ODDS:178,BCHG_L_ODDS:182}],compSchedules:{keys:["matchSeq","gameDate","itemCode","leagueShortName","homeName","awayName","betNm","winHandi","loseHandi","winTxt","drawTxt","loseTxt","winAllot","drawAllot","loseAllot"],datas:[[101,future,"BS","MLB","A","B","승패","","","승","","패",1.65,null,2.05],[102,future,"BS","MLB","A","B","핸디캡","2.5","","승","","패",1.82,null,1.72],[103,future,"BS","MLB","A","B","언더오버","7.5","","언더","","오버",1.74,null,1.80]]}};
   const ms=parseBetmanMarkets(fixture,"260117");t("03 betman parse",ms.length===3,`rows=${ms.length}`);
+  t("R335 recognize U/O aliases",["U/O","언더·오버","오버/언더","Over/Under"].every(x=>marketFamilyName(x)==="TOTAL"));
+  const variant=structuredClone(fixture);variant.compSchedules.keys.push("betTypNm");
+  variant.compSchedules.datas[2][6]="일반";variant.compSchedules.datas[2].push("U/O");
+  const variantMarkets=parseBetmanMarkets(variant,"260117");
+  t("R335 parse U/O subtype from betTypNm when betNm is generic",
+    variantMarkets.some(m=>m.no===103&&m.marketFamily==="TOTAL"));
   const nestedFixture={response:{payload:structuredClone(fixture)}};const nestedMs=parseBetmanMarkets(nestedFixture,"260117");t("03a nested betman parse",nestedMs.length===3,`rows=${nestedMs.length}`);
   t("04 choices",ms.every(m=>validChoices(m).length===2));t("05 opening odds",ms.every(m=>validChoices(m).every(c=>Number(c.openingOdds)>1)));t("06 baseball 2.5",candidateEligible(ms.find(m=>m.marketFamily==="HANDICAP"))===true);
   const st=createState();st.round=117;st.gmTs="260117";st.markets=structuredClone(ms);markState(st);const reps=st.markets.filter(m=>m.marked&&m.representativeSelected);t("07 priced game always representative-marked",reps.length===1,`reps=${reps.length}`);t("08 min odds",reps.every(m=>Number(m.finalOdds)>=1.31));t("09 ai quality",reps.every(m=>Number.isFinite(Number(m.aiQuality))));t("10 model edge",reps.every(m=>Number.isFinite(Number(m.modelEdge))));t("11 movement",reps.every(m=>Number.isFinite(Number(m.oddsMovement))));t("12 analysis audit",st.analysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW");t("13 public game",representativeGames(st).length===1);t("13a shared audit",st.sharedAnalysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"&&st.sharedAnalysisAudit.analyzedMarkets===3);t("13b all market analysis",st.markets.every(m=>m.sharedAnalysis&&m.sharedAnalysis.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"));t("13c all choice analysis",st.markets.every(m=>Array.isArray(m.sharedAnalysis?.choices)&&m.sharedAnalysis.choices.length===2));t("13d detailed analysis",allGameAnalysis(st).length===1&&allGameAnalysis(st)[0].markets.length===3);
