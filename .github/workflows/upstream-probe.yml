@@ -34,3 +34,7 @@ jobs:
           }))
           })();
           NODE
+      - name: Inspect live elite grade distribution
+        run: |
+          curl --fail --silent --show-error --max-time 12 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/proto-state.json"
+          node -e 'const d=require(process.argv[1]);const g=d.gradeAudit||{};const x={round:d.round,counts:g.counts,eligibleCounts:g.eligibleCounts,targetCounts:g.targetCounts,lockedCounts:g.lockedCounts,shortfall:g.shortfall,ranking:g.ranking,fullMark:d.fullMarkAudit?.coverage,representativeGrades:(d.markingGames||[]).reduce((o,m)=>(o[m.displayGrade||"일반"]=(o[m.displayGrade||"일반"]||0)+1,o),{})};console.log("LIVE_GRADE_AUDIT="+JSON.stringify(x));' "$RUNNER_TEMP/proto-state.json"
