@@ -2883,6 +2883,27 @@ function selfTest(){
   const strong=createState();strong.markets=[];for(let i=0;i<10;i++){const x=structuredClone(ms[0]);x.no=500+i;x.home=`SH${i}`;x.away=`SA${i}`;x.game=`SH${i} vs SA${i}`;x.date="2099-10-02";x.marked=true;x.representativeSelected=true;x.finalPick="승";x.finalOdds=1.75;x.hitProbability=i<2?.68:i<5?.62:.56;x.safeHitProbability=i<2?.66:i<5?.60:.54;x.aiQuality=i<2?.66:i<5?.58:.50;x.marketSelectionScore=x.aiQuality;x.marketProbability=.59;x.modelEdge=i<5?.02:0;x.modelEdgeAvailable=true;x.dataReliability=.75;x.dataCoverage=.75;x.confidenceScore=i<2?.72:i<5?.64:.52;x.independentEvidence=i<5;x.crossAgreement=i<5?.80:.50;x.oddsMovement=.02;x.dataIntegrityScore=.75;x.axisAvailableCount=i<5?3:1;x.axisSupportCount=i<2?3:i<5?2:1;x.axisOppositionCount=0;x.axisSupportRatio=x.axisSupportCount/x.axisAvailableCount;x.axisUnanimous=i<2;x.independentGroupCount=i<2?3:i<5?2:1;x.gradeAxisSupportCount=x.independentGroupCount;x.gradeAxisOppositionCount=0;x.segmentAdjustment=0;strong.markets.push(x);}assignGrades(strong);t("16 strongest non-total stays below U/O-only top tier",strong.gradeAudit.counts["가장추천"]===0,JSON.stringify(strong.gradeAudit.counts));t("17 rec target",strong.gradeAudit.counts["추천"]===3,JSON.stringify(strong.gradeAudit.counts));t("18 balanced grade rest",strong.gradeAudit.counts["일반"]===7,JSON.stringify(strong.gradeAudit.counts));
   const fb=createState();fb.markets=[];for(let i=0;i<10;i++){const x=structuredClone(strong.markets[i]);x.no=560+i;x.home=`FBH${i}`;x.away=`FBA${i}`;x.game=`FBH${i} vs FBA${i}`;x.representativeGatePassed=false;x.selectionMode="DEEP_REVIEW";x.deepReviewScore=i<5?.72:.48;x.deepReviewRecommended=i<5;x.hitProbability=i<2?.69:i<5?.63:.55;x.safeHitProbability=i<2?.65:i<5?.59:.52;x.dataReliability=.72;x.aiQuality=i<2?.66:i<5?.58:.50;x.confidenceScore=i<2?.70:i<5?.63:.52;x.independentEvidence=i<5;x.crossAgreement=i<5?.72:.48;x.dataIntegrityScore=.72;x.axisAvailableCount=i<5?3:1;x.axisSupportCount=i<2?3:i<5?2:1;x.axisOppositionCount=0;x.axisSupportRatio=x.axisSupportCount/x.axisAvailableCount;x.axisUnanimous=i<2;x.independentGroupCount=i<2?3:i<5?2:1;x.gradeAxisSupportCount=x.independentGroupCount;x.gradeAxisOppositionCount=0;x.segmentAdjustment=0;fb.markets.push(x);}assignGrades(fb);t("18a deep review non-total excluded from best",fb.gradeAudit.counts["가장추천"]===0&&fb.gradeAudit.counts["추천"]===3&&fb.gradeAudit.counts["일반"]===7,JSON.stringify(fb.gradeAudit.counts));
   const eliteProbe=structuredClone(strong.markets[0]);eliteProbe.selectionMode="STRICT";eliteProbe.modelEdge=.02;eliteProbe.marketProbability=.55;eliteProbe.analysisLayers={jeongbaedangAux:{available:true,probability:.52}};t("18b JB opposition blocks elite",gradePasses(eliteProbe,"가장추천")===false);eliteProbe.analysisLayers.jeongbaedangAux.probability=.58;t("18c JB support allows elite when other gates pass",gradePasses(eliteProbe,"가장추천")===true);
+  {
+    const candidate=(fam)=>({m:{marketFamily:fam},q:{decisionProbability:.61,calibratedP:.61,
+      conservativeP:.57,marketP:.56,odds:1.8,reliability:.65,crossAgreement:.61,
+      dataIntegrity:.62,independentGroupCount:2,gradeAxisSupportCount:2,
+      gradeAxisOppositionCount:0}});
+    const games=Array.from({length:10},(_,i)=>({key:"sim_"+i,c:{
+      MONEYLINE:candidate("MONEYLINE"),HANDICAP:candidate("HANDICAP"),TOTAL:candidate("TOTAL")
+    }}));
+    const q=forcedMarketMixAssignment(games,{MONEYLINE:3,HANDICAP:3,TOTAL:4},
+      {MONEYLINE:0,HANDICAP:0,TOTAL:0});
+    t("R317 exact 30/30/40 when all markets available",
+      q.exact&&q.counts.MONEYLINE===3&&q.counts.HANDICAP===3&&q.counts.TOTAL===4);
+    const locked=forcedMarketMixAssignment(games.slice(2),{MONEYLINE:3,HANDICAP:3,TOTAL:4},
+      {MONEYLINE:2,HANDICAP:0,TOTAL:0});
+    t("R317 preserve two locked moneylines and fill remaining target",
+      locked.exact&&locked.counts.MONEYLINE===3&&locked.counts.HANDICAP===3&&locked.counts.TOTAL===4);
+    t("R317 recommendation balance exposes audited family totals",
+      !!strong.gradeAudit.recommendationBalanceAudit&&
+      Object.values(strong.gradeAudit.recommendationBalanceAudit.selected)
+        .reduce((sum,n)=>sum+Number(n||0),0)===strong.gradeAudit.activeCounts["추천"]);
+  }
   // 시장비율 30/30/40 배정기와 후보부족 폴백 검증
   const many=createState();many.round=117;many.gmTs="260117";many.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`H${i}`;x.away=`A${i}`;x.game=`H${i} vs A${i}`;x.date="2099-10-02";many.markets.push(x);}}markState(many);t("19 market mix allocator",many.marketMixAudit.mode==="FORCED_RATIO_30_30_40"&&many.marketMixAudit.targetPolicy==="R317_ADAPTIVE_MIN_DEVIATION_THEN_MAX_QUALITY");t("20 market total reps quality-gated",Object.values(many.marketMixAudit.counts).reduce((a,b)=>a+b,0)<=10);t("21 market target retained",many.marketMixAudit.target.MONEYLINE===30&&many.marketMixAudit.target.HANDICAP===30&&many.marketMixAudit.target.TOTAL===40);
   // 품질과 시장비율을 함께 반영: 가능한 후보 내에서 30/30/40 목표 유지.
