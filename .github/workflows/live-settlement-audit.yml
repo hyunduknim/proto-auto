@@ -10,6 +10,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
+      - name: Count high-quality Deep Review elite candidates
+        run: |
+          curl --fail --silent --show-error --location --connect-timeout 5 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/q-state.json"
+          node - "$RUNNER_TEMP/q-state.json" <<'NODE'
+          const d=JSON.parse(require("node:fs").readFileSync(process.argv[2],"utf8"));
+          const now=Date.now(),n=x=>Number(x??0);
+          const xs=(d.markingGames||[]).filter(m=>m.pick&&m.odds>=1.31&&!m.resultFinal&&
+            Date.parse(String(m.date)+"T"+String(m.time)+"+09:00")>now&&m.selectionMode==="DEEP_REVIEW");
+          const qualifies=(m,q,cross,integ,ev,opp)=>{
+            const edge=n(m.calibratedProbability)-n(m.marketProbability);
+            const v=n(m.calibratedProbability)*n(m.odds)-1;
+            return n(m.aiQuality)>=q&&n(m.crossAgreement)>=cross&&
+              n(m.dataIntegrityScore)>=integ&&n(m.dataReliability)>=.55&&
+              n(m.independentGroupCount)>=2&&edge>=.005&&v>=ev&&
+              n(m.gradeAxisOppositionCount)<=opp;
+          };
+          const stats=[];
+          for(const q of [.60,.57,.54,.5])for(const opp of [0,1,2])
+            stats.push({q,opp,count:xs.filter(m=>qualifies(m,q,.50,.50,-.20,opp)).length});
+          console.log("R309_DEEP_QUALITY="+JSON.stringify({total:xs.length,stats,
+            top:xs.slice().sort((a,b)=>n(b.aiQuality)-n(a.aiQuality)).slice(0,10).map(x=>({
+              q:x.aiQuality,cross:x.crossAgreement,rel:x.dataReliability,intg:x.dataIntegrityScore,
+              edge:n(x.calibratedProbability)-n(x.marketProbability),
+              ev:n(x.calibratedProbability)*n(x.odds)-1,opp:x.gradeAxisOppositionCount,
+              recommended:x.deepReviewRecommended}))}));
+          NODE
       - name: Count upcoming candidates and started-game locks
         run: |
           curl --fail --silent --show-error --location --connect-timeout 5 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/time-state.json"
