@@ -1,0 +1,15 @@
+name: Package R302
+on:
+  push:
+    branches:
+      - r302-artifact-export
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: automatic-marking-r302
+          path: 자동마킹.js
+          if-no-files-found: error
