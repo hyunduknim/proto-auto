@@ -1891,7 +1891,7 @@ function relativeRecommendationFallbackPasses(m){
   if(!m||!["STRICT","DEEP_REVIEW"].includes(m.selectionMode)||m.manualOverride||m.sportRisk?.gradeLimited)return false;
   const p=Number(m.hitProbability),mp=Number(m.marketProbability),odds=Number(m.finalOdds);
   if(![p,mp,odds].every(Number.isFinite)||p<=0||p>=1||mp<=0||mp>=1||odds<CFG.minRepOdds)return false;
-  return p>=mp-.025&&Number(m.dataReliability||0)>=.50&&Number(m.aiQuality||0)>=.40&&
+  return p>=mp+.005&&p*odds-1>=-.18&&Number(m.dataReliability||0)>=.50&&Number(m.aiQuality||0)>=.40&&
     Number(m.crossAgreement||0)>=.34&&Number(m.dataIntegrityScore||0)>=.40&&
     Number(m.independentGroupCount||0)>=2;
 }
