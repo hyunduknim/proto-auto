@@ -164,6 +164,22 @@ jobs:
               assert.ok(Number(a.changed)>0,
                 "No actual representative picks changed; do not label this release fixed");
             }
+            if(expected.includes("R341-TOTAL-ONLY-CORRECTION")){
+              const a=d.recommendationTotalCorrectionAudit||{};
+              assert.equal(a.id,"R341_REPLACE_R340_GENERAL_WIN_WITH_TOTAL",
+                "R341 same-game TOTAL correction missing from live state");
+              assert.ok(Number(a.requested)>0,
+                "No incorrect general-win substitutions were selected for correction");
+              assert.equal(Number(a.changed),Number(a.requested),
+                "Not all formerly general-win picks changed to actual Under/Over");
+              assert.equal(Number(a.unavailable),0,
+                "Some requested Under/Over corrections were unavailable");
+              assert.equal(Number(a.unrelatedChanged),0,
+                "An unrelated representative pick was changed");
+              assert.ok(Array.isArray(a.examples)&&a.examples.every(x=>
+                x.toFamily==="TOTAL"&&["언더","오버"].includes(x.toPick)),
+                "Correction selected a non-Under/Over outcome");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -199,6 +215,7 @@ jobs:
             result.recommendationBalanceAudit=d.gradeAudit?.recommendationBalanceAudit||null;
             result.gradeRevisionAudit=d.gradeRevisionAudit||null;
             result.recommendationPickAudit=d.recommendationPickAudit||null;
+            result.recommendationTotalCorrectionAudit=d.recommendationTotalCorrectionAudit||null;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
