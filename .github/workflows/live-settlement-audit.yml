@@ -1,0 +1,63 @@
+name: Live settlement diagnostic audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/live-settlement-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live:
+    name: Read live protonumber settlement diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Fetch LIVE Cloudflare Worker diagnostics
+        run: |
+          curl --fail --location --silent --show-error --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 35 "https://protonumber.mystyle276.workers.dev/api/diagnostics" -o "$RUNNER_TEMP/live-diagnostics.json"
+          test -s "$RUNNER_TEMP/live-diagnostics.json"
+      - name: Report actual settlement and alarm status
+        run: |
+          node - "$RUNNER_TEMP/live-diagnostics.json" <<'NODE'
+          const fs=require('node:fs');
+          const d=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          const r=d.resultAudit||{},o=d.sourceAudit||{},s=d.storage||{},m=d.mem||{};
+          const ago=(x)=>{const t=Date.parse(x||'');return Number.isFinite(t)?Math.round((Date.now()-t)/60000):null;};
+          const result={
+            workerVersion:d.version||null,
+            at:new Date().toISOString(),
+            resultAudit:{
+              ok:r.ok??null,
+              lastAt:r.lastAt||null,
+              minutesSinceLastResultAttempt:ago(r.lastAt),
+              lastSuccessAt:r.lastSuccessAt||null,
+              pending:r.pending??null,
+              settledNow:r.settledNow??null,
+              voids:r.voids??null,
+              errorsCount:Array.isArray(r.errors)?r.errors.length:null,
+              checkedRounds:r.checkedGmTs||[]
+            },
+            sourceAudit:{
+              ok:o.ok??null,
+              lastAt:o.lastAt||null,
+              minutesSinceLastSourceAttempt:ago(o.lastAt),
+              games:o.games??null
+            },
+            storage:{
+              mode:s.mode||null,
+              source:s.source||null,
+              alarmRuns:s.alarmRuns??null,
+              nextAlarmAt:s.nextAlarmAt||null,
+              lastAlarmErrorPresent:!!s.lastAlarmError,
+              lastPersistErrorPresent:!!s.lastError
+            },
+            scheduler:{lastResultSuccess:m.lastResultSuccess??null,lastResultAttempt:m.lastResultAttempt??null}
+          };
+          console.log('LIVE_SETTLEMENT_DIAGNOSTICS='+JSON.stringify(result));
+          if(!String(d.version||'').includes('R305')){console.error('WRONG_WORKER_VERSION');process.exitCode=1;}
+          if(!d.storage || !d.resultAudit){console.error('MISSING_SETTLEMENT_OR_STORAGE_DIAGNOSTICS');process.exitCode=1;}
+          NODE
