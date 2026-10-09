@@ -1,3 +1,4 @@
+// R314: 가장추천·추천 전 시장 자격검증 복원. 기존 대표마킹·시작경기·공식정산 기능 유지.
 // R302: v2.5 FINAL + 120회차 R283 작업지시서 재통합. 30/30/40은 완전 모니터링 전용, #6970 오버는 해당 경기만 고정, 축구 일반무·핸디무는 no-vig Edge/EV·보수우위·교차근거·점수분포로 자동 경쟁 + 배포 직후 현재 미시작 경기 1회 재분석 · 마이그레이션 반복 실행 방지 · 시장 내부 절대확률 선컷 제거 · STRICT 대표픽 보너스/비율집중 감점 제거 · 교차시장 quality/confidence 절대확률 누수 제거 · 시장 30/30/40 및 등급 20/30/50 강제배분 · 축구 최우수 무승부 최소 1개 실제 대표픽 보장.\n// R292: 축구 무승부/핸디무를 2-way 시장과 절대확률로 직접 비교하지 않고, no-vig 시장확률 대비 Edge·EV·보수우위·교차근거·점수분포로 정규화 비교. 강제 무승부 비율 없음.\n// R291: #6970 시카고 화이트삭스-클리블랜드 가디언스 경기 1건만 오버로 수동변경. 이후 경기에는 승계하지 않음.\n// R290: 시카고-클리블랜드 현재회차 경기 1건만 오버로 수동 지정하고, 기존 저장상태도 1회 재분석해 즉시 반영. 이후 경기는 건드리지 않음.
 // R289: 현재회차 첫 경기 1건만 오버로 수동 지정. 최소배당 1.31 및 미시작 조건 유지, 이후 경기로 자동 승계하지 않음.
 // R288: 올마킹 공백 방지, 현재회차/이전회차 중복 잠금 분리, 방향 산식 대칭성 강화, 종목별 AUX 보조검증, 가장추천 DEEP_REVIEW 구조적 0개 경로 수정.
@@ -30,8 +31,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R313-FAIR-VALUE-ELITE";
-const BUILD_ID = "proto-betman-core-r313-value-gated-over-under-elite";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R314-CROSS-MARKET-GRADES";
+const BUILD_ID = "proto-betman-core-r314-quality-gated-all-markets";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1816,15 +1817,17 @@ function gradeScore(m){
 function premiumGradeValuePasses(m,grade){
   if(grade==="일반")return true;
   const p=Number(m?.hitProbability),safe=Number(m?.safeHitProbability),mp=Number(m?.marketProbability),odds=Number(m?.finalOdds);
-  if(![p,safe,mp,odds].every(Number.isFinite)||mp<=0||mp>=1||odds<CFG.minRepOdds)return false;
-  const ev=p*odds-1,edge=p-mp,safeEdge=safe-mp,groups=Number(m?.independentGroupCount||0),support=Number(m?.gradeAxisSupportCount||0),opp=Number(m?.gradeAxisOppositionCount||0);
-  if(grade==="가장추천")return !["DEEP_REVIEW","DRAW_BEST_OF_ROUND","MANUAL_OVERRIDE","MANUAL_FIRST_GAME_OVER"].includes(m?.selectionMode)&&edge>=.015&&ev>=.005&&safeEdge>=-.055&&groups>=2&&support>=2&&opp===0;
-  return edge>=.005&&ev>=-.015&&safeEdge>=-.075&&opp===0;
+  if(![p,safe,mp,odds].every(Number.isFinite)||p<=0||p>=1||safe<=0||safe>=1||
+     mp<=0||mp>=1||odds<CFG.minRepOdds)return false;
+  const ev=p*odds-1,safeEv=safe*odds-1,edge=p-mp,safeEdge=safe-mp;
+  const groups=Number(m?.independentGroupCount||0),support=Number(m?.gradeAxisSupportCount||0),opp=Number(m?.gradeAxisOppositionCount||0);
+  if(grade==="가장추천")return edge>=.015&&ev>=.01&&safeEv>=-.07&&safeEdge>=-.065&&groups>=2&&support>=2&&opp===0;
+  return edge>=.005&&ev>=-.035&&safeEv>=-.14&&safeEdge>=-.10&&groups>=2&&support>=2&&opp===0;
 }
 function gradePasses(m,grade){
   // R289 수동 오버 지정은 분석 추천등급으로 오인되지 않도록 일반등급으로만 유지한다.
   if(["MANUAL_FIRST_GAME_OVER","MANUAL_OVERRIDE"].includes(m?.selectionMode)||m?.manualOverride)return grade==="일반";
-  // R263: 20/30/50은 최대 상한. 품질게이트를 통과한 대표픽만 가장추천/추천으로 승격한다.
+  // R314: 20/30/50은 목표 상한. 가치·근거가 미달이면 미시작 대표픽도 일반으로 둔다.
   if(grade!=="일반"&&m?.sportRisk?.gradeLimited)return false;
   if(!premiumGradeValuePasses(m,grade))return false;
   const p=Number(m?.hitProbability??m?.calibratedProbability??0),safe=Number(m?.safeHitProbability??m?.conservativeProbability??p),rel=Number(m?.dataReliability||0),q=Number(m?.aiQuality||0),conf=Number(m?.confidenceScore||0),cross=Number(m?.crossAgreement??0),edge=Number(m?.modelEdge||0),avail=Number(m?.axisAvailableCount||0),support=Number(m?.axisSupportCount||0),opp=Number(m?.axisOppositionCount||0),groups=Number(m?.independentGroupCount||0),groupSupport=Number(m?.gradeAxisSupportCount||0),groupOpp=Number(m?.gradeAxisOppositionCount||0),movement=Number(m?.oddsMovement||0),integrity=Number(m?.dataIntegrityScore??0),segmentAdj=Number(m?.segmentAdjustment||0),jbLayer=m?.analysisLayers?.jeongbaedangAux||{},jbAvailable=!!jbLayer?.available,jbP=Number(jbLayer?.probability),marketP=Number(m?.marketProbability),jbDelta=Number.isFinite(jbP)&&Number.isFinite(marketP)?jbP-marketP:0,jbBestConfirm=!jbAvailable||jbDelta>=0,jbRecVeto=jbAvailable&&jbDelta<-.025;
@@ -1881,28 +1884,43 @@ function gradeCaps(totalN){
 // conservative downside bounded. The wager must still have 2+ non-duplicate provenance
 // groups, agreement and clean directional opposition; no direction quota is imposed.
 function relativeEliteFallbackPasses(m){
-  if(!m||m.marketFamily!=="TOTAL"||!["언더","오버"].includes(String(m.finalPick||""))||
-    !["STRICT","DEEP_REVIEW"].includes(m.selectionMode)||m.manualOverride||m.sportRisk?.gradeLimited)return false;
+  if(!m||!["MONEYLINE","HANDICAP","TOTAL"].includes(m.marketFamily)||
+    !["STRICT","DEEP_REVIEW","DRAW_BEST_OF_ROUND"].includes(m.selectionMode)||
+    m.manualOverride||m.sportRisk?.gradeLimited)return false;
   const p=Number(m.hitProbability),safe=Number(m.safeHitProbability),mp=Number(m.marketProbability),odds=Number(m.finalOdds);
   if(![p,safe,mp,odds].every(Number.isFinite)||p<=0||p>=1||safe<=0||safe>=1||
      mp<=0||mp>=1||odds<CFG.minRepOdds)return false;
-  const edge=p-mp,ev=p*odds-1,safeEv=safe*odds-1;
-  if(edge<.015||ev<.005||safeEv<-.06||
-    Number(m.axisOppositionCount||0)!==0||Number(m.gradeAxisOppositionCount||0)!==0)return false;
-  return Number(m.dataReliability||0)>=.60&&Number(m.aiQuality||0)>=.60&&
-    Number(m.crossAgreement||0)>=.55&&Number(m.dataIntegrityScore||0)>=.52&&
-    Number(m.independentGroupCount||0)>=2;
+  const edge=p-mp,ev=p*odds-1,safeEv=safe*odds-1,safeEdge=safe-mp;
+  if(edge<.018||ev<.01||safeEv<-.07||safeEdge<-.07||
+     Number(m.oddsMovement||0)<=CFG.gradeAdverseMovementCutoff||
+     Number(m.axisOppositionCount||0)>0||Number(m.gradeAxisOppositionCount||0)>0)return false;
+  if(Number(m.independentGroupCount||0)<2||Number(m.gradeAxisSupportCount||0)<2)return false;
+  if(Number(m.dataReliability||0)<.60||Number(m.aiQuality||0)<.60||
+     Number(m.crossAgreement||0)<.58||Number(m.dataIntegrityScore||0)<.55)return false;
+  const jb=m?.analysisLayers?.jeongbaedangAux||{},jbP=Number(jb.probability);
+  if(jb.available&&Number.isFinite(jbP)&&jbP<mp-.025)return false;
+  if(m.sport==="축구"&&m.finalPick==="무"){
+    const aux=m?.analysisLayers?.sportAux||{},ap=num(aux.drawProbability??aux?.probabilities?.["무"]);
+    if(ap!=null&&ap<mp-.005)return false;
+  }
+  return true;
 }
 // R309: recommendations use the remaining 30% highest-rated pregame representative picks.
 // R305 evidence gate wins ties. The fallback is relative ranking, not a positive-EV guarantee.
 // Never change started or settled grades, and never promote manual/unsupported selections.
 function relativeRecommendationFallbackPasses(m){
-  if(!m||!["STRICT","DEEP_REVIEW"].includes(m.selectionMode)||m.manualOverride||m.sportRisk?.gradeLimited)return false;
-  const p=Number(m.hitProbability),mp=Number(m.marketProbability),odds=Number(m.finalOdds);
-  if(![p,mp,odds].every(Number.isFinite)||p<=0||p>=1||mp<=0||mp>=1||odds<CFG.minRepOdds)return false;
-  return p>=mp+.005&&p*odds-1>=-.18&&Number(m.dataReliability||0)>=.50&&Number(m.aiQuality||0)>=.40&&
-    Number(m.crossAgreement||0)>=.34&&Number(m.dataIntegrityScore||0)>=.40&&
-    Number(m.independentGroupCount||0)>=2;
+  if(!m||!["MONEYLINE","HANDICAP","TOTAL"].includes(m.marketFamily)||
+    !["STRICT","DEEP_REVIEW","DRAW_BEST_OF_ROUND"].includes(m.selectionMode)||
+    m.manualOverride||m.sportRisk?.gradeLimited)return false;
+  const p=Number(m.hitProbability),safe=Number(m.safeHitProbability),mp=Number(m.marketProbability),odds=Number(m.finalOdds);
+  if(![p,safe,mp,odds].every(Number.isFinite)||p<=0||p>=1||safe<=0||safe>=1||
+     mp<=0||mp>=1||odds<CFG.minRepOdds)return false;
+  if(p<mp+.008||p*odds-1<-.035||safe*odds-1<-.14||
+     Number(m.oddsMovement||0)<=CFG.gradeAdverseMovementCutoff||
+     Number(m.gradeAxisOppositionCount||0)>0||
+     Number(m.independentGroupCount||0)<2||Number(m.gradeAxisSupportCount||0)<2)return false;
+  return Number(m.dataReliability||0)>=.54&&Number(m.aiQuality||0)>=.50&&
+     Number(m.crossAgreement||0)>=.46&&Number(m.dataIntegrityScore||0)>=.48;
 }
 function assignGrades(state){
   const reps=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&m.marked&&m.representativeSelected&&Number(m.finalOdds)>=CFG.minRepOdds);
@@ -1911,10 +1929,10 @@ function assignGrades(state){
   for(const m of rows)m.displayGrade="일반";
   const bestSlots=Math.max(0,totalCap["가장추천"]-lockedCounts["가장추천"]),recSlots=Math.max(0,totalCap["추천"]-lockedCounts["추천"]);
   const ranked=rows.slice().sort((a,b)=>Number(gradePasses(b,"가장추천"))-Number(gradePasses(a,"가장추천"))||Number(gradePasses(b,"추천"))-Number(gradePasses(a,"추천"))||gradeScore(b)-gradeScore(a)||marketSort(a,b));
-  // R312: top tier is Under/Over only. Moneyline and Handicap remain eligible for 추천/일반.
-  const eligibleElite=ranked.filter(m=>m.marketFamily==="TOTAL"&&["언더","오버"].includes(String(m.finalPick||"")));
+  // R314: 가장추천은 세 시장 모두 동일한 EV·보수위험·독립근거를 비교한다.
+  const eligibleElite=ranked.filter(m=>["MONEYLINE","HANDICAP","TOTAL"].includes(m.marketFamily)&&!!m.finalPick);
   const bestRows=eligibleElite.filter(m=>gradePasses(m,"가장추천")).slice(0,bestSlots);
-  const bestFallback=eligibleElite.filter(m=>!bestRows.includes(m)&&relativeEliteFallbackPasses(m)).slice(0,Math.max(0,bestSlots-bestRows.length));
+  const bestFallback=eligibleElite.filter(m=>!bestRows.includes(m)&&relativeEliteFallbackPasses(m)).sort((a,b)=>gradeScore(b)-gradeScore(a)||marketSort(a,b)).slice(0,Math.max(0,bestSlots-bestRows.length));
   bestRows.push(...bestFallback);
   const bestSet=new Set(bestRows);for(const m of bestRows)m.displayGrade="가장추천";
   const recRank=ranked.filter(m=>!bestSet.has(m)).sort((a,b)=>Number(gradePasses(b,"추천"))-Number(gradePasses(a,"추천"))||gradeScore(b)-gradeScore(a)||marketSort(a,b));
@@ -1938,9 +1956,14 @@ function assignGrades(state){
     }).length,
     noForcedAllocation:bestRows.length<bestSlots
   };
+  const familyAudit=Object.fromEntries(["MONEYLINE","HANDICAP","TOTAL"].map(k=>[k,{
+    candidates:eligibleElite.filter(m=>m.marketFamily===k).length,
+    qualified:totalPremiumEligible.filter(m=>m.marketFamily===k).length,
+    selected:bestRows.filter(m=>m.marketFamily===k).length
+  }]));
   const shortfall={"가장추천":Math.max(0,totalCap["가장추천"]-counts["가장추천"]),"추천":Math.max(0,totalCap["추천"]-counts["추천"]),"일반":Math.max(0,totalCap["일반"]-counts["일반"])};
   const excess={"가장추천":Math.max(0,counts["가장추천"]-totalCap["가장추천"]),"추천":Math.max(0,counts["추천"]-totalCap["추천"]),"일반":Math.max(0,counts["일반"]-totalCap["일반"])};
-  state.gradeAudit={at:nowIso(),mode:"R313_UO_FAIR_VALUE_FIRST_20_30_50",totalDirectionAudit,fallbackBestCount:bestFallback.length,fallbackRecommendCount:recFallback.length,strictBestCount:bestRows.length-bestFallback.length,strictRecommendCount:recRows.length-recFallback.length,target:{"가장추천":20,"추천":30,"일반":50},targetPolicy:"R313_UNDER_OVER_ONLY_POSITIVE_EXPECTED_VALUE_NO_FORCED_QUOTA",targetCounts:totalCap,counts,total:totalN,activeCounts,lockedCounts,locked:locked.length,eligibleCounts:{"가장추천":rows.filter(m=>gradePasses(m,"가장추천")).length,"추천":rows.filter(m=>gradePasses(m,"추천")).length},pct:Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:Object.values(shortfall).every(v=>v===0)&&Object.values(excess).every(v=>v===0),deviation:Object.values(shortfall).reduce((a,b)=>a+b,0)+Object.values(excess).reduce((a,b)=>a+b,0),ranking:"R313 가장추천은 언더·오버 중 실배당 손익분기점 초과와 보수확률·근거 품질 통과 시에만 최대 20%; 부족분 억지 채움 금지",qualityGate:{"가장추천":{minProbability:"2way max(.55,market+.015);3way max(.32,market+.015)",minConservativeProbability:"2way max(.50,market-.055);3way max(.28,market-.055)",minReliability:CFG.gradeBestMinReliability,minQuality:CFG.gradeBestMinQuality,minConfidence:CFG.gradeBestMinConfidence,minCrossAgreement:CFG.gradeBestMinCrossAgreement},"추천":{minProbability:CFG.gradeRecommendMinProbability,minConservativeProbability:CFG.gradeRecommendMinConservativeProbability,minReliability:CFG.gradeRecommendMinReliability,minQuality:CFG.gradeRecommendMinQuality,minConfidence:CFG.gradeRecommendMinConfidence,minCrossAgreement:CFG.gradeRecommendMinCrossAgreement}},scope:"CURRENT_ROUND_ALL_REPRESENTATIVES"};
+  state.gradeAudit={at:nowIso(),mode:"R314_CROSS_MARKET_QUALITY_20_30_50",totalDirectionAudit,familyAudit,fallbackBestCount:bestFallback.length,fallbackRecommendCount:recFallback.length,strictBestCount:bestRows.length-bestFallback.length,strictRecommendCount:recRows.length-recFallback.length,target:{"가장추천":20,"추천":30,"일반":50},targetPolicy:"R314_ALL_MARKETS_POSITIVE_VALUE_EVIDENCE_FIRST_NO_FORCED_QUOTA",targetCounts:totalCap,counts,total:totalN,activeCounts,lockedCounts,locked:locked.length,eligibleCounts:{"가장추천":rows.filter(m=>gradePasses(m,"가장추천")).length,"추천":rows.filter(m=>gradePasses(m,"추천")).length},pct:Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:Object.values(shortfall).every(v=>v===0)&&Object.values(excess).every(v=>v===0),deviation:Object.values(shortfall).reduce((a,b)=>a+b,0)+Object.values(excess).reduce((a,b)=>a+b,0),ranking:"R314 가장추천은 일반승·핸디캡·언오버 전체 후보 중 플러스 기대수익·보수위험·독립근거 통과 시에만 최대 20%; 추천도 근거 부족하면 일반 유지",qualityGate:{"가장추천":{minProbability:"2way max(.55,market+.015);3way max(.32,market+.015)",minConservativeProbability:"2way max(.50,market-.055);3way max(.28,market-.055)",minReliability:CFG.gradeBestMinReliability,minQuality:CFG.gradeBestMinQuality,minConfidence:CFG.gradeBestMinConfidence,minCrossAgreement:CFG.gradeBestMinCrossAgreement},"추천":{minProbability:CFG.gradeRecommendMinProbability,minConservativeProbability:CFG.gradeRecommendMinConservativeProbability,minReliability:CFG.gradeRecommendMinReliability,minQuality:CFG.gradeRecommendMinQuality,minConfidence:CFG.gradeRecommendMinConfidence,minCrossAgreement:CFG.gradeRecommendMinCrossAgreement}},scope:"CURRENT_ROUND_ALL_REPRESENTATIVES"};
   return state.gradeAudit;
 }
 function buildFiveApkAudit(state){
@@ -2235,7 +2258,7 @@ async function writeStoredState(env,str){
 // R308: apply elite grade policy to persisted marked games immediately after deployment.
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
 async function refreshR308GradePolicy(state,env){
-  if(!state?.markets?.length||state.gradeAudit?.mode==="R313_UO_FAIR_VALUE_FIRST_20_30_50")return false;
+  if(!state?.markets?.length||state.gradeAudit?.mode==="R314_CROSS_MARKET_QUALITY_20_30_50")return false;
   assignGrades(state);state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
   await persistState(env,true);return true;
 }
@@ -2710,16 +2733,16 @@ function selfTest(){
     t("R305 weak favorites stay normal and marked",q.gradeAudit.counts["가장추천"]===0&&q.gradeAudit.counts["추천"]===0&&q.markets.every(x=>x.marked&&x.displayGrade==="일반"));
   }
   {
-    const elite={gmTs:"260120",sourceRound:120,date:"2099-12-31",time:"12:00",sport:"축구",market:"언더오버",marketFamily:"TOTAL",selectionMode:"DEEP_REVIEW",line:2.5,choices:[{label:"언더",odds:1.7},{label:"오버",odds:2.15}],marked:true,representativeSelected:true,finalPick:"언더",finalOdds:1.7,hitProbability:.62,marketProbability:.59,safeHitProbability:.57,aiQuality:.65,dataReliability:.60,crossAgreement:.70,dataIntegrityScore:.61,independentGroupCount:2,axisOppositionCount:0,gradeAxisOppositionCount:0};
+    const elite={gmTs:"260120",sourceRound:120,date:"2099-12-31",time:"12:00",sport:"축구",market:"언더오버",marketFamily:"TOTAL",selectionMode:"DEEP_REVIEW",line:2.5,choices:[{label:"언더",odds:1.7},{label:"오버",odds:2.15}],marked:true,representativeSelected:true,finalPick:"언더",finalOdds:1.7,hitProbability:.62,marketProbability:.59,safeHitProbability:.57,aiQuality:.65,dataReliability:.60,crossAgreement:.70,dataIntegrityScore:.61,independentGroupCount:2,gradeAxisSupportCount:2,axisOppositionCount:0,gradeAxisOppositionCount:0};
     const ss=createState();ss.gmTs="260120";ss.round=120;
     ss.markets=Array.from({length:20},(_,i)=>({...elite,no:93000+i,home:"RE"+i,away:"REA"+i}));
     assignGrades(ss);
-    t("R312 strong U/O deep-review most-recommended 20%",ss.gradeAudit.counts["가장추천"]===4&&ss.gradeAudit.fallbackBestCount===4&&ss.markets.filter(m=>m.displayGrade==="가장추천").every(m=>m.marketFamily==="TOTAL"));
+    t("R314 deep-review U/O value-gated 20%",ss.gradeAudit.counts["가장추천"]===4&&ss.gradeAudit.fallbackBestCount===4&&ss.markets.filter(m=>m.displayGrade==="가장추천").every(m=>m.marketFamily==="TOTAL"));
     t("R310 deep-review opposed evidence excluded from elite",!relativeEliteFallbackPasses({...elite,gradeAxisOppositionCount:1}));
     t("R310 deep-review low-quality excluded from elite",!relativeEliteFallbackPasses({...elite,aiQuality:.3}));
     t("R310 deep-review manual overrides excluded from elite",!relativeEliteFallbackPasses({...elite,manualOverride:true}));
-    t("R312 moneyline excluded even with same high score",!relativeEliteFallbackPasses({...elite,marketFamily:"MONEYLINE",market:"일반승",finalPick:"승"}));
-    t("R312 handicap excluded even with same high score",!relativeEliteFallbackPasses({...elite,marketFamily:"HANDICAP",market:"핸디캡",finalPick:"승"}));
+    t("R314 moneyline allowed with same verified value",relativeEliteFallbackPasses({...elite,marketFamily:"MONEYLINE",market:"일반승",finalPick:"승"}));
+    t("R314 handicap allowed with same verified value",relativeEliteFallbackPasses({...elite,marketFamily:"HANDICAP",market:"핸디캡",finalPick:"승"}));
     t("R312 over permitted on same evidence",relativeEliteFallbackPasses({...elite,finalPick:"오버"}));
     t("R313 rejects fabricated under premium with negative return",!relativeEliteFallbackPasses({...elite,hitProbability:.56,finalOdds:1.68,safeHitProbability:.53}));
     t("R313 rejects fabricated over premium with negative return",!relativeEliteFallbackPasses({...elite,finalPick:"오버",hitProbability:.56,finalOdds:1.68,safeHitProbability:.53}));
@@ -2728,7 +2751,7 @@ function selfTest(){
 
   }
   {
-    const weakTotal={gmTs:"260120",sourceRound:120,date:"2099-12-31",time:"12:00",sport:"축구",market:"언더오버",marketFamily:"TOTAL",selectionMode:"DEEP_REVIEW",line:2.5,choices:[{label:"언더",odds:1.7},{label:"오버",odds:2.15}],marked:true,representativeSelected:true,finalPick:"언더",finalOdds:1.68,hitProbability:.56,marketProbability:.53,safeHitProbability:.53,aiQuality:.7,dataReliability:.72,crossAgreement:.71,dataIntegrityScore:.73,independentGroupCount:2,axisOppositionCount:0,gradeAxisOppositionCount:0};
+    const weakTotal={gmTs:"260120",sourceRound:120,date:"2099-12-31",time:"12:00",sport:"축구",market:"언더오버",marketFamily:"TOTAL",selectionMode:"DEEP_REVIEW",line:2.5,choices:[{label:"언더",odds:1.7},{label:"오버",odds:2.15}],marked:true,representativeSelected:true,finalPick:"언더",finalOdds:1.68,hitProbability:.56,marketProbability:.53,safeHitProbability:.53,aiQuality:.7,dataReliability:.72,crossAgreement:.71,dataIntegrityScore:.73,independentGroupCount:2,gradeAxisSupportCount:2,axisOppositionCount:0,gradeAxisOppositionCount:0};
     const weakState=createState();weakState.gmTs="260120";weakState.round=120;
     weakState.markets=Array.from({length:20},(_,i)=>({...weakTotal,no:99400+i,home:"UN"+i,away:"UN2"+i}));
     assignGrades(weakState);
@@ -2739,7 +2762,7 @@ function selfTest(){
     t("R313 qualified Over and Under each eligible without directional quotas",strongState.gradeAudit.counts["가장추천"]===4&&strongState.gradeAudit.totalDirectionAudit.qualifiedOver>0&&strongState.gradeAudit.totalDirectionAudit.qualifiedUnder>0);
   }
   {
-    const rec={gmTs:"260120",sourceRound:120,date:"2099-12-31",time:"12:00",sport:"축구",market:"일반승",marketFamily:"MONEYLINE",selectionMode:"DEEP_REVIEW",line:null,choices:[{label:"승",odds:1.75},{label:"패",odds:2.2}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.75,hitProbability:.59,marketProbability:.55,safeHitProbability:.52,aiQuality:.54,dataReliability:.59,crossAgreement:.51,dataIntegrityScore:.60,independentGroupCount:2,axisOppositionCount:1,gradeAxisOppositionCount:1};
+    const rec={gmTs:"260120",sourceRound:120,date:"2099-12-31",time:"12:00",sport:"축구",market:"일반승",marketFamily:"MONEYLINE",selectionMode:"DEEP_REVIEW",line:null,choices:[{label:"승",odds:1.75},{label:"패",odds:2.2}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.75,hitProbability:.59,marketProbability:.55,safeHitProbability:.52,aiQuality:.54,dataReliability:.59,crossAgreement:.51,dataIntegrityScore:.60,independentGroupCount:2,gradeAxisSupportCount:2,axisOppositionCount:0,gradeAxisOppositionCount:0};
     const state=createState();state.gmTs="260120";state.round=120;
     state.markets=Array.from({length:10},(_,i)=>({...rec,no:92000+i,home:"RC"+i,away:"RCA"+i}));
     assignGrades(state);
@@ -2748,14 +2771,27 @@ function selfTest(){
     t("R309 manual override stays general",!relativeRecommendationFallbackPasses({...rec,manualOverride:true}));
   }
   {
-    const base={gmTs:"260120",sourceRound:120,date:"2099-12-31",time:"12:00",sport:"야구",market:"일반승",marketFamily:"MONEYLINE",selectionMode:"STRICT",line:null,choices:[{label:"승",odds:1.7},{label:"패",odds:2.1}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.65,hitProbability:.62,marketProbability:.59,safeHitProbability:.57,aiQuality:.67,dataReliability:.65,crossAgreement:.70,dataIntegrityScore:.71,independentGroupCount:2,axisOppositionCount:0,gradeAxisOppositionCount:0};
+    const base={gmTs:"260120",sourceRound:120,date:"2099-12-31",time:"12:00",sport:"야구",market:"일반승",marketFamily:"MONEYLINE",selectionMode:"STRICT",line:null,choices:[{label:"승",odds:1.7},{label:"패",odds:2.1}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.65,hitProbability:.62,marketProbability:.59,safeHitProbability:.57,aiQuality:.67,dataReliability:.65,crossAgreement:.70,dataIntegrityScore:.71,independentGroupCount:2,gradeAxisSupportCount:2,axisOppositionCount:0,gradeAxisOppositionCount:0};
     const state=createState();state.gmTs="260120";state.round=120;
     state.markets=Array.from({length:10},(_,i)=>({...base,no:81000+i,home:"EH"+i,away:"EA"+i}));
     assignGrades(state);
-    t("R312 strict moneyline cannot become best",state.gradeAudit.counts["가장추천"]===0&&state.gradeAudit.fallbackBestCount===0);
+    t("R314 moneyline can become best",state.gradeAudit.counts["가장추천"]===2&&state.gradeAudit.fallbackBestCount===2);
     t("R308 premium never promotes low-evidence candidate",!relativeEliteFallbackPasses({...base,aiQuality:.3}));
     t("R308 premium refuses manual pick",!relativeEliteFallbackPasses({...base,manualOverride:true}));
     t("R308 official failure backoff",resultRemoteMinMsForState({resultAudit:{ok:false,errors:["timeout"]}})===45000);
+  }
+  {
+    const good={gmTs:"260120",date:"2099-12-31",time:"12:00",sport:"야구",marketFamily:"HANDICAP",selectionMode:"DEEP_REVIEW",marked:true,representativeSelected:true,finalPick:"패",finalOdds:1.9,hitProbability:.64,safeHitProbability:.58,marketProbability:.57,dataReliability:.71,aiQuality:.69,crossAgreement:.72,dataIntegrityScore:.74,independentGroupCount:2,gradeAxisSupportCount:2,gradeAxisOppositionCount:0,axisOppositionCount:0};
+    t("R314 plus/minus same elite gate",relativeEliteFallbackPasses(good)&&relativeEliteFallbackPasses({...good,finalPick:"승"}));
+    t("R314 moneyline draw competes by EV",relativeEliteFallbackPasses({...good,sport:"축구",marketFamily:"MONEYLINE",finalPick:"무",finalOdds:3.25,hitProbability:.39,safeHitProbability:.35,marketProbability:.33}));
+    t("R314 recommend rejects poor expected return",!relativeRecommendationFallbackPasses({...good,hitProbability:.53,finalOdds:1.7,marketProbability:.51,safeHitProbability:.50}));
+    t("R314 rejects unsupported elite",!relativeEliteFallbackPasses({...good,gradeAxisSupportCount:1}));
+    t("R314 manual never becomes elite",!relativeEliteFallbackPasses({...good,manualOverride:true}));
+    const st=createState();st.gmTs="260120";st.markets=[
+      {...good,no:999991,home:"Started",away:"A",date:"2020-01-01",displayGrade:"추천",resultFinal:true,hit:false},
+      {...good,no:999992,home:"Upcoming",away:"B",date:"2099-12-31",displayGrade:"일반"}];
+    assignGrades(st);
+    t("R314 retains locked settled grade",st.markets[0].displayGrade==="추천");
   }
   {
     const rs=createState();rs.round=117;rs.gmTs="260117";rs.performanceModel.teams={KEEP:{name:"KEEP",games:5}};rs.markets=[{gmTs:"260117",sourceRound:117,no:1,marketFamily:"MONEYLINE",choices:[{label:"승",odds:1.5},{label:"패",odds:2.2}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.5,resultFinal:true,result:"승",hit:true,settlementStatus:"적중"}];const changed=applyRound118FreshStart(rs);t("R266 round118 reset purges pre118 active odds",changed&&rs.round===118&&rs.gmTs===null&&rs.markets.length===0&&!rs.comboBook);t("R255 round118 reset keeps learning model",rs.performanceModel.teams.KEEP?.games===5);t("R255 round118 reset idempotent",applyRound118FreshStart(rs)===false);
