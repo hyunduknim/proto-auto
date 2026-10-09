@@ -1,4 +1,4 @@
-// R292: 축구 무승부/핸디무를 2-way 시장과 절대확률로 직접 비교하지 않고, no-vig 시장확률 대비 Edge·EV·보수우위·교차근거·점수분포로 정규화 비교. 강제 무승부 비율 없음.\n// R291: #6970 시카고 화이트삭스-클리블랜드 가디언스 경기 1건만 오버로 수동변경. 이후 경기에는 승계하지 않음.\n// R290: 시카고-클리블랜드 현재회차 경기 1건만 오버로 수동 지정하고, 기존 저장상태도 1회 재분석해 즉시 반영. 이후 경기는 건드리지 않음.
+// R293: v2.5 FINAL + 120회차 R283 작업지시서 재통합. 30/30/40은 완전 모니터링 전용, #6970 오버는 해당 경기만 고정, 축구 일반무·핸디무는 no-vig Edge/EV·보수우위·교차근거·점수분포로 자동 경쟁.\n// R292: 축구 무승부/핸디무를 2-way 시장과 절대확률로 직접 비교하지 않고, no-vig 시장확률 대비 Edge·EV·보수우위·교차근거·점수분포로 정규화 비교. 강제 무승부 비율 없음.\n// R291: #6970 시카고 화이트삭스-클리블랜드 가디언스 경기 1건만 오버로 수동변경. 이후 경기에는 승계하지 않음.\n// R290: 시카고-클리블랜드 현재회차 경기 1건만 오버로 수동 지정하고, 기존 저장상태도 1회 재분석해 즉시 반영. 이후 경기는 건드리지 않음.
 // R289: 현재회차 첫 경기 1건만 오버로 수동 지정. 최소배당 1.31 및 미시작 조건 유지, 이후 경기로 자동 승계하지 않음.
 // R288: 올마킹 공백 방지, 현재회차/이전회차 중복 잠금 분리, 방향 산식 대칭성 강화, 종목별 AUX 보조검증, 가장추천 DEEP_REVIEW 구조적 0개 경로 수정.
 // R283: 핸디캡 공식 점수에 이미 소수점(.5)이 반영된 경우 라인을 중복 적용하지 않고 소수점 점수를 정확히 파싱·재정산. 지난경기 공식결과도 마킹이 아닌 실제 결과를 표시.
@@ -30,8 +30,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R292";
-const BUILD_ID = "proto-betman-core-r292-draw-market-normalized";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R293";
+const BUILD_ID = "proto-betman-core-r293-two-report-draw-auto";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -134,7 +134,7 @@ const CFG = Object.freeze({
   jeongbaedangMinCoverage: 0.10,
   gradeAdverseMovementCutoff: -0.03,
   marketTarget: Object.freeze({ MONEYLINE: 0.30, HANDICAP: 0.30, TOTAL: 0.40 }),
-  marketMixDeviationPenalty: 0.045,
+  marketMixDeviationPenalty: 0.0, // R293: 30/30/40은 모니터링 전용. 시장선택 점수에는 비율 감점 없음.
   staleKeepMs: 30 * 60 * 1000,
   maxOddsAgeMs: 20 * 60 * 1000,
   hysteresisScoreGain: 0.022,
@@ -476,6 +476,7 @@ function explicitAuxChoiceProbability(m,c){
   }
   if(m.marketFamily==="HANDICAP"){
     if(label==="승")return flexibleProbability(f.homeCoverProbability);
+    if(label==="무")return flexibleProbability(f.handicapDrawProbability??f.handicapTieProbability??f.handicapPushProbability??f.exactMarginProbability);
     if(label==="패")return flexibleProbability(f.awayCoverProbability);
   }
   if(m.marketFamily==="TOTAL"){
@@ -1596,10 +1597,10 @@ function isChicagoClevelandGame(m){
   const cleveland=names.includes("클리블랜드")||names.includes("cleveland");
   return chicago&&cleveland;
 }
-// R290: 요청한 시카고-클리블랜드 현재회차 1경기만 오버로 지정한다.
-// 팀명이 다른 다음 경기로는 절대 승계되지 않으며, 오버 배당 1.31 미만/시작/종료 시 강제하지 않는다.
+// R293: 과거 사용자 지정 오버는 프로토 #6970 한 경기만 유지한다.
+// 같은 시카고-클리블랜드라도 다른 번호/다음 경기는 자동분석에 맡기며, 오버 배당 1.31 미만/시작/종료 시 강제하지 않는다.
 function applyFirstGameOverOverride(state,games,assigned){
-  const target=(state?.markets||[]).filter(m=>currentRoundMarket(m,state)&&isChicagoClevelandGame(m)&&!started(m)&&!m.resultFinal).sort(marketSort)[0];
+  const target=(state?.markets||[]).filter(m=>currentRoundMarket(m,state)&&Number(m?.no)===6970&&!started(m)&&!m.resultFinal).sort(marketSort)[0];
   if(!target)return null;
   const targetKey=gameSeed(target),g=(games||[]).find(x=>x.key===targetKey);if(!g)return null;
   const totals=(g.ms||[]).filter(m=>m.marketFamily==="TOTAL"&&representativeMarketEligible(m)).sort(marketSort);
@@ -2774,7 +2775,7 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     const pm={no:7999,date:"2099-10-03",time:"18:00",sport:"축구",league:"T",home:"저표본홈",away:"저표본원정",market:"승무패",marketFamily:"MONEYLINE",gmTs:"260777",domesticOddsFetchedAt:nowIso(),choices:[{label:"승",odds:1.75,openingOdds:1.80,betShare:.55},{label:"무",odds:3.2,openingOdds:3.2,betShare:.20},{label:"패",odds:2.3,openingOdds:2.2,betShare:.25}]};st.markets.push(pm);applyPerformanceContext(st);check("one-game performance becomes low-coverage available",pm.performanceAvailable===true&&Number(pm.performanceCoverage)>0&&Number(pm.performanceCoverage)<.30,JSON.stringify({coverage:pm.performanceCoverage,features:pm.performanceFeatures}));
     const rr=analyzeChoiceRows(pm).find(x=>x.pick==='승');check("SC/SN same self DB deduplicated to one provenance group",rr?.provenanceGroups?.scorecenter==="PERFORMANCE_DB"&&(!rr?.provenanceGroups?.sportsnote||rr?.provenanceGroups?.sportsnote==="PERFORMANCE_DB")&&Number(rr?.independentGroupCount)<=2,JSON.stringify({groups:rr?.provenanceGroups,count:rr?.independentGroupCount}));
     const fake=createState();fake.gmTs="260777";fake.markets=[];for(let i=0;i<6;i++)fake.markets.push({no:8100+i,date:"2026-10-02",time:"00:01",sport:"축구",league:"T",home:"S"+i,away:"T"+i,market:"승무패",marketFamily:"MONEYLINE",gmTs:"260777",marked:true,representativeSelected:true,resultFinal:true,settlementStatus:i<1?"적중":"낙첨",hit:i<1,finalOdds:1.55,hitProbability:.64,displayGrade:"일반",analysisLayers:{pickschool:{available:true,probability:.64}}});buildLearningAudit(fake);check("segment guard activates after five samples",fake.learningAudit.segmentModel['축구|MONEYLINE']?.active===true&&fake.learningAudit.segmentModel['축구|MONEYLINE']?.adjustment<0,JSON.stringify(fake.learningAudit.segmentModel['축구|MONEYLINE']));
-    check("market mix quality-first soft penalty",CFG.marketMixDeviationPenalty>0&&CFG.marketMixDeviationPenalty<.10);
+    check("market mix ratio is monitor-only with zero penalty",CFG.marketMixDeviationPenalty===0);
     check("axis learning starts at five with shrinkage",CFG.axisLearningMinSamples===5&&CFG.axisLearningShrinkage>=40&&CFG.axisLearningMaxDelta<=.12);
     check("APK references include reverified fields",APK_REFERENCE.scorecenter.includes('GlobalOdds')&&APK_REFERENCE.pickschool.includes('all_league_overseas_dividend_under_over')&&APK_REFERENCE.sportsnote.includes('odds_history'));
   }
@@ -2881,6 +2882,19 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     chk("prior-round duplicate does not lock current-round all-mark",!!cur.marked&&!!cur.representativeSelected&&Number(cur.finalOdds)>=CFG.minRepOdds,JSON.stringify({carry:carry.marked,current:cur.marked,pick:cur.finalPick,odds:cur.finalOdds}));
     chk("closed/last-known priced pregame remains marked by deep review",cur.selectionMode==="DEEP_REVIEW"&&cur.marked===true,JSON.stringify({mode:cur.selectionMode,status:cur.selectionStatus,reason:cur.analysisReason}));
     chk("full-mark audit has zero gaps",st.fullMarkAudit?.pricedGames===1&&st.fullMarkAudit?.markedGames===1&&st.fullMarkAudit?.gapGames===0,JSON.stringify(st.fullMarkAudit));
+  }
+  {
+    const check=(name,ok,detail="")=>t("R293 two-report/draw auto: "+name,ok,detail);
+    const auxH={marketFamily:"HANDICAP",auxFeatures:{handicapDrawProbability:.34},choices:[{label:"승",odds:2.7},{label:"무",odds:3.1},{label:"패",odds:2.2}]};
+    check("authorized handicap draw probability is accepted",Math.abs(Number(explicitAuxChoiceProbability(auxH,{label:"무"}))-.34)<1e-12,String(explicitAuxChoiceProbability(auxH,{label:"무"})));
+    const drawX={m:{sport:"축구",marketFamily:"MONEYLINE",choices:[{label:"승",odds:2.8},{label:"무",odds:3.2},{label:"패",odds:2.7}]},gatePassed:true,q:{pick:"무",decisionProbability:.36,calibratedP:.36,conservativeP:.33,marketP:.30,ev:.15,reliability:.68,quality:.66,confidenceScore:.67,crossAgreement:.70,dataIntegrity:.65,independentGroupCount:3,gradeAxisOppositionCount:0,layers:{sportAux:{drawProbability:.37}}}};
+    const twoWayX={m:{sport:"야구",marketFamily:"TOTAL",choices:[{label:"언더",odds:1.80},{label:"오버",odds:1.82}]},gatePassed:true,q:{pick:"오버",decisionProbability:.56,calibratedP:.56,conservativeP:.53,marketP:.55,ev:.019,reliability:.68,quality:.66,confidenceScore:.67,crossAgreement:.70,dataIntegrity:.65,independentGroupCount:3,gradeAxisOppositionCount:0,layers:{}}};
+    check("draw can beat higher absolute 2-way probability on normalized utility",candidateUtility(drawX)>candidateUtility(twoWayX),JSON.stringify({draw:candidateUtility(drawX),twoWay:candidateUtility(twoWayX)}));
+    const mk=(no,time)=>({gmTs:"260120",no,date:"2099-10-10",time,home:"시카고 화이트삭스",away:"클리블랜드 가디언스",game:"시카고 화이트삭스 vs 클리블랜드 가디언스",sport:"야구",league:"MLB",market:"언더오버",marketFamily:"TOTAL",line:7.5,domesticOddsFetchedAt:nowIso(),choices:[{label:"언더",odds:1.75,openingOdds:1.75},{label:"오버",odds:1.80,openingOdds:1.80}],marked:false,representativeSelected:false,resultFinal:false});
+    const t6970=mk(6970,"12:00"),next=mk(6971,"15:00"),st=createState();st.gmTs="260120";st.markets=[t6970,next];
+    const games=[{key:gameSeed(t6970),ms:[t6970],c:{}},{key:gameSeed(next),ms:[next],c:{}}],assigned=new Map(),ov=applyFirstGameOverOverride(st,games,assigned);
+    check("manual over remains pinned only to proto 6970",ov?.no===6970&&assigned.has(gameSeed(t6970))&&!assigned.has(gameSeed(next)),JSON.stringify({ov,keys:[...assigned.keys()]}));
+    check("30/30/40 remains monitor-only",CFG.marketMixDeviationPenalty===0);
   }
   const ok=tests.every(x=>x.ok);return{ok,passed:tests.filter(x=>x.ok).length,total:tests.length,tests,version:APP_VERSION,build:BUILD_ID};
 }
