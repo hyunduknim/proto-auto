@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: protonumber-worker-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   verify:
