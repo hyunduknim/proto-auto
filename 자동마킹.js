@@ -36,7 +36,7 @@
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
 const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R332-PREGAME-REANALYSIS";
-const BUILD_ID = "proto-betman-core-r330-total-edge-correction";
+const BUILD_ID = "proto-betman-core-r332-plus-selection-quality";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1917,13 +1917,16 @@ function assignRepresentativeMarkets(state){
     reviewedPlus++;
     const q=alternative.q,ev=Number(q.calibratedP)*Number(q.odds)-1;
     const plusEv=Number(current.q.calibratedP)*Number(current.q.odds)-1;
-    const independent=Number(q.independentGroupCount||0)>=2&&Number(q.gradeAxisSupportCount||0)>=2&&
-      Number(q.gradeAxisOppositionCount||0)===0;
-    const value=Number(q.calibratedP)-Number(q.marketP)>=.005&&ev>=-.025&&
+    const support=Number(q.gradeAxisSupportCount||0),opposition=Number(q.gradeAxisOppositionCount||0);
+    const independent=Number(q.independentGroupCount||0)>=2&&support>=1&&opposition===0;
+    const edge=Number(q.calibratedP)-Number(q.marketP);
+    const value=Number.isFinite(edge)&&edge>=.005&&ev>=-.025&&
       Number(q.conservativeP)>=Number(q.marketP)-.075;
-    const stronger=candidateUtility(alternative)>=candidateUtility(current)-.012&&
-      ev>=plusEv-.015;
-    if(!independent||!value||!stronger)continue;
+    const utilityGain=candidateUtility(alternative)-candidateUtility(current);
+    // Stronger totals can replace weak plus handicaps; marginal alternatives need corroboration.
+    const stronger=utilityGain>=.015&&ev>=plusEv-.01;
+    const closeWithEvidence=independent&&utilityGain>=-.008&&ev>=plusEv;
+    if(!value||!(stronger||closeWithEvidence))continue;
     assigned.set(g.key,alternative);switchedToTotal++;
   }
   state.plusTotalRepresentativeAudit={at:nowIso(),reviewedPlus,switchedToTotal,
