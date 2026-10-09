@@ -1,0 +1,61 @@
+name: Audit live R317 recommended candidate balance
+on:
+  pull_request:
+    branches: [main]
+    paths: [.github/workflows/r318-balance-audit.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect grade pool and selected UO alternatives
+        run: |
+          curl --fail --show-error --silent --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/state.json"
+          node - "$RUNNER_TEMP/state.json" <<'NODE'
+          const fs=require('node:fs');const d=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          const n=x=>Number(x??0),now=Date.now(),active=(d.markingGames||[]).filter(x=>x.pick&&!x.resultFinal&&Date.parse(x.date+'T'+String(x.time).slice(0,5)+':00+09:00')>now);
+          const count=(xs,fn)=>xs.reduce((a,m)=>(a[fn(m)]=(a[fn(m)]||0)+1,a),{});
+          const eligible=m=>{
+            const p=n(m.calibratedProbability),safe=n(m.conservativeProbability),mp=n(m.marketProbability),odds=n(m.odds);
+            if(!['STRICT','DEEP_REVIEW'].includes(m.selectionMode)||!(odds>=1.31)||!p||!mp||!safe)return false;
+            const draw=m.sport==='축구'&&m.pick==='무',minEdge=draw?.002:.005;
+            return p-mp>=minEdge&&p*odds-1>=-.16&&safe-mp>=-.10&&
+              n(m.gradeAxisOppositionCount)===0&&n(m.independentGroupCount)>=2&&
+              n(m.dataReliability)>=.5&&n(m.aiQuality)>=.4&&
+              n(m.crossAgreement)>=.36&&n(m.dataIntegrityScore)>=.4;
+          };
+          const qualified=active.filter(eligible);
+          const recc=active.filter(m=>m.displayGrade==='추천');
+          const poolBy=count(qualified,m=>m.marketFamily||'?');
+          console.log('LIVE_GRADE_POOL='+JSON.stringify({at:new Date().toISOString(),version:d.version,
+            active:active.length,grades:d.gradeAudit?.counts,recommendationBalanceAudit:d.gradeAudit?.recommendationBalanceAudit,
+            qualified:qualified.length,eligibleByFamily:poolBy,eligibleByDirection:count(qualified,m=>m.pick),
+            actualRecommendedByFamily:count(recc,m=>m.marketFamily),actualRecommendedByDirection:count(recc,m=>m.pick),
+            allByFamily:count(active,m=>m.marketFamily),allByDirection:count(active,m=>m.pick),
+            totalMarketCount:d.marketMixAudit?.counts,scoreExamples:qualified.slice(0,5).map(m=>({family:m.marketFamily,
+              pick:m.pick,q:m.aiQuality,p:m.calibratedProbability,mp:m.marketProbability,odds:m.odds}))}));
+          NODE
+          node - "$RUNNER_TEMP/state.json" <<'NODE'
+          const d=JSON.parse(require('node:fs').readFileSync(process.argv[2],'utf8'));
+          const n=x=>Number(x??0),now=Date.now(),a=(d.markingGames||[]).filter(m=>m.marketFamily==='TOTAL'&&m.pick&&!m.resultFinal&&Date.parse(m.date+'T'+String(m.time).slice(0,5)+':00+09:00')>now);
+          const checks=(m,ql=.40,rel=.50,cross=.36,integrity=.40,groups=2,edge=.005,ev=-.16,opp=0)=>{
+            const p=n(m.calibratedProbability),safe=n(m.conservativeProbability),mp=n(m.marketProbability),odds=n(m.odds);
+            return p>0&&safe>0&&mp>0&&odds>=1.31&&p-mp>=edge&&p*odds-1>=ev&&safe-mp>=-.10&&
+              n(m.aiQuality)>=ql&&n(m.dataReliability)>=rel&&n(m.crossAgreement)>=cross&&
+              n(m.dataIntegrityScore)>=integrity&&n(m.independentGroupCount)>=groups&&
+              n(m.gradeAxisOppositionCount)<=opp;
+          };
+          const b=a.filter(m=>m.displayGrade==='가장추천'),rem=a.filter(m=>m.displayGrade!=='가장추천');
+          const scans=[{name:'orig',args:[]},{name:'allow1opposition',args:[.4,.5,.36,.4,2,.005,-.16,1]},
+            {name:'group1',args:[.4,.5,.36,.4,1,.005,-.16,0]},
+            {name:'q35',args:[.35,.47,.3,.36,1,.005,-.16,1]},
+            {name:'q30',args:[.3,.45,.28,.34,1,.002,-.16,1]},
+            {name:'negativeEV',args:[.3,.45,.28,.34,1,-.01,-.22,1]}];
+          console.log('R318_TOTAL_REMAINDER='+JSON.stringify({total:a.length,best:b.length,nonbest:rem.length,
+            scans:scans.map(s=>({name:s.name,qualified:rem.filter(m=>checks(m,...s.args)).length})),
+            leftover:rem.map(m=>({q:m.aiQuality,rel:m.dataReliability,cross:m.crossAgreement,integrity:m.dataIntegrityScore,
+              groups:m.independentGroupCount,opp:m.gradeAxisOppositionCount,p:m.calibratedProbability,mp:m.marketProbability,
+              odds:m.odds,ev:n(m.calibratedProbability)*n(m.odds)-1,grade:m.displayGrade}))}));
+          NODE
