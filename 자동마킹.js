@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R337-TOTAL-MARGIN-AWARE";
-const BUILD_ID = "proto-betman-core-r337-total-margin-aware";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R338-ALL-PREGAME-REPICK";
+const BUILD_ID = "proto-betman-core-r338-all-pregame-repick";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1941,10 +1941,20 @@ function assignRepresentativeMarkets(state){
     const lock=ms.find(m=>m.marked&&m.representativeSelected&&(started(m)||m.resultFinal));
     if(lock){for(const x of ms){if(x!==lock){x.marked=false;x.representativeSelected=false;}}locked.push({key,ms,m:lock});lockedCurrent.push({key,ms,m:lock});continue;}
     const allC=bestCandidateByFamily(ms),allValues=Object.values(allC),bestUtility=allValues.length?Math.max(...allValues.map(candidateUtility)):-Infinity;
-    const c=Object.fromEntries(Object.entries(allC).filter(([,x])=>
+    const original=state.fullRepickOverride?.id===R338_FULL_REPICK_ID&&
+      String(state.fullRepickOverride.gmTs||"")===String(state.gmTs||"")?
+      state.fullRepickOverride.originals?.[key]:null;
+    // R338: for explicitly requested full re-pick, the original representative
+    // must not win again. Compare all valid >=1.31 alternative families rather
+    // than manufacturing a different outcome or silently reporting zero changes.
+    const alternatives=Object.fromEntries(Object.entries(allC).filter(([,x])=>
+      !original||Number(x.m.no)!==Number(original.no)||
+      x.m.marketFamily!==original.marketFamily||String(x.q.pick)!==String(original.finalPick)));
+    const forcedAlternate=!!original&&Object.keys(alternatives).length>0;
+    const c=forcedAlternate?alternatives:Object.fromEntries(Object.entries(allC).filter(([,x])=>
       candidateUtility(x)+CFG.marketCandidateQualityGap>=bestUtility-1e-12||
       r336TotalQualityBackstop(x,bestUtility)));
-    if(Object.keys(c).length)games.push({key,ms,c,allC,bestUtility});else markUnselected(ms);
+    if(Object.keys(c).length)games.push({key,ms,c,allC,bestUtility,original,forcedAlternate});else markUnselected(ms);
   }
   const lockedCounts={MONEYLINE:0,HANDICAP:0,TOTAL:0};for(const x of lockedCurrent)if(lockedCounts[x.m.marketFamily]!=null)lockedCounts[x.m.marketFamily]++;
   const totalN=games.length+lockedCurrent.length,totalTarget=targetCounts(totalN,CFG.marketTarget);
@@ -1979,7 +1989,10 @@ function assignRepresentativeMarkets(state){
       if(r336TotalQualityBackstop(total,g.bestUtility))familyAvailability.totalBackstopEligible++;
     }
   }
-  const manualAssigned=new Map(),firstGameOverOverride=applyFirstGameOverOverride(state,games,manualAssigned),manualKeys=new Set(manualAssigned.keys());
+  const manualAssigned=new Map(),firstGameOverOverride=
+    state.fullRepickOverride?.id===R338_FULL_REPICK_ID&&
+    String(state.fullRepickOverride.gmTs||"")===String(state.gmTs||"")?
+      null:applyFirstGameOverOverride(state,games,manualAssigned),manualKeys=new Set(manualAssigned.keys());
   const flexibleGames=games.filter(g=>!manualKeys.has(g.key)),fixedCounts={...lockedCounts};for(const x of manualAssigned.values())fixedCounts[x.m.marketFamily]=Number(fixedCounts[x.m.marketFamily]||0)+1;
   // R325: 전역 최적화는 유지하되 경기별 최고 근거 대비 품질 격차가 큰 시장 후보는 제외한다. 30/30/40보다 대표픽 품질을 우선한다.
   const allocation=forcedMarketMixAssignment(flexibleGames,totalTarget,fixedCounts);
@@ -2010,6 +2023,31 @@ function assignRepresentativeMarkets(state){
   state.plusTotalRepresentativeAudit={at:nowIso(),reviewedPlus,switchedToTotal,
     policy:"R329_EVIDENCE_BACKED_SAME_GAME_TOTAL_NO_FORCED_QUOTA"};
   const drawVisibility=ensureBestSoccerDrawVisible(games,assigned,lockedCurrent);
+  // Draw-visibility adjustment may change a pick after allocation. Recheck the
+  // explicit exclusion before committing any new representative selection.
+  let explicitlyChanged=0,alternateUnavailable=0,qualityLossTotal=0,highRiskAlternates=0;
+  for(const g of games){
+    if(!g.original)continue;
+    const old=g.original,chosen=assigned.get(g.key);
+    const equalsOld=x=>x&&Number(x.m.no)===Number(old.no)&&
+      x.m.marketFamily===old.marketFamily&&String(x.q.pick)===String(old.finalPick);
+    if(!chosen||equalsOld(chosen)){
+      const replacement=Object.values(g.c||{}).filter(x=>!equalsOld(x))
+        .sort((a,b)=>candidateUtility(b)-candidateUtility(a))[0];
+      if(replacement)assigned.set(g.key,replacement);
+    }
+    const next=assigned.get(g.key);
+    if(next&&!equalsOld(next)){
+      explicitlyChanged++;
+      qualityLossTotal+=Math.max(0,g.bestUtility-candidateUtility(next));
+      if(next.q?.moneylinePickRisk?.unsafe||Number(next.q?.calibratedP)*Number(next.q?.odds)-1<-.15)highRiskAlternates++;
+    }else alternateUnavailable++;
+  }
+  state.fullRepickAudit={id:R338_FULL_REPICK_ID,at:nowIso(),requested:state.fullRepickOverride?.id===R338_FULL_REPICK_ID?
+    Object.keys(state.fullRepickOverride.originals||{}).length:0,
+    changed:explicitlyChanged,unavailable:alternateUnavailable,
+    qualityLossTotal:r3(qualityLossTotal),highRiskAlternates,
+    policy:"USER_REQUESTED_ALL_PREGAME_REPICK_NOT_PREDICTED_ACCURACY_IMPROVEMENT"};
   const totalDirectionBalance=rebalanceTotalOverRepresentatives(state,games,assigned,lockedCurrent);
   const mode="FORCED_RATIO_30_30_40";
   const counts={MONEYLINE:0,HANDICAP:0,TOTAL:0};
@@ -2648,7 +2686,8 @@ async function writeStoredState(env,str){
 }
 // R308: apply elite grade policy to persisted marked games immediately after deployment.
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
-const R317_MARKET_MIX_ID="R337_TOTAL_MARGIN_AWARE_REPICK";
+const R317_MARKET_MIX_ID="R338_EXPLICIT_ALL_98_PREGAME_REPICK";
+const R338_FULL_REPICK_ID="R338_REPLACE_ALL_UNLOCKED_PREGAME_SELECTIONS";
 async function refreshR308GradePolicy(state,env){
   if(!state?.markets?.length)return false;
   if(state.marketRebalanceAudit?.id!==R317_MARKET_MIX_ID){
@@ -2659,6 +2698,12 @@ async function refreshR308GradePolicy(state,env){
     const lockedBefore=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&(started(m)||m.resultFinal))
       .map(m=>[gameSeed(m),m.no,m.finalPick,m.displayGrade,m.settlementStatus||null]);
     const ledgerBefore=serializeState(state.settlementLedger||[]),cardsBefore=serializeState(state.settledCards||{});
+    // Explicit request: reselect every currently marked, unstarted game rather than
+    // merely rerunning unchanged deterministic scores. Keep the original choices
+    // as exclusions for this round; never touch started or settled selections.
+    state.fullRepickOverride={id:R338_FULL_REPICK_ID,gmTs:String(state.gmTs||""),at:nowIso(),
+      originals:Object.fromEntries([...before].filter(([key,old])=>(state.markets||[]).some(m=>
+        gameSeed(m)===key&&currentRoundMarket(m,state)&&m.marked&&m.representativeSelected&&!started(m)&&!m.resultFinal))) };
     markState(state);
     const lockedAfter=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&(started(m)||m.resultFinal))
       .map(m=>[gameSeed(m),m.no,m.finalPick,m.displayGrade,m.settlementStatus||null]);
@@ -3170,7 +3215,7 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,fullRepickAudit:state.fullRepickAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
   MEM.publicCacheKey=key;MEM.publicCache=value;return value;
 }
 function exportSafeConfig(){
