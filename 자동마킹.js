@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R335-TOTAL-MARKET-IMPORT";
-const BUILD_ID = "proto-betman-core-r335-total-market-import";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R336-QUALITY-TOTAL-ELIGIBILITY";
+const BUILD_ID = "proto-betman-core-r336-quality-total-eligibility";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1702,6 +1702,20 @@ function marketComparableComponents(x){
   return {score:clamp(score,0,1.20),p,safe,marketP,edge,safeEdge,relLift,ev,edgeScore,safeEdgeScore,relativeScore,evScore,scenarioP,scenarioEdge,scenarioAgreement};
 }
 function candidateUtility(x){return marketComparableComponents(x).score;}
+function r336TotalQualityBackstop(x,bestUtility){
+  // R336: admit independently corroborated totals with nonnegative model edge
+  // when their market-relative utility narrowly trails another family.
+  // Do not manufacture direction, force a quota, or override started games.
+  if(x?.m?.marketFamily!=="TOTAL"||!x.q)return false;
+  const q=x.q,p=Number(q.calibratedP),marketP=Number(q.marketP),
+    safe=Number(q.conservativeP),odds=Number(q.odds),utility=candidateUtility(x);
+  if(![p,marketP,safe,odds,utility,bestUtility].every(Number.isFinite))return false;
+  const gap=bestUtility-utility,edge=p-marketP,ev=p*odds-1;
+  const support=Number(q.independentGroupCount||0)>=1&&Number(q.gradeAxisOppositionCount||0)===0;
+  const integrity=Number(q.dataIntegrity||0)>=.30&&Number(q.reliability||0)>=.50;
+  return gap>=0&&gap<=.16&&edge>=0&&ev>=-.035&&
+    safe>=marketP-.07&&support&&integrity;
+}
 function currentRoundMarket(m,state){return !state?.gmTs||String(m?.gmTs||"")===String(state.gmTs);}
 function currentRoundMarkets(state){return (state?.markets||[]).filter(m=>currentRoundMarket(m,state)&&settlementAllowed(m));}
 function currentRoundStateView(state){return {...state,summaryScope:"CURRENT",markets:currentRoundMarkets(state)};}
@@ -1925,7 +1939,9 @@ function assignRepresentativeMarkets(state){
     const lock=ms.find(m=>m.marked&&m.representativeSelected&&(started(m)||m.resultFinal));
     if(lock){for(const x of ms){if(x!==lock){x.marked=false;x.representativeSelected=false;}}locked.push({key,ms,m:lock});lockedCurrent.push({key,ms,m:lock});continue;}
     const allC=bestCandidateByFamily(ms),allValues=Object.values(allC),bestUtility=allValues.length?Math.max(...allValues.map(candidateUtility)):-Infinity;
-    const c=Object.fromEntries(Object.entries(allC).filter(([,x])=>candidateUtility(x)+CFG.marketCandidateQualityGap>=bestUtility-1e-12));
+    const c=Object.fromEntries(Object.entries(allC).filter(([,x])=>
+      candidateUtility(x)+CFG.marketCandidateQualityGap>=bestUtility-1e-12||
+      r336TotalQualityBackstop(x,bestUtility)));
     if(Object.keys(c).length)games.push({key,ms,c,allC,bestUtility});else markUnselected(ms);
   }
   const lockedCounts={MONEYLINE:0,HANDICAP:0,TOTAL:0};for(const x of lockedCurrent)if(lockedCounts[x.m.marketFamily]!=null)lockedCounts[x.m.marketFamily]++;
@@ -1933,13 +1949,24 @@ function assignRepresentativeMarkets(state){
   // Distinguish source-offered markets, viable odds, and quality-guard exclusion.
   const familyAvailability={offered:{MONEYLINE:0,HANDICAP:0,TOTAL:0},
     viable:{MONEYLINE:0,HANDICAP:0,TOTAL:0},
-    qualityAllowed:{MONEYLINE:0,HANDICAP:0,TOTAL:0}};
+    qualityAllowed:{MONEYLINE:0,HANDICAP:0,TOTAL:0},
+    totalGapBuckets:{within045:0,within10:0,within16:0,within25:0,over25:0},
+    totalPositiveEdge:0,totalPositiveEV:0,totalBackstopEligible:0};
   for(const g of games){
     const offered=new Set(g.ms.map(m=>m.marketFamily));
     for(const fam of ["MONEYLINE","HANDICAP","TOTAL"]){
       if(offered.has(fam))familyAvailability.offered[fam]++;
       if(g.allC?.[fam])familyAvailability.viable[fam]++;
       if(g.c?.[fam])familyAvailability.qualityAllowed[fam]++;
+    }
+    const total=g.allC?.TOTAL;
+    if(total){
+      const gap=g.bestUtility-candidateUtility(total),q=total.q||{};
+      const bucket=gap<=.045?"within045":gap<=.10?"within10":gap<=.16?"within16":gap<=.25?"within25":"over25";
+      familyAvailability.totalGapBuckets[bucket]++;
+      if(Number(q.calibratedP)>=Number(q.marketP))familyAvailability.totalPositiveEdge++;
+      if(Number(q.calibratedP)*Number(q.odds)>=1)familyAvailability.totalPositiveEV++;
+      if(r336TotalQualityBackstop(total,g.bestUtility))familyAvailability.totalBackstopEligible++;
     }
   }
   const manualAssigned=new Map(),firstGameOverOverride=applyFirstGameOverOverride(state,games,manualAssigned),manualKeys=new Set(manualAssigned.keys());
@@ -2611,7 +2638,7 @@ async function writeStoredState(env,str){
 }
 // R308: apply elite grade policy to persisted marked games immediately after deployment.
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
-const R317_MARKET_MIX_ID="R335_TOTAL_MARKET_IMPORT_REPICK";
+const R317_MARKET_MIX_ID="R336_QUALITY_TOTAL_ELIGIBILITY_REPICK";
 async function refreshR308GradePolicy(state,env){
   if(!state?.markets?.length)return false;
   if(state.marketRebalanceAudit?.id!==R317_MARKET_MIX_ID){
@@ -3288,6 +3315,15 @@ function selfTest(){
   const future=Date.parse("2099-10-02T09:00:00+09:00");
   const fixture={voteStatus:[{GM_SEQ:101,W_BET_CNT:60,D_BET_CNT:0,L_BET_CNT:40},{GM_SEQ:102,W_BET_CNT:52,D_BET_CNT:0,L_BET_CNT:48},{GM_SEQ:103,W_BET_CNT:55,D_BET_CNT:0,L_BET_CNT:45}],tooltipList:[{GM_SEQ:101,BCHG_W_ODDS:190,BCHG_L_ODDS:195},{GM_SEQ:102,BCHG_W_ODDS:185,BCHG_L_ODDS:175},{GM_SEQ:103,BCHG_W_ODDS:178,BCHG_L_ODDS:182}],compSchedules:{keys:["matchSeq","gameDate","itemCode","leagueShortName","homeName","awayName","betNm","winHandi","loseHandi","winTxt","drawTxt","loseTxt","winAllot","drawAllot","loseAllot"],datas:[[101,future,"BS","MLB","A","B","승패","","","승","","패",1.65,null,2.05],[102,future,"BS","MLB","A","B","핸디캡","2.5","","승","","패",1.82,null,1.72],[103,future,"BS","MLB","A","B","언더오버","7.5","","언더","","오버",1.74,null,1.80]]}};
   const ms=parseBetmanMarkets(fixture,"260117");t("03 betman parse",ms.length===3,`rows=${ms.length}`);
+  const tGood={m:{marketFamily:"TOTAL",choices:[{label:"언더",odds:1.90},{label:"오버",odds:1.90}]},
+    q:{calibratedP:.56,marketP:.54,conservativeP:.51,odds:1.90,
+      independentGroupCount:2,gradeAxisOppositionCount:0,reliability:.65,dataIntegrity:.7}};
+  const tUtility=candidateUtility(tGood);
+  t("R336 credible U/O can enter when narrowly below best family",r336TotalQualityBackstop(tGood,tUtility+.10));
+  t("R336 rejects weak U/O edge despite quota",!r336TotalQualityBackstop(
+    {...tGood,q:{...tGood.q,calibratedP:.49}},tUtility+.10));
+  t("R336 rejects unsupported U/O",!r336TotalQualityBackstop(
+    {...tGood,q:{...tGood.q,independentGroupCount:0}},tUtility+.10));
   t("R335 recognize U/O aliases",["U/O","언더·오버","오버/언더","Over/Under"].every(x=>marketFamilyName(x)==="TOTAL"));
   const variant=structuredClone(fixture);variant.compSchedules.keys.push("betTypNm");
   variant.compSchedules.datas[2][6]="일반";variant.compSchedules.datas[2].push("U/O");
