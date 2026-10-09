@@ -1,4 +1,4 @@
-// R286: 회차 중복경기 올마킹 수정. 이전회차 carry와 현재회차 동일 경기가 겹쳐도 신규 대표픽은 현재회차 시장에서만 선정.
+// R287: 전경기 마킹 후보 재확인 및 가장추천 위험거부 후보의 강제승격 방지.\n// R286: 회차 중복경기 올마킹 수정. 이전회차 carry와 현재회차 동일 경기가 겹쳐도 신규 대표픽은 현재회차 시장에서만 선정.
 // R284 WORK REVIEW: R283 기반 미배포 수정안. 종목별 AUX는 보조검증이며 5번째 축이 아니다. 외부자료 미연결 시 값을 만들지 않는다.
 // R283: 핸디캡 공식 점수에 이미 소수점(.5)이 반영된 경우 라인을 중복 적용하지 않고 소수점 점수를 정확히 파싱·재정산. 지난경기 공식결과도 마킹이 아닌 실제 결과를 표시.
 // R282: 언더/플핸 쏠림을 강제 50:50 없이 최근 방향성과 근거품질로 동적 감점. 축구 언더·야구 +2.5·여자농구 플핸 약근거 위험을 추가 검증.
@@ -29,8 +29,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R286";
-const BUILD_ID = "proto-betman-core-r286-current-round-full-mark";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R287";
+const BUILD_ID = "proto-betman-core-r287-current-round-full-mark";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1506,6 +1506,16 @@ function bestCandidateByFamily(ms){
     const better=!old||compareProbability(q,old.q)<0;
     if(better)map[m.marketFamily]=x;
   }
+  // R287: 분석행이 비어도 정상 공식배당 1.31+ 후보가 있으면 일반등급 대표마킹 경로를 남긴다.
+  for(const m of ms||[]){
+    if(map[m.marketFamily]||!representativeMarketEligible(m))continue;
+    const eligible=validChoices(m).filter(c=>Number(c.odds)>=CFG.minRepOdds);
+    if(!eligible.length)continue;
+    const rows=analyzeChoiceRows(m).filter(q=>Number(q.odds)>=CFG.minRepOdds);
+    if(!rows.length)continue; // 분석값을 만들어내지 않는다. 원인감사에서 누락을 기록한다.
+    const q=rows.sort(compareProbability)[0];
+    map[m.marketFamily]={m,q,gatePassed:false,selectionMode:"DEEP_REVIEW",deepReview:q.deepReview||null};
+  }
   return map;
 }
 function markUnselected(ms){
@@ -1663,7 +1673,8 @@ function premiumRiskVeto(m,grade){
 }
 function rankedGradeRows(rows,grade,used){
   const primary=rows.filter(m=>!used.has(m)&&!premiumRiskVeto(m,grade)).sort((a,b)=>premiumRankScore(b,grade)-premiumRankScore(a,grade)||marketSort(a,b));
-  const fallback=rows.filter(m=>!used.has(m)&&!primary.includes(m)&&Number(m.finalOdds)>=CFG.minRepOdds).sort((a,b)=>premiumRankScore(b,grade)-premiumRankScore(a,grade)||marketSort(a,b));
+  // R287: 위험거부 후보를 등급 채우기용으로 재승격하지 않는다. 빈 슬롯은 일반등급으로 유지한다.
+  const fallback=[];
   return [...primary,...fallback];
 }
 function assignGrades(state){
