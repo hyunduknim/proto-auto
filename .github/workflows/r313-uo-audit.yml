@@ -1,0 +1,44 @@
+name: Audit Under Over pricing and model direction
+on:
+  pull_request:
+    branches: [main]
+    paths: [.github/workflows/r313-uo-audit.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect active football UO markets and both selection probabilities
+        run: |
+          curl --fail --location --silent --show-error --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/markets.json"
+          node - "$RUNNER_TEMP/markets.json" <<'NODE'
+          const fs=require("node:fs");
+          const d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          const now=Date.now(),n=x=>Number(x??0);
+          const future=(d.markingGames||[]).filter(x=>x.pick&&!x.resultFinal&&Date.parse(String(x.date)+"T"+String(x.time).slice(0,5)+":00+09:00")>now);
+          const rows=future.flatMap(g=>(g.marketRows||[]).filter(m=>m.marketFamily==="TOTAL").map(m=>{
+            const choices=m.sharedAnalysis?.choices||[];
+            const under=choices.find(x=>x.pick==="언더"),over=choices.find(x=>x.pick==="오버");
+            return {no:m.no,marked:m.marked,analysisBestPick:m.analysisBestPick,
+              line:m.line,odds:m.choices?.map(x=>({label:x.label,odds:x.odds})),
+              under:under?{p:under.calibratedProbability,mp:under.marketProbability,ev:under.ev,edge:under.modelEdge,score:under.selectionScore,
+                safe:under.conservativeProbability,q:under.quality,groups:under.independentGroupCount,
+                layers:Object.fromEntries(Object.entries(under.layers||{}).filter(([k])=>["scorecenter","pickschool","sportsnote","protoodds"].includes(k)).map(([k,x])=>[k,{p:x.probability,external:x.external,source:x.source}]))}:null,
+              over:over?{p:over.calibratedProbability,mp:over.marketProbability,ev:over.ev,edge:over.modelEdge,score:over.selectionScore,
+                safe:over.conservativeProbability,q:over.quality,groups:over.independentGroupCount,
+                layers:Object.fromEntries(Object.entries(over.layers||{}).filter(([k])=>["scorecenter","pickschool","sportsnote","protoodds"].includes(k)).map(([k,x])=>[k,{p:x.probability,external:x.external,source:x.source}]))}:null}
+          }));
+          const distinct=[...new Map(rows.map(x=>[x.no,x])).values()];
+          const distribution=xs=>({n:xs.length,pick:xs.reduce((a,x)=>(a[x.analysisBestPick||"?"]=(a[x.analysisBestPick||"?"]||0)+1,a),{}),
+            overPosEV:xs.filter(x=>n(x.over?.ev)>0).length,underPosEV:xs.filter(x=>n(x.under?.ev)>0).length,
+            overEdgePos:xs.filter(x=>n(x.over?.edge)>.005).length,underEdgePos:xs.filter(x=>n(x.under?.edge)>.005).length,
+            overMeanP:xs.reduce((a,x)=>a+n(x.over?.p),0)/Math.max(xs.length,1),
+            overMeanMarketP:xs.reduce((a,x)=>a+n(x.over?.mp),0)/Math.max(xs.length,1)});
+          const topOver=distinct.filter(x=>x.over).sort((a,b)=>n(b.over?.ev)-n(a.over?.ev)).slice(0,12);
+          console.log("R313_UO_AUDIT="+JSON.stringify({at:new Date().toISOString(),version:d.version,
+            futureGames:future.length,uo:distribution(distinct),topOver,
+            underExamples:distinct.filter(x=>x.analysisBestPick==="언더").slice(0,5),
+            blankUO:distinct.filter(x=>!x.over||!x.under).length}));
+          NODE
