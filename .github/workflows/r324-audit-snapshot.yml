@@ -1,0 +1,27 @@
+name: R324 independent current-round snapshot (audit only)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/r324-audit-snapshot.yml"
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Download public sanitized current-round export (read only)
+        shell: bash
+        run: |
+          curl -fsSL --retry 2 --max-time 100 'https://protonumber.mystyle276.workers.dev/api/export-json' -o 'r324_prod_snapshot.json'
+          node - <<'NODE'
+          const s=require('./r324_prod_snapshot.json');
+          if(!(s.currentRound?.markets?.length>0))throw Error('Missing current round snapshot');
+          console.log('SNAPSHOT_META='+JSON.stringify({version:s.app?.version,round:s.round?.round,markets:s.currentRound.markets.length}));
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r324-public-export-audit
+          path: r324_prod_snapshot.json
+          retention-days: 1
