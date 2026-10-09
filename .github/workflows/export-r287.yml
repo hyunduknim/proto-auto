@@ -1,0 +1,19 @@
+name: Export R287 Source
+on:
+  push:
+    branches: [r288-export]
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare source
+        run: |
+          cp "자동마킹.js" "자동마킹_R287_main.js"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r287-source
+          path: 자동마킹_R287_main.js
+          retention-days: 1
