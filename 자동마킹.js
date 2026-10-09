@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R324-FULL-RATIO-CALCULATION-REVIEW";
-const BUILD_ID = "proto-betman-core-r324-exact-relative-grades-global-market-allocation";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R325-QUALITY-GUARDED-MARKETS";
+const BUILD_ID = "proto-betman-core-r325-quality-guarded-market-allocation";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
