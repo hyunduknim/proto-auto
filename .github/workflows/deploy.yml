@@ -1,0 +1,68 @@
+name: Proto realtime settlement verification and deployment
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protonumber-worker-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Validate marking and official settlement
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check Worker JavaScript syntax
+        run: node --check "자동마킹.js"
+      - name: Verify settlement, state persistence and public UI
+        run: node tests/settlement-check.cjs
+
+  deploy:
+    name: Deploy to Cloudflare Workers after passing settlement tests
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify required Cloudflare deployment credentials
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "::error::Configure CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in repository/environment Actions secrets before deploying."
+            exit 1
+          fi
+      - name: Deploy existing protonumber Worker
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+      - name: Check deployed diagnostic endpoint
+        env:
+          DEPLOYED_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          if [ -z "$DEPLOYED_URL" ]; then
+            echo "::error::No deployment URL returned; cannot verify live worker."
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 25 "${DEPLOYED_URL%/}/api/diagnostics" -o "$RUNNER_TEMP/proto-diagnostics.json"
+          node -e 'const f=require("node:fs");const s=JSON.parse(f.readFileSync(process.argv[1],"utf8"));if(!String(s.version||"").includes("R305")||!s.resultAudit){throw new Error("Worker version or result audit missing");}console.log("Worker diagnostics verified:",s.version,"result API:",Boolean(s.resultAudit.lastAt));' "$RUNNER_TEMP/proto-diagnostics.json"
