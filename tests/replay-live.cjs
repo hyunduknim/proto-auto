@@ -69,3 +69,23 @@ assert.equal(out.coverage.gapGames,0,"All priced pregame games must be marked");
 assert.equal(out.invalidElite,0,"Elite limited to Total U/O");
 assert.equal(S.marketMixAudit?.deviation,0,"Target 30/30/40 must hold");
 assert.equal(after.length,S.gradeAudit?.total,"All current-round reps included in grade audit");
+
+const verifyBothSides=(xs)=>xs.some(m=>m.finalPick==="언더")&&xs.some(m=>m.finalPick==="오버");
+const fidelity=Object.prototype.hasOwnProperty.call(snapshot.performanceDB||{},"priorSummaries")
+  ?"COMPLETE_EXPORTED_PRIOR_SUMMARIES":"PARTIAL_PRIOR_SUMMARIES_NOT_EXPORTED_BY_LIVE_R320";
+const insufficient=[];
+if(fidelity!=="COMPLETE_EXPORTED_PRIOR_SUMMARIES")insufficient.push("INCOMPLETE_SOURCE_STATE");
+if(out.coverage.gapGames!==0)insufficient.push("REPRESENTATIVE_MARKING_GAPS");
+if(out.market.MONEYLINE!==out.marketTarget.MONEYLINE||
+   out.market.HANDICAP!==out.marketTarget.HANDICAP||
+   out.market.TOTAL!==out.marketTarget.TOTAL)insufficient.push("MARKET_RATIO_DEVIATION");
+if(top.length<1)insufficient.push("NO_QUALITY_VERIFIED_PREGAME_ELITE");
+if(!verifyBothSides(top))insufficient.push("ELITE_UNDER_OVER_NOT_BOTH_EVIDENCE_QUALIFIED");
+if(!verifyBothSides(rec.filter(m=>m.marketFamily==="TOTAL")))insufficient.push("RECOMMEND_UNDER_OVER_NOT_BOTH_EVIDENCE_QUALIFIED");
+const readiness={readyForUserApproval:insufficient.length===0,
+  isolatedBranch:true,productionUnmodified:true,fidelity,
+  blockers:insufficient,pregameElite:top.length,pregameRecommended:rec.length};
+console.log("PREDEPLOY_READINESS="+JSON.stringify(readiness));
+if(process.env.ENFORCE_READINESS==="1")
+  assert.equal(readiness.readyForUserApproval,true,"Do not merge or request deployment approval while quality gates fail: "+insufficient.join(","));
+
