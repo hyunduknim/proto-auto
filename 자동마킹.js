@@ -1,4 +1,5 @@
-// R289: 현재회차 첫 경기 1건만 오버로 수동 지정. 최소배당 1.31 및 미시작 조건 유지, 이후 경기로 자동 승계하지 않음.\n// R288 REPORT REBUILD: R283 기준에서 라이브러리 v2.5 FINAL + 120회차 작업지시서를 다시 적용한 클린 재구성.
+// R290: 시카고-클리블랜드 현재회차 경기 1건만 오버로 수동 지정하고, 기존 저장상태도 1회 재분석해 즉시 반영. 이후 경기는 건드리지 않음.
+// R289: 현재회차 첫 경기 1건만 오버로 수동 지정. 최소배당 1.31 및 미시작 조건 유지, 이후 경기로 자동 승계하지 않음.
 // R288: 올마킹 공백 방지, 현재회차/이전회차 중복 잠금 분리, 방향 산식 대칭성 강화, 종목별 AUX 보조검증, 가장추천 DEEP_REVIEW 구조적 0개 경로 수정.
 // R283: 핸디캡 공식 점수에 이미 소수점(.5)이 반영된 경우 라인을 중복 적용하지 않고 소수점 점수를 정확히 파싱·재정산. 지난경기 공식결과도 마킹이 아닌 실제 결과를 표시.
 // R282: 언더/플핸 쏠림을 강제 50:50 없이 최근 방향성과 근거품질로 동적 감점. 축구 언더·야구 +2.5·여자농구 플핸 약근거 위험을 추가 검증.
@@ -29,8 +30,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R289";
-const BUILD_ID = "proto-betman-core-r289-first-game-over-override";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R290";
+const BUILD_ID = "proto-betman-core-r290-chicago-cleveland-over-once";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1563,21 +1564,34 @@ function softMarketMixAssignment(games,totalTarget,lockedCounts){
   return {assigned,exact:deviation===0,deviation,counts,activeCounts,qualityScore,objective:qualityScore};
 }
 
-// R289: 현재회차의 시간/프로토번호 기준 첫 경기 하나만 오버로 고정한다.
-// 첫 경기가 시작/종료된 뒤 다음 경기로 승계하지 않으며, 오버 배당 1.31 미만이면 기존 분석값을 유지한다.
+const R290_MANUAL_OVERRIDE_ID="R290_CHICAGO_CLEVELAND_OVER_ONCE";
+function isChicagoClevelandGame(m){
+  const h=norm(m?.home),a=norm(m?.away),names=h+"|"+a;
+  const chicago=names.includes("시카고")||names.includes("chicago");
+  const cleveland=names.includes("클리블랜드")||names.includes("cleveland");
+  return chicago&&cleveland;
+}
+// R290: 요청한 시카고-클리블랜드 현재회차 1경기만 오버로 지정한다.
+// 팀명이 다른 다음 경기로는 절대 승계되지 않으며, 오버 배당 1.31 미만/시작/종료 시 강제하지 않는다.
 function applyFirstGameOverOverride(state,games,assigned){
-  const current=(state?.markets||[]).filter(m=>currentRoundMarket(m,state));
-  if(!current.length)return null;
-  const first=current.slice().sort(marketSort)[0],targetKey=gameSeed(first);
-  const g=(games||[]).find(x=>x.key===targetKey);if(!g)return null;
+  const target=(state?.markets||[]).filter(m=>currentRoundMarket(m,state)&&isChicagoClevelandGame(m)&&!started(m)&&!m.resultFinal).sort(marketSort)[0];
+  if(!target)return null;
+  const targetKey=gameSeed(target),g=(games||[]).find(x=>x.key===targetKey);if(!g)return null;
   const totals=(g.ms||[]).filter(m=>m.marketFamily==="TOTAL"&&representativeMarketEligible(m)).sort(marketSort);
   for(const m of totals){
     const q=analyzeChoiceRows(m).find(x=>String(x.pick)==="오버"&&Number(x.odds)>=CFG.minRepOdds);
     if(!q)continue;
     assigned.set(g.key,{m,q,gatePassed:false,selectionMode:"MANUAL_FIRST_GAME_OVER",deepReview:q.deepReview||null});
-    return {key:g.key,no:m.no,date:m.date,time:m.time,odds:Number(q.odds)};
+    return {id:R290_MANUAL_OVERRIDE_ID,key:g.key,no:m.no,date:m.date,time:m.time,game:m.game||`${m.home} vs ${m.away}`,odds:Number(q.odds)};
   }
   return null;
+}
+function applyR290ManualOverrideMigration(state){
+  if(state?.manualOverrideAudit?.id===R290_MANUAL_OVERRIDE_ID)return false;
+  const target=(state?.markets||[]).find(m=>currentRoundMarket(m,state)&&isChicagoClevelandGame(m)&&!started(m)&&!m.resultFinal);
+  if(!target)return false;
+  state.manualOverrideAudit={id:R290_MANUAL_OVERRIDE_ID,appliedAt:nowIso(),game:target.game||`${target.home} vs ${target.away}`,rule:"현재회차 시카고-클리블랜드 1경기만 오버 지정 · 이후 경기 승계 없음"};
+  return true;
 }
 
 function assignRepresentativeMarkets(state){
@@ -1995,8 +2009,8 @@ async function writeStoredState(env,str){
 }
 async function loadState(env){
   if(MEM.state){
-    const removed=purgeMidnightMarkets(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state);
-    if(removed||settlementRepaired||jbCorrected||roundReset||round119Reset){markState(MEM.state);MEM.state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;await persistState(env,true);}
+    const removed=purgeMidnightMarkets(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),manualOverrideChanged=applyR290ManualOverrideMigration(MEM.state);
+    if(removed||settlementRepaired||jbCorrected||roundReset||round119Reset||manualOverrideChanged){markState(MEM.state);MEM.state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;await persistState(env,true);}
     return MEM.state;
   }
   let loadedPurgeRemoved=0,loadedNeedsPersist=false;
@@ -2007,9 +2021,9 @@ async function loadState(env){
   if(MEM.lastPersistSig==null){MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();}
   // 저장 시 제외한 분석 스냅샷이 없는 경기전 시장은 즉시 재분석한다.
   const needsAnalysis=(MEM.state.markets||[]).some(m=>!m.sharedAnalysis&&!started(m)&&!m.resultFinal);
-  const purgeRemoved=purgeMidnightMarkets(MEM.state),resetChanged=applyR212ResetMigration(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),perfBoot=bootstrapPerformanceFromSettledState(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),jbBoot=bootstrapJeongbaedangModel(MEM.state);
-  if(needsAnalysis&&!(loadedNeedsPersist||loadedPurgeRemoved||purgeRemoved||resetChanged||settlementRepaired||perfBoot||jbCorrected||roundReset||round119Reset||jbBoot.addedMarkets)){markState(MEM.state);MEM.publicCacheKey=null;MEM.publicCache=null;}
-  if(loadedNeedsPersist||loadedPurgeRemoved||purgeRemoved||resetChanged||settlementRepaired||perfBoot||jbCorrected||roundReset||round119Reset||jbBoot.addedMarkets){
+  const purgeRemoved=purgeMidnightMarkets(MEM.state),resetChanged=applyR212ResetMigration(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),perfBoot=bootstrapPerformanceFromSettledState(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),jbBoot=bootstrapJeongbaedangModel(MEM.state),manualOverrideChanged=applyR290ManualOverrideMigration(MEM.state);
+  if(needsAnalysis&&!(loadedNeedsPersist||loadedPurgeRemoved||purgeRemoved||resetChanged||settlementRepaired||perfBoot||jbCorrected||roundReset||round119Reset||jbBoot.addedMarkets||manualOverrideChanged)){markState(MEM.state);MEM.publicCacheKey=null;MEM.publicCache=null;}
+  if(loadedNeedsPersist||loadedPurgeRemoved||purgeRemoved||resetChanged||settlementRepaired||perfBoot||jbCorrected||roundReset||round119Reset||jbBoot.addedMarkets||manualOverrideChanged){
     markState(MEM.state);MEM.state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
     await persistState(env,true);
   }
