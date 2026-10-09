@@ -1020,7 +1020,7 @@ function applyPerformanceContext(state){
     if((started(m)||m.resultFinal)&&m.performanceProbabilities)continue;
     if(m.marketFamily==="TOTAL")totalMarkets++;
     const q=buildPerformanceMarketModel(state,m);
-    if(m.marketFamily==="TOTAL"&&(q.available||q.reason!=="NO_MATCH_SPECIFIC_TEAM_SCORING_HISTORY"))credibleTotals++;
+    if(m.marketFamily==="TOTAL"&&q.available)credibleTotals++;
     if(q.reason==="NO_MATCH_SPECIFIC_TEAM_SCORING_HISTORY")scoreLimitedTotals++;
     m.performanceAvailable=!!q.available;m.performanceCoverage=r3(q.coverage||0);m.performanceProbabilities=q.probabilities||null;m.performanceFeatures=q.features||null;m.performanceSource=q.available?"SC_BETMAN_RESULT_DB_FULL_REIMPLEMENTATION":null;
     if(q.available){enhanced++;totalCoverage+=Number(q.coverage||0);}
