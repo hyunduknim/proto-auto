@@ -3,7 +3,6 @@ name: Official Betman settlement relay
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/official-settlement-relay.yml"]
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
@@ -20,7 +19,7 @@ jobs:
   settle:
     name: Fetch official GameInfo and securely settle pending bets
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 6
     steps:
       - name: Install Node.js 22
         uses: actions/setup-node@v4
@@ -61,6 +60,19 @@ jobs:
               }
             }
           }
+          // Result API is sometimes available even when a full schedule is not.
+          // It is optional: failure never prevents gameInfo from being sent.
+          async function officialResultInfo(ts){
+            const u="https://www.betman.co.kr/gamebuy/winrst/inqWinrstDetlBody.do";
+            const ref="https://www.betman.co.kr/main/mainPage/gamebuy/winrstDetl.do?gmId=G101&gmTs="+encodeURIComponent(ts);
+            const body=JSON.stringify({gmId:"G101",gmTs:String(ts),_sbmInfo:{debugMode:"false"}});
+            const r=await fetch(u,{method:"POST",headers:betmanHeaders(ref),body,
+              redirect:"follow",signal:timeout(9000)});
+            if(!r.ok)throw Error("RESULT_HTTP_"+r.status);
+            const data=await r.json();
+            if(data?.gmTs!=null&&String(data.gmTs)!==ts)throw Error("result round mismatch");
+            return data;
+          }
           async function signedToken(){
             const endpoint=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL||"");
             const bearer=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
@@ -77,20 +89,37 @@ jobs:
             if(!response.ok)throw Error("Worker state HTTP "+response.status);
             const state=await response.json();
             const nos=state.resultAudit?.pendingNos||[];
-            const rounds=[...new Set(nos.map(m=>String(m.gmTs||"")).filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
+            // Live UI can discover started games before the direct Betman result audit refreshes.
+            // Include both current UI pending and historical-round audit entries.
+            const now=Date.now();
+            const started=(state.markingGames||[]).filter(m=>{
+              if(!m.pick||m.resultFinal||!m.date||!m.time)return false;
+              const dt=Date.parse(String(m.date)+"T"+String(m.time).slice(0,5)+":00+09:00");
+              return Number.isFinite(dt)&&dt<=now;
+            });
+            const rounds=[...new Set([...nos,...started].map(m=>String(m.gmTs||""))
+              .filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
             if(!rounds.length){console.log("No official settlement pending; skipping relay.");return;}
             const token=await signedToken();
             let delivered=0,settled=0,failures=0;
             for(const ts of rounds){
               try{
-                const gameInfo=await officialGameInfo(ts);
+                const [gameInfoStatus,resultInfoStatus]=await Promise.allSettled([
+                  officialGameInfo(ts),officialResultInfo(ts)]);
+                if(gameInfoStatus.status==="rejected"&&resultInfoStatus.status==="rejected")
+                  throw Error("both official endpoints unavailable: "+String(gameInfoStatus.reason?.message||"gameInfo"));
+                const payload={gmTs:ts};
+                if(gameInfoStatus.status==="fulfilled")payload.gameInfo=gameInfoStatus.value;
+                if(resultInfoStatus.status==="fulfilled")payload.officialResult=resultInfoStatus.value;
+                console.log("OFFICIAL_SOURCES="+JSON.stringify({gmTs:ts,
+                  gameInfo:gameInfoStatus.status,resultApi:resultInfoStatus.status}));
                 // GitHub push triggers this workflow before Cloudflare Workers Builds finishes.
                 // Retry the relay endpoint only during the deployment race; never modify market data.
                 let data={};let deliveredToWorker=false;
                 for(let deliveryAttempt=1;deliveryAttempt<=10;deliveryAttempt++){
                   const r=await fetch(base+"/api/official-gameinfo-relay",{
                     method:"POST",headers:{"authorization":"Bearer "+token,"content-type":"application/json"},
-                    body:JSON.stringify({gmTs:ts,gameInfo}),signal:timeout(45000)
+                    body:JSON.stringify(payload),signal:timeout(45000)
                   });
                   data=await r.json().catch(()=>({}));
                   if(r.ok&&data.ok){deliveredToWorker=true;break;}
@@ -103,13 +132,25 @@ jobs:
                 }
                 if(!deliveredToWorker)throw Error("Official relay failed after deployment retries");
                 console.log("OFFICIAL_SETTLEMENT_RELAY="+JSON.stringify({
-                  gmTs:ts,verifiedRows:data.verifiedRows,settledNow:data.settledNow,
+                  gmTs:ts,verifiedRows:data.verifiedRows,officialResultRows:data.resultApiRows||0,
+                  officialGameInfoRows:data.gameInfoRows||0,settledNow:data.settledNow,
                   pendingBefore:data.pendingBefore,pendingAfter:data.pendingAfter
                 }));
                 delivered++;settled+=Number(data.settledNow||0);
               }catch(e){failures++;console.error("OFFICIAL_RELAY_ERROR:",ts,String(e.message||e).slice(0,200));}
             }
             console.log("OFFICIAL_RELAY_SUMMARY="+JSON.stringify({rounds:rounds.length,delivered,settled,failures}));
+            // Read back persisted official-settlement counters, not just the POST acknowledgment.
+            const finalResponse=await fetch(base+"/api/state",{signal:timeout(20000)});
+            if(!finalResponse.ok)throw Error("read-back state HTTP "+finalResponse.status);
+            const final=await finalResponse.json();
+            console.log("OFFICIAL_RELAY_LIVE_CHECK="+JSON.stringify({version:final.version,
+              round:final.round,settled:final.summary?.settled,hits:final.summary?.hits,
+              misses:final.summary?.misses,voids:final.summary?.voids,
+              pending:final.settlementHealth?.pending??final.resultAudit?.pending,
+              lastRelaySettledAt:final.relayAudit?.lastSettlementAt,
+              relayRounds:Object.keys(final.relayAudit?.rounds||{}),
+              grades:final.gradeAudit?.counts||{}}));
             if(failures)process.exitCode=1;
           })().catch(e=>{console.error("OFFICIAL_RELAY_FATAL:",String(e.message||e).slice(0,160));process.exitCode=1;});
           NODE
