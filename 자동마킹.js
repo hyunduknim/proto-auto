@@ -1,4 +1,4 @@
-// R300: v2.5 FINAL + 120회차 R283 작업지시서 재통합. 30/30/40은 완전 모니터링 전용, #6970 오버는 해당 경기만 고정, 축구 일반무·핸디무는 no-vig Edge/EV·보수우위·교차근거·점수분포로 자동 경쟁 + 배포 직후 현재 미시작 경기 1회 재분석 · 마이그레이션 반복 실행 방지 · 시장 내부 절대확률 선컷 제거 · STRICT 대표픽 보너스/비율집중 감점 제거 · 교차시장 quality/confidence 절대확률 누수 제거 · 시장 30/30/40 및 등급 20/30/50 강제배분.\n// R292: 축구 무승부/핸디무를 2-way 시장과 절대확률로 직접 비교하지 않고, no-vig 시장확률 대비 Edge·EV·보수우위·교차근거·점수분포로 정규화 비교. 강제 무승부 비율 없음.\n// R291: #6970 시카고 화이트삭스-클리블랜드 가디언스 경기 1건만 오버로 수동변경. 이후 경기에는 승계하지 않음.\n// R290: 시카고-클리블랜드 현재회차 경기 1건만 오버로 수동 지정하고, 기존 저장상태도 1회 재분석해 즉시 반영. 이후 경기는 건드리지 않음.
+// R301: v2.5 FINAL + 120회차 R283 작업지시서 재통합. 30/30/40은 완전 모니터링 전용, #6970 오버는 해당 경기만 고정, 축구 일반무·핸디무는 no-vig Edge/EV·보수우위·교차근거·점수분포로 자동 경쟁 + 배포 직후 현재 미시작 경기 1회 재분석 · 마이그레이션 반복 실행 방지 · 시장 내부 절대확률 선컷 제거 · STRICT 대표픽 보너스/비율집중 감점 제거 · 교차시장 quality/confidence 절대확률 누수 제거 · 시장 30/30/40 및 등급 20/30/50 강제배분.\n// R292: 축구 무승부/핸디무를 2-way 시장과 절대확률로 직접 비교하지 않고, no-vig 시장확률 대비 Edge·EV·보수우위·교차근거·점수분포로 정규화 비교. 강제 무승부 비율 없음.\n// R291: #6970 시카고 화이트삭스-클리블랜드 가디언스 경기 1건만 오버로 수동변경. 이후 경기에는 승계하지 않음.\n// R290: 시카고-클리블랜드 현재회차 경기 1건만 오버로 수동 지정하고, 기존 저장상태도 1회 재분석해 즉시 반영. 이후 경기는 건드리지 않음.
 // R289: 현재회차 첫 경기 1건만 오버로 수동 지정. 최소배당 1.31 및 미시작 조건 유지, 이후 경기로 자동 승계하지 않음.
 // R288: 올마킹 공백 방지, 현재회차/이전회차 중복 잠금 분리, 방향 산식 대칭성 강화, 종목별 AUX 보조검증, 가장추천 DEEP_REVIEW 구조적 0개 경로 수정.
 // R283: 핸디캡 공식 점수에 이미 소수점(.5)이 반영된 경우 라인을 중복 적용하지 않고 소수점 점수를 정확히 파싱·재정산. 지난경기 공식결과도 마킹이 아닌 실제 결과를 표시.
@@ -30,8 +30,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R300";
-const BUILD_ID = "proto-betman-core-r300-forced-ratios-30-30-40-20-30-50";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R301";
+const BUILD_ID = "proto-betman-core-r301-forced-ratios-selftest-clean";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -2614,7 +2614,7 @@ function selfTest(){
   t("04 choices",ms.every(m=>validChoices(m).length===2));t("05 opening odds",ms.every(m=>validChoices(m).every(c=>Number(c.openingOdds)>1)));t("06 baseball 2.5",candidateEligible(ms.find(m=>m.marketFamily==="HANDICAP"))===true);
   const st=createState();st.round=117;st.gmTs="260117";st.markets=structuredClone(ms);markState(st);const reps=st.markets.filter(m=>m.marked&&m.representativeSelected);t("07 priced game always representative-marked",reps.length===1,`reps=${reps.length}`);t("08 min odds",reps.every(m=>Number(m.finalOdds)>=1.31));t("09 ai quality",reps.every(m=>Number.isFinite(Number(m.aiQuality))));t("10 model edge",reps.every(m=>Number.isFinite(Number(m.modelEdge))));t("11 movement",reps.every(m=>Number.isFinite(Number(m.oddsMovement))));t("12 analysis audit",st.analysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW");t("13 public game",representativeGames(st).length===1);t("13a shared audit",st.sharedAnalysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"&&st.sharedAnalysisAudit.analyzedMarkets===3);t("13b all market analysis",st.markets.every(m=>m.sharedAnalysis&&m.sharedAnalysis.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"));t("13c all choice analysis",st.markets.every(m=>Array.isArray(m.sharedAnalysis?.choices)&&m.sharedAnalysis.choices.length===2));t("13d detailed analysis",allGameAnalysis(st).length===1&&allGameAnalysis(st)[0].markets.length===3);
   // R254: 새 회차 대표픽은 상대 순위로 20/30/50을 실제 배분한다.
-  const weak=createState();weak.round=117;weak.gmTs="260117";weak.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`WH${i}`;x.away=`WA${i}`;x.game=`WH${i} vs WA${i}`;for(const c of x.choices)c.openingOdds=c.odds;x.date="2099-10-02";weak.markets.push(x);}}markState(weak);t("14 grade current-round mode",weak.gradeAudit.mode==="QUALITY_GATED_CAP_20_30_50");t("15 weak set does not force-fill premium grades",weak.gradeAudit.counts["가장추천"]<=2&&weak.gradeAudit.counts["추천"]<=3&&weak.gradeAudit.total===10,JSON.stringify(weak.gradeAudit.counts));
+  const weak=createState();weak.round=117;weak.gmTs="260117";weak.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`WH${i}`;x.away=`WA${i}`;x.game=`WH${i} vs WA${i}`;for(const c of x.choices)c.openingOdds=c.odds;x.date="2099-10-02";weak.markets.push(x);}}markState(weak);t("14 grade current-round mode",weak.gradeAudit.mode==="FORCED_RATIO_20_30_50");t("15 weak set force-fills exact grade ratio",weak.gradeAudit.counts["가장추천"]===2&&weak.gradeAudit.counts["추천"]===3&&weak.gradeAudit.counts["일반"]===5&&weak.gradeAudit.total===10,JSON.stringify(weak.gradeAudit.counts));
   // 대표픽을 직접 구성해 20/30/50 등급 목표 배정 검증
   const strong=createState();strong.markets=[];for(let i=0;i<10;i++){const x=structuredClone(ms[0]);x.no=500+i;x.home=`SH${i}`;x.away=`SA${i}`;x.game=`SH${i} vs SA${i}`;x.date="2099-10-02";x.marked=true;x.representativeSelected=true;x.finalPick="승";x.finalOdds=1.75;x.hitProbability=i<2?.68:i<5?.62:.56;x.safeHitProbability=i<2?.66:i<5?.60:.54;x.aiQuality=i<2?.66:i<5?.58:.50;x.marketSelectionScore=x.aiQuality;x.modelEdge=i<2?.02:0;x.modelEdgeAvailable=true;x.dataReliability=.75;x.dataCoverage=.75;x.confidenceScore=i<2?.72:i<5?.64:.52;x.independentEvidence=i<5;x.crossAgreement=i<5?.80:.50;x.oddsMovement=.02;x.dataIntegrityScore=.75;x.axisAvailableCount=i<5?3:1;x.axisSupportCount=i<2?3:i<5?2:1;x.axisOppositionCount=0;x.axisSupportRatio=x.axisSupportCount/x.axisAvailableCount;x.axisUnanimous=i<2;x.independentGroupCount=i<2?3:i<5?2:1;x.gradeAxisSupportCount=x.independentGroupCount;x.gradeAxisOppositionCount=0;x.segmentAdjustment=0;strong.markets.push(x);}assignGrades(strong);t("16 best target",strong.gradeAudit.counts["가장추천"]===2,JSON.stringify(strong.gradeAudit.counts));t("17 rec target",strong.gradeAudit.counts["추천"]===3,JSON.stringify(strong.gradeAudit.counts));t("18 normal rest",strong.gradeAudit.counts["일반"]===5,JSON.stringify(strong.gradeAudit.counts));
   const fb=createState();fb.markets=[];for(let i=0;i<10;i++){const x=structuredClone(strong.markets[i]);x.no=560+i;x.home=`FBH${i}`;x.away=`FBA${i}`;x.game=`FBH${i} vs FBA${i}`;x.representativeGatePassed=false;x.selectionMode="DEEP_REVIEW";x.deepReviewScore=i<5?.72:.48;x.deepReviewRecommended=i<5;x.hitProbability=i<2?.69:i<5?.63:.55;x.safeHitProbability=i<2?.65:i<5?.59:.52;x.dataReliability=.72;x.aiQuality=i<2?.66:i<5?.58:.50;x.confidenceScore=i<2?.70:i<5?.63:.52;x.independentEvidence=i<5;x.crossAgreement=i<5?.72:.48;x.dataIntegrityScore=.72;x.axisAvailableCount=i<5?3:1;x.axisSupportCount=i<2?3:i<5?2:1;x.axisOppositionCount=0;x.axisSupportRatio=x.axisSupportCount/x.axisAvailableCount;x.axisUnanimous=i<2;x.independentGroupCount=i<2?3:i<5?2:1;x.gradeAxisSupportCount=x.independentGroupCount;x.gradeAxisOppositionCount=0;x.segmentAdjustment=0;fb.markets.push(x);}assignGrades(fb);t("18a strong deep review may reach best without forced quota",fb.gradeAudit.counts["가장추천"]===2&&fb.gradeAudit.counts["추천"]===3&&fb.gradeAudit.counts["일반"]===5,JSON.stringify(fb.gradeAudit.counts));
@@ -2692,7 +2692,7 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
 {const ml=m([1.55,2.35]),hc=m([2.25,1.55],{no:2,marketFamily:'HANDICAP',market:'마이너스 핸디캡',line:-1});const ma=analyzeMarket(ml),ha=analyzeMarket(hc);check('market families independently analyzed',ma.analyzed&&ha.analyzed&&Number.isFinite(ma.summary?.modelEdge)&&Number.isFinite(ha.summary?.modelEdge));}
 {const s=state([m([1.25,3.6]),m([1.5,2.5],{no:2,marketFamily:'TOTAL',market:'언더오버'})]);const reps=s.markets.filter(x=>x.marked&&x.representativeSelected);check('weak no-independent game still receives one representative',reps.length===1&&reps[0].displayGrade==='일반');}
 {const s=state([m([1.8,1.8])]),r=representativeGames(s)[0];check('balanced weak game deep-review marked general',r?.selectionStatus==='대표픽'&&!!r.pick&&r.displayGrade==='일반'&&r.selectionMode==='DEEP_REVIEW');}
-{const s=state(Array.from({length:20},(_,i)=>m([1.4,3],{no:i+1,home:'H'+i,away:'A'+i})));check('weak ranked set respects grade caps without force fill',s.gradeAudit.counts['가장추천']===4&&s.gradeAudit.counts['추천']===6&&s.gradeAudit.counts['일반']===10);}
+{const s=state(Array.from({length:20},(_,i)=>m([1.4,3],{no:i+1,home:'H'+i,away:'A'+i})));check('weak ranked set force-fills 20/30/50',s.gradeAudit.counts['가장추천']===4&&s.gradeAudit.counts['추천']===6&&s.gradeAudit.counts['일반']===10);}
 {const s=state(Array.from({length:20},(_,i)=>m([1.65,2.05],{no:i+1,home:'H'+i,away:'A'+i})));check('mid confidence not force-filled into premium grades',s.gradeAudit.counts['가장추천']===4&&s.gradeAudit.counts['추천']===6&&s.gradeAudit.counts['일반']===10);}
 {const s=state([m([1.4,3])]);const a=s.markets[0].sharedAnalysis?.summary;check('conservative probability created',Number(a?.conservativeProbability)>0&&Number(a?.conservativeProbability)<=Number(a?.calibratedProbability));const x=s.markets[0];x.marked=true;x.representativeSelected=true;x.finalPick='승';x.finalOdds=1.4;x.selectionStatus='대표픽';x.date='2020-01-01';const b=JSON.stringify(x);markState(s);check('locked pick unchanged',JSON.stringify(x)===b);}
 {const s=state([m([1.4,3])]);s.markets[0].choices=choices([1.8,1.8]);markState(s);check('newly strict-ineligible remains marked by deep review',s.markets[0].marked===true&&s.markets[0].representativeSelected===true&&s.markets[0].selectionMode==='DEEP_REVIEW');}
@@ -2836,7 +2836,7 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     const pm={no:7999,date:"2099-10-03",time:"18:00",sport:"축구",league:"T",home:"저표본홈",away:"저표본원정",market:"승무패",marketFamily:"MONEYLINE",gmTs:"260777",domesticOddsFetchedAt:nowIso(),choices:[{label:"승",odds:1.75,openingOdds:1.80,betShare:.55},{label:"무",odds:3.2,openingOdds:3.2,betShare:.20},{label:"패",odds:2.3,openingOdds:2.2,betShare:.25}]};st.markets.push(pm);applyPerformanceContext(st);check("one-game performance becomes low-coverage available",pm.performanceAvailable===true&&Number(pm.performanceCoverage)>0&&Number(pm.performanceCoverage)<.30,JSON.stringify({coverage:pm.performanceCoverage,features:pm.performanceFeatures}));
     const rr=analyzeChoiceRows(pm).find(x=>x.pick==='승');check("SC/SN same self DB deduplicated to one provenance group",rr?.provenanceGroups?.scorecenter==="PERFORMANCE_DB"&&(!rr?.provenanceGroups?.sportsnote||rr?.provenanceGroups?.sportsnote==="PERFORMANCE_DB")&&Number(rr?.independentGroupCount)<=2,JSON.stringify({groups:rr?.provenanceGroups,count:rr?.independentGroupCount}));
     const fake=createState();fake.gmTs="260777";fake.markets=[];for(let i=0;i<6;i++)fake.markets.push({no:8100+i,date:"2026-10-02",time:"00:01",sport:"축구",league:"T",home:"S"+i,away:"T"+i,market:"승무패",marketFamily:"MONEYLINE",gmTs:"260777",marked:true,representativeSelected:true,resultFinal:true,settlementStatus:i<1?"적중":"낙첨",hit:i<1,finalOdds:1.55,hitProbability:.64,displayGrade:"일반",analysisLayers:{pickschool:{available:true,probability:.64}}});buildLearningAudit(fake);check("segment guard activates after five samples",fake.learningAudit.segmentModel['축구|MONEYLINE']?.active===true&&fake.learningAudit.segmentModel['축구|MONEYLINE']?.adjustment<0,JSON.stringify(fake.learningAudit.segmentModel['축구|MONEYLINE']));
-    check("market mix ratio is monitor-only with zero penalty",CFG.marketMixDeviationPenalty===0);
+    check("market mix ratio is forced allocation",CFG.marketMixDeviationPenalty===1&&typeof forcedMarketMixAssignment==="function");
     check("axis learning starts at five with shrinkage",CFG.axisLearningMinSamples===5&&CFG.axisLearningShrinkage>=40&&CFG.axisLearningMaxDelta<=.12);
     check("APK references include reverified fields",APK_REFERENCE.scorecenter.includes('GlobalOdds')&&APK_REFERENCE.pickschool.includes('all_league_overseas_dividend_under_over')&&APK_REFERENCE.sportsnote.includes('odds_history'));
   }
@@ -2955,7 +2955,7 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     const t6970=mk(6970,"12:00"),next=mk(6971,"15:00"),st=createState();st.gmTs="260120";st.markets=[t6970,next];
     const games=[{key:gameSeed(t6970),ms:[t6970],c:{}},{key:gameSeed(next),ms:[next],c:{}}],assigned=new Map(),ov=applyFirstGameOverOverride(st,games,assigned);
     check("manual over remains pinned only to proto 6970",ov?.no===6970&&assigned.has(gameSeed(t6970))&&!assigned.has(gameSeed(next)),JSON.stringify({ov,keys:[...assigned.keys()]}));
-    check("30/30/40 remains monitor-only",CFG.marketMixDeviationPenalty===0);
+    check("30/30/40 is forced allocation",CFG.marketMixDeviationPenalty===1&&typeof forcedMarketMixAssignment==="function");
     const mig=createState();mig.analysisMigrationAudit={id:R292_DRAW_ENGINE_ID};const mig1=applyR294ReportDrawReanalysisMigration(mig),mig2=applyR294ReportDrawReanalysisMigration(mig);
     check("R294 current-round reanalysis migration is one-shot",mig1===true&&mig2===false&&mig.analysisMigrationAudit.id===R294_REANALYZE_ID,JSON.stringify(mig.analysisMigrationAudit));
     const stable=createState();stable.analysisMigrationAudit={id:R294_REANALYZE_ID};
@@ -2969,7 +2969,7 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     check("comparable selector returns maximum utility rather than hard-coded direction",!!cmp&&["승","무","패"].includes(cmp.q.pick),JSON.stringify({pick:cmp?.q?.pick,utility:cmp?candidateUtility(cmp):null}));
     const mig=createState(),a=applyR300RatioRebuildMigration(mig),b=applyR300RatioRebuildMigration(mig);
     check("R300 ratio rebuild migration is one-shot",a===true&&b===false&&mig.selectionMigrationAudit?.id===R300_RATIO_REBUILD_ID,JSON.stringify(mig.selectionMigrationAudit));
-    check("market ratio remains monitoring only",CFG.marketMixDeviationPenalty===0);
+    check("market ratio is forced 30/30/40",CFG.marketMixDeviationPenalty===1&&typeof forcedMarketMixAssignment==="function");
   }
   {
     const check=(name,ok,detail="")=>t("R297 report compliance: "+name,ok,detail);
@@ -2977,7 +2977,7 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     check("strict/deep-review label does not alter representative utility",!marketComparableComponents.toString().includes("gatePassed)score+=")&&!marketComparableComponents.toString().includes("deepReviewScore"));
     check("previous representative does not receive utility bonus",!marketComparableComponents.toString().includes("hysteresisFamilyBonus"));
     check("soccer under has no one-sided structural penalty",!directionalRiskPenalty.toString().includes('dir==="UNDER"&&m?.sport==="축구"'));
-    check("current market audit is edge-EV monitor only",softMarketMixAssignment.toString().includes("candidateUtility")&&CFG.marketMixDeviationPenalty===0);
+    check("current market allocator is forced exact-first",forcedMarketMixAssignment.toString().includes("FORCED_EXACT_30_30_40")&&CFG.marketMixDeviationPenalty===1);
   }
   {
     const check=(name,ok,detail="")=>t("R299 cross-market fairness: "+name,ok,detail);
@@ -2985,7 +2985,7 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
     check("cross-market utility excludes absolute-probability-derived quality",!src.includes("q.quality")&&!src.includes("confidenceScore"));
     check("cross-market utility uses relative edge and EV",src.includes("edgeScore*.30")&&src.includes("safeEdgeScore*.22")&&src.includes("evScore*.18"));
     check("soccer scenario confirmation applies to all market families",src.includes('if(m?.sport==="축구")')&&src.includes("aux?.probabilities?.[q.pick]"));
-    check("cross-market tie breaker is not absolute probability",!softMarketMixAssignment.toString().includes("compareProbability"));
+    check("forced market allocator does not use absolute-probability tie breaker",!forcedMarketMixAssignment.toString().includes("compareProbability"));
   }
   {
     const check=(name,ok,detail="")=>t("R300 forced ratios: "+name,ok,detail);
