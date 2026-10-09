@@ -9,7 +9,7 @@ const nonModule = source
 assert.notEqual(nonModule, source, "Worker module extraction must match actual file");
 const api = new Function(
   "structuredClone", "URL",
-  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, prepareOfficialRelayRows, settlementHealth, ingestOfficialRelay, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState };"
+  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, prepareOfficialRelayRows, settlementHealth, ingestOfficialRelay, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState, terminalOfficialScoringRows, ingestPerformanceRows };"
 )(structuredClone, URL);
 
 (async () => {
@@ -76,6 +76,39 @@ const api = new Function(
     ["적중","낙첨","적특",null], "Correct results persisted");
   const view=api.publicState(restored.state);
   assert.ok(view,"Public UI state builds after settlement");
+  // R321 learning expands to other terminal official games, never to live games
+  // and never changes settlement/representative marking.
+  const scoringState=api.createState();scoringState.gmTs="260120";scoringState.round=120;
+  scoringState.markets=[{
+    ...market(9211,"승","경기전"),sport:"축구",league:"Test",
+    date:"2026-10-08",home:"ScoreHome",away:"ScoreAway",
+    game:"ScoreHome vs ScoreAway",marked:false,representativeSelected:false
+  }];
+  const sourceRow=(status,score="2:1")=>({
+    GM_SEQ:9211,FIX_MCH_DTM:"202610081800",HOME_TEAM:"ScoreHome",
+    AWAY_TEAM:"ScoreAway",BETTYP_NM:"승패",GAME_RESULT:"0",WIN_TXT:"승",
+    MCH_SCORE:score,MCH_STTUS_NM:status
+  });
+  const liveInfo={compSchedules:{keys:Object.keys(sourceRow("전반종료")),
+    datas:[Object.values(sourceRow("전반종료"))]}};
+  const finalInfo={compSchedules:{keys:Object.keys(sourceRow("경기종료")),
+    datas:[Object.values(sourceRow("경기종료"))]}};
+  assert.equal(api.terminalOfficialScoringRows(scoringState,liveInfo,"260120").length,0,
+    "GameInfo halftime must never enter the scoring database");
+  const verified=api.terminalOfficialScoringRows(scoringState,finalInfo,"260120");
+  assert.equal(verified.length,1,"Official terminal GameInfo provides training-only score");
+  assert.equal(api.ingestPerformanceRows(scoringState,verified),1,
+    "Train official final game score even when the game has no marked wager");
+  assert.equal(api.ingestPerformanceRows(scoringState,verified),0,
+    "Duplicate official terminal result cannot relearn");
+  assert.equal(scoringState.markets[0].resultFinal,false,
+    "Training-only official scores never settle unmarked markets");
+  assert.equal(scoringState.markets[0].marked,false,
+    "Training-only official scores never create new selections");
+  const profiles=Object.values(scoringState.performanceModel.teams);
+  assert.equal(profiles.length,2,"Official final score updates both team profiles");
+  assert.ok(profiles.every(p=>p.scoreGames===1),"Both teams inherit verified scoring histories");
+
   const relayResultRows = api.prepareOfficialRelayRows({
     officialResult:{detlBody:[{
       GM_SEQ:1004,FIX_MCH_DTM:"202610081800",HOME_TEAM:"H1004",
