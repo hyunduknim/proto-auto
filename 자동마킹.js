@@ -31,8 +31,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R316-QUALITY-RANKED-GRADES";
-const BUILD_ID = "proto-betman-core-r314-quality-gated-all-markets";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R317-ADAPTIVE-MARKET-MIX";
+const BUILD_ID = "proto-betman-core-r317-adaptive-market-mix";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1769,13 +1769,28 @@ function assignRepresentativeMarkets(state){
     if(lock){for(const x of ms){if(x!==lock){x.marked=false;x.representativeSelected=false;}}locked.push({key,ms,m:lock});lockedCurrent.push({key,ms,m:lock});continue;}
     const allC=bestCandidateByFamily(ms),allValues=Object.values(allC),bestUtility=allValues.length?Math.max(...allValues.map(candidateUtility)):-Infinity;
     const c=Object.fromEntries(Object.entries(allC).filter(([,x])=>candidateUtility(x)+CFG.marketCandidateQualityGap>=bestUtility-1e-12));
-    if(Object.keys(c).length)games.push({key,ms,c});else markUnselected(ms);
+    if(Object.keys(c).length)games.push({key,ms,c,allC,bestUtility});else markUnselected(ms);
   }
   const lockedCounts={MONEYLINE:0,HANDICAP:0,TOTAL:0};for(const x of lockedCurrent)if(lockedCounts[x.m.marketFamily]!=null)lockedCounts[x.m.marketFamily]++;
   const totalN=games.length+lockedCurrent.length,totalTarget=targetCounts(totalN,CFG.marketTarget);
   const manualAssigned=new Map(),firstGameOverOverride=applyFirstGameOverOverride(state,games,manualAssigned),manualKeys=new Set(manualAssigned.keys());
   const flexibleGames=games.filter(g=>!manualKeys.has(g.key)),fixedCounts={...lockedCounts};for(const x of manualAssigned.values())fixedCounts[x.m.marketFamily]=Number(fixedCounts[x.m.marketFamily]||0)+1;
-  const allocation=forcedMarketMixAssignment(flexibleGames,totalTarget,fixedCounts),assigned=new Map([...allocation.assigned,...manualAssigned]);
+  // R317: The fixed 4.5%-score gap excluded available totals and produced 43/36/41.
+  // Preserve quality at the smallest possible relaxation; never invent a market option.
+  let allocation=forcedMarketMixAssignment(flexibleGames,totalTarget,fixedCounts);
+  let effectiveQualityGap=CFG.marketCandidateQualityGap;
+  for(const gap of [.075,.11,.16,Infinity]){
+    if(allocation.exact)break;
+    const relaxed=flexibleGames.map(g=>({...g,c:Object.fromEntries(
+      Object.entries(g.allC||g.c||{}).filter(([,x])=>
+        candidateUtility(x)+gap>=Number(g.bestUtility??candidateUtility(x))-1e-12))}));
+    const trial=forcedMarketMixAssignment(relaxed,totalTarget,fixedCounts);
+    if(trial.deviation<allocation.deviation||
+       (trial.deviation===allocation.deviation&&trial.qualityScore>allocation.qualityScore+1e-12)){
+      allocation=trial;effectiveQualityGap=gap;
+    }
+  }
+  const assigned=new Map([...allocation.assigned,...manualAssigned]);
   const drawVisibility=ensureBestSoccerDrawVisible(games,assigned);
   const mode="FORCED_RATIO_30_30_40";
   const counts={MONEYLINE:0,HANDICAP:0,TOTAL:0};
@@ -1798,7 +1813,7 @@ function assignRepresentativeMarkets(state){
   const shortfall=Object.fromEntries(Object.keys(totalTarget).map(k=>[k,Math.max(0,(totalTarget[k]||0)-(totalCounts[k]||0))]));
   const excess=Object.fromEntries(Object.keys(totalTarget).map(k=>[k,Math.max(0,(totalCounts[k]||0)-(totalTarget[k]||0))]));
   const currentReps=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&m.marked&&m.representativeSelected),drawSelections=currentReps.filter(m=>m.sport==="축구"&&m.finalPick==="무").length;
-  state.marketMixAudit={at:nowIso(),mode:"FORCED_RATIO_30_30_40",target:{MONEYLINE:30,HANDICAP:30,TOTAL:40},targetPolicy:"QUALITY_GAP_FIRST_EXACT_ONLY_WHEN_WITHIN_GAP",deviationPenalty:CFG.marketMixDeviationPenalty,drawSelections,drawVisibility,targetCounts:totalTarget,counts:totalCounts,activeCounts:counts,total:totalN,pct:Object.fromEntries(Object.entries(totalCounts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:allocation.exact,deviation:allocation.deviation,allocationPolicy:allocation.policy,qualityScore:r3(allocation.qualityScore||0),objective:r3(allocation.objective||0),locked:lockedCurrent.length,lockedCounts,lockedAllRounds:locked.length,scope:"CURRENT_ROUND_REPRESENTATIVES"};
+  state.marketMixAudit={at:nowIso(),mode:"FORCED_RATIO_30_30_40",target:{MONEYLINE:30,HANDICAP:30,TOTAL:40},targetPolicy:"R317_ADAPTIVE_MIN_DEVIATION_THEN_MAX_QUALITY",qualityGapUsed:Number.isFinite(effectiveQualityGap)?effectiveQualityGap:"ALL_VALID_FAMILIES",deviationPenalty:CFG.marketMixDeviationPenalty,drawSelections,drawVisibility,targetCounts:totalTarget,counts:totalCounts,activeCounts:counts,total:totalN,pct:Object.fromEntries(Object.entries(totalCounts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:allocation.exact,deviation:allocation.deviation,allocationPolicy:allocation.policy,qualityScore:r3(allocation.qualityScore||0),objective:r3(allocation.objective||0),locked:lockedCurrent.length,lockedCounts,lockedAllRounds:locked.length,scope:"CURRENT_ROUND_REPRESENTATIVES"};
   return state.marketMixAudit;
 }
 function buildFullMarkAudit(state){
@@ -2255,12 +2270,40 @@ async function writeStoredState(env,str){
 }
 // R308: apply elite grade policy to persisted marked games immediately after deployment.
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
+const R317_MARKET_MIX_ID="R317_ADAPTIVE_30_30_40_ONLY_UNSTARTED";
 async function refreshR308GradePolicy(state,env){
-  if(!state?.markets?.length||state.gradeAudit?.mode==="R316_RELATIVE_QUALITY_UO_ONLY_20_30_50")return false;
-  // R316 changes grading only. Never reselect an existing match or touch the settlement ledger.
+  if(!state?.markets?.length)return false;
+  if(state.marketRebalanceAudit?.id!==R317_MARKET_MIX_ID){
+    // One-time migration for pregame only: official source outages must not prevent
+    // a requested market-mix update. Existing results and started picks are immutable.
+    const before=new Map((state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&!started(m)&&!m.resultFinal)
+      .map(m=>[gameSeed(m),{no:m.no,marketFamily:m.marketFamily,finalPick:m.finalPick}]));
+    const lockedBefore=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&(started(m)||m.resultFinal))
+      .map(m=>[gameSeed(m),m.no,m.finalPick,m.displayGrade,m.settlementStatus||null]);
+    const ledgerBefore=serializeState(state.settlementLedger||[]),cardsBefore=serializeState(state.settledCards||{});
+    markState(state);
+    const lockedAfter=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&(started(m)||m.resultFinal))
+      .map(m=>[gameSeed(m),m.no,m.finalPick,m.displayGrade,m.settlementStatus||null]);
+    if(serializeState(lockedBefore)!==serializeState(lockedAfter)||
+       ledgerBefore!==serializeState(state.settlementLedger||[])||
+       cardsBefore!==serializeState(state.settledCards||{}))
+      throw Error("R317_LOCKED_OR_SETTLED_DATA_CHANGE_PREVENTED");
+    const future=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&!started(m)&&!m.resultFinal);
+    const changed=future.filter(m=>{
+      const old=before.get(gameSeed(m));return !old||old.no!==m.no||old.marketFamily!==m.marketFamily||old.finalPick!==m.finalPick;
+    }).length;
+    state.marketRebalanceAudit={id:R317_MARKET_MIX_ID,at:nowIso(),futureBefore:before.size,
+      futureAfter:future.length,changedFuture:changed,preservedLocked:lockedAfter.length,
+      counts:state.marketMixAudit?.counts,target:state.marketMixAudit?.targetCounts,
+      deviation:state.marketMixAudit?.deviation,qualityGapUsed:state.marketMixAudit?.qualityGapUsed};
+    state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
+    await persistState(env,true);return true;
+  }
+  if(state.gradeAudit?.mode==="R316_RELATIVE_QUALITY_UO_ONLY_20_30_50")return false;
   assignGrades(state);state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
   await persistState(env,true);return true;
 }
+
 async function loadState(env){
   if(MEM.state){
     const removed=purgeMidnightMarkets(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),manualOverrideChanged=applyR291Proto6970Over(MEM.state),drawEngineChanged=applyR292DrawEngineMigration(MEM.state),reportReanalysisChanged=applyR294ReportDrawReanalysisMigration(MEM.state),selectionRebuildChanged=applyR302RatioDrawRebuildMigration(MEM.state);
