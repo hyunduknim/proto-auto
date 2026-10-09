@@ -3168,7 +3168,7 @@ async function ingestOfficialRelay(req,env){
   let input;
   try{input=await req.json();}catch{return json({error:"invalid relay JSON"},400);}
   const gmTs=String(input?.gmTs||""),payload=input?.gameInfo;
-  if(!/^\\d{6}$/.test(gmTs)||!payload||typeof payload!=="object"||
+  if(!/^\d{6}$/.test(gmTs)||!payload||typeof payload!=="object"||
      (payload.gmTs!=null&&String(payload.gmTs)!==gmTs)||
      !findScheduleContainer(payload))return json({error:"invalid official gameInfo payload or round"},400);
   const state=await loadState(env);
