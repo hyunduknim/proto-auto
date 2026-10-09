@@ -1015,9 +1015,17 @@ function buildPerformanceMarketModel(state,m){
   return {available:true,coverage,probabilities:probs,features:{priorScope:prior.scope,priorSamples:prior.samples,priorScoreSamples:prior.scoreSamples,priorCoverage:r3(prior.coverage),homeElo:r3(hp?.elo||1500),awayElo:r3(ap?.elo||1500),homeGames:hGames,awayGames:aGames,homeForm:r3(homeForm),awayForm:r3(awayForm),homeVenue:r3(homeVenue),awayVenue:r3(awayVenue),homeRest:r3(homeRest),awayRest:r3(awayRest),h2hHome:r3(h2hHome),sampleShrink:r3(sampleShrink),projectedHome:r3(projectedHome),projectedAway:r3(projectedAway),projectedTotal:r3(projectedTotal),projectedMargin:r3(projectedMargin)}};
 }
 function applyPerformanceContext(state){
-  const model=ensurePerformanceModel(state);let enhanced=0,totalCoverage=0;
-  for(const m of state.markets||[]){if((started(m)||m.resultFinal)&&m.performanceProbabilities)continue;const q=buildPerformanceMarketModel(state,m);m.performanceAvailable=!!q.available;m.performanceCoverage=r3(q.coverage||0);m.performanceProbabilities=q.probabilities||null;m.performanceFeatures=q.features||null;m.performanceSource=q.available?"SC_BETMAN_RESULT_DB_FULL_REIMPLEMENTATION":null;if(q.available){enhanced++;totalCoverage+=Number(q.coverage||0);}}
-  state.performanceAudit={at:nowIso(),source:"BETMAN_OFFICIAL_RESULTS_SELF_MODEL_PLUS_SPORT_LEAGUE_PRIOR",gamesLearned:Object.keys(model.seenGames||{}).length,teamsLearned:Object.keys(model.teams||{}).length,h2hPairs:Object.keys(model.h2h||{}).length,enhancedMarkets:enhanced,avgCoverage:enhanced?r3(totalCoverage/enhanced):0,features:["Elo","recent_form","scoring_form","home_away_form","head_to_head","rest_days","league_prior","sport_prior","projected_score"],privateAppApiUsed:false};return state.performanceAudit;
+  const model=ensurePerformanceModel(state);let enhanced=0,totalCoverage=0,totalMarkets=0,credibleTotals=0,scoreLimitedTotals=0;
+  for(const m of state.markets||[]){
+    if((started(m)||m.resultFinal)&&m.performanceProbabilities)continue;
+    if(m.marketFamily==="TOTAL")totalMarkets++;
+    const q=buildPerformanceMarketModel(state,m);
+    if(m.marketFamily==="TOTAL"&&(q.available||q.reason!=="NO_MATCH_SPECIFIC_TEAM_SCORING_HISTORY"))credibleTotals++;
+    if(q.reason==="NO_MATCH_SPECIFIC_TEAM_SCORING_HISTORY")scoreLimitedTotals++;
+    m.performanceAvailable=!!q.available;m.performanceCoverage=r3(q.coverage||0);m.performanceProbabilities=q.probabilities||null;m.performanceFeatures=q.features||null;m.performanceSource=q.available?"SC_BETMAN_RESULT_DB_FULL_REIMPLEMENTATION":null;
+    if(q.available){enhanced++;totalCoverage+=Number(q.coverage||0);}
+  }
+  state.performanceAudit={at:nowIso(),totalMarkets,credibleTotals,scoreLimitedTotals,scoringEvidencePolicy:"R321_ONLY_VERIFIED_MATCH_SPECIFIC_TEAM_SCORE_HISTORY",source:"BETMAN_OFFICIAL_RESULTS_SELF_MODEL_PLUS_SPORT_LEAGUE_PRIOR",gamesLearned:Object.keys(model.seenGames||{}).length,teamsLearned:Object.keys(model.teams||{}).length,h2hPairs:Object.keys(model.h2h||{}).length,enhancedMarkets:enhanced,avgCoverage:enhanced?r3(totalCoverage/enhanced):0,features:["Elo","recent_form","scoring_form","home_away_form","head_to_head","rest_days","league_prior","sport_prior","projected_score"],privateAppApiUsed:false};return state.performanceAudit;
 }
 function performanceChoiceEvidence(m,c){if(!m?.performanceAvailable||!m?.performanceProbabilities)return {available:false,p:null,coverage:0,source:null};const p=safeFeature(m.performanceProbabilities?.[c.label]);return p==null?{available:false,p:null,coverage:0,source:null}:{available:true,p,coverage:clamp(Number(m.performanceCoverage||0),0,1),source:String(m?.performanceFeatures?.priorScope||"").startsWith("LEAGUE")?"SC_BETMAN_RESULT_DB_LEAGUE_PRIOR":"SC_BETMAN_RESULT_DB_SPORT_PRIOR"};}
 function bootstrapPerformanceFromSettledState(state){const model=ensurePerformanceModel(state);if(model.bootstrapDone)return 0;const rows=[];for(const ms of groupMarkets(state.markets||[]).values()){const m=ms.find(x=>x.resultFinal&&x.settlementStatus!=="적특"&&(Number.isFinite(Number(x.homeScore))||perfScorePair(x.resultScoreText)));if(!m)continue;const sc=Number.isFinite(Number(m.homeScore))&&Number.isFinite(Number(m.awayScore))?{home:Number(m.homeScore),away:Number(m.awayScore)}:perfScorePair(m.resultScoreText);if(!sc)continue;rows.push({gmTs:m.gmTs,no:m.no,date:m.date,home:m.home,away:m.away,family:"MONEYLINE",outcome:sc.home>sc.away?"승":sc.home<sc.away?"패":"무",score:`${sc.home}:${sc.away}`,specialStatus:null});}const n=ingestPerformanceRows(state,rows);model.bootstrapDone=true;model.bootstrapAt=nowIso();return n;}
@@ -2698,6 +2706,28 @@ function scoreFallbackDelayMs(m){
   return 4*60*60*1000;
 }
 function safeOverdueScoreFallbackMarket(m){const t=gameTimeMs(m);return !!(m&&m.marked&&m.representativeSelected&&!m.resultFinal&&t!=null&&Date.now()-t>=scoreFallbackDelayMs(m));}
+// R321: Learning and settlement have different scopes. Official GameInfo may
+// contribute terminal team scores from any represented match, including games
+// whose representative bet was not moneyline. It must NEVER trigger settlement
+// merely because a score is present; existing pending settlement logic stays intact.
+function terminalOfficialScoringRows(state,gameInfo,gmTs){
+  if(!gameInfo)return [];
+  return parseBetmanResultRows(gameInfo,gmTs).filter(rr=>{
+    if(rr?.gmTs&&String(rr.gmTs)!==String(gmTs))return false;
+    if(rr?.partial||!rr?.terminal||rr?.specialStatus||rr?.family!=="MONEYLINE")return false;
+    if(!["승","무","패"].includes(String(rr.outcome||"")))return false;
+    const score=perfScorePair(rr.score);
+    if(!score||!Number.isInteger(score.home)||!Number.isInteger(score.away))return false;
+    const m=findMarketForResultGame(state,rr);
+    if(!m||!["축구","야구","농구","배구","기타"].includes(m.sport))return false;
+    if(rr.date&&rr.date!==m.date)return false;
+    if(rr.home&&norm(rr.home)!==norm(m.home))return false;
+    if(rr.away&&norm(rr.away)!==norm(m.away))return false;
+    // Prevent importing incorrectly labelled or handicap-adjusted scores.
+    if((score.home>score.away?"승":score.home<score.away?"패":"무")!==rr.outcome)return false;
+    return true;
+  });
+}
 function gameInfoRowUsableForPending(rr,pendingForRound){
   // R263: gameInfo는 경기 중에도 결과코드형 필드가 노출될 수 있으므로 코드 존재만으로 조기정산하지 않는다.
   if(rr?.specialStatus)return true;
@@ -2768,9 +2798,11 @@ async function refreshBetmanResults(state,env,force=false){
       const gameTask=(async()=>{
         try{
           gi=await fetchGameInfo(ts);gameInfoOk=true;
+          const allTerminalScores=terminalOfficialScoringRows(state,gi,ts);
           giRows=parseBetmanResultRows(gi,ts).filter(x=>gameInfoRowUsableForPending(x,pendingForRound));
           gameInfoFallbackRows+=giRows.length;rowCount+=giRows.length;
-          performanceLearned+=ingestPerformanceRows(state,giRows);
+          // Learn extra confirmed final scores, but NEVER settle from training-only rows.
+          performanceLearned+=ingestPerformanceRows(state,[...giRows,...allTerminalScores]);
           const jb=ingestJeongbaedangOfficialRows(state,giRows);jbLearnedMarkets+=jb.markets;jbLearnedChoiceRows+=jb.choiceRows;
           changed+=applyResults(state,giRows);
         }catch(e){errors.push(`${ts}:GAMEINFO:${String(e?.message||e)}`);}
@@ -3601,16 +3633,18 @@ async function ingestOfficialRelay(req,env){
   const state=await loadState(env);
   const pending=pendingSettlementMarkets(state).filter(m=>String(m.gmTs||"")===gmTs);
   const parsed=prepareOfficialRelayRows(input,gmTs,pending);
+  const officialTrainingRows=terminalOfficialScoringRows(state,gameInfo,gmTs);
   // Results API can contain official outcome codes; gameInfo needs terminal status or overdue final-score guard.
   const resultSettled=applyResults(state,parsed.resultRows);
   const fallbackSettled=applyResults(state,parsed.gameInfoRows);
   const settled=resultSettled+fallbackSettled,verifiedRows=parsed.resultRows.length+parsed.gameInfoRows.length;
   let learned=0,jbAdded=0;
   const officialRows=[...parsed.resultRows,...parsed.gameInfoRows];
-  if(officialRows.length){
-    learned=ingestPerformanceRows(state,officialRows);
-    jbAdded=ingestJeongbaedangOfficialRows(state,officialRows).markets;
-  }
+  // Broader terminal GameInfo score ingestion is training-only; neither
+  // applyResults nor the official settlement ledger reads these extra rows.
+  const scoreTrainingRows=[...officialRows,...officialTrainingRows];
+  if(scoreTrainingRows.length)learned=ingestPerformanceRows(state,scoreTrainingRows);
+  if(officialRows.length)jbAdded=ingestJeongbaedangOfficialRows(state,officialRows).markets;
   if(settled||learned||jbAdded)markState(state);
   const now=nowIso(),previous=state.relayAudit||{},
     pendingAfter=pendingSettlementMarkets(state).filter(m=>String(m.gmTs||"")===gmTs).length,
