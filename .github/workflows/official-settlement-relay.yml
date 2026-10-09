@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "*/5 * * * *"
+    # Offset from :00 to reduce delayed/dropped jobs; keep 5-minute cadence.
+    - cron: "2-59/5 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -85,6 +86,12 @@ jobs:
             return j.value;
           }
           (async()=>{
+            // This line must appear on every invoked run, including no-pending.
+            // Inspect the GitHub run event: a successful push/manual run does not
+            // prove the five-minute schedule is firing.
+            console.log("OFFICIAL_RELAY_HEARTBEAT="+JSON.stringify({
+              timestamp:new Date().toISOString(),event:process.env.GITHUB_EVENT_NAME||null,
+              run:process.env.GITHUB_RUN_ID||null,mode:"five_minute_offset"}));
             const response=await fetch(base+"/api/state",{signal:timeout(20000)});
             if(!response.ok)throw Error("Worker state HTTP "+response.status);
             const state=await response.json();
@@ -99,7 +106,18 @@ jobs:
             });
             const rounds=[...new Set([...nos,...started].map(m=>String(m.gmTs||""))
               .filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
-            if(!rounds.length){console.log("No official settlement pending; skipping relay.");return;}
+            console.log("OFFICIAL_RELAY_QUEUE="+JSON.stringify({
+              timestamp:new Date().toISOString(),
+              workerVersion:state.version||null,currentRound:state.round||null,
+              pendingFromAudit:nos.length,startedPendingFromUi:started.length,
+              rounds,health:state.settlementHealth||null
+            }));
+            if(!rounds.length){
+              console.log("OFFICIAL_RELAY_SUMMARY="+JSON.stringify({
+                rounds:0,delivered:0,settled:0,failures:0,
+                note:"NO_PENDING_BETS_BUT_HEARTBEAT_DELIVERED"}));
+              return;
+            }
             const token=await signedToken();
             let delivered=0,settled=0,failures=0;
             for(const ts of rounds){
@@ -112,7 +130,9 @@ jobs:
                 if(gameInfoStatus.status==="fulfilled")payload.gameInfo=gameInfoStatus.value;
                 if(resultInfoStatus.status==="fulfilled")payload.officialResult=resultInfoStatus.value;
                 console.log("OFFICIAL_SOURCES="+JSON.stringify({gmTs:ts,
-                  gameInfo:gameInfoStatus.status,resultApi:resultInfoStatus.status}));
+                  gameInfo:gameInfoStatus.status,resultApi:resultInfoStatus.status,
+                  gameInfoError:gameInfoStatus.status==="rejected"?String(gameInfoStatus.reason?.message||"unknown").slice(0,100):null,
+                  resultApiError:resultInfoStatus.status==="rejected"?String(resultInfoStatus.reason?.message||"unknown").slice(0,100):null}));
                 // GitHub push triggers this workflow before Cloudflare Workers Builds finishes.
                 // Retry the relay endpoint only during the deployment race; never modify market data.
                 let data={};let deliveredToWorker=false;
@@ -139,7 +159,9 @@ jobs:
                 delivered++;settled+=Number(data.settledNow||0);
               }catch(e){failures++;console.error("OFFICIAL_RELAY_ERROR:",ts,String(e.message||e).slice(0,200));}
             }
-            console.log("OFFICIAL_RELAY_SUMMARY="+JSON.stringify({rounds:rounds.length,delivered,settled,failures}));
+            console.log("OFFICIAL_RELAY_SUMMARY="+JSON.stringify({
+              timestamp:new Date().toISOString(),event:process.env.GITHUB_EVENT_NAME||null,
+              rounds:rounds.length,delivered,settled,failures}));
             // Read back persisted official-settlement counters, not just the POST acknowledgment.
             const finalResponse=await fetch(base+"/api/state",{signal:timeout(20000)});
             if(!finalResponse.ok)throw Error("read-back state HTTP "+finalResponse.status);
