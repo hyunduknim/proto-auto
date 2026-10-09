@@ -19,5 +19,26 @@
     "required": [
       "THE_ODDS_API_KEY"
     ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PROTO_DO",
+        "class_name": "ProtoStateDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "r306_realtime_settlement_sqlite_v1",
+      "new_sqlite_classes": [
+        "ProtoStateDO"
+      ]
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "* * * * *"
+    ]
   }
 }
