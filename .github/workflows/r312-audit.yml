@@ -1,0 +1,56 @@
+name: Audit actual most recommended direction bias
+on:
+  pull_request:
+    branches: [main]
+    paths: [".github/workflows/r312-audit.yml"]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Read actual live best-pick direction and alternative market evidence
+        run: |
+          curl --fail --silent --show-error --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/state.json"
+          node - "$RUNNER_TEMP/state.json" <<'NODE'
+          const fs=require("node:fs");
+          const d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          const classify=m=>{
+            if(m.marketFamily==="HANDICAP"){
+              const line=Number(m.handicapEffectiveLine);
+              return Number.isFinite(line)&&line!==0?(line>0?"플핸":"마핸"):"핸디기타";
+            }
+            if(m.marketFamily==="TOTAL")return m.pick==="언더"?"언더":m.pick==="오버"?"오버":"UO기타";
+            if(m.marketFamily==="MONEYLINE")return "일반승("+m.pick+")";
+            return m.marketFamily||"기타";
+          };
+          const count=ms=>ms.reduce((a,m)=>(a[classify(m)]=(a[classify(m)]||0)+1,a),{});
+          const fam=ms=>ms.reduce((a,m)=>(a[m.marketFamily||"기타"]=(a[m.marketFamily||"기타"]||0)+1,a),{});
+          const mark=(d.markingGames||[]).filter(m=>m.pick&&!m.resultFinal),best=mark.filter(m=>m.displayGrade==="가장추천");
+          const rec=mark.filter(m=>m.displayGrade==="추천"),normal=mark.filter(m=>m.displayGrade==="일반");
+          const altRows=(m)=>m.marketRows||[];
+          const families=best.map(m=>({
+            chosen:classify(m),family:m.marketFamily,odds:m.odds,p:m.calibratedProbability,mp:m.marketProbability,
+            quality:m.aiQuality,cross:m.crossAgreement,edge:m.modelEdge,rel:m.dataReliability,
+            groups:m.independentGroupCount,alternatives:altRows(m).map(z=>({
+              family:z.marketFamily,line:z.line,choice:z.analysisBestPick,selectable:z.analysisSelectable,
+              prob:z.analysisProbability,edge:z.analysisModelEdge,score:z.analysisSelectionScore,quality:z.analysisQuality,
+              sharedChoices:z.sharedAnalysis?.choices?.slice(0,4).map(v=>({label:v.label||v.pick,prob:v.calibratedProbability||v.calibratedP,edge:v.edge,score:v.score}))
+            }))
+          }));
+          const dist={at:new Date().toISOString(),version:d.version,round:d.round,
+            total:mark.length,best:best.length,rec:rec.length,normal:normal.length,
+            all:count(mark),bestDirection:count(best),recDirection:count(rec),normalDirection:count(normal),
+            bestMarket: fam(best),bestSport:best.reduce((a,m)=>(a[m.sport]=(a[m.sport]||0)+1,a),{}),
+            sampleBest:families.slice(0,12),
+            bestScoreRanges:best.map(m=>({
+              chosen:classify(m),p:m.calibratedProbability,mp:m.marketProbability,odds:m.odds,
+              quality:m.aiQuality,confidence:m.confidenceScore,rel:m.dataReliability,
+              edge:m.modelEdge,groups:m.independentGroupCount,opposition:m.gradeAxisOppositionCount
+            })),
+            directionAudit:d.directionAudit?.warnings||[],marketMix:d.marketMixAudit?.counts,
+            grade:d.gradeAudit?.counts
+          };
+          console.log("LIVE_DIRECTION_AUDIT="+JSON.stringify(dist));
+          NODE
