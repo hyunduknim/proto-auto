@@ -76,33 +76,54 @@ jobs:
             core.setFailed('Timed out waiting for Workers Builds: protonumber.');
       - name: Checkout deployed source version
         uses: actions/checkout@v6
-      - name: Verify public Worker state matches deployed commit
+      - name: Verify propagated Worker version, ratios and settlement health
         shell: bash
         run: |
-          set -euo pipefail
-          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --connect-timeout 5 --max-time 20 \
-            "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/production-state.json"
-          node - "$RUNNER_TEMP/production-state.json" <<'NODE'
+          node <<'NODE'
           const fs=require("node:fs");
           const assert=require("node:assert/strict");
           const source=fs.readFileSync("자동마킹.js","utf8");
           const match=source.match(/const APP_VERSION = "([^"]+)";/);
           assert.ok(match,"Cannot determine source release version");
-          const d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-          assert.equal(d.version,match[1],"Live Worker is not the expected GitHub commit");
-          assert.ok(d.summary&&d.gradeAudit,"Live source lacks marking-grade audit");
-          const g=d.gradeAudit||{},counts=g.counts||{};
-          const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
-          if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
-          const health=d.settlementHealth||{},q=d.summary||{};
-          const result={version:d.version,round:d.round,grades:counts,
-            settled:Number(q.settled||0),hits:Number(q.hits||0),misses:Number(q.misses||0),
-            pending:health.pending??d.resultAudit?.pending,
-            officialChannel:health.mode||"not_reported",
-            lastOfficialResultAt:health.lastOfficialResultAt||null};
-          console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
-          const summary=process.env.GITHUB_STEP_SUMMARY;
-          if(summary)fs.appendFileSync(summary,
-            "### Verified production release\\n\\n"+Object.entries(result).map(([k,v])=>
-              "- **"+k+"**: "+(v&&typeof v==="object"?JSON.stringify(v):String(v))).join("\\n")+"\\n");
+          const expected=match[1];
+          const endpoint="https://protonumber.mystyle276.workers.dev/api/state";
+          const deadline=Date.now()+240000;
+          const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+          async function verify(){
+            let attempts=0,lastSeen="no response",found=null;
+            while(Date.now()<deadline){
+              attempts++;
+              try{
+                const res=await fetch(endpoint+"?verify="+Date.now(),{
+                  cache:"no-store",signal:AbortSignal.timeout(13000),
+                  headers:{"cache-control":"no-cache"}});
+                if(!res.ok)throw Error("HTTP "+res.status);
+                const current=await res.json();
+                lastSeen=String(current.version||"unknown");
+                if(lastSeen===expected){found=current;break;}
+                console.log("Worker rollout is not finished",attempts,":",lastSeen,"expected",expected);
+              }catch(e){lastSeen=String(e?.message||e);
+                console.log("Retrying production validation",attempts,lastSeen);}
+              await delay(5000);
+            }
+            assert.ok(found,"Worker version not propagated within 4 minutes; last="+lastSeen+", expected="+expected);
+            const d=found,g=d.gradeAudit||{},counts=g.counts||{},health=d.settlementHealth||{};
+            assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
+            const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
+            if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
+            assert.ok(d.settlementHealth&&Number.isFinite(Number(health.pending)),
+              "Official settlement health not exposed in live release");
+            const q=d.summary||{};
+            const result={version:d.version,round:d.round,grades:counts,
+              settled:Number(q.settled||0),hits:Number(q.hits||0),misses:Number(q.misses||0),
+              pending:health.pending,officialChannel:health.mode,
+              lastOfficialResultAt:health.lastOfficialResultAt||null,
+              verifiedAfterAttempts:attempts};
+            console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
+            const summary=process.env.GITHUB_STEP_SUMMARY;
+            if(summary)fs.appendFileSync(summary,
+              "### Verified production release\n\n"+Object.entries(result).map(([k,v])=>
+              "- **"+k+"**: "+(v&&typeof v==="object"?JSON.stringify(v):String(v))).join("\n")+"\n");
+          }
+          verify().catch(e=>{console.error(e);process.exitCode=1;});
           NODE
