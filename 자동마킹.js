@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R326-RECOMMENDATION-UO-QUALITY";
-const BUILD_ID = "proto-betman-core-r326-recommendation-uo-quality";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R327-PREGAME-REANALYSIS";
+const BUILD_ID = "proto-betman-core-r327-pregame-reanalysis";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -2535,7 +2535,7 @@ async function writeStoredState(env,str){
 }
 // R308: apply elite grade policy to persisted marked games immediately after deployment.
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
-const R317_MARKET_MIX_ID="R324_EXACT_RELATIVE_GRADE_AND_GLOBAL_MARKET_REPLAY_ONCE";
+const R317_MARKET_MIX_ID="R327_R326_RECOMMENDATION_PREGAME_REANALYSIS_ONCE";
 async function refreshR308GradePolicy(state,env){
   if(!state?.markets?.length)return false;
   if(state.marketRebalanceAudit?.id!==R317_MARKET_MIX_ID){
