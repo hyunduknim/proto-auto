@@ -1,0 +1,31 @@
+name: R323 JS single-file package
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Archive verified deployed JS file
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JS syntax and official settlement regressions
+        run: |
+          node --check "자동마킹.js"
+          node tests/settlement-check.cjs
+      - name: Publish exactly one JS file
+        uses: actions/upload-artifact@v4
+        with:
+          name: R323-auto-marking-js
+          path: 자동마킹.js
+          retention-days: 30
+          if-no-files-found: error
