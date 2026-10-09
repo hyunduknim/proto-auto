@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "*/5 * * * *"
+    # R323: Avoid the :00/:05 ... common GitHub scheduled-workflow contention.
+    # Scheduled runs are best-effort, not a strict five-minute SLA.
+    - cron: "2-59/5 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -88,6 +90,14 @@ jobs:
             const response=await fetch(base+"/api/state",{signal:timeout(20000)});
             if(!response.ok)throw Error("Worker state HTTP "+response.status);
             const state=await response.json();
+            console.log("OFFICIAL_RELAY_TRIGGER="+JSON.stringify({
+              event:process.env.GITHUB_EVENT_NAME||"unknown",
+              runId:process.env.GITHUB_RUN_ID||"",
+              time:new Date().toISOString(),
+              pendingAtStart:state.settlementHealth?.pending??state.resultAudit?.pending??null,
+              previousContact:state.relayAudit?.at||null,
+              stateVersion:state.version||null
+            }));
             const nos=state.resultAudit?.pendingNos||[];
             // Live UI can discover started games before the direct Betman result audit refreshes.
             // Include both current UI pending and historical-round audit entries.
