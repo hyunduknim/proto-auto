@@ -74,3 +74,35 @@ jobs:
             }
 
             core.setFailed('Timed out waiting for Workers Builds: protonumber.');
+      - name: Checkout deployed source version
+        uses: actions/checkout@v6
+      - name: Verify public Worker state matches deployed commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 --connect-timeout 5 --max-time 20 \
+            "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/production-state.json"
+          node - "$RUNNER_TEMP/production-state.json" <<'NODE'
+          const fs=require("node:fs");
+          const assert=require("node:assert/strict");
+          const source=fs.readFileSync("자동마킹.js","utf8");
+          const match=source.match(/const APP_VERSION = "([^"]+)";/);
+          assert.ok(match,"Cannot determine source release version");
+          const d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          assert.equal(d.version,match[1],"Live Worker is not the expected GitHub commit");
+          assert.ok(d.summary&&d.gradeAudit,"Live source lacks marking-grade audit");
+          const g=d.gradeAudit||{},counts=g.counts||{};
+          const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
+          if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
+          const health=d.settlementHealth||{},q=d.summary||{};
+          const result={version:d.version,round:d.round,grades:counts,
+            settled:Number(q.settled||0),hits:Number(q.hits||0),misses:Number(q.misses||0),
+            pending:health.pending??d.resultAudit?.pending,
+            officialChannel:health.mode||"not_reported",
+            lastOfficialResultAt:health.lastOfficialResultAt||null};
+          console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
+          const summary=process.env.GITHUB_STEP_SUMMARY;
+          if(summary)fs.appendFileSync(summary,
+            "### Verified production release\\n\\n"+Object.entries(result).map(([k,v])=>
+              "- **"+k+"**: "+(v&&typeof v==="object"?JSON.stringify(v):String(v))).join("\\n")+"\\n");
+          NODE
