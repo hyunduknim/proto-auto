@@ -20,21 +20,21 @@ jobs:
           curl --fail --silent --show-error --max-time 25 "https://protonumber.mystyle276.workers.dev/api/state?audit=$GITHUB_RUN_ID" -o "$RUNNER_TEMP/state.json"
           node - "$RUNNER_TEMP/state.json" <<'NODE'
           const fs=require("node:fs"),d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-          const n=v=>Number(v||0),rows=Array.isArray(d.markets)?d.markets:[];
+          const n=v=>Number(v||0),rows=Array.isArray(d.markingGames)?d.markingGames:[];
           const now=Date.now(),isUp=m=>!m.resultFinal&&Number.isFinite(Date.parse(String(m.date||"")+"T"+String(m.time||"00:00")+":00+09:00"))&&Date.parse(String(m.date||"")+"T"+String(m.time||"00:00")+":00+09:00")>now;
-          const reps=rows.filter(m=>m.marked&&m.representativeSelected&&(!d.gmTs||String(m.gmTs||"")===String(d.gmTs)));
+          const reps=rows.filter(m=>m.pick);
           const unlocked=reps.filter(isUp),locks=reps.filter(m=>!isUp(m));
           const tot=unlocked.filter(m=>m.marketFamily==="TOTAL");
-          const ov=tot.filter(m=>m.finalPick==="오버");
-          const un=tot.filter(m=>m.finalPick==="언더");
-          const ev=m=>n(m.hitProbability)*n(m.finalOdds)-1;
-          const edge=m=>n(m.hitProbability)-n(m.marketProbability);
+          const ov=tot.filter(m=>m.pick==="오버");
+          const un=tot.filter(m=>m.pick==="언더");
+          const ev=m=>n(m.calibratedProbability)*n(m.odds)-1;
+          const edge=m=>n(m.calibratedProbability)-n(m.marketProbability);
           const q=m=>({
             no:m.no,game:m.game||m.home+" - "+m.away,league:m.league,date:m.date,time:m.time,
-            grade:m.displayGrade,pick:m.finalPick,odds:m.finalOdds,
-            p:m.hitProbability,mp:m.marketProbability,safe:m.safeHitProbability,
+            grade:m.displayGrade,pick:m.pick,odds:m.odds,
+            p:m.calibratedProbability,mp:m.marketProbability,safe:m.conservativeProbability,
             ev:Number(ev(m).toFixed(4)),edge:Number(edge(m).toFixed(4)),
-            safeEv:Number((n(m.safeHitProbability)*n(m.finalOdds)-1).toFixed(4)),
+            safeEv:Number((n(m.conservativeProbability)*n(m.odds)-1).toFixed(4)),
             rel:m.dataReliability,quality:m.aiQuality,conf:m.confidenceScore,
             cross:m.crossAgreement,integrity:m.dataIntegrityScore,
             groups:m.independentGroupCount,support:m.gradeAxisSupportCount,
@@ -44,7 +44,7 @@ jobs:
             selectionMode:m.selectionMode,evRecorded:m.EV
           });
           const reason=m=>{
-            const p=n(m.hitProbability),mp=n(m.marketProbability),s=n(m.safeHitProbability),o=n(m.finalOdds);
+            const p=n(m.calibratedProbability),mp=n(m.marketProbability),s=n(m.conservativeProbability),o=n(m.odds);
             const a=[];
             if(n(m.independentGroupCount)<2)a.push("groups<2");
             if(n(m.gradeAxisOppositionCount)>1)a.push("opposition>1");
@@ -85,5 +85,5 @@ jobs:
           }));
           console.log("LIVE_OVER_ROWS="+JSON.stringify(ov.map(m=>({...q(m),recReasons:reason(m)}))));
           console.log("LIVE_UNDER_ELITE_ROWS="+JSON.stringify(un.filter(m=>m.displayGrade==="가장추천").map(q)));
-          console.log("LIVE_OVER_LOCKED="+JSON.stringify(locks.filter(m=>m.marketFamily==="TOTAL"&&m.finalPick==="오버").map(q)));
+          console.log("LIVE_OVER_LOCKED="+JSON.stringify(locks.filter(m=>m.marketFamily==="TOTAL"&&m.pick==="오버").map(q)));
           NODE
