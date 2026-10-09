@@ -119,6 +119,21 @@ jobs:
               pending:health.pending,officialChannel:health.mode,
               lastOfficialResultAt:health.lastOfficialResultAt||null,
               verifiedAfterAttempts:attempts};
+            const a=d.gradeAudit||{},dir=a.totalDirectionAudit||{};
+            const list=(d.markingGames||[]).filter(m=>m.pick&&!m.resultFinal);
+            const dirOf=(grade,pick)=>list.filter(m=>m.displayGrade===grade&&m.pick===pick).length;
+            result.markingDirections={
+              eliteUnder:dirOf("가장추천","언더"),eliteOver:dirOf("가장추천","오버"),
+              recommendedUnder:dirOf("추천","언더"),recommendedOver:dirOf("추천","오버"),
+              normalOver:dirOf("일반","오버")};
+            result.eliteDirectionAudit={
+              candidateOver:dir.candidateOver||0,
+              qualifiedOver:dir.qualifiedOver||0,
+              selectedOver:dir.selectedOver||0,
+              selectedUnder:dir.selectedUnder||0,
+              qualityOverCandidates:dir.qualityOverCandidates||0,
+              overReserveFilled:dir.overReserveFilled||0};
+            result.overRebalance=d.marketMixAudit?.totalDirectionBalance||null;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
