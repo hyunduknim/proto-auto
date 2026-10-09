@@ -10,6 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
+      - name: Count upcoming candidates and started-game locks
+        run: |
+          curl --fail --silent --show-error --location --connect-timeout 5 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/time-state.json"
+          node - "$RUNNER_TEMP/time-state.json" <<'NODE'
+          const d=JSON.parse(require("node:fs").readFileSync(process.argv[2],"utf8"));
+          const now=Date.now(),rows=(d.markingGames||[]).filter(x=>x.pick&&x.odds>=1.31&&!x.resultFinal);
+          const ms=m=>Date.parse(String(m.date||"")+"T"+String(m.time||"")+"+09:00");
+          const future=rows.filter(m=>Number.isFinite(ms(m))&&ms(m)>now),past=rows.filter(m=>Number.isFinite(ms(m))&&ms(m)<=now);
+          const modes=x=>x.reduce((a,m)=>(a[m.selectionMode||"?"]=(a[m.selectionMode||"?"]||0)+1,a),{});
+          const grade=x=>x.reduce((a,m)=>(a[m.displayGrade||"?"]=(a[m.displayGrade||"?"]||0)+1,a),{});
+          console.log("R309_TIME="+JSON.stringify({at:new Date(now).toISOString(),all:rows.length,started:past.length,future:future.length,noDate:rows.length-past.length-future.length,
+            startedModes:modes(past),futureModes:modes(future),futureGrades:grade(future),startedGrades:grade(past),
+            futureStrict:future.filter(m=>m.selectionMode==="STRICT").map(m=>({date:m.date,time:m.time,quality:m.aiQuality,group:m.independentGroupCount})),
+            latestDateTimes:future.slice(0,4).map(m=>({date:m.date,time:m.time}))}));
+          NODE
       - name: Audit remaining best-tier candidates without identifiers
         run: |
           curl --fail --silent --show-error --location --connect-timeout 5 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/grades.json"
