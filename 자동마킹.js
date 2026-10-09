@@ -30,8 +30,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R310-ELITE-REVIEW-RELAY";
-const BUILD_ID = "proto-betman-core-r310-elitereview-graded-and-oidc-relay";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R311-SETTLEMENT-STABILITY";
+const BUILD_ID = "proto-betman-core-r311-official-dual-source-settlement-health";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -2592,7 +2592,7 @@ async function refreshBetmanResults(state,env,force=false){
     const repaired=applyR249SettlementCorrection(state);if(repaired)changed+=repaired;
     if(changed||performanceLearned||jbLearnedMarkets)markState(state);
     const pendingMarkets=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&started(m)&&!m.resultFinal),left=pendingMarkets.length,voids=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&m.resultFinal&&m.settlementStatus==="적특").length;
-    state.resultAudit={lastAt:nowIso(),lastSuccessAt:checked.length?nowIso():state.resultAudit?.lastSuccessAt,ok:checked.length>0,source:"BETMAN_OFFICIAL_RESULT_PARALLEL_GAMEINFO_FINAL_SCORE",rawRows:rawRowCount,rows:rowCount,resultApiRows,gameInfoFallbackRows,settledNow:changed,scoreFallbackSettled:(state.markets||[]).filter(m=>m.resultFinal&&m.resultDerivedFromScore).length,crossFamilyScoreSettled:(state.markets||[]).filter(m=>m.resultFinal&&m.resultCrossFamilyScoreMatch).length,settlementRepairs:repaired,performanceLearned,jbLearnedMarkets,jbLearnedChoiceRows,pending:left,pendingNos:pendingMarkets.slice(0,60).map(m=>({gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,marketFamily:m.marketFamily,line:m.line,pick:m.finalPick,game:m.game})),voids,fast23:hasFast23SettlementPending(state),overdueFast:hasOverdueSettlementPending(state),pollMs:resultPollMsForState(state),remoteMinMs:resultRemoteMinMsForState(state),parallelOfficialChecks:true,targetSettlementLatencySec:10,checkedGmTs:checked,responseShapes:shapes.slice(0,8),errors};
+    state.resultAudit={lastAt:nowIso(),lastSuccessAt:checked.length?nowIso():state.resultAudit?.lastSuccessAt,ok:checked.length>0,source:"BETMAN_OFFICIAL_RESULT_PARALLEL_GAMEINFO_FINAL_SCORE",rawRows:rawRowCount,rows:rowCount,resultApiRows,gameInfoFallbackRows,settledNow:changed,scoreFallbackSettled:(state.markets||[]).filter(m=>m.resultFinal&&m.resultDerivedFromScore).length,crossFamilyScoreSettled:(state.markets||[]).filter(m=>m.resultFinal&&m.resultCrossFamilyScoreMatch).length,settlementRepairs:repaired,performanceLearned,jbLearnedMarkets,jbLearnedChoiceRows,pending:left,pendingNos:pendingMarkets.slice(0,60).map(m=>({gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,marketFamily:m.marketFamily,line:m.line,pick:m.finalPick,game:m.game})),voids,fast23:hasFast23SettlementPending(state),overdueFast:hasOverdueSettlementPending(state),pollMs:resultPollMsForState(state),remoteMinMs:resultRemoteMinMsForState(state),parallelOfficialChecks:true,directOk:checked.length>0,targetSettlementLatencySec:10,checkedGmTs:checked,responseShapes:shapes.slice(0,8),errors};
     if(checked.length)MEM.lastResultSuccess=Date.now();
     await saveState(state,env);return changed;
   }catch(e){
@@ -2660,7 +2660,7 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
   MEM.publicCacheKey=key;MEM.publicCache=value;return value;
 }
 function exportSafeConfig(){
@@ -3201,41 +3201,89 @@ async function verifyOfficialRelayOIDC(req){
     return crypto.subtle.verify("RSASSA-PKCS1-v1_5",key,relayB64Bytes(parts[2]),new TextEncoder().encode(parts[0]+"."+parts[1]));
   }catch{return false;}
 }
+// R311: confirmed result rows and gameInfo-score fallback are independent official sources.
+// Only terminal gameInfo rows may be used; partial/live scores must never settle a wager.
+function prepareOfficialRelayRows(input,gmTs,pending){
+  const resultInfo=input?.officialResult,gameInfo=input?.gameInfo;
+  const resultRows=resultInfo?parseBetmanResultRows(resultInfo,gmTs):[];
+  const gameInfoRows=gameInfo?parseBetmanResultRows(gameInfo,gmTs):[];
+  return {resultRows,gameInfoRows:gameInfoRows.filter(r=>gameInfoRowUsableForPending(r,pending)),
+    receivedRows:resultRows.length+gameInfoRows.length};
+}
+function pendingSettlementMarkets(state){
+  return (state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&started(m)&&!m.resultFinal&&settlementAllowed(m));
+}
+function settlementHealth(state){
+  const r=state?.resultAudit||{},relay=state?.relayAudit||{};
+  const contactMs=Date.parse(relay.at||""),successMs=Date.parse(r.lastSuccessAt||"");
+  const relayFresh=Number.isFinite(contactMs)&&Date.now()-contactMs>=0&&Date.now()-contactMs<=20*60000;
+  const directOk=!!r.directOk||!!(r.ok&&r.source==="BETMAN_OFFICIAL_RESULT_PARALLEL_GAMEINFO_FINAL_SCORE");
+  return {pending:pendingSettlementMarkets(state).length,
+    directOk,relayFresh,relayLastContact:relay.at||null,
+    relayLastSettledAt:relay.lastSettlementAt||null,
+    lastOfficialResultAt:Number.isFinite(successMs)?r.lastSuccessAt:null,
+    lastRelaySettled:Number(relay.totalSettled||0),
+    mode:relayFresh?"GITHUB_OFFICIAL_RELAY_AVAILABLE":directOk?"BETMAN_DIRECT_AVAILABLE":"OFFICIAL_DATA_RETRYING",
+    lastRelayRound:relay.gmTs||null};
+}
 async function ingestOfficialRelay(req,env){
   const size=Number(req.headers.get("content-length")||0);
   if(size>1500000)return json({error:"relay payload too large"},413);
   let input;
   try{input=await req.json();}catch{return json({error:"invalid relay JSON"},400);}
-  const gmTs=String(input?.gmTs||""),payload=input?.gameInfo;
-  if(!/^\d{6}$/.test(gmTs)||!payload||typeof payload!=="object"||
-     (payload.gmTs!=null&&String(payload.gmTs)!==gmTs)||
-     !findScheduleContainer(payload))return json({error:"invalid official gameInfo payload or round"},400);
+  const gmTs=String(input?.gmTs||""),gameInfo=input?.gameInfo,officialResult=input?.officialResult;
+  const validRound=x=>x&&typeof x==="object"&&!Array.isArray(x)&&
+    (x.gmTs==null||String(x.gmTs)===gmTs);
+  const validGameInfo=validRound(gameInfo)&&!!findScheduleContainer(gameInfo);
+  const validResultInfo=validRound(officialResult)&&(
+    ["detlBody","winrstDetlBody","resultList","results","winrstList","matchResults","items","rows"]
+      .some(k=>Array.isArray(officialResult?.[k])||Array.isArray(findDeepArray(officialResult,k,5))));
+  if(!/^\d{6}$/.test(gmTs)||(!validGameInfo&&!validResultInfo)||
+     (gameInfo&&!validGameInfo)||(officialResult&&!validResultInfo))
+    return json({error:"invalid official payload or round"},400);
   const state=await loadState(env);
-  const pending=(state.markets||[]).filter(m=>String(m.gmTs||"")===gmTs&&m.marked&&m.representativeSelected&&started(m)&&!m.resultFinal&&settlementAllowed(m));
-  const parsed=parseBetmanResultRows(payload,gmTs);
-  const officialRows=parsed.filter(r=>gameInfoRowUsableForPending(r,pending));
-  const settled=applyResults(state,officialRows);
+  const pending=pendingSettlementMarkets(state).filter(m=>String(m.gmTs||"")===gmTs);
+  const parsed=prepareOfficialRelayRows(input,gmTs,pending);
+  // Results API can contain official outcome codes; gameInfo needs terminal status or overdue final-score guard.
+  const resultSettled=applyResults(state,parsed.resultRows);
+  const fallbackSettled=applyResults(state,parsed.gameInfoRows);
+  const settled=resultSettled+fallbackSettled,verifiedRows=parsed.resultRows.length+parsed.gameInfoRows.length;
   let learned=0,jbAdded=0;
+  const officialRows=[...parsed.resultRows,...parsed.gameInfoRows];
   if(officialRows.length){
     learned=ingestPerformanceRows(state,officialRows);
     jbAdded=ingestJeongbaedangOfficialRows(state,officialRows).markets;
   }
   if(settled||learned||jbAdded)markState(state);
-  const now=nowIso();
-  state.relayAudit={at:now,ok:true,source:"BETMAN_OFFICIAL_GAMEINFO_VIA_GITHUB_OIDC",gmTs,
-    receivedRows:parsed.length,verifiedRows:officialRows.length,pendingBefore:pending.length,
-    settledNow:settled,pendingAfter:(state.markets||[]).filter(m=>String(m.gmTs||"")===gmTs&&m.marked&&m.representativeSelected&&started(m)&&!m.resultFinal).length,
-    lastSuccessAt:now};
-  if(officialRows.length){
-    state.resultAudit={...(state.resultAudit||{}),ok:true,lastAt:now,lastSuccessAt:now,
-      source:"BETMAN_OFFICIAL_GAMEINFO_VIA_GITHUB_OIDC",settledNow:settled,
-      pending:(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&started(m)&&!m.resultFinal).length,
-      relayVerifiedRows:officialRows.length,errors:[]};
+  const now=nowIso(),previous=state.relayAudit||{},
+    pendingAfter=pendingSettlementMarkets(state).filter(m=>String(m.gmTs||"")===gmTs).length,
+    prevRounds=previous.rounds||{},rounds={...prevRounds};
+  rounds[gmTs]={at:now,receivedRows:parsed.receivedRows,verifiedRows,
+    settledNow:settled,totalSettled:Number(prevRounds[gmTs]?.totalSettled||0)+settled,
+    pendingBefore:pending.length,pendingAfter};
+  const recentRounds=Object.fromEntries(Object.entries(rounds)
+    .sort(([a],[b])=>Number(b)-Number(a)).slice(0,8));
+  state.relayAudit={at:now,ok:true,source:"BETMAN_OFFICIAL_VIA_GITHUB_OIDC",gmTs,
+    receivedRows:parsed.receivedRows,verifiedRows,resultApiRows:parsed.resultRows.length,
+    gameInfoRows:parsed.gameInfoRows.length,pendingBefore:pending.length,pendingAfter,
+    settledNow:settled,totalSettled:Number(previous.totalSettled||0)+settled,
+    lastSettlementAt:settled?now:previous.lastSettlementAt||null,
+    lastSuccessAt:now,rounds:recentRounds};
+  const stillPending=pendingSettlementMarkets(state);
+  state.resultAudit={...(state.resultAudit||{}),
+    pending:stillPending.length,
+    pendingNos:stillPending.slice(0,60).map(m=>({gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,
+      marketFamily:m.marketFamily,line:m.line,pick:m.finalPick,game:m.game}))};
+  if(verifiedRows){
+    state.resultAudit={...state.resultAudit,ok:true,lastAt:now,lastSuccessAt:now,
+      source:"BETMAN_OFFICIAL_VIA_GITHUB_OIDC",settledNow:settled,
+      relayVerifiedRows:verifiedRows,errors:[]};
     MEM.lastResultSuccess=Date.now();
   }
   await saveState(state,env,true);
-  return json({ok:true,gmTs,receivedRows:parsed.length,verifiedRows:officialRows.length,
-    pendingBefore:pending.length,settledNow:settled,pendingAfter:state.relayAudit.pendingAfter,at:now});
+  return json({ok:true,gmTs,receivedRows:parsed.receivedRows,verifiedRows,
+    resultApiRows:parsed.resultRows.length,gameInfoRows:parsed.gameInfoRows.length,
+    pendingBefore:pending.length,settledNow:settled,pendingAfter,at:now});
 }
 
 
@@ -3317,7 +3365,7 @@ async function handleAppInternal(req,env,ctx){
       const s=await bootstrapState(env);return jsonDownload(buildAnalysisExport(s),exportFileName(s));
     }
     if(u.pathname==="/api/diagnostics"){
-      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
+      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
     }
     if(u.pathname==="/api/self-test"){if(!adminAuthorized(req,env))return json({error:"unauthorized"},401);const report=selfTest();return json(report,report.ok?200:500);}
     return json({error:"not found"},404);
