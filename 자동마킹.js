@@ -2193,10 +2193,18 @@ async function writeStoredState(env,str){
   }
   const K=kv(env);if(!K)return false;await K.put(STATE_KEY,str);MEM.lastPersistChars=str.length;return true;
 }
+// R308: apply elite grade policy to persisted marked games immediately after deployment.
+// Only unlocked pregame grades change; selections and past settlements remain untouched.
+async function refreshR308GradePolicy(state,env){
+  if(!state?.markets?.length||state.gradeAudit?.mode==="R308_ELITE_RELATIVE_FALLBACK_20_30_50")return false;
+  assignGrades(state);state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
+  await persistState(env,true);return true;
+}
 async function loadState(env){
   if(MEM.state){
     const removed=purgeMidnightMarkets(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),manualOverrideChanged=applyR291Proto6970Over(MEM.state),drawEngineChanged=applyR292DrawEngineMigration(MEM.state),reportReanalysisChanged=applyR294ReportDrawReanalysisMigration(MEM.state),selectionRebuildChanged=applyR302RatioDrawRebuildMigration(MEM.state);
     if(removed||settlementRepaired||jbCorrected||roundReset||round119Reset||manualOverrideChanged||drawEngineChanged||reportReanalysisChanged||selectionRebuildChanged){markState(MEM.state);MEM.state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;await persistState(env,true);}
+    await refreshR308GradePolicy(MEM.state,env);
     return MEM.state;
   }
   let loadedPurgeRemoved=0,loadedNeedsPersist=false;
@@ -2213,6 +2221,7 @@ async function loadState(env){
     markState(MEM.state);MEM.state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
     await persistState(env,true);
   }
+  await refreshR308GradePolicy(MEM.state,env);
   return MEM.state;
 }
 
