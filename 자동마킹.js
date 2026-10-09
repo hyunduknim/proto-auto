@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R329-PLUS-TOTAL-REPRESENTATIVE";
-const BUILD_ID = "proto-betman-core-r329-plus-total-representative";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R330-TOTAL-EDGE-CORRECTION";
+const BUILD_ID = "proto-betman-core-r330-total-edge-correction";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1919,7 +1919,7 @@ function assignRepresentativeMarkets(state){
     const plusEv=Number(current.q.calibratedP)*Number(current.q.odds)-1;
     const independent=Number(q.independentGroupCount||0)>=2&&Number(q.gradeAxisSupportCount||0)>=2&&
       Number(q.gradeAxisOppositionCount||0)===0;
-    const value=Number(q.edge)>=.005&&ev>=-.025&&
+    const value=Number(q.calibratedP)-Number(q.marketP)>=.005&&ev>=-.025&&
       Number(q.conservativeP)>=Number(q.marketP)-.075;
     const stronger=candidateUtility(alternative)>=candidateUtility(current)-.012&&
       ev>=plusEv-.015;
@@ -2566,7 +2566,7 @@ async function writeStoredState(env,str){
 }
 // R308: apply elite grade policy to persisted marked games immediately after deployment.
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
-const R317_MARKET_MIX_ID="R329_PLUS_TOTAL_REPRESENTATIVE_REANALYSIS_ONCE";
+const R317_MARKET_MIX_ID="R330_TOTAL_EDGE_CORRECTION_REANALYSIS_ONCE";
 async function refreshR308GradePolicy(state,env){
   if(!state?.markets?.length)return false;
   if(state.marketRebalanceAudit?.id!==R317_MARKET_MIX_ID){
