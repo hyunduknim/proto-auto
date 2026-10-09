@@ -1,0 +1,36 @@
+name: Probe upstream official result connectivity
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/upstream-probe.yml
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probe official results POST endpoints from external runner
+        run: |
+          node <<'NODE'
+          const apis=[
+            ["SOURCE","https://www.betman.co.kr/buyPsblGame/inqCacheBuyAbleGameInfoList.do",{_sbmInfo:{debugMode:"false"}},"https://www.betman.co.kr/main/mainPage/gamebuy/buyableGameList.do"],
+            ["RESULT","https://www.betman.co.kr/gamebuy/winrst/inqWinrstDetlBody.do",{gmId:"G101",gmTs:"260120",_sbmInfo:{debugMode:"false"}},"https://www.betman.co.kr/main/mainPage/gamebuy/winrstDetl.do"],
+            ["GAMEINFO","https://www.betman.co.kr/buyPsblGame/gameInfoInq.do",{gmId:"G101",gmTs:"260120",gameYear:"",_sbmInfo:{debugMode:"false"}},"https://www.betman.co.kr/main/mainPage/gamebuy/gameSlip.do?gmId=G101&gmTs=260120"]
+          ];
+          (async()=>{
+          await Promise.all(apis.map(async ([name,url,payload,ref])=>{
+            const ac=new AbortController();const start=Date.now();const timer=setTimeout(()=>ac.abort(),10000);
+            try{
+              const r=await fetch(url,{method:"POST",redirect:"follow",headers:{"content-type":"application/json; charset=UTF-8","accept":"application/json, text/javascript, */*; q=0.01","x-requested-with":"XMLHttpRequest","origin":"https://www.betman.co.kr","referer":ref,"user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36","cache-control":"no-cache","pragma":"no-cache"},body:JSON.stringify(payload),signal:ac.signal});
+              const text=await r.text();let j;try{j=JSON.parse(text)}catch{}
+              console.log("OFFICIAL_UPSTREAM="+JSON.stringify({name,status:r.status,elapsedMs:Date.now()-start,contentType:r.headers.get("content-type"),bytes:text.length,validJson:!!j,dataKeys:j?Object.keys(j).slice(0,10):[]}));
+            }catch(e){console.log("OFFICIAL_UPSTREAM="+JSON.stringify({name,status:"NETWORK_ERROR",elapsedMs:Date.now()-start,error:e?.message||String(e)}))}
+            finally{clearTimeout(timer)}
+          }))
+          })();
+          NODE
