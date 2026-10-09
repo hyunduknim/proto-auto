@@ -35,7 +35,7 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R330-TOTAL-EDGE-CORRECTION";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R331-RECOMMENDATION-RISK-GUARD";
 const BUILD_ID = "proto-betman-core-r330-total-edge-correction";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
@@ -2188,14 +2188,14 @@ function assignGrades(state){
   // 플핸 편향은 추천 선정에서만 보정하고 대표마킹/가장추천/정산은 건드리지 않는다.
   const recommendationRankScore=m=>{
     const base=gradeScore(m),tier=r322GradeTier(m,"추천");
-    if(!tier)return base;
+    // R331: weak MONEYLINE/HANDICAP risk must still count when the tier is absent.
     const uo=m.marketFamily==="TOTAL"&&["언더","오버"].includes(String(m.finalPick||""));
     const weakPlus=m.marketFamily==="HANDICAP"&&directionForPick(m)==="PLUS";
     const evidence=Number(m.independentGroupCount||0)>=2&&Number(m.gradeAxisOppositionCount||0)===0;
     const edge=Number(m.modelEdge),ev=Number(m.hitProbability)*Number(m.finalOdds)-1;
     const weakMoneyline=m.marketFamily==="MONEYLINE"&&
       (!evidence||!Number.isFinite(edge)||edge<.005||!Number.isFinite(ev)||ev<-.035);
-    return base+(uo&&evidence&&Number.isFinite(edge)&&edge>=0&&ev>=-.035?.025:0)
+    return base+(tier&&uo&&evidence&&Number.isFinite(edge)&&edge>=0&&ev>=-.035?.025:0)
       -(weakPlus&&(!evidence||!Number.isFinite(edge)||edge<.005||ev<-.035)?.025:0)
       -(weakMoneyline?.035:0);
   };
