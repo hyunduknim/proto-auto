@@ -97,6 +97,18 @@ const api = new Function(
     "GameInfo halftime must never enter the scoring database");
   const verified=api.terminalOfficialScoringRows(scoringState,finalInfo,"260120");
   assert.equal(verified.length,1,"Official terminal GameInfo provides training-only score");
+  // Refuse transformed handicap lines, mismatched official result and other rounds.
+  const wrongResult={compSchedules:{keys:Object.keys(sourceRow("경기종료","1:2")),
+    datas:[Object.values(sourceRow("경기종료","1:2"))]}};
+  const adjusted={compSchedules:{keys:Object.keys(sourceRow("경기종료","3.5:4")),
+    datas:[Object.values(sourceRow("경기종료","3.5:4"))]}};
+  assert.equal(api.terminalOfficialScoringRows(scoringState,wrongResult,"260120").length,0,
+    "Contradictory official outcome and score cannot train model");
+  assert.equal(api.terminalOfficialScoringRows(scoringState,adjusted,"260120").length,0,
+    "Handicap-adjusted decimal scores are not actual team scoring histories");
+  assert.equal(api.terminalOfficialScoringRows(scoringState,finalInfo,"260121").length,0,
+    "Other-round final results cannot train the active market");
+
   assert.equal(api.ingestPerformanceRows(scoringState,verified),1,
     "Train official final game score even when the game has no marked wager");
   assert.equal(api.ingestPerformanceRows(scoringState,verified),0,
