@@ -1,0 +1,54 @@
+name: Diagnose live R284
+on:
+  push:
+    branches: [diag-r284-live]
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch and summarize live state
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 3 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state?diag=$(date +%s)" -o state.json
+          python - <<'PY'
+          import json, collections, datetime
+          s=json.load(open('state.json'))
+          print("VERSION",s.get("version"))
+          print("BUILD",s.get("build"))
+          print("ROUND",s.get("round"),"GMTS",s.get("gmTs"))
+          print("GRADE_AUDIT",json.dumps(s.get("gradeAudit") or {},ensure_ascii=False))
+          print("MARKET_AUDIT",json.dumps(s.get("marketMixAudit") or {},ensure_ascii=False))
+          rows=s.get("markets") or []
+          reps=[m for m in rows if m.get("marked") and m.get("representativeSelected")]
+          print("MARKETS",len(rows),"REPS",len(reps))
+          bygame=collections.defaultdict(list)
+          for m in rows:
+            bygame[(m.get("date"),m.get("time"),m.get("home"),m.get("away"))].append(m)
+          gaps=[]
+          for k,ms in bygame.items():
+            if any(m.get("marked") and m.get("representativeSelected") for m in ms): continue
+            valid=[]
+            for m in ms:
+              cs=[c for c in (m.get("choices") or []) if isinstance(c.get("odds"),(int,float)) and c.get("odds",0)>1]
+              if len(cs)>=2:
+                valid.append({
+                  "no":m.get("no"),"family":m.get("marketFamily"),"line":m.get("line"),"status":m.get("status"),
+                  "snap":m.get("oddsSnapshotStatus"),"choices":[(c.get("label"),c.get("odds")) for c in cs],
+                  "selectionStatus":m.get("selectionStatus"),"reason":m.get("analysisReason")
+                })
+            if valid: gaps.append((k,valid))
+          print("GAPS_WITH_PRICED_MARKETS",len(gaps))
+          for k,v in gaps[:100]:
+            print("GAP",json.dumps({"game":k,"markets":v},ensure_ascii=False))
+          print("REP_GRADES",dict(collections.Counter(m.get("displayGrade") for m in reps)))
+          for m in reps:
+            if m.get("displayGrade")=="일반":
+              print("GENERAL",json.dumps({
+                "no":m.get("no"),"game":m.get("game"),"sport":m.get("sport"),"family":m.get("marketFamily"),"pick":m.get("finalPick"),"odds":m.get("finalOdds"),
+                "mode":m.get("selectionMode"),"p":m.get("hitProbability"),"safe":m.get("safeHitProbability"),"rel":m.get("dataReliability"),"q":m.get("aiQuality"),
+                "conf":m.get("confidenceScore"),"cross":m.get("crossAgreement"),"avail":m.get("axisAvailableCount"),"support":m.get("axisSupportCount"),"opp":m.get("axisOppositionCount"),
+                "groups":m.get("independentGroupCount"),"gsupport":m.get("gradeAxisSupportCount"),"gopp":m.get("gradeAxisOppositionCount"),"integrity":m.get("dataIntegrityScore"),
+                "risk":m.get("sportRisk"),"reason":m.get("analysisReason")
+              },ensure_ascii=False))
+          PY
