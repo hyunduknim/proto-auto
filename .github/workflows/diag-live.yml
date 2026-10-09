@@ -6,36 +6,11 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch and summarize live state
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsS --retry 3 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state?diag=$(date +%s)" -o state.json
-          python - <<'PY'
-          import json, collections
-          s=json.load(open('state.json'))
-          print("VERSION",s.get("version"))
-          print("ROUND",s.get("round"),"GMTS",s.get("gmTs"))
-          print("SUMMARY",json.dumps(s.get("summary") or {},ensure_ascii=False))
-          print("GRADE_AUDIT",json.dumps(s.get("gradeAudit") or {},ensure_ascii=False))
-          print("MARKET_AUDIT",json.dumps(s.get("marketMixAudit") or {},ensure_ascii=False))
-          gs=s.get("markingGames") or []
-          print("MARKING_GAMES",len(gs))
-          print("GRADES",dict(collections.Counter(g.get("displayGrade") for g in gs if g.get("pick"))))
-          gaps=[g for g in gs if not g.get("pick")]
-          print("VISIBLE_GAPS",len(gaps))
-          for g in gaps:
-            print("GAP",json.dumps({
-              "no":g.get("no"),"date":g.get("date"),"time":g.get("time"),"game":g.get("game"),"sport":g.get("sport"),
-              "market":g.get("market"),"status":g.get("selectionStatus"),
-              "marketRows":[{"no":r.get("no"),"family":r.get("marketFamily"),"line":r.get("line"),"choices":[(c.get("label"),c.get("odds")) for c in (r.get("choices") or [])],"status":r.get("selectionStatus"),"gate":r.get("analysisGateCode"),"best":r.get("analysisBestPick"),"bestOdds":r.get("analysisBestOdds")} for r in (g.get("marketRows") or [])]
-            },ensure_ascii=False))
-          for g in gs:
-            if g.get("pick") and g.get("displayGrade")=="일반":
-              print("GENERAL",json.dumps({
-                "no":g.get("no"),"game":g.get("game"),"sport":g.get("sport"),"family":g.get("marketFamily"),"pick":g.get("pick"),"odds":g.get("odds"),
-                "mode":g.get("selectionMode"),"p":g.get("calibratedProbability"),"safe":g.get("conservativeProbability"),"rel":g.get("dataReliability"),"q":g.get("aiQuality"),
-                "conf":g.get("confidenceScore"),"cross":g.get("crossAgreement"),"opp":g.get("axisOppositionCount"),"groups":g.get("independentGroupCount"),"gopp":g.get("gradeAxisOppositionCount"),"integrity":g.get("dataIntegrityScore"),
-                "risk":g.get("sportRisk"),"deep":g.get("deepReviewScore")
-              },ensure_ascii=False))
-          PY
+      - name: Fetch live state
+        run: curl -fsS --retry 3 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state?diag=$(date +%s)" -o state.json
+      - name: Upload live state
+        uses: actions/upload-artifact@v4
+        with:
+          name: r284-live-state
+          path: state.json
+          retention-days: 1
