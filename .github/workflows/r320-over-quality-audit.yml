@@ -1,0 +1,89 @@
+name: R320 live recommendation and Over quality audit
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect read-only live Betman marking data
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 25 "https://protonumber.mystyle276.workers.dev/api/state?audit=$GITHUB_RUN_ID" -o "$RUNNER_TEMP/state.json"
+          node - "$RUNNER_TEMP/state.json" <<'NODE'
+          const fs=require("node:fs"),d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          const n=v=>Number(v||0),rows=Array.isArray(d.markets)?d.markets:[];
+          const now=Date.now(),isUp=m=>!m.resultFinal&&Number.isFinite(Date.parse(String(m.date||"")+"T"+String(m.time||"00:00")+":00+09:00"))&&Date.parse(String(m.date||"")+"T"+String(m.time||"00:00")+":00+09:00")>now;
+          const reps=rows.filter(m=>m.marked&&m.representativeSelected&&(!d.gmTs||String(m.gmTs||"")===String(d.gmTs)));
+          const unlocked=reps.filter(isUp),locks=reps.filter(m=>!isUp(m));
+          const tot=unlocked.filter(m=>m.marketFamily==="TOTAL");
+          const ov=tot.filter(m=>m.finalPick==="오버");
+          const un=tot.filter(m=>m.finalPick==="언더");
+          const ev=m=>n(m.hitProbability)*n(m.finalOdds)-1;
+          const edge=m=>n(m.hitProbability)-n(m.marketProbability);
+          const q=m=>({
+            no:m.no,game:m.game||m.home+" - "+m.away,league:m.league,date:m.date,time:m.time,
+            grade:m.displayGrade,pick:m.finalPick,odds:m.finalOdds,
+            p:m.hitProbability,mp:m.marketProbability,safe:m.safeHitProbability,
+            ev:Number(ev(m).toFixed(4)),edge:Number(edge(m).toFixed(4)),
+            safeEv:Number((n(m.safeHitProbability)*n(m.finalOdds)-1).toFixed(4)),
+            rel:m.dataReliability,quality:m.aiQuality,conf:m.confidenceScore,
+            cross:m.crossAgreement,integrity:m.dataIntegrityScore,
+            groups:m.independentGroupCount,support:m.gradeAxisSupportCount,
+            opp:m.gradeAxisOppositionCount,axisOpp:m.axisOppositionCount,
+            risk:m.sportRisk?.gradeLimited||false,
+            directionRisk:m.directionRiskPenalty,
+            selectionMode:m.selectionMode,evRecorded:m.EV
+          });
+          const reason=m=>{
+            const p=n(m.hitProbability),mp=n(m.marketProbability),s=n(m.safeHitProbability),o=n(m.finalOdds);
+            const a=[];
+            if(n(m.independentGroupCount)<2)a.push("groups<2");
+            if(n(m.gradeAxisOppositionCount)>1)a.push("opposition>1");
+            if(n(m.gradeAxisOppositionCount)===1){
+              if(p-mp<.008)a.push("edge<.008");
+              if(p*o-1<-.14)a.push("EV<-.14");
+              if(s-mp<-.10)a.push("safeEdge<-.10");
+              if(n(m.dataReliability)<.55)a.push("rel<.55");
+              if(n(m.aiQuality)<.48)a.push("quality<.48");
+              if(n(m.crossAgreement)<.43)a.push("cross<.43");
+              if(n(m.dataIntegrityScore)<.44)a.push("integrity<.44");
+            }else if(n(m.gradeAxisOppositionCount)===0){
+              if(p-mp<.005)a.push("edge<.005");
+              if(p*o-1<-.16)a.push("EV<-.16");
+              if(s-mp<-.10)a.push("safeEdge<-.10");
+              if(n(m.dataReliability)<.50)a.push("rel<.5");
+              if(n(m.aiQuality)<.40)a.push("quality<.4");
+              if(n(m.crossAgreement)<.36)a.push("cross<.36");
+              if(n(m.dataIntegrityScore)<.40)a.push("integrity<.4");
+            }
+            return a;
+          };
+          const avg=(arr,fn)=>arr.length?Number((arr.reduce((s,m)=>s+fn(m),0)/arr.length).toFixed(4)):null;
+          const stats=arr=>({count:arr.length,negativeEV:arr.filter(m=>ev(m)<0).length,
+            avgEV:avg(arr,ev),avgEdge:avg(arr,edge),
+            avgReliability:avg(arr,m=>n(m.dataReliability)),
+            avgOpp:avg(arr,m=>n(m.gradeAxisOppositionCount))});
+          console.log("LIVE_OVER_AUDIT="+JSON.stringify({
+            version:d.version,at:new Date().toISOString(),round:d.round,
+            grades:d.gradeAudit?.counts,gradeDirection:d.gradeAudit?.totalDirectionAudit,
+            representativeBalance:d.totalDirectionRebalanceAudit,
+            unlocked:unlocked.length,locked:locks.length,
+            over:stats(ov),under:stats(un),
+            eliteOver:stats(ov.filter(m=>m.displayGrade==="가장추천")),
+            eliteUnder:stats(un.filter(m=>m.displayGrade==="가장추천")),
+            recommendedOver:stats(ov.filter(m=>m.displayGrade==="추천")),
+            recommendedUnder:stats(un.filter(m=>m.displayGrade==="추천"))
+          }));
+          console.log("LIVE_OVER_ROWS="+JSON.stringify(ov.map(m=>({...q(m),recReasons:reason(m)}))));
+          console.log("LIVE_UNDER_ELITE_ROWS="+JSON.stringify(un.filter(m=>m.displayGrade==="가장추천").map(q)));
+          console.log("LIVE_OVER_LOCKED="+JSON.stringify(locks.filter(m=>m.marketFamily==="TOTAL"&&m.finalPick==="오버").map(q)));
+          NODE
