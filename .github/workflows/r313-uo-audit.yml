@@ -42,3 +42,23 @@ jobs:
             underExamples:distinct.filter(x=>x.analysisBestPick==="언더").slice(0,5),
             blankUO:distinct.filter(x=>!x.over||!x.under).length}));
           NODE
+
+      - name: Verify R313 value-gated Under Over elite
+        run: |
+          curl --fail --location --silent --show-error --max-time 20 -H "Cache-Control: no-cache" "https://protonumber.mystyle276.workers.dev/api/state?verify=$GITHUB_RUN_ID" -o "$RUNNER_TEMP/quality.json"
+          node - "$RUNNER_TEMP/quality.json" <<'NODE'
+          const fs=require("node:fs");const d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          const b=(d.markingGames||[]).filter(m=>m.pick&&!m.resultFinal&&m.displayGrade==="가장추천");
+          const invalid=b.filter(m=>m.marketFamily!=="TOTAL"||!["언더","오버"].includes(m.pick));
+          const negative=b.filter(m=>Number(m.calibratedProbability)*Number(m.odds)-1<.005);
+          console.log("R313_LIVE_AUDIT="+JSON.stringify({
+            at:new Date().toISOString(),version:d.version,round:d.round,
+            grades:d.gradeAudit?.counts,eliteDirection:d.gradeAudit?.totalDirectionAudit,
+            best:b.length,under:b.filter(m=>m.pick==="언더").length,over:b.filter(m=>m.pick==="오버").length,
+            nonUO:invalid.length,negativeEV:negative.length,
+            result:d.summary,settlement:d.settlementHealth
+          }));
+          if(!String(d.version||"").includes("R313"))throw Error("R313 code is not live");
+          if(invalid.length)throw Error("Non U/O premium pick");
+          if(negative.length)throw Error("Negative return premium pick");
+          NODE
