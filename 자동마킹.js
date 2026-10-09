@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R331-RECOMMENDATION-RISK-GUARD";
-const BUILD_ID = "proto-betman-core-r330-total-edge-correction";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R332-MONEYLINE-RISK-GUARD";
+const BUILD_ID = "proto-betman-core-r332-moneyline-risk-guard";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1458,6 +1458,31 @@ function relativeChoiceValue(q){
   return clamp(p-mp,-.2,.2)*.43+clamp(safe-mp,-.2,.2)*.31+clamp(p*o-1,-.35,.35)*.12+
     Number(q?.reliability||0)*.008+Number(q?.crossAgreement||0)*.006-Math.max(0,o-4.5)*.006;
 }
+// R332: bookmaker-relative edge does not justify an uncorroborated extreme
+// MONEYLINE underdog. When the favorite is below 1.31, don't force the
+// opposite pick solely to satisfy the odds floor. Other market families win
+// priority; if none is available retain full coverage at normal risk tier.
+function moneylinePickRisk(m,q,rows=[]){
+  if(m?.marketFamily!=="MONEYLINE"||!q)return {unsafe:false,reason:null};
+  const p=Number(q.decisionProbability??q.calibratedP??q.aiP),
+    mp=Number(q.marketP),safe=Number(q.conservativeP),odds=Number(q.odds);
+  if(![p,mp,safe,odds].every(Number.isFinite)||odds<=1)return {unsafe:true,reason:"INVALID_MONEYLINE_ESTIMATE"};
+  const ev=p*odds-1,edge=p-mp;
+  const confirmed=Number(q.independentGroupCount||0)>=2&&
+    Number(q.gradeAxisSupportCount||0)>=2&&Number(q.gradeAxisOppositionCount||0)===0&&
+    edge>=.015&&ev>=.015&&safe>=mp-.06;
+  const leader=(rows||[]).slice().sort(compareProbability)[0];
+  const floorRedirect=!!(leader&&String(leader.pick)!==String(q.pick)&&
+    Number(leader.odds)<CFG.minRepOdds&&
+    Number(leader.decisionProbability??leader.calibratedP)>=p+.18);
+  const extreme=p<.24||(p<.33&&odds>=2.7)||(p<.38&&odds>=3.5);
+  const poorValue=ev<-.10&&p<.42&&odds>=2.5;
+  const unsafe=!confirmed&&(extreme||poorValue||
+    (floorRedirect&&(p<.42||odds>=2.45)));
+  return {unsafe,reason:unsafe?(floorRedirect?"FAVORITE_BELOW_MIN_ODDS_NO_FORCED_OPPOSITE":
+    extreme?"UNCORROBORATED_LONGSHOT":"WEAK_UNDERDOG_VALUE"):null,
+    floorRedirect,confirmed};
+}
 function compareMarketValue(a,b){return relativeChoiceValue(b)-relativeChoiceValue(a)||compareProbability(a,b);}
 
 
@@ -1600,12 +1625,12 @@ function bestComparableChoiceForMarket(m){
   for(const raw of rows){
     if(Number(raw.odds)<CFG.minRepOdds)continue;
     const gate=candidateEligible(m)?selectionGate(m,raw):{ok:false,code:"DEEP_REVIEW"};
-    const q={...raw};let review=null;
+    const q={...raw};q.moneylinePickRisk=moneylinePickRisk(m,q,rows);let review=null;
     if(!gate.ok){
       review=deepReviewMetrics(m,q,rows,absoluteBest);
       q.deepReview=review;q.deepReviewScore=review.score;q.deepReviewRecommended=review.recommend;
     }
-    options.push({m,q,gatePassed:!!gate.ok,selectionMode:gate.ok?"STRICT":"DEEP_REVIEW",deepReview:review});
+    options.push({m,q,gatePassed:!!gate.ok&&!q.moneylinePickRisk.unsafe,selectionMode:gate.ok&&!q.moneylinePickRisk.unsafe?"STRICT":"DEEP_REVIEW",deepReview:review});
   }
   options.sort((a,b)=>candidateUtility(b)-candidateUtility(a)||Number(b.q?.tieBreakKey||0)-Number(a.q?.tieBreakKey||0));
   return options[0]||null;
@@ -1643,7 +1668,7 @@ function targetCounts(n,rates){
 }
 function clearRepresentative(ms){
   for(const m of ms){
-    m.marked=false;m.representativeSelected=false;m.displayGrade="일반";
+    m.marked=false;m.representativeSelected=false;m.displayGrade="일반";m.moneylineRiskFlag=false;m.moneylineRiskReason=null;
     if(!m.resultFinal){
       for(const k of ["drawEvidenceQualified","sportAux","sportRisk","decisionProbability","finalPick","finalOdds","hitProbability","safeHitProbability","marketProbability","modelProbability","calibratedProbability","conservativeProbability","betShare","EV","modelEdge","modelEdgeAvailable","valuePercentage","conservativeValue","oddsMovement","openingOdds","dataReliability","dataCoverage","marketSelectionScore","aiQuality","confidenceScore","confidenceLevel","marketAgreement","crossAgreement","independentEvidence","axisAvailableCount","axisSupportCount","axisOppositionCount","axisSupportRatio","axisUnanimous","axisVotes","independentGroupCount","gradeAxisSupportCount","gradeAxisOppositionCount","provenanceGroups","provenanceConsensus","segmentAdjustment","segmentLearningSamples","evidenceLayers","fiveApkActiveCount","dataIntegrityScore","analysisLayers","representativeGatePassed","selectionMode","analysisReason","markingPhase"])m[k]=null;
       m.officialMarked=false;m.selectionStatus=validChoices(m).length>=2?"시장후보":"배당확인중";
@@ -1670,6 +1695,7 @@ function marketComparableComponents(x){
       score+=clamp(.5+scenarioEdge/.10,0,1)*.035+scenarioAgreement*.015;
     }
   }
+  if(m?.marketFamily==="MONEYLINE"&&q?.moneylinePickRisk?.unsafe)score-=.32;
   return {score:clamp(score,0,1.20),p,safe,marketP,edge,safeEdge,relLift,ev,edgeScore,safeEdgeScore,relativeScore,evScore,scenarioP,scenarioEdge,scenarioAgreement};
 }
 function candidateUtility(x){return marketComparableComponents(x).score;}
@@ -1935,6 +1961,7 @@ function assignRepresentativeMarkets(state){
   for(const g of games){
     clearRepresentative(g.ms);const opts=Object.values(g.c||{});let x=assigned.get(g.key);if(!x)x=opts.sort((a,b)=>candidateUtility(b)-candidateUtility(a))[0];if(!x){markUnselected(g.ms);continue;}const {m,q}=x;counts[m.marketFamily]++;
     m.marked=true;m.representativeSelected=true;m.finalPick=q.pick;m.finalOdds=q.odds;
+    m.moneylineRiskFlag=!!q.moneylinePickRisk?.unsafe;m.moneylineRiskReason=q.moneylinePickRisk?.reason||null;
     m.drawEvidenceQualified=m.sport==="축구"&&q.pick==="무"?soccerDrawEvidenceQualified(m,q):null;
     m.sportAux=q.layers?.sportAux||null;m.sportRisk=q.sportRisk||null;m.decisionProbability=q.decisionProbability??q.calibratedP;
     m.hitProbability=q.calibratedP;m.safeHitProbability=q.conservativeP;m.marketProbability=q.marketP;m.modelProbability=q.modelP;m.calibratedProbability=q.calibratedP;m.conservativeProbability=q.conservativeP;m.crossMarketUtility=r3(candidateUtility(x));
@@ -1945,7 +1972,7 @@ function assignRepresentativeMarkets(state){
     const dr=m.selectionMode==="DEEP_REVIEW"?(q.deepReview||x.deepReview||deepReviewMetrics(m,q,analyzeChoiceRows(m),analyzeChoiceRows(m).sort(compareProbability)[0])):null;m.deepReviewScore=dr?r3(dr.score):null;m.deepReviewStrength=dr?.strength||null;m.deepReviewRecommended=!!dr?.recommend;m.deepReviewReason=dr?.reason||null;m.deepReviewMissingLayers=dr?.missingLayers||null;
     const auxTxt=` · 4축지지 ${Number(q.axisSupportCount||0)}/${Number(q.axisAvailableCount||0)} · 반대 ${Number(q.axisOppositionCount||0)} · 교차 ${(Number(q.crossAgreement||0)*100).toFixed(0)}% · 데이터품질 ${(Number(q.dataIntegrity||0)*100).toFixed(0)}%`;const learnTxt=Math.abs(Number(q.learningAdjustment||0))>.0005?` · 자기보정 ${(q.learningAdjustment*100).toFixed(1)}%p`:"";const deepTxt=dr?` · 심층점수 ${(Number(dr.score||0)*100).toFixed(0)} · ${dr.recommend?"추천강도 강함":"일반강도"}`:"";
     const prefix=m.representativeGatePassed?"STRICT · ":"심층재분석 · ";
-    m.analysisReason=`${prefix}보정확률 ${(q.calibratedP*100).toFixed(1)}% · Edge ${(q.edge*100).toFixed(1)}%p · 보수확률 ${(q.conservativeP*100).toFixed(1)}% · 신뢰도 ${(q.reliability*100).toFixed(0)}%${auxTxt}${deepTxt}${learnTxt}`;
+    m.analysisReason=`${prefix}보정확률 ${(q.calibratedP*100).toFixed(1)}% · Edge ${(q.edge*100).toFixed(1)}%p · 보수확률 ${(q.conservativeP*100).toFixed(1)}% · 신뢰도 ${(q.reliability*100).toFixed(0)}%${auxTxt}${deepTxt}${learnTxt}${m.moneylineRiskFlag?" · 일반승 고위험: "+m.moneylineRiskReason+" · 상대시장 대안 권장":""}`;
     m.selectionStatus="대표픽";m.markingPhase="OFFICIAL";m.officialMarked=true;
   }
   const totalCounts={MONEYLINE:lockedCounts.MONEYLINE+counts.MONEYLINE,HANDICAP:lockedCounts.HANDICAP+counts.HANDICAP,TOTAL:lockedCounts.TOTAL+counts.TOTAL};
@@ -2182,7 +2209,7 @@ function assignGrades(state){
     return m.marketFamily==="TOTAL"&&["언더","오버"].includes(m.finalPick)&&tier
       ?({STRICT:3,CORROBORATED_RELATIVE:2,MARKET_RELATIVE_NOT_INDEPENDENT:1}[tier]||0):0;
   };
-  const bestRows=rankable.slice().sort((a,b)=>eliteRank(b)-eliteRank(a)||r322GradeRank(a,b,"가장추천")).slice(0,bestSlots);
+  const bestRows=rankable.filter(m=>!m.moneylineRiskFlag&&m.marketFamily==="TOTAL"&&["언더","오버"].includes(m.finalPick)).sort((a,b)=>eliteRank(b)-eliteRank(a)||r322GradeRank(a,b,"가장추천")).slice(0,bestSlots);
   const bestSet=new Set(bestRows);
   // R326: 추천 등급의 근소한 품질 동률에서 U/O에 우선권을 주되 근거등급을 역전하지 않는다.
   // 플핸 편향은 추천 선정에서만 보정하고 대표마킹/가장추천/정산은 건드리지 않는다.
@@ -2199,7 +2226,7 @@ function assignGrades(state){
       -(weakPlus&&(!evidence||!Number.isFinite(edge)||edge<.005||ev<-.035)?.025:0)
       -(weakMoneyline?.035:0);
   };
-  const recRank=rankable.filter(m=>!bestSet.has(m)).sort((a,b)=>{
+  const recRank=rankable.filter(m=>!bestSet.has(m)&&!m.moneylineRiskFlag).sort((a,b)=>{
     const tierPriority={STRICT:3,CORROBORATED_RELATIVE:2,MARKET_RELATIVE_NOT_INDEPENDENT:1};
     const pa=tierPriority[r322GradeTier(a,"추천")]||0,pb=tierPriority[r322GradeTier(b,"추천")]||0;
     return pb-pa||recommendationRankScore(b)-recommendationRankScore(a)||marketSort(a,b);
