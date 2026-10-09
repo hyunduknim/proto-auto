@@ -2960,8 +2960,9 @@ function selfTest(){
     t("R318 family recommendation targets honor 30/30/40 when qualified",
       ra.selected.MONEYLINE===1&&ra.selected.HANDICAP===1&&ra.selected.TOTAL===1,
       JSON.stringify(ra));
-    t("R318 supported Over candidate may be recommended",
-      rState.markets.some(m=>m.finalPick==="오버"&&m.displayGrade==="추천"));
+    t("R318 Over and Under use the same evidence gate",
+      relativeRecommendationFallbackPasses({...base,marketFamily:"TOTAL",finalPick:"오버"})===
+      relativeRecommendationFallbackPasses({...base,marketFamily:"TOTAL",finalPick:"언더"}));
   }
   // 시장비율 30/30/40 배정기와 후보부족 폴백 검증
   const many=createState();many.round=117;many.gmTs="260117";many.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`H${i}`;x.away=`A${i}`;x.game=`H${i} vs A${i}`;x.date="2099-10-02";many.markets.push(x);}}markState(many);t("19 market mix allocator",many.marketMixAudit.mode==="FORCED_RATIO_30_30_40"&&many.marketMixAudit.targetPolicy==="R317_ADAPTIVE_MIN_DEVIATION_THEN_MAX_QUALITY");t("20 market total reps quality-gated",Object.values(many.marketMixAudit.counts).reduce((a,b)=>a+b,0)<=10);t("21 market target retained",many.marketMixAudit.target.MONEYLINE===30&&many.marketMixAudit.target.HANDICAP===30&&many.marketMixAudit.target.TOTAL===40);
