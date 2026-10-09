@@ -1982,6 +1982,7 @@ function assignGrades(state){
   for(const fam of ["MONEYLINE","HANDICAP","TOTAL"]){
     const pool=recEligible.filter(m=>m.marketFamily===fam).sort(recPriority);
     for(const m of pool.slice(0,Math.max(0,recTargets[fam]||0))){
+      if(recRows.length>=recSlots)break;
       recRows.push(m);recUsed.add(m);
     }
   }
@@ -2905,7 +2906,7 @@ function selfTest(){
   t("04 choices",ms.every(m=>validChoices(m).length===2));t("05 opening odds",ms.every(m=>validChoices(m).every(c=>Number(c.openingOdds)>1)));t("06 baseball 2.5",candidateEligible(ms.find(m=>m.marketFamily==="HANDICAP"))===true);
   const st=createState();st.round=117;st.gmTs="260117";st.markets=structuredClone(ms);markState(st);const reps=st.markets.filter(m=>m.marked&&m.representativeSelected);t("07 priced game always representative-marked",reps.length===1,`reps=${reps.length}`);t("08 min odds",reps.every(m=>Number(m.finalOdds)>=1.31));t("09 ai quality",reps.every(m=>Number.isFinite(Number(m.aiQuality))));t("10 model edge",reps.every(m=>Number.isFinite(Number(m.modelEdge))));t("11 movement",reps.every(m=>Number.isFinite(Number(m.oddsMovement))));t("12 analysis audit",st.analysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW");t("13 public game",representativeGames(st).length===1);t("13a shared audit",st.sharedAnalysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"&&st.sharedAnalysisAudit.analyzedMarkets===3);t("13b all market analysis",st.markets.every(m=>m.sharedAnalysis&&m.sharedAnalysis.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"));t("13c all choice analysis",st.markets.every(m=>Array.isArray(m.sharedAnalysis?.choices)&&m.sharedAnalysis.choices.length===2));t("13d detailed analysis",allGameAnalysis(st).length===1&&allGameAnalysis(st)[0].markets.length===3);
   // R254: 새 회차 대표픽은 상대 순위로 20/30/50을 실제 배분한다.
-  const weak=createState();weak.round=117;weak.gmTs="260117";weak.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`WH${i}`;x.away=`WA${i}`;x.game=`WH${i} vs WA${i}`;for(const c of x.choices)c.openingOdds=c.odds;x.date="2099-10-02";weak.markets.push(x);}}markState(weak);t("14 grade current-round mode",weak.gradeAudit.mode==="R317_BALANCED_RECOMMENDATIONS_UO_ELITE_20_30_50");t("15 weak grades do not overfill",weak.gradeAudit.counts["가장추천"]<=2&&weak.gradeAudit.counts["추천"]<=3&&weak.gradeAudit.counts["일반"]>=5&&weak.gradeAudit.total===10,JSON.stringify(weak.gradeAudit.counts));
+  const weak=createState();weak.round=117;weak.gmTs="260117";weak.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`WH${i}`;x.away=`WA${i}`;x.game=`WH${i} vs WA${i}`;for(const c of x.choices)c.openingOdds=c.odds;x.date="2099-10-02";weak.markets.push(x);}}markState(weak);t("14 grade current-round mode",weak.gradeAudit.mode==="R318_BALANCED_RECOMMENDATIONS_UO_ELITE_20_30_50");t("15 weak grades do not overfill",weak.gradeAudit.counts["가장추천"]<=2&&weak.gradeAudit.counts["추천"]<=3&&weak.gradeAudit.counts["일반"]>=5&&weak.gradeAudit.total===10,JSON.stringify(weak.gradeAudit.counts));
   // 대표픽을 직접 구성해 20/30/50 등급 목표 배정 검증
   const strong=createState();strong.markets=[];for(let i=0;i<10;i++){const x=structuredClone(ms[0]);x.no=500+i;x.home=`SH${i}`;x.away=`SA${i}`;x.game=`SH${i} vs SA${i}`;x.date="2099-10-02";x.marked=true;x.representativeSelected=true;x.finalPick="승";x.finalOdds=1.75;x.hitProbability=i<2?.68:i<5?.62:.56;x.safeHitProbability=i<2?.66:i<5?.60:.54;x.aiQuality=i<2?.66:i<5?.58:.50;x.marketSelectionScore=x.aiQuality;x.marketProbability=.59;x.modelEdge=i<5?.02:0;x.modelEdgeAvailable=true;x.dataReliability=.75;x.dataCoverage=.75;x.confidenceScore=i<2?.72:i<5?.64:.52;x.independentEvidence=i<5;x.crossAgreement=i<5?.80:.50;x.oddsMovement=.02;x.dataIntegrityScore=.75;x.axisAvailableCount=i<5?3:1;x.axisSupportCount=i<2?3:i<5?2:1;x.axisOppositionCount=0;x.axisSupportRatio=x.axisSupportCount/x.axisAvailableCount;x.axisUnanimous=i<2;x.independentGroupCount=i<2?3:i<5?2:1;x.gradeAxisSupportCount=x.independentGroupCount;x.gradeAxisOppositionCount=0;x.segmentAdjustment=0;strong.markets.push(x);}assignGrades(strong);t("16 strongest non-total stays below U/O-only top tier",strong.gradeAudit.counts["가장추천"]===0,JSON.stringify(strong.gradeAudit.counts));t("17 rec target",strong.gradeAudit.counts["추천"]===3,JSON.stringify(strong.gradeAudit.counts));t("18 balanced grade rest",strong.gradeAudit.counts["일반"]===7,JSON.stringify(strong.gradeAudit.counts));
   const fb=createState();fb.markets=[];for(let i=0;i<10;i++){const x=structuredClone(strong.markets[i]);x.no=560+i;x.home=`FBH${i}`;x.away=`FBA${i}`;x.game=`FBH${i} vs FBA${i}`;x.representativeGatePassed=false;x.selectionMode="DEEP_REVIEW";x.deepReviewScore=i<5?.72:.48;x.deepReviewRecommended=i<5;x.hitProbability=i<2?.69:i<5?.63:.55;x.safeHitProbability=i<2?.65:i<5?.59:.52;x.dataReliability=.72;x.aiQuality=i<2?.66:i<5?.58:.50;x.confidenceScore=i<2?.70:i<5?.63:.52;x.independentEvidence=i<5;x.crossAgreement=i<5?.72:.48;x.dataIntegrityScore=.72;x.axisAvailableCount=i<5?3:1;x.axisSupportCount=i<2?3:i<5?2:1;x.axisOppositionCount=0;x.axisSupportRatio=x.axisSupportCount/x.axisAvailableCount;x.axisUnanimous=i<2;x.independentGroupCount=i<2?3:i<5?2:1;x.gradeAxisSupportCount=x.independentGroupCount;x.gradeAxisOppositionCount=0;x.segmentAdjustment=0;fb.markets.push(x);}assignGrades(fb);t("18a deep review non-total excluded from best",fb.gradeAudit.counts["가장추천"]===0&&fb.gradeAudit.counts["추천"]===3&&fb.gradeAudit.counts["일반"]===7,JSON.stringify(fb.gradeAudit.counts));
@@ -2929,7 +2930,38 @@ function selfTest(){
     t("R317 recommendation balance exposes audited family totals",
       !!strong.gradeAudit.recommendationBalanceAudit&&
       Object.values(strong.gradeAudit.recommendationBalanceAudit.selected)
-        .reduce((sum,n)=>sum+Number(n||0),0)===strong.gradeAudit.activeCounts["추천"]);
+        .reduce((sum,n)=>sum+Number(n||0),0)===strong.gradeAudit.counts["추천"]);
+  }
+  {
+    const base={gmTs:"260117",date:"2099-10-02",time:"18:00",sport:"축구",market:"언더오버",
+      line:2.5,choices:[{label:"언더",odds:1.75},{label:"오버",odds:1.78}],
+      selectionMode:"DEEP_REVIEW",marked:true,representativeSelected:true,
+      finalPick:"언더",finalOdds:1.75,hitProbability:.59,safeHitProbability:.54,
+      marketProbability:.55,aiQuality:.60,dataReliability:.60,crossAgreement:.70,
+      dataIntegrityScore:.57,independentGroupCount:2,gradeAxisOppositionCount:1,
+      axisOppositionCount:1};
+    t("R318 one dissent TOTAL evidence is recommendation-eligible",
+      relativeRecommendationFallbackPasses({...base,marketFamily:"TOTAL"}));
+    t("R318 one dissent HANDICAP never receives relaxed TOTAL gate",
+      !relativeRecommendationFallbackPasses({...base,marketFamily:"HANDICAP",finalPick:"승"}));
+    t("R318 no false one-dissent recommendations with weak evidence",
+      !relativeRecommendationFallbackPasses({...base,marketFamily:"TOTAL",crossAgreement:.30}));
+    const rState=createState();rState.round=117;rState.gmTs="260117";
+    rState.markets=Array.from({length:10},(_,i)=>{
+      const fam=i<3?"MONEYLINE":i<6?"HANDICAP":"TOTAL";
+      return {...base,no:97000+i,marketFamily:fam,
+        home:"RD"+i,away:"RR"+i,market:fam==="TOTAL"?"언더오버":fam==="HANDICAP"?"핸디캡":"일반승",
+        finalPick:fam==="TOTAL"?(i%2?"오버":"언더"):"승",
+        gradeAxisOppositionCount:fam==="TOTAL"?1:0,
+        axisOppositionCount:fam==="TOTAL"?1:0};
+    });
+    assignGrades(rState);
+    const ra=rState.gradeAudit.recommendationBalanceAudit;
+    t("R318 family recommendation targets honor 30/30/40 when qualified",
+      ra.selected.MONEYLINE===1&&ra.selected.HANDICAP===1&&ra.selected.TOTAL===1,
+      JSON.stringify(ra));
+    t("R318 supported Over candidate may be recommended",
+      rState.markets.some(m=>m.finalPick==="오버"&&m.displayGrade==="추천"));
   }
   // 시장비율 30/30/40 배정기와 후보부족 폴백 검증
   const many=createState();many.round=117;many.gmTs="260117";many.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`H${i}`;x.away=`A${i}`;x.game=`H${i} vs A${i}`;x.date="2099-10-02";many.markets.push(x);}}markState(many);t("19 market mix allocator",many.marketMixAudit.mode==="FORCED_RATIO_30_30_40"&&many.marketMixAudit.targetPolicy==="R317_ADAPTIVE_MIN_DEVIATION_THEN_MAX_QUALITY");t("20 market total reps quality-gated",Object.values(many.marketMixAudit.counts).reduce((a,b)=>a+b,0)<=10);t("21 market target retained",many.marketMixAudit.target.MONEYLINE===30&&many.marketMixAudit.target.HANDICAP===30&&many.marketMixAudit.target.TOTAL===40);
