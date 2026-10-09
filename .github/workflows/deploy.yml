@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  checks: read
 
 concurrency:
   group: protonumber-worker-production
@@ -31,38 +32,45 @@ jobs:
       - name: Verify settlement, state persistence and public UI
         run: node tests/settlement-check.cjs
 
-  deploy:
-    name: Deploy to Cloudflare Workers after passing settlement tests
+  confirm-cloudflare:
+    name: Confirm Cloudflare automatic deployment
     needs: verify
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: production
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
-      - name: Verify required Cloudflare deployment credentials
-        env:
-          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
-            echo "::error::Configure CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in repository/environment Actions secrets before deploying."
-            exit 1
-          fi
-      - name: Deploy existing protonumber Worker
-        id: deploy
-        uses: cloudflare/wrangler-action@v4
+      - name: Wait for Workers Builds deployment
+        uses: actions/github-script@v7
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-      - name: Check deployed diagnostic endpoint
-        env:
-          DEPLOYED_URL: ${{ steps.deploy.outputs.deployment-url }}
-        run: |
-          if [ -z "$DEPLOYED_URL" ]; then
-            echo "::error::No deployment URL returned; cannot verify live worker."
-            exit 1
-          fi
-          curl --fail --silent --show-error --max-time 25 "${DEPLOYED_URL%/}/api/diagnostics" -o "$RUNNER_TEMP/proto-diagnostics.json"
-          node -e 'const f=require("node:fs");const s=JSON.parse(f.readFileSync(process.argv[1],"utf8"));if(!String(s.version||"").includes("R305")||!s.resultAudit){throw new Error("Worker version or result audit missing");}console.log("Worker diagnostics verified:",s.version,"result API:",Boolean(s.resultAudit.lastAt));' "$RUNNER_TEMP/proto-diagnostics.json"
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const ref = context.sha;
+            const checkName = 'Workers Builds: protonumber';
+
+            for (let attempt = 1; attempt <= 60; attempt++) {
+              const { data } = await github.rest.checks.listForRef({
+                owner,
+                repo,
+                ref,
+                per_page: 100
+              });
+
+              const run = data.check_runs.find(x => x.name === checkName);
+              if (!run) {
+                core.info(`Cloudflare check not visible yet (${attempt}/60)`);
+              } else if (run.status !== 'completed') {
+                core.info(`Cloudflare deployment is ${run.status} (${attempt}/60)`);
+              } else if (run.conclusion === 'success') {
+                core.info('Cloudflare automatic deployment succeeded.');
+                core.info(run.output?.summary || '');
+                return;
+              } else {
+                core.setFailed(`Cloudflare automatic deployment finished with: ${run.conclusion}`);
+                return;
+              }
+
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+
+            core.setFailed('Timed out waiting for Workers Builds: protonumber.');
