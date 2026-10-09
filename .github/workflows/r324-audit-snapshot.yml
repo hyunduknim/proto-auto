@@ -1,0 +1,54 @@
+name: R324 independent current-round snapshot (audit only)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/r324-audit-snapshot.yml"
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Download public sanitized current-round export (read only)
+        shell: bash
+        run: |
+          curl -fsSL --retry 2 --max-time 100 'https://protonumber.mystyle276.workers.dev/api/export-json' -o 'r324_prod_snapshot.json'
+          node - <<'NODE'
+          const s=require('./r324_prod_snapshot.json');
+          if(!(s.currentRound?.markets?.length>0))throw Error('Missing current round snapshot');
+          console.log('SNAPSHOT_META='+JSON.stringify({version:s.app?.version,round:s.round?.round,markets:s.currentRound.markets.length}));
+          const selected=(s.currentRound.markets||[]).filter(m=>m.marked&&m.representativeSelected&&m.marketFamily==='MONEYLINE');
+          const selectedRows=selected.map(m=>{
+            const c=(m.choices||[]).filter(x=>Number(x.odds)>1);
+            const fair=Object.fromEntries(c.map(x=>[x.label,1/Number(x.odds)]));
+            const sum=Object.values(fair).reduce((a,b)=>a+b,0);
+            const favorite=c.length?c.slice().sort((a,b)=>a.odds-b.odds)[0]:null;
+            const d=favorite&&m.finalPick!==favorite.label;
+            return {no:m.no,date:m.date,time:m.time,game:m.game,pick:m.finalPick,odds:m.finalOdds,
+              favorite:favorite?.label,favoriteOdds:favorite?.odds,isUnderdog:!!d,
+              favoriteGap:favorite?((1/favorite.odds-1/Number(m.finalOdds||favorite.odds))/sum):null,
+              mode:m.selectionMode,gate:m.representativeGatePassed,
+              grade:m.displayGrade,modelProbability:m.hitProbability,
+              estEV:Number(m.hitProbability||0)*Number(m.finalOdds||0)-1,
+              independentEvidence:m.independentEvidence,
+              analysisBest:m.analysisBestPick,
+              choices:c.map(x=>x.label+':'+x.odds)};
+          });
+          const count=k=>selectedRows.filter(k).length;
+          console.log('R324_LIVE_MONEYLINE_SUMMARY='+JSON.stringify({
+            total:selected.length,underdog:count(x=>x.isUnderdog),underThirtyProbability:count(x=>x.modelProbability<.30),
+            oddThreePlus:count(x=>x.odds>=3),negativeEV:count(x=>x.estEV<0),
+            failedGate:count(x=>x.gate===false),deepReview:count(x=>x.mode==='DEEP_REVIEW'),
+            selectionDirection:Object.fromEntries(['승','무','패'].map(k=>[k,count(x=>x.pick===k)])),
+            lastVersion:s.app?.version}));
+          console.log('R324_LIVE_SUSPICIOUS_MONEYLINE='+JSON.stringify(selectedRows
+            .filter(x=>x.isUnderdog).sort((a,b)=>b.favoriteGap-a.favoriteGap)
+            .slice(0,18)));
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r324-public-export-audit
+          path: r324_prod_snapshot.json
+          retention-days: 1
