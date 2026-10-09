@@ -9,13 +9,29 @@ const nonModule = source
 assert.notEqual(nonModule, source, "Worker module extraction must match actual file");
 const api = new Function(
   "structuredClone", "URL",
-  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, prepareOfficialRelayRows, settlementHealth, ingestOfficialRelay, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState, terminalOfficialScoringRows, ingestPerformanceRows, moneylinePickRisk, candidateUtility };"
+  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, prepareOfficialRelayRows, settlementHealth, ingestOfficialRelay, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState, terminalOfficialScoringRows, ingestPerformanceRows, moneylinePickRisk, candidateUtility, r336TotalQualityBackstop };"
 )(structuredClone, URL);
 
 (async () => {
   const r = api.selfTest();
   const failures = r.tests.filter(x => !x.ok).map(x => ({name:x.name, detail:x.detail}));
   assert.equal(r.ok, true, "Built-in tests failed: " + JSON.stringify(failures.slice(0, 12)));
+
+  // R336: TOTAL is not excluded merely because another family is slightly stronger,
+  // but negative edge, absent evidence, or large utility gaps remain ineligible.
+  const totalCandidate={m:{marketFamily:"TOTAL",choices:[{label:"오버",odds:1.90},{label:"언더",odds:1.90}]},
+    q:{pick:"오버",odds:1.90,calibratedP:.57,decisionProbability:.57,marketP:.53,
+      conservativeP:.54,independentGroupCount:2,gradeAxisSupportCount:2,
+      gradeAxisOppositionCount:0,reliability:.65,dataIntegrity:.65,crossAgreement:.60}};
+  const totalUtility=api.candidateUtility(totalCandidate);
+  assert.equal(api.r336TotalQualityBackstop(totalCandidate,totalUtility+.08),true,
+    "Evidence-backed totals within 0.08 of the best family must survive the old 0.045 cutoff");
+  assert.equal(api.r336TotalQualityBackstop(totalCandidate,totalUtility+.18),false,
+    "A materially weaker total must not be selected just to hit market ratios");
+  assert.equal(api.r336TotalQualityBackstop({...totalCandidate,q:{...totalCandidate.q,calibratedP:.49}},totalUtility+.08),false,
+    "Negative-edge U/O picks must not be promoted by the fallback");
+  assert.equal(api.r336TotalQualityBackstop({...totalCandidate,q:{...totalCandidate.q,independentGroupCount:0}},totalUtility+.08),false,
+    "U/O picks without independent provenance must not be promoted");
 
   // R332: reproduce low-probability general-win selections observed on round 120.
   const ml={marketFamily:"MONEYLINE",choices:[
