@@ -125,6 +125,18 @@ jobs:
             const migration=d.marketRebalanceAudit;
             assert.equal(migration?.id,migrationId,"Pregame repick migration did not run in production");
             assert.ok(migration?.at,"Missing persisted repick timestamp");
+            if(migrationId==="R338_EXPLICIT_ALL_98_PREGAME_REPICK"){
+              const audit=d.fullRepickAudit||{};
+              assert.equal(audit.id,"R338_REPLACE_ALL_UNLOCKED_PREGAME_SELECTIONS",
+                "Full repick audit missing from live server");
+              assert.ok(Number(audit.requested)>0,"No pregame representatives were processed");
+              assert.equal(Number(audit.unavailable),0,
+                "At least one user-requested pregame pick had no valid alternative");
+              assert.equal(Number(migration.changedFuture),Number(audit.requested),
+                "Not all of the requested 98 pregame picks changed in live production");
+              assert.equal(Number(audit.changed),Number(audit.requested),
+                "Full repick audit counts disagree");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -156,6 +168,7 @@ jobs:
             result.overRebalance=d.marketMixAudit?.totalDirectionBalance||null;
             result.candidateAvailability=d.marketMixAudit?.candidateAvailability||null;
             result.plusTotalRepresentativeAudit=d.plusTotalRepresentativeAudit||null;
+            result.fullRepickAudit=d.fullRepickAudit||null;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
