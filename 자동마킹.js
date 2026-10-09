@@ -2881,10 +2881,10 @@ async function refreshR308GradePolicy(state,env){
     const audit=state.recommendationPickAudit||{};
     if(Number(audit.reviewed)+Number(audit.withoutSafeAlternative)<Number(audit.targeted))
       throw Error("R340_INCOMPLETE_TARGET_PROCESSING");
-    const changedAll=unstarted.filter(m=>{
+    const changedAll=Object.entries(orig).filter(([key,prior])=>{
       const cur=(state.markets||[]).find(x=>currentRoundMarket(x,state)&&
-        gameSeed(x)===gameSeed(m)&&x.marked&&x.representativeSelected&&!started(x)&&!x.resultFinal);
-      return cur&&(cur.no!==m.no||cur.finalPick!==m.finalPick);
+        gameSeed(x)===key&&x.marked&&x.representativeSelected&&!started(x)&&!x.resultFinal);
+      return cur&&(cur.no!==prior.no||cur.finalPick!==prior.pick);
     }).length;
     state.recommendationPickAudit.changedAll=changedAll;
     state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
