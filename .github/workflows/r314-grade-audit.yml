@@ -1,0 +1,51 @@
+name: R314 live grade and opposite-market audit
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/r314-grade-audit.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check actual grades, UO directions, plus/minus handicap and draw alternatives
+        run: |
+          curl -fsSL --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/state.json"
+          node - "$RUNNER_TEMP/state.json" <<'NODE'
+          const d=JSON.parse(require("node:fs").readFileSync(process.argv[2],"utf8"));
+          const now=Date.now(),n=x=>Number(x??0);
+          const rows=(d.markingGames||[]).filter(m=>m.pick&&!m.resultFinal);
+          const future=rows.filter(m=>Date.parse(String(m.date)+"T"+String(m.time).slice(0,5)+":00+09:00")>now);
+          const dir=m=>m.marketFamily==="TOTAL"?m.pick:
+            m.marketFamily==="HANDICAP"?(n(m.handicapEffectiveLine)>0?"플핸":n(m.handicapEffectiveLine)<0?"마핸":"핸디기타"):
+            m.marketFamily==="MONEYLINE"?(m.pick==="무"?"무승부":m.pick==="승"?"일반승":"일반패"):String(m.marketFamily);
+          const count=(xs,fn)=>xs.reduce((o,x)=>(o[fn(x)]=(o[fn(x)]||0)+1,o),{});
+          const stat=xs=>({n:xs.length,directions:count(xs,dir),mode:count(xs,m=>m.selectionMode),
+             negEv:xs.filter(m=>n(m.calibratedProbability)*n(m.odds)-1<0).length,
+             avgEv:xs.reduce((v,m)=>v+n(m.calibratedProbability)*n(m.odds)-1,0)/Math.max(1,xs.length),
+             avgQ:xs.reduce((v,m)=>v+n(m.aiQuality),0)/Math.max(1,xs.length)});
+          const grades=Object.fromEntries(["가장추천","추천","일반"].map(g=>[g,stat(future.filter(m=>m.displayGrade===g))]));
+          const allMarkets=future.flatMap(m=>(m.marketRows||[]).map(z=>({
+            family:z.marketFamily,line:z.line, best:z.analysisBestPick,choices:z.sharedAnalysis?.choices||[],
+            selectable:z.analysisSelectable,
+            odds:z.choices||[] })));
+          const totals=allMarkets.filter(m=>m.family==="TOTAL");
+          const sorted=(family)=>allMarkets.filter(m=>m.family===family)
+            .flatMap(m=>m.choices.map(c=>({pick:c.pick,p:n(c.calibratedProbability),odds:n(c.odds),
+              ev:n(c.calibratedProbability)*n(c.odds)-1,
+              edge:n(c.calibratedProbability)-n(c.marketProbability),q:n(c.quality)})))
+            .filter(c=>c.odds>=1.31);
+          const compare=xs=>({all:xs.length,byPick:count(xs,x=>x.pick),
+            positiveEV:count(xs.filter(x=>x.ev>0),x=>x.pick),
+            positiveEdge:count(xs.filter(x=>x.edge>=.005),x=>x.pick),
+            topValue:xs.slice().sort((a,b)=>b.ev-a.ev).slice(0,8)});
+          const data={at:new Date().toISOString(),version:d.version,round:d.round,active:future.length,
+            grades,totalDirectionAudit:d.gradeAudit?.totalDirectionAudit,
+            markets:{TOTAL:compare(sorted("TOTAL")),HANDICAP:compare(sorted("HANDICAP")),
+              MONEYLINE:compare(sorted("MONEYLINE"))},
+            totalBestPick:count(totals,x=>x.best||"none")};
+          console.log("R314_GRADE_MARKET_AUDIT="+JSON.stringify(data));
+          NODE
