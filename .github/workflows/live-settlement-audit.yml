@@ -22,6 +22,15 @@ jobs:
           echo "Probing homepage (bypasses Durable Object)"
           curl --location --silent --show-error --connect-timeout 5 --max-time 15 -o "$RUNNER_TEMP/live-homepage.html" -w 'HOME_RESPONSE: http=%{http_code} dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} first_byte=%{time_starttransfer} total=%{time_total} ip=%{remote_ip}\n' "https://protonumber.mystyle276.workers.dev/"
           echo "HOME_EXIT=$?"
+          echo "Probing API state (queue bypass)"
+          curl --location --silent --show-error --connect-timeout 5 --max-time 12 -o "$RUNNER_TEMP/live-state.json" -w 'STATE_RESPONSE: http=%{http_code} first_byte=%{time_starttransfer} total=%{time_total} ip=%{remote_ip}\n' "https://protonumber.mystyle276.workers.dev/api/state"
+          echo "STATE_EXIT=$?"
+          if test -s "$RUNNER_TEMP/live-state.json"; then
+            node - "$RUNNER_TEMP/live-state.json" <<'NODE'
+            const d=require(process.argv[2]);
+            console.log('STATE_AUDIT='+JSON.stringify({version:d.version||null,markets:d.markets?.length||null,games:d.games?.length||null,resultAudit:d.resultAudit||null}));
+            NODE
+          fi
           echo "Probing durable-object settlement diagnostics"
           curl --location --silent --show-error --connect-timeout 5 --max-time 20 -o "$RUNNER_TEMP/live-diagnostics.json" -w 'DIAGNOSTICS_RESPONSE: http=%{http_code} dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} first_byte=%{time_starttransfer} total=%{time_total} ip=%{remote_ip}\n' "https://protonumber.mystyle276.workers.dev/api/diagnostics"
           echo "DIAGNOSTICS_EXIT=$?"
