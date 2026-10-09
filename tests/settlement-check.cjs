@@ -9,7 +9,7 @@ const nonModule = source
 assert.notEqual(nonModule, source, "Worker module extraction must match actual file");
 const api = new Function(
   "structuredClone", "URL",
-  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, prepareOfficialRelayRows, settlementHealth, ingestOfficialRelay, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState, terminalOfficialScoringRows, ingestPerformanceRows };"
+  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, prepareOfficialRelayRows, settlementHealth, ingestOfficialRelay, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState, terminalOfficialScoringRows, ingestPerformanceRows, moneylinePickRisk, candidateUtility };"
 )(structuredClone, URL);
 
 (async () => {
@@ -17,6 +17,35 @@ const api = new Function(
   const failures = r.tests.filter(x => !x.ok).map(x => ({name:x.name, detail:x.detail}));
   assert.equal(r.ok, true, "Built-in tests failed: " + JSON.stringify(failures.slice(0, 12)));
 
+  // R332: reproduce low-probability general-win selections observed on round 120.
+  const ml={marketFamily:"MONEYLINE",choices:[
+    {label:"승",odds:1.27},{label:"패",odds:6.8}]};
+  const favorite={pick:"승",odds:1.27,calibratedP:.77,
+    decisionProbability:.77,marketP:.77,conservativeP:.72};
+  const longshot={pick:"패",odds:6.8,calibratedP:.153,
+    decisionProbability:.153,marketP:.14,conservativeP:.12,
+    independentGroupCount:1,gradeAxisSupportCount:1,gradeAxisOppositionCount:0};
+  const bad=api.moneylinePickRisk(ml,longshot,[favorite,longshot]);
+  assert.equal(bad.unsafe,true,"Uncorroborated 15% underdog must be risk-gated");
+  assert.equal(bad.floorRedirect,true,"Favorite below 1.31 is an odds-floor redirect");
+  const normal={...longshot,pick:"승",odds:1.81,calibratedP:.55,
+    decisionProbability:.55,marketP:.52,conservativeP:.51};
+  assert.equal(api.moneylinePickRisk(ml,normal,[normal,longshot]).unsafe,false,
+    "Do not indiscriminately suppress credible ordinary moneyline picks");
+  const strong={...longshot,pick:"패",odds:4.1,calibratedP:.29,
+    decisionProbability:.29,marketP:.24,conservativeP:.26,
+    independentGroupCount:2,gradeAxisSupportCount:2,gradeAxisOppositionCount:0};
+  assert.equal(api.moneylinePickRisk(ml,strong,[strong]).unsafe,false,
+    "Independently corroborated positive-EV outsider must remain eligible");
+  const testCandidate=(r,risk)=>({m:ml,q:{...r,moneylinePickRisk:risk,
+    edge:r.calibratedP-r.marketP,ev:r.calibratedP*r.odds-1,
+    reliability:.55,crossAgreement:.5,dataIntegrity:.5}});
+  const flagged=api.candidateUtility(testCandidate(longshot,bad));
+  const unflagged=api.candidateUtility(testCandidate(longshot,{unsafe:false}));
+  assert.ok(unflagged-flagged>.30,
+    "Risky moneyline must lose >=0.30 cross-market utility");
+  assert.equal(api.moneylinePickRisk({marketFamily:"TOTAL"},longshot,[longshot]).unsafe,false,
+    "Moneyline guard must not distort Under/Over");
   const market = (no, pick, status = "경기종료") => ({
     gmTs: "260120", sourceRound: 120, no, date: "2026-10-08", time: "18:00",
     sport: "야구", market: "일반승", marketFamily: "MONEYLINE",
