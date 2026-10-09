@@ -9,7 +9,7 @@ const nonModule = source
 assert.notEqual(nonModule, source, "Worker module extraction must match actual file");
 const api = new Function(
   "structuredClone", "URL",
-  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState };"
+  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, prepareOfficialRelayRows, settlementHealth, ingestOfficialRelay, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState };"
 )(structuredClone, URL);
 
 (async () => {
@@ -76,5 +76,39 @@ const api = new Function(
     ["적중","낙첨","적특",null], "Correct results persisted");
   const view=api.publicState(restored.state);
   assert.ok(view,"Public UI state builds after settlement");
-  console.log("PASS: "+r.passed+"/"+r.total+" built-in tests; win/loss/void/pending, round-lock, half-time, duplicate, cards, persistence, public UI");
+  const relayResultRows = api.prepareOfficialRelayRows({
+    officialResult:{detlBody:[{
+      GM_SEQ:1004,FIX_MCH_DTM:"202610081800",HOME_TEAM:"H1004",
+      AWAY_TEAM:"A1004",BETTYP_NM:"승패",GAME_RESULT:"0",
+      MCH_SCORE:"2:1",MCH_STTUS_NM:"경기종료"
+    }]}
+  }, "260120", [state.markets[3]]);
+  assert.equal(relayResultRows.resultRows.length,1,
+    "Official result API can settle independently if GameInfo is inaccessible");
+  assert.equal(relayResultRows.gameInfoRows.length,0,
+    "Result-only relay does not fabricate GameInfo data");
+  assert.equal(api.applyResults(state,relayResultRows.resultRows),1,
+    "Official result-only relay settles previously pending match");
+  assert.equal(state.markets[3].settlementStatus,"적중",
+    "Result-only source outcome is applied using existing official settlement rules");
+  assert.equal(api.applyResults(state,relayResultRows.resultRows),0,
+    "Duplicate relay cannot settle same result twice");
+
+  const relayHealth = api.settlementHealth({
+    ...state,resultAudit:{ok:false,errors:["official direct temporarily blocked"]},
+    relayAudit:{at:new Date().toISOString(),totalSettled:4,lastSettlementAt:new Date().toISOString()}
+  });
+  assert.equal(relayHealth.relayFresh,true,
+    "Healthy GitHub signed relay remains visible when direct source times out");
+  assert.equal(relayHealth.directOk,false,"Direct source errors remain visible separately");
+  assert.equal(relayHealth.mode,"GITHUB_OFFICIAL_RELAY_AVAILABLE",
+    "Displays honest official relay mode");
+
+  const rejected = await api.ingestOfficialRelay({
+    headers:new Headers(),json:async()=>({
+      gmTs:"260120",gameInfo:{gmTs:"260119",compSchedules:{keys:[],datas:[]}}
+    })
+  },env);
+  assert.equal(rejected.status,400,"Rejects official payload with mismatched round");
+  console.log("PASS: "+r.passed+"/"+r.total+" built-in tests; win/loss/void/pending, round-lock, half-time, duplicate, cards, persistence, dual official relay, UI health");
 })().catch(e => { console.error(e); process.exitCode = 1; });
