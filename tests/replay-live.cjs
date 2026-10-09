@@ -53,6 +53,26 @@ const sampleDepth={all:performanceDepth.length,bothThree:performanceDepth.filter
   neither:performanceDepth.filter(x=>!x.homeTeamScores&&!x.awayTeamScores).length,
   leagueGood:performanceDepth.filter(x=>x.priorScope==="LEAGUE"&&x.priorScores>=20).length,
   examples:performanceDepth.slice(0,9)};
+const numeric=m=>({p:Number(m.hitProbability||0),safe:Number(m.safeHitProbability||0),mp:Number(m.marketProbability||0),
+ ev:Number(m.hitProbability||0)*Number(m.finalOdds||0)-1,
+ edge:Number(m.hitProbability||0)-Number(m.marketProbability||0),
+ rel:Number(m.dataReliability||0),q:Number(m.aiQuality||0),
+ cross:Number(m.crossAgreement||0),integrity:Number(m.dataIntegrityScore||0),
+ groups:Number(m.independentGroupCount||0),op:Number(m.gradeAxisOppositionCount||0)});
+const pct=(xs,f)=>xs.length?Number((xs.reduce((a,m)=>a+f(numeric(m)),0)/xs.length).toFixed(4)):null;
+const pools=Object.fromEntries(["MONEYLINE","HANDICAP","TOTAL_UNDER","TOTAL_OVER"].map(key=>{
+ const ps=future.filter(m=>key==="TOTAL_OVER"?m.marketFamily==="TOTAL"&&m.finalPick==="오버":key==="TOTAL_UNDER"?m.marketFamily==="TOTAL"&&m.finalPick==="언더":m.marketFamily===key);
+ const gated=(minE,minEV,minR,minQ,maxOpp,minCross,minIntegrity)=>ps.filter(m=>{const x=numeric(m);
+ return x.edge>=minE&&x.ev>=minEV&&x.rel>=minR&&x.q>=minQ&&x.op<=maxOpp&&x.cross>=minCross&&x.integrity>=minIntegrity&&x.groups>=2});
+ return [key,{n:ps.length,meanEV:pct(ps,x=>x.ev),meanEdge:pct(ps,x=>x.edge),
+ meanRel:pct(ps,x=>x.rel),meanQuality:pct(ps,x=>x.q),meanIntegrity:pct(ps,x=>x.integrity),
+ meanOpp:pct(ps,x=>x.op),meanCross:pct(ps,x=>x.cross),
+ veryStrong:gated(.005,-.09,.55,.5,0,.50,.47).length,
+ balanced:gated(-.005,-.15,.52,.46,1,.43,.40).length,
+ relative:gated(-.02,-.19,.46,.38,1,.35,.36).length,
+ top:ps.map(m=>({no:m.no,ev:Number(numeric(m).ev.toFixed(4)),edge:Number(numeric(m).edge.toFixed(4)),q:numeric(m).q,rel:numeric(m).rel,op:numeric(m).op,cross:numeric(m).cross,integrity:numeric(m).integrity})).sort((a,b)=>b.ev-a.ev).slice(0,5)}];
+}));
+console.log("R321_ELIGIBILITY_POOL="+JSON.stringify(pools));
 const out={version:snapshot.app.version,round:S.round,at:new Date().toISOString(),locked:fixed.size,baseline,sampleDepth,
  market:S.marketMixAudit?.counts,marketTarget:S.marketMixAudit?.targetCounts,
  grade:S.gradeAudit?.counts,targets:S.gradeAudit?.targetCounts,
