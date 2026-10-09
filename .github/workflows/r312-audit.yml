@@ -105,3 +105,23 @@ jobs:
           }
           console.log("ELITE_THRESHOLD_SCAN="+JSON.stringify(stat));
           NODE
+
+      - name: Verify live R312 top tier contains ONLY Under and Over
+        run: |
+          curl --fail --silent --show-error --max-time 20 -H "Cache-Control: no-cache" "https://protonumber.mystyle276.workers.dev/api/state?check=$GITHUB_RUN_ID" -o "$RUNNER_TEMP/r312-state.json"
+          node - "$RUNNER_TEMP/r312-state.json" <<'NODE'
+          const fs=require("node:fs");const assert=require("node:assert/strict");
+          const d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          const b=(d.markingGames||[]).filter(m=>m.pick&&!m.resultFinal&&m.displayGrade==="가장추천");
+          const directions=b.reduce((a,m)=>(a[m.pick]=(a[m.pick]||0)+1,a),{});
+          const fam=b.reduce((a,m)=>(a[m.marketFamily||"?"]=(a[m.marketFamily||"?"]||0)+1,a),{});
+          console.log("R312_ELITE_FINAL="+JSON.stringify({
+            version:d.version,round:d.round,best:b.length,marketFamilies:fam,
+            directions,gradeCounts:d.gradeAudit?.counts,summary:d.summary,
+            settlementHealth:d.settlementHealth
+          }));
+          assert.ok(String(d.version||"").includes("R312"),"R312 not live");
+          assert.ok(b.length>0,"No premium rows to verify");
+          assert.ok(b.every(m=>m.marketFamily==="TOTAL"&&["언더","오버"].includes(m.pick)),
+            "Non-U/O premium selection in live site!");
+          NODE
