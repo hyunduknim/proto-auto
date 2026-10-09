@@ -137,6 +137,18 @@ jobs:
               assert.equal(Number(audit.changed),Number(audit.requested),
                 "Full repick audit counts disagree");
             }
+            if(expected.includes("R339-RECOMMENDATION-BALANCE")){
+              const rev=d.gradeRevisionAudit||{},bal=d.gradeAudit?.recommendationBalanceAudit||{};
+              assert.equal(rev.id,"R339_BALANCED_RECOMMENDATION_PLUS_RISK_GUARD",
+                "Recommended grades were not rebalanced in live state");
+              assert.equal(Number(rev.changedPicks),0,
+                "Recommendation-only release unexpectedly altered representative picks");
+              assert.equal(bal.policy,rev.id,"Recommendation balance policy not live");
+              assert.ok(Number(bal.plusAfter)<=Number(bal.plusBefore),
+                "Plus concentration increased in recommended grade");
+              assert.ok(Number(rev.currentPlus)<=Number(rev.priorPlus),
+                "Persisted recommended plus handicap concentration did not improve");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -169,6 +181,8 @@ jobs:
             result.candidateAvailability=d.marketMixAudit?.candidateAvailability||null;
             result.plusTotalRepresentativeAudit=d.plusTotalRepresentativeAudit||null;
             result.fullRepickAudit=d.fullRepickAudit||null;
+            result.recommendationBalanceAudit=d.gradeAudit?.recommendationBalanceAudit||null;
+            result.gradeRevisionAudit=d.gradeRevisionAudit||null;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
