@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R339-RECOMMENDATION-BALANCE";
-const BUILD_ID = "proto-betman-core-r339-recommendation-balance";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R340-RECOMMENDED-PLUS-REPICK";
+const BUILD_ID = "proto-betman-core-r340-recommended-plus-repick";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1932,6 +1932,37 @@ function rebalanceTotalOverRepresentatives(state,games,assigned,lockedCurrent){
   return result;
 }
 
+// R340: compare live pregame recommendation-plus to non-plus alternatives in the SAME game.
+function r340AlternativeForRecommendedPlus(ms,current){
+  if(!current)return null;
+  const prevEV=Number(current.q.calibratedP)*Number(current.q.odds)-1,
+    prevUtility=candidateUtility(current),candidates=[];
+  for(const m of ms||[]){
+    if(!representativeMarketEligible(m))continue;
+    const rows=analyzeChoiceRows(m);
+    for(const q of rows){
+      if(Number(q.odds)<CFG.minRepOdds||!Number.isFinite(Number(q.calibratedP))||
+        !Number.isFinite(Number(q.marketP))||!Number.isFinite(Number(q.conservativeP)))continue;
+      if(m.marketFamily==="HANDICAP"&&directionForPick(m,q.pick)==="PLUS")continue;
+      if(m===current.m&&String(q.pick)===String(current.q.pick))continue;
+      if(q.sportRisk?.gradeLimited||Number(q.gradeAxisOppositionCount||0)>1)continue;
+      if(moneylinePickRisk(m,q,rows).unsafe)continue;
+      const ev=Number(q.calibratedP)*Number(q.odds)-1,
+        edge=Number(q.calibratedP)-Number(q.marketP);
+      if(!Number.isFinite(ev)||ev<-.17||ev<prevEV-.10||edge<-.015||
+        Number(q.conservativeP)<Number(q.marketP)-.10||
+        Number(q.independentGroupCount||0)<1)continue;
+      const x={m,q,gatePassed:false,selectionMode:"DEEP_REVIEW"},
+        gap=prevUtility-candidateUtility(x);
+      if(gap>.15)continue;
+      const gate=selectionGate(m,q);
+      x.gatePassed=gate.ok;x.selectionMode=gate.ok?"STRICT":"DEEP_REVIEW";
+      candidates.push({x,gap,ev});
+    }
+  }
+  candidates.sort((a,b)=>a.gap-b.gap||b.ev-a.ev||marketSort(a.x.m,b.x.m));
+  return candidates[0]?.x||null;
+}
 function assignRepresentativeMarkets(state){
   const games=[],locked=[],lockedCurrent=[];
   for(const [key,allMs] of groupMarkets(state.markets)){
@@ -2048,6 +2079,39 @@ function assignRepresentativeMarkets(state){
     changed:explicitlyChanged,unavailable:alternateUnavailable,
     qualityLossTotal:r3(qualityLossTotal),highRiskAlternates,
     policy:"USER_REQUESTED_ALL_PREGAME_REPICK_NOT_PREDICTED_ACCURACY_IMPROVEMENT"};
+  // R340: preserve unrelated representative picks; change only targeted unstarted
+  // recommended plus handicap selections with substantiated same-game alternatives.
+  const override=state.recommendationPickOverride?.id===R340_RECOMMENDATION_PICK_ID&&
+    String(state.recommendationPickOverride.gmTs||"")===String(state.gmTs||"")?
+    state.recommendationPickOverride:null;
+  let reviewed=0,changed=0,withoutSafeAlternative=0,preservedOthers=0;
+  const examples=[];
+  if(override)for(const g of games){
+    const prior=override.originals?.[g.key];
+    if(!prior)continue;
+    const m=g.ms.find(x=>Number(x.no)===Number(prior.no)&&
+      x.marketFamily===prior.marketFamily);
+    const q=m?analyzeChoiceRows(m).find(x=>String(x.pick)===String(prior.pick)&&
+      Number(x.odds)>=CFG.minRepOdds):null;
+    if(!m||!q)continue;
+    const old={m,q,gatePassed:selectionGate(m,q).ok,selectionMode:"DEEP_REVIEW"};
+    if(!override.targets?.[g.key]){
+      assigned.set(g.key,old);preservedOthers++;continue;
+    }
+    reviewed++;
+    const alt=r340AlternativeForRecommendedPlus(g.ms,old);
+    if(alt){
+      assigned.set(g.key,alt);changed++;
+      if(examples.length<20)examples.push({game:g.key,fromNo:m.no,fromPick:q.pick,
+        toNo:alt.m.no,toFamily:alt.m.marketFamily,toPick:alt.q.pick,
+        oldEV:r3(Number(q.calibratedP)*Number(q.odds)-1),
+        newEV:r3(Number(alt.q.calibratedP)*Number(alt.q.odds)-1)});
+    }else{assigned.set(g.key,old);withoutSafeAlternative++;}
+  }
+  if(override)state.recommendationPickAudit={id:R340_RECOMMENDATION_PICK_ID,
+    at:nowIso(),targeted:Object.keys(override.targets||{}).length,
+    reviewed,changed,withoutSafeAlternative,preservedOthers,
+    policy:"SAME_GAME_EVIDENCE_FIRST_NO_FORCED_CHANGE",examples};
   const totalDirectionBalance=rebalanceTotalOverRepresentatives(state,games,assigned,lockedCurrent);
   const mode="FORCED_RATIO_30_30_40";
   const counts={MONEYLINE:0,HANDICAP:0,TOTAL:0};
@@ -2722,6 +2786,7 @@ async function writeStoredState(env,str){
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
 const R317_MARKET_MIX_ID="R338_EXPLICIT_ALL_98_PREGAME_REPICK";
 const R339_RECOMMENDATION_POLICY="R339_BALANCED_RECOMMENDATION_PLUS_RISK_GUARD";
+const R340_RECOMMENDATION_PICK_ID="R340_EVIDENCE_BACKED_RECOMMENDED_PLUS_REPICK";
 const R338_FULL_REPICK_ID="R338_REPLACE_ALL_UNLOCKED_PREGAME_SELECTIONS";
 async function refreshR308GradePolicy(state,env){
   if(!state?.markets?.length)return false;
@@ -2786,6 +2851,42 @@ async function refreshR308GradePolicy(state,env){
       currentPlus:state.gradeAudit?.recommendationBalanceAudit?.plusAfter,
       recommended:state.gradeAudit?.counts?.["추천"]||0,
       preservedLocked:state.gradeAudit?.locked||0};
+    state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
+    await persistState(env,true);return true;
+  }
+  if(state.recommendationPickAudit?.id!==R340_RECOMMENDATION_PICK_ID&&
+    state.gradeAudit?.recommendationBalanceAudit?.policy===R339_RECOMMENDATION_POLICY){
+    const reps=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&
+      m.marked&&m.representativeSelected);
+    const startedSnapshot=serializeState(reps.filter(m=>started(m)||m.resultFinal)
+      .map(m=>[gameSeed(m),m.no,m.finalPick,m.displayGrade,m.settlementStatus||null]));
+    const ledgerSnapshot=serializeState(state.settlementLedger||[]),
+      settledSnapshot=serializeState(state.settledCards||{});
+    const unstarted=reps.filter(m=>!started(m)&&!m.resultFinal),
+      plus=m=>m.marketFamily==="HANDICAP"&&directionForPick(m)==="PLUS";
+    const orig=Object.fromEntries(unstarted.map(m=>[gameSeed(m),{
+      no:m.no,marketFamily:m.marketFamily,pick:m.finalPick,grade:m.displayGrade}]));
+    const targets=Object.fromEntries(unstarted.filter(m=>m.displayGrade==="추천"&&plus(m))
+      .map(m=>[gameSeed(m),{no:m.no,pick:m.finalPick,marketFamily:m.marketFamily}]));
+    state.recommendationPickOverride={id:R340_RECOMMENDATION_PICK_ID,
+      gmTs:String(state.gmTs||""),originals:orig,targets,at:nowIso()};
+    markState(state);
+    const after=serializeState((state.markets||[]).filter(m=>
+      currentRoundMarket(m,state)&&m.marked&&m.representativeSelected&&
+      (started(m)||m.resultFinal))
+      .map(m=>[gameSeed(m),m.no,m.finalPick,m.displayGrade,m.settlementStatus||null]));
+    if(after!==startedSnapshot||serializeState(state.settlementLedger||[])!==ledgerSnapshot||
+      serializeState(state.settledCards||{})!==settledSnapshot)
+      throw Error("R340_LOCKED_OR_SETTLED_DATA_CHANGE_PREVENTED");
+    const audit=state.recommendationPickAudit||{};
+    if(Number(audit.reviewed)+Number(audit.withoutSafeAlternative)<Number(audit.targeted))
+      throw Error("R340_INCOMPLETE_TARGET_PROCESSING");
+    const changedAll=unstarted.filter(m=>{
+      const cur=(state.markets||[]).find(x=>currentRoundMarket(x,state)&&
+        gameSeed(x)===gameSeed(m)&&x.marked&&x.representativeSelected&&!started(x)&&!x.resultFinal);
+      return cur&&(cur.no!==m.no||cur.finalPick!==m.finalPick);
+    }).length;
+    state.recommendationPickAudit.changedAll=changedAll;
     state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
     await persistState(env,true);return true;
   }
@@ -3282,7 +3383,7 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,fullRepickAudit:state.fullRepickAudit||null,gradeRevisionAudit:state.gradeRevisionAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,fullRepickAudit:state.fullRepickAudit||null,gradeRevisionAudit:state.gradeRevisionAudit||null,recommendationPickAudit:state.recommendationPickAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
   MEM.publicCacheKey=key;MEM.publicCache=value;return value;
 }
 function exportSafeConfig(){
