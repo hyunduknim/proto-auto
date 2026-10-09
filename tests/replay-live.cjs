@@ -90,6 +90,17 @@ const out={version:snapshot.app.version,round:S.round,at:new Date().toISOString(
 delete out.coverage.waiting;console.log("REPLAY="+JSON.stringify(out));
 assert.equal(out.coverage.gapGames,0,"All priced pregame games must be marked");
 assert.equal(out.invalidElite,0,"Elite limited to Total U/O");
+assert.equal(after.filter(m=>m.displayGrade==="가장추천"&&m.marketFamily!=="TOTAL").length,0,
+ "Only Under/Over may enter highest recommendation tier");
+assert.ok((out.direction.selectedUnder||0)>0&&(out.direction.selectedOver||0)>0,
+ "Eligible Under and Over must both be represented in simulated elite tier");
+const recMix=S.gradeAudit?.recommendationBalanceAudit;
+assert.ok(["MONEYLINE","HANDICAP","TOTAL"].every(k=>recMix?.selected?.[k]===recMix?.target?.[k]),
+ "Recommendation needs balanced family allocation");
+assert.ok(recMix.totalUnder>0&&recMix.totalOver>0,
+ "Recommendation TOTAL should include both real Under and Over");
+assert.ok(top.every(m=>m.gradeEvidenceTier!=="MARKET_RELATIVE_NOT_INDEPENDENT"||!!m.gradeEvidenceWarning),
+ "Market-relative most-recommended items must carry independent-source caution");
 assert.equal(S.marketMixAudit?.deviation,0,"Target 30/30/40 must hold");
 assert.equal(after.length,S.gradeAudit?.total,"All current-round reps included in grade audit");
 
@@ -113,6 +124,10 @@ if(out.market.MONEYLINE!==out.marketTarget.MONEYLINE||
    out.market.HANDICAP!==out.marketTarget.HANDICAP||
    out.market.TOTAL!==out.marketTarget.TOTAL)insufficient.push("MARKET_RATIO_DEVIATION");
 if(top.length<1)insufficient.push("NO_QUALITY_VERIFIED_PREGAME_ELITE");
+if(top.length&&top.every(m=>Number(m.hitProbability)*Number(m.finalOdds)-1<0))
+ insufficient.push("ALL_ELITE_ESTIMATED_EV_NEGATIVE");
+if(top.length&&top.every(m=>m.gradeEvidenceTier==="MARKET_RELATIVE_NOT_INDEPENDENT"))
+ insufficient.push("ALL_ELITE_MARKET_ONLY_NO_INDEPENDENT_VALIDATION");
 if(!verifyBothSides(top))insufficient.push("ELITE_UNDER_OVER_NOT_BOTH_EVIDENCE_QUALIFIED");
 if(!verifyBothSides(rec.filter(m=>m.marketFamily==="TOTAL")))insufficient.push("RECOMMEND_UNDER_OVER_NOT_BOTH_EVIDENCE_QUALIFIED");
 const readiness={readyForUserApproval:insufficient.length===0,
