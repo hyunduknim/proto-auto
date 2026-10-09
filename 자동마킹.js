@@ -1903,9 +1903,9 @@ function assignRepresentativeMarkets(state){
   const totalN=games.length+lockedCurrent.length,totalTarget=targetCounts(totalN,CFG.marketTarget);
   const manualAssigned=new Map(),firstGameOverOverride=applyFirstGameOverOverride(state,games,manualAssigned),manualKeys=new Set(manualAssigned.keys());
   const flexibleGames=games.filter(g=>!manualKeys.has(g.key)),fixedCounts={...lockedCounts};for(const x of manualAssigned.values())fixedCounts[x.m.marketFamily]=Number(fixedCounts[x.m.marketFamily]||0)+1;
-  // R324: 모든 실제 판매 후보를 함께 비교한다. 첫 배분 성공에서 멈추면 전역 품질 최적해를 놓친다.
-  const allocation=forcedMarketMixAssignment(flexibleGames.map(g=>({...g,c:g.allC||g.c})),totalTarget,fixedCounts);
-  const effectiveQualityGap=Infinity;
+  // R325: 전역 최적화는 유지하되 경기별 최고 근거 대비 품질 격차가 큰 시장 후보는 제외한다. 30/30/40보다 대표픽 품질을 우선한다.
+  const allocation=forcedMarketMixAssignment(flexibleGames,totalTarget,fixedCounts);
+  const effectiveQualityGap=CFG.marketCandidateQualityGap;
   const assigned=new Map([...allocation.assigned,...manualAssigned]);
   const drawVisibility=ensureBestSoccerDrawVisible(games,assigned,lockedCurrent);
   const totalDirectionBalance=rebalanceTotalOverRepresentatives(state,games,assigned,lockedCurrent);
