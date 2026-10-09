@@ -87,3 +87,21 @@ jobs:
             qualityCompare:good.slice().sort((a,b)=>n(b.aiQuality)-n(a.aiQuality)).slice(0,35).map(m=>({d:dir(m),q:m.aiQuality,edge:n(m.calibratedProbability)-n(m.marketProbability)}))
           }));
           NODE
+
+      - name: Compare evidence-calibrated top-tier quality thresholds
+        run: |
+          curl --fail --silent --show-error --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/evidence.json"
+          node - "$RUNNER_TEMP/evidence.json" <<'NODE'
+          const d=JSON.parse(require("node:fs").readFileSync(process.argv[2],"utf8"));
+          const now=Date.now(),n=x=>Number(x??0),xs=(d.markingGames||[]).filter(m=>m.pick&&!m.resultFinal&&Date.parse(m.date+"T"+m.time.slice(0,5)+":00+09:00")>now);
+          const dir=m=>m.marketFamily==="TOTAL"?m.pick:m.marketFamily==="HANDICAP"?(n(m.handicapEffectiveLine)>0?"플핸":"마핸"):"일반승";
+          const qualify=(m,q)=>["STRICT","DEEP_REVIEW"].includes(m.selectionMode)&&n(m.calibratedProbability)>0&&n(m.marketProbability)>0&&
+            n(m.calibratedProbability)-n(m.marketProbability)>=.005&&n(m.calibratedProbability)*n(m.odds)-1>=-.20&&
+            n(m.dataReliability)>=.55&&n(m.aiQuality)>=q&&n(m.crossAgreement)>=.50&&
+            n(m.dataIntegrityScore)>=.48&&n(m.independentGroupCount)>=2&&
+            n(m.axisOppositionCount)===0&&n(m.gradeAxisOppositionCount)===0;
+          const stat={};for(const q of [.6,.59,.58,.57,.56,.55,.54,.53]){
+            const good=xs.filter(m=>qualify(m,q));stat[q]={total:good.length,by:good.reduce((a,m)=>(a[dir(m)]=(a[dir(m)]||0)+1,a),{})};
+          }
+          console.log("ELITE_THRESHOLD_SCAN="+JSON.stringify(stat));
+          NODE
