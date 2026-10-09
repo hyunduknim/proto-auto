@@ -2716,6 +2716,10 @@ function terminalOfficialScoringRows(state,gameInfo,gmTs){
     if(rr?.gmTs&&String(rr.gmTs)!==String(gmTs))return false;
     if(rr?.partial||!rr?.terminal||rr?.specialStatus||rr?.family!=="MONEYLINE")return false;
     if(!["승","무","패"].includes(String(rr.outcome||"")))return false;
+    // Decimal scorelines can encode an adjusted handicap result; those
+    // must never contaminate the teams' real goals/runs history.
+    if(scoreHasFraction(rr.score))return false;
+    if(!/^\s*\d{1,3}\s*[:：-]\s*\d{1,3}\s*$/.test(String(rr.score||"")))return false;
     const score=perfScorePair(rr.score);
     if(!score||!Number.isInteger(score.home)||!Number.isInteger(score.away))return false;
     const m=findMarketForResultGame(state,rr);
