@@ -1,0 +1,46 @@
+name: R323 READ ONLY settlement diagnostics
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/r323-settlement-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    name: Check live settlement freshness, overdue and alarm state without writes
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Inspect official Worker read-only endpoints
+        run: |
+          node <<'NODE'
+          const root='https://protonumber.mystyle276.workers.dev',timeout=AbortSignal.timeout(28000);
+          const [diagnostics,state]=await Promise.all(
+            ['/api/diagnostics','/api/state'].map(async p=>{
+              const r=await fetch(root+p+'?probe='+process.env.GITHUB_RUN_ID+'-'+Date.now(),{signal:timeout,headers:{'cache-control':'no-cache'}});
+              if(!r.ok)throw Error(p+' HTTP '+r.status);
+              return r.json();
+            })
+          );
+          const now=Date.now(),h=diagnostics.settlementHealth||{},m=state.markingGames||[];
+          const dt=x=>{const raw=String(x.date||'')+'T'+String(x.time||'').slice(0,5)+':00+09:00';return Date.parse(raw)};
+          const isStart=x=>x.pick&&!x.resultFinal&&Number.isFinite(dt(x))&&dt(x)<=now;
+          const pending=m.filter(isStart).map(x=>({gmTs:x.gmTs,no:x.no,game:x.game,sport:x.sport,market:x.market,pick:x.pick,
+             start:x.date+' '+x.time,ageMin:Math.round((now-dt(x))/60000),status:x.settlementStatus||null})).sort((a,b)=>b.ageMin-a.ageMin);
+          const relay=diagnostics.relayAudit||{},res=diagnostics.resultAudit||{},source=diagnostics.sourceAudit||{},st=diagnostics.storage||{};
+          const since=x=>x?Math.round((now-Date.parse(x))/60000):null;
+          console.log('SETTLEMENT_DIAGNOSTICS='+JSON.stringify({
+            at:new Date(now).toISOString(),version:diagnostics.version,round:state.round,gmTs:state.gmTs,
+            summary:diagnostics.summary,settlementHealth:h,
+            relay:{at:relay.at||null,ageMinutes:since(relay.at),ok:relay.ok,gmTs:relay.gmTs,
+              receivedRows:relay.receivedRows,verifiedRows:relay.verifiedRows,settledNow:relay.settledNow,
+              lastSettlementAt:relay.lastSettlementAt,rounds:relay.rounds},
+            result:{ok:res.ok,lastAt:res.lastAt,lastSuccessAt:res.lastSuccessAt,
+              source:res.source,pending:res.pending,settledNow:res.settledNow,errors:res.errors,
+              pendingNos:(res.pendingNos||[]).slice(0,25)},
+            storage:st,liveStartedPending:pending.length,overdue3hours:pending.filter(x=>x.ageMin>=180).length,
+            overdue6hours:pending.filter(x=>x.ageMin>=360).length,
+            pendingGames:pending.slice(0,35),source:{lastAt:source.lastAt,ok:source.ok,error:source.error}}));
+          NODE
