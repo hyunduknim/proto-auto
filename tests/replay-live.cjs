@@ -6,7 +6,7 @@ const snapshot=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
 const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
-const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,gradeScore,relativeChoiceValue};")(structuredClone,URL);
+const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,gradeScore,relativeChoiceValue,getTeamProfile};")(structuredClone,URL);
 const S=model.createState();
 S.round=snapshot.round.round;S.gmTs=snapshot.round.gmTs;S.updatedAt=snapshot.round.updatedAt;
 S.markets=structuredClone(snapshot.currentRound.markets);
@@ -43,18 +43,28 @@ const combo=future.filter(m=>m.marketFamily==="TOTAL"), top=future.filter(m=>m.d
 const stats=xs=>({count:xs.length,under:xs.filter(m=>m.finalPick==="언더").length,over:xs.filter(m=>m.finalPick==="오버").length,
  avgEV:xs.length?Number((xs.reduce((z,m)=>z+(Number(m.hitProbability)*Number(m.finalOdds)-1),0)/xs.length).toFixed(4)):null,
  minEV:xs.length?Number(Math.min(...xs.map(m=>Number(m.hitProbability)*Number(m.finalOdds)-1)).toFixed(4)):null});
-const out={version:snapshot.app.version,round:S.round,at:new Date().toISOString(),locked:fixed.size,baseline,
+const totalOddsMarkets=S.markets.filter(m=>m.marketFamily==="TOTAL"&&model.currentRoundMarket(m,S)&&!locked(m)&&model.validChoices(m).length>=2);
+const performanceDepth=totalOddsMarkets.map(m=>{const h=model.getTeamProfile(S,m.sport,m.league,m.home,false),a=model.getTeamProfile(S,m.sport,m.league,m.away,false),f=m.performanceFeatures||{};
+  return {no:m.no,homeTeamScores:Number(h?.scoreGames||0),awayTeamScores:Number(a?.scoreGames||0),
+  priorScope:f.priorScope||null,priorScores:Number(f.priorScoreSamples||0),source:m.performanceSource||null};
+});
+const sampleDepth={all:performanceDepth.length,bothThree:performanceDepth.filter(x=>Math.min(x.homeTeamScores,x.awayTeamScores)>=3).length,
+  bothOne:performanceDepth.filter(x=>Math.min(x.homeTeamScores,x.awayTeamScores)>=1).length,
+  neither:performanceDepth.filter(x=>!x.homeTeamScores&&!x.awayTeamScores).length,
+  leagueGood:performanceDepth.filter(x=>x.priorScope==="LEAGUE"&&x.priorScores>=20).length,
+  examples:performanceDepth.slice(0,9)};
+const out={version:snapshot.app.version,round:S.round,at:new Date().toISOString(),locked:fixed.size,baseline,sampleDepth,
  market:S.marketMixAudit?.counts,marketTarget:S.marketMixAudit?.targetCounts,
  grade:S.gradeAudit?.counts,targets:S.gradeAudit?.targetCounts,
  direction:S.gradeAudit?.totalDirectionAudit,
- coverage:S.fullMarkAudit,
+ coverage:{...S.fullMarkAudit,waiting:S.fullMarkAudit?.waiting?.length||0,waitingEntriesOmitted:true},
  future:stats(future),totals:stats(combo),elite:stats(top),recommend:stats(rec),
  gradeStats:gradeSummary(after),
  eliteOpposed:top.filter(m=>Number(m.gradeAxisOppositionCount||0)>0).length,
  eliteBelowNoVig:top.filter(m=>Number(m.hitProbability)<Number(m.marketProbability)).length,
  invalidElite:top.filter(m=>m.marketFamily!=="TOTAL").length
 };
-console.log("REPLAY="+JSON.stringify(out));
+delete out.coverage.waiting;console.log("REPLAY="+JSON.stringify(out));
 assert.equal(out.coverage.gapGames,0,"All priced pregame games must be marked");
 assert.equal(out.invalidElite,0,"Elite limited to Total U/O");
 assert.equal(S.marketMixAudit?.deviation,0,"Target 30/30/40 must hold");
