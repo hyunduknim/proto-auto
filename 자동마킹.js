@@ -1,4 +1,4 @@
-// R288 REPORT REBUILD: R283 기준에서 라이브러리 v2.5 FINAL + 120회차 작업지시서를 다시 적용한 클린 재구성.
+// R289: 현재회차 첫 경기 1건만 오버로 수동 지정. 최소배당 1.31 및 미시작 조건 유지, 이후 경기로 자동 승계하지 않음.\n// R288 REPORT REBUILD: R283 기준에서 라이브러리 v2.5 FINAL + 120회차 작업지시서를 다시 적용한 클린 재구성.
 // R288: 올마킹 공백 방지, 현재회차/이전회차 중복 잠금 분리, 방향 산식 대칭성 강화, 종목별 AUX 보조검증, 가장추천 DEEP_REVIEW 구조적 0개 경로 수정.
 // R283: 핸디캡 공식 점수에 이미 소수점(.5)이 반영된 경우 라인을 중복 적용하지 않고 소수점 점수를 정확히 파싱·재정산. 지난경기 공식결과도 마킹이 아닌 실제 결과를 표시.
 // R282: 언더/플핸 쏠림을 강제 50:50 없이 최근 방향성과 근거품질로 동적 감점. 축구 언더·야구 +2.5·여자농구 플핸 약근거 위험을 추가 검증.
@@ -29,8 +29,8 @@
 // 앱 비공개 API/인증 우회는 호출하지 않으며, 각 커넥터는 공통 경기키(date/home/away)로만 병합한다.
 // 공식 적중/낙첨/적특 최종판정은 Betman 결과만 사용한다. R259는 result API와 gameInfo를 독립 병렬 확인해 한쪽 장애가 다른 쪽 정산을 막지 않게 한다.
 
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R288";
-const BUILD_ID = "proto-betman-core-r288-report-rebuild-fullmark-symmetric-evidence";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.09-R289";
+const BUILD_ID = "proto-betman-core-r289-first-game-over-override";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1563,6 +1563,23 @@ function softMarketMixAssignment(games,totalTarget,lockedCounts){
   return {assigned,exact:deviation===0,deviation,counts,activeCounts,qualityScore,objective:qualityScore};
 }
 
+// R289: 현재회차의 시간/프로토번호 기준 첫 경기 하나만 오버로 고정한다.
+// 첫 경기가 시작/종료된 뒤 다음 경기로 승계하지 않으며, 오버 배당 1.31 미만이면 기존 분석값을 유지한다.
+function applyFirstGameOverOverride(state,games,assigned){
+  const current=(state?.markets||[]).filter(m=>currentRoundMarket(m,state));
+  if(!current.length)return null;
+  const first=current.slice().sort(marketSort)[0],targetKey=gameSeed(first);
+  const g=(games||[]).find(x=>x.key===targetKey);if(!g)return null;
+  const totals=(g.ms||[]).filter(m=>m.marketFamily==="TOTAL"&&representativeMarketEligible(m)).sort(marketSort);
+  for(const m of totals){
+    const q=analyzeChoiceRows(m).find(x=>String(x.pick)==="오버"&&Number(x.odds)>=CFG.minRepOdds);
+    if(!q)continue;
+    assigned.set(g.key,{m,q,gatePassed:false,selectionMode:"MANUAL_FIRST_GAME_OVER",deepReview:q.deepReview||null});
+    return {key:g.key,no:m.no,date:m.date,time:m.time,odds:Number(q.odds)};
+  }
+  return null;
+}
+
 function assignRepresentativeMarkets(state){
   const games=[],locked=[],lockedCurrent=[];
   for(const [key,allMs] of groupMarkets(state.markets)){
@@ -1576,6 +1593,7 @@ function assignRepresentativeMarkets(state){
   const lockedCounts={MONEYLINE:0,HANDICAP:0,TOTAL:0};for(const x of lockedCurrent)if(lockedCounts[x.m.marketFamily]!=null)lockedCounts[x.m.marketFamily]++;
   const totalN=games.length+lockedCurrent.length,totalTarget=targetCounts(totalN,CFG.marketTarget);
   const allocation=softMarketMixAssignment(games,totalTarget,lockedCounts),assigned=allocation.assigned;
+  const firstGameOverOverride=applyFirstGameOverOverride(state,games,assigned);
   const mode="PROBABILITY_FIRST_RATIO_MONITOR";
   const counts={MONEYLINE:0,HANDICAP:0,TOTAL:0};
   for(const g of games){
@@ -1619,6 +1637,8 @@ function gradeScore(m){
   return safe*.30+p*.12+rel*.15+q*.10+conf*.14+cross*.07+clamp(.5+edge/.10,0,1)*.01+axis*.14+jbBonus*.02-Math.min(1,opp/Math.max(1,avail))*.09;
 }
 function gradePasses(m,grade){
+  // R289 수동 오버 지정은 분석 추천등급으로 오인되지 않도록 일반등급으로만 유지한다.
+  if(m?.selectionMode==="MANUAL_FIRST_GAME_OVER")return grade==="일반";
   // R263: 20/30/50은 최대 상한. 품질게이트를 통과한 대표픽만 가장추천/추천으로 승격한다.
   if(grade!=="일반"&&m?.sportRisk?.gradeLimited)return false;
   const p=Number(m?.hitProbability??m?.calibratedProbability??0),safe=Number(m?.safeHitProbability??m?.conservativeProbability??p),rel=Number(m?.dataReliability||0),q=Number(m?.aiQuality||0),conf=Number(m?.confidenceScore||0),cross=Number(m?.crossAgreement??0),edge=Number(m?.modelEdge||0),avail=Number(m?.axisAvailableCount||0),support=Number(m?.axisSupportCount||0),opp=Number(m?.axisOppositionCount||0),groups=Number(m?.independentGroupCount||0),groupSupport=Number(m?.gradeAxisSupportCount||0),groupOpp=Number(m?.gradeAxisOppositionCount||0),movement=Number(m?.oddsMovement||0),integrity=Number(m?.dataIntegrityScore??0),segmentAdj=Number(m?.segmentAdjustment||0),jbLayer=m?.analysisLayers?.jeongbaedangAux||{},jbAvailable=!!jbLayer?.available,jbP=Number(jbLayer?.probability),marketP=Number(m?.marketProbability),jbDelta=Number.isFinite(jbP)&&Number.isFinite(marketP)?jbP-marketP:0,jbBestConfirm=!jbAvailable||jbDelta>=0,jbRecVeto=jbAvailable&&jbDelta<-.025;
