@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R328-QUALITY-RANKING";
-const BUILD_ID = "proto-betman-core-r327-pregame-reanalysis";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R329-PLUS-TOTAL-REPRESENTATIVE";
+const BUILD_ID = "proto-betman-core-r329-plus-total-representative";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1907,6 +1907,27 @@ function assignRepresentativeMarkets(state){
   const allocation=forcedMarketMixAssignment(flexibleGames,totalTarget,fixedCounts);
   const effectiveQualityGap=CFG.marketCandidateQualityGap;
   const assigned=new Map([...allocation.assigned,...manualAssigned]);
+  // R329: compare same-game TOTAL against weak plus handicap at representative selection.
+  // No forced directional quota. Preserve market-floor and independent corroboration.
+  let reviewedPlus=0,switchedToTotal=0;
+  for(const g of flexibleGames){
+    const current=assigned.get(g.key),alternative=g.c?.TOTAL;
+    if(!current||!alternative||current.m.marketFamily!=="HANDICAP"||
+       directionForPick(current.m,current.q.pick)!=="PLUS")continue;
+    reviewedPlus++;
+    const q=alternative.q,ev=Number(q.calibratedP)*Number(q.odds)-1;
+    const plusEv=Number(current.q.calibratedP)*Number(current.q.odds)-1;
+    const independent=Number(q.independentGroupCount||0)>=2&&Number(q.gradeAxisSupportCount||0)>=2&&
+      Number(q.gradeAxisOppositionCount||0)===0;
+    const value=Number(q.edge)>=.005&&ev>=-.025&&
+      Number(q.conservativeP)>=Number(q.marketP)-.075;
+    const stronger=candidateUtility(alternative)>=candidateUtility(current)-.012&&
+      ev>=plusEv-.015;
+    if(!independent||!value||!stronger)continue;
+    assigned.set(g.key,alternative);switchedToTotal++;
+  }
+  state.plusTotalRepresentativeAudit={at:nowIso(),reviewedPlus,switchedToTotal,
+    policy:"R329_EVIDENCE_BACKED_SAME_GAME_TOTAL_NO_FORCED_QUOTA"};
   const drawVisibility=ensureBestSoccerDrawVisible(games,assigned,lockedCurrent);
   const totalDirectionBalance=rebalanceTotalOverRepresentatives(state,games,assigned,lockedCurrent);
   const mode="FORCED_RATIO_30_30_40";
@@ -2545,7 +2566,7 @@ async function writeStoredState(env,str){
 }
 // R308: apply elite grade policy to persisted marked games immediately after deployment.
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
-const R317_MARKET_MIX_ID="R327_R326_RECOMMENDATION_PREGAME_REANALYSIS_ONCE";
+const R317_MARKET_MIX_ID="R329_PLUS_TOTAL_REPRESENTATIVE_REANALYSIS_ONCE";
 async function refreshR308GradePolicy(state,env){
   if(!state?.markets?.length)return false;
   if(state.marketRebalanceAudit?.id!==R317_MARKET_MIX_ID){
