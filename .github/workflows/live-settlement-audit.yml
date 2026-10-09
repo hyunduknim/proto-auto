@@ -1,25 +1,34 @@
-name: Live settlement diagnostic audit
-
+name: Live R308 settlement and best-pick audit
 on:
   pull_request:
     branches: [main]
     paths:
       - .github/workflows/live-settlement-audit.yml
-  workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
-  verify-live:
-    name: Read production real-time settlement state
+  read:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Fetch LIVE Cloudflare Worker state
+      - name: Read deployed Cloudflare Worker state
         run: |
-          curl --fail --location --silent --show-error --connect-timeout 5 --max-time 15 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/live-state.json" -w 'STATE_RESPONSE: http=%{http_code} first_byte=%{time_starttransfer} total=%{time_total}\n'
-          test -s "$RUNNER_TEMP/live-state.json"
-      - name: Report live settlement audit without exposing individual bets
-        run: |
-          node -e 'const fs=require("node:fs");const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));const r=d.resultAudit||{},s=d.sourceAudit||{},p=d.pastGames||[],o=d.overallSummary||{};const x={at:new Date().toISOString(),version:d.version,round:d.round,gmTs:d.gmTs,updatedAt:d.updatedAt,summary:d.summary,overallSummary:{settled:o.settled,hits:o.hits,misses:o.misses,voids:o.voids,accuracy:o.accuracy},resultAudit:{ok:r.ok,lastAt:r.lastAt,lastSuccessAt:r.lastSuccessAt,pending:r.pending,settledNow:r.settledNow,voids:r.voids,checkedGmTs:r.checkedGmTs,errorsCount:Array.isArray(r.errors)?r.errors.length:null},sourceAudit:{ok:s.ok,lastAt:s.lastAt,games:s.games},pastGames:{total:p.length,hits:p.filter(z=>z.settlementStatus==="적중").length,misses:p.filter(z=>z.settlementStatus==="낙첨").length,voids:p.filter(z=>z.settlementStatus==="적특").length}};console.log("LIVE_SETTLEMENT_STATE="+JSON.stringify(x));const safe=z=>String(z||"").replace(/https?:\/\/\S+/g,"[url]").slice(0,180);console.log("LIVE_ERROR_DIGEST="+JSON.stringify({result:(r.errors||[]).slice(0,10).map(safe),sourceError:safe(s.error),sourceReason:safe(s.reason),sourceErrors:(s.errors||[]).slice(0,6).map(safe),resultLastSuccessAt:r.lastSuccessAt,sourceLastSuccessAt:s.lastSuccessAt,responseShapes:(r.responseShapes||[]).map(z=>({gmTs:z.gmTs,pendingBefore:z.pendingBefore,pendingAfter:z.pendingAfter,resultApiOk:z.resultApiOk,gameInfoOk:z.gameInfoOk}))}));if(!String(d.version||"").includes("R305")||!d.resultAudit)process.exit(1);' "$RUNNER_TEMP/live-state.json"
+          curl --fail --silent --show-error --location --connect-timeout 5 --max-time 15 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/state.json"
+          node - "$RUNNER_TEMP/state.json" <<'NODE'
+          const fs=require('node:fs');
+          const d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          const g=d.gradeAudit||{},r=d.resultAudit||{},o=d.sourceAudit||{};
+          const counts=(d.markingGames||[]).reduce((a,x)=>(a[x.displayGrade||"일반"]=(a[x.displayGrade||"일반"]||0)+1,a),{});
+          console.log("R308_LIVE_STATE="+JSON.stringify({
+            capturedAt:new Date().toISOString(),
+            version:d.version,round:d.round,
+            bestPickCounts:g.counts,liveBestPickCounts:counts,
+            gradeTargets:g.targetCounts,bestFallbackCount:g.fallbackBestCount,
+            eliteEligibility:g.eligibleCounts,summary:d.summary,
+            official:{ok:r.ok,lastAt:r.lastAt,lastSuccessAt:r.lastSuccessAt,
+              settledNow:r.settledNow,pending:r.pending,errorCount:r.errors?.length||0,
+              errors:(r.errors||[]).map(v=>String(v).replace(/https?:\/\/\S+/g,"[url]").slice(0,110))},
+            odds:{ok:o.ok,lastAt:o.lastAt,error:o.error||null}
+          }));
+          if(!String(d.version||"").includes("R308"))throw Error("R308 is not live");
+          NODE
