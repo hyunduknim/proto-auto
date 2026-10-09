@@ -1,4 +1,4 @@
-name: Live R309 settlement and grade audit
+name: Live R310 settlement and grade audit
 on:
   pull_request:
     branches: [main]
@@ -29,7 +29,7 @@ jobs:
           const stats=[];
           for(const q of [.60,.57,.54,.5])for(const opp of [0,1,2])
             stats.push({q,opp,count:xs.filter(m=>qualifies(m,q,.50,.50,-.20,opp)).length});
-          console.log("R309_DEEP_QUALITY="+JSON.stringify({total:xs.length,stats,
+          console.log("R310_DEEP_QUALITY="+JSON.stringify({total:xs.length,stats,
             top:xs.slice().sort((a,b)=>n(b.aiQuality)-n(a.aiQuality)).slice(0,10).map(x=>({
               q:x.aiQuality,cross:x.crossAgreement,rel:x.dataReliability,intg:x.dataIntegrityScore,
               edge:n(x.calibratedProbability)-n(x.marketProbability),
@@ -46,7 +46,7 @@ jobs:
           const future=rows.filter(m=>Number.isFinite(ms(m))&&ms(m)>now),past=rows.filter(m=>Number.isFinite(ms(m))&&ms(m)<=now);
           const modes=x=>x.reduce((a,m)=>(a[m.selectionMode||"?"]=(a[m.selectionMode||"?"]||0)+1,a),{});
           const grade=x=>x.reduce((a,m)=>(a[m.displayGrade||"?"]=(a[m.displayGrade||"?"]||0)+1,a),{});
-          console.log("R309_TIME="+JSON.stringify({at:new Date(now).toISOString(),all:rows.length,started:past.length,future:future.length,noDate:rows.length-past.length-future.length,
+          console.log("R310_TIME="+JSON.stringify({at:new Date(now).toISOString(),all:rows.length,started:past.length,future:future.length,noDate:rows.length-past.length-future.length,
             startedModes:modes(past),futureModes:modes(future),futureGrades:grade(future),startedGrades:grade(past),
             futureStrict:future.filter(m=>m.selectionMode==="STRICT").map(m=>({date:m.date,time:m.time,quality:m.aiQuality,group:m.independentGroupCount})),
             latestDateTimes:future.slice(0,4).map(m=>({date:m.date,time:m.time}))}));
@@ -68,7 +68,7 @@ jobs:
             number(m.crossAgreement)>=.55&&number(m.dataIntegrityScore)>=.52&&
             number(m.independentGroupCount)>=2&&number(m.axisOppositionCount)===0&&
             number(m.gradeAxisOppositionCount)===0;
-          console.log("R309_CANDIDATES="+JSON.stringify({active:rows.length,byMode:by(rows),strictCount:strict.length,qualityStrictCount:strict.filter(fallback).length,
+          console.log("R310_CANDIDATES="+JSON.stringify({active:rows.length,byMode:by(rows),strictCount:strict.length,qualityStrictCount:strict.filter(fallback).length,
             counts:d.gradeAudit?.counts,activeCounts:d.gradeAudit?.activeCounts,
             locked:d.gradeAudit?.locked,lockedCounts:d.gradeAudit?.lockedCounts,
             strictStats:strict.slice(0,8).map(m=>({p:m.calibratedProbability,mp:m.marketProbability,ev:number(m.calibratedProbability)*number(m.odds)-1,quality:m.aiQuality,rel:m.dataReliability,cross:m.crossAgreement,integrity:m.dataIntegrityScore,grp:m.independentGroupCount,opp:m.gradeAxisOppositionCount}))}));
@@ -88,6 +88,6 @@ jobs:
             result:{ok:r.ok,pending:r.pending,lastAt:r.lastAt,
               lastSuccessAt:r.lastSuccessAt,errorsCount:r.errors?.length||0},
             pastGames:(d.pastGames||[]).length};
-          console.log("R309_PRODUCTION="+JSON.stringify(k));
-          if(!String(d.version||"").includes("R309"))process.exit(1);
+          console.log("R310_PRODUCTION="+JSON.stringify(k));
+          if(!String(d.version||"").includes("R310"))process.exit(1);
           NODE
