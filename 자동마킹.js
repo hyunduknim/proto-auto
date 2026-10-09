@@ -3454,6 +3454,22 @@ function selfTest(){
     variantMarkets.some(m=>m.no===103&&m.marketFamily==="TOTAL"));
   const nestedFixture={response:{payload:structuredClone(fixture)}};const nestedMs=parseBetmanMarkets(nestedFixture,"260117");t("03a nested betman parse",nestedMs.length===3,`rows=${nestedMs.length}`);
   t("04 choices",ms.every(m=>validChoices(m).length===2));t("05 opening odds",ms.every(m=>validChoices(m).every(c=>Number(c.openingOdds)>1)));t("06 baseball 2.5",candidateEligible(ms.find(m=>m.marketFamily==="HANDICAP"))===true);
+  const gradeExample=(id,family,pick)=>({no:90000+id,date:"2099-10-02",time:"18:00",
+    marketFamily:family,finalPick:pick,line:family==="HANDICAP"?2.5:7.5,
+    finalOdds:1.9,hitProbability:.56,safeHitProbability:.52,marketProbability:.52,
+    modelEdge:.04,independentGroupCount:2,gradeAxisOppositionCount:0,
+    dataReliability:.65,aiQuality:.65,confidenceScore:.65,crossAgreement:.65,
+    axisAvailableCount:3,axisSupportCount:2,axisOppositionCount:0});
+  const plusExamples=Array.from({length:6},(_,i)=>gradeExample(i,"HANDICAP","승"));
+  const nonPlusExamples=Array.from({length:6},(_,i)=>gradeExample(10+i,i%2?"MONEYLINE":"TOTAL",i%2?"승":"오버"));
+  const recBalance=r339RebalanceRecommended([...plusExamples,...nonPlusExamples],6,[],6);
+  t("R339 recommendation replaces excess plus handicaps without altering picks",
+    recBalance.plusAfter<=recBalance.plusLimit&&recBalance.swaps>=4,
+    JSON.stringify({after:recBalance.plusAfter,limit:recBalance.plusLimit,swaps:recBalance.swaps}));
+  const recBalanceLocked=r339RebalanceRecommended([...plusExamples.slice(1),...nonPlusExamples],5,[plusExamples[0]],6);
+  t("R339 preserve locked plus and reduce remaining recommended concentration",
+    recBalanceLocked.lockedPlus===1&&recBalanceLocked.plusAfter<=recBalanceLocked.plusLimit,
+    JSON.stringify({after:recBalanceLocked.plusAfter,limit:recBalanceLocked.plusLimit}));
   const st=createState();st.round=117;st.gmTs="260117";st.markets=structuredClone(ms);markState(st);const reps=st.markets.filter(m=>m.marked&&m.representativeSelected);t("07 priced game always representative-marked",reps.length===1,`reps=${reps.length}`);t("08 min odds",reps.every(m=>Number(m.finalOdds)>=1.31));t("09 ai quality",reps.every(m=>Number.isFinite(Number(m.aiQuality))));t("10 model edge",reps.every(m=>Number.isFinite(Number(m.modelEdge))));t("11 movement",reps.every(m=>Number.isFinite(Number(m.oddsMovement))));t("12 analysis audit",st.analysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW");t("13 public game",representativeGames(st).length===1);t("13a shared audit",st.sharedAnalysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"&&st.sharedAnalysisAudit.analyzedMarkets===3);t("13b all market analysis",st.markets.every(m=>m.sharedAnalysis&&m.sharedAnalysis.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"));t("13c all choice analysis",st.markets.every(m=>Array.isArray(m.sharedAnalysis?.choices)&&m.sharedAnalysis.choices.length===2));t("13d detailed analysis",allGameAnalysis(st).length===1&&allGameAnalysis(st)[0].markets.length===3);
   // R254: 새 회차 대표픽은 상대 순위로 20/30/50을 실제 배분한다.
   const weak=createState();weak.round=117;weak.gmTs="260117";weak.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`WH${i}`;x.away=`WA${i}`;x.game=`WH${i} vs WA${i}`;for(const c of x.choices)c.openingOdds=c.odds;x.date="2099-10-02";weak.markets.push(x);}}markState(weak);t("14 grade current-round mode",weak.gradeAudit.mode==="R324_EXACT_RELATIVE_20_30_50");t("15 weak grades have exact relative quotas",weak.gradeAudit.counts["가장추천"]===2&&weak.gradeAudit.counts["추천"]===3&&weak.gradeAudit.counts["일반"]===5&&weak.gradeAudit.total===10,JSON.stringify(weak.gradeAudit.counts));
