@@ -1,0 +1,103 @@
+name: Official Betman settlement relay
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/official-settlement-relay.yml"]
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: protonumber-official-settlement-relay
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    name: Fetch official GameInfo and securely settle pending bets
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Install Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fetch official results via runner and send using signed GitHub identity
+        env:
+          PROTONUMBER_URL: https://protonumber.mystyle276.workers.dev
+          GITHUB_OIDC_AUD: protonumber-official-settlement
+        run: |
+          node <<'NODE'
+          const base=process.env.PROTONUMBER_URL, aud=process.env.GITHUB_OIDC_AUD;
+          const timeout=ms=>AbortSignal.timeout(ms);
+          const betmanHeaders=ref=>({
+            "content-type":"application/json; charset=UTF-8",
+            "accept":"application/json, text/javascript, */*; q=0.01",
+            "x-requested-with":"XMLHttpRequest",
+            "origin":"https://www.betman.co.kr",
+            "referer":ref,
+            "user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+            "cache-control":"no-cache","pragma":"no-cache"
+          });
+          async function officialGameInfo(ts){
+            const u="https://www.betman.co.kr/buyPsblGame/gameInfoInq.do";
+            const ref="https://www.betman.co.kr/main/mainPage/gamebuy/gameSlip.do?gmId=G101&gmTs="+encodeURIComponent(ts);
+            const body=JSON.stringify({gmId:"G101",gmTs:String(ts),gameYear:"",_sbmInfo:{debugMode:"false"}});
+            for(let attempt=1;attempt<=2;attempt++){
+              try{
+                const r=await fetch(u,{method:"POST",headers:betmanHeaders(ref),body,redirect:"follow",signal:timeout(12000)});
+                if(!r.ok)throw Error("HTTP_"+r.status);
+                const data=await r.json();
+                if(String(data.gmTs||ts)!==ts||!Array.isArray(data.compSchedules?.keys)||!Array.isArray(data.compSchedules?.datas))throw Error("invalid official schedule/round");
+                return data;
+              }catch(e){
+                console.log("Official GameInfo",ts,"attempt",attempt,"failed:",String(e.message||e).slice(0,120));
+                if(attempt===2)throw e;
+                await new Promise(r=>setTimeout(r,1000));
+              }
+            }
+          }
+          async function signedToken(){
+            const endpoint=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL||"");
+            const bearer=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+            if(!bearer)throw Error("GitHub OIDC permission missing");
+            endpoint.searchParams.set("audience",aud);
+            const r=await fetch(endpoint,{headers:{"Authorization":"Bearer "+bearer},signal:timeout(12000)});
+            if(!r.ok)throw Error("OIDC_HTTP_"+r.status);
+            const j=await r.json();
+            if(!j.value)throw Error("OIDC token missing");
+            return j.value;
+          }
+          (async()=>{
+            const response=await fetch(base+"/api/state",{signal:timeout(20000)});
+            if(!response.ok)throw Error("Worker state HTTP "+response.status);
+            const state=await response.json();
+            const nos=state.resultAudit?.pendingNos||[];
+            const rounds=[...new Set(nos.map(m=>String(m.gmTs||"")).filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
+            if(!rounds.length){console.log("No official settlement pending; skipping relay.");return;}
+            const token=await signedToken();
+            let delivered=0,settled=0,failures=0;
+            for(const ts of rounds){
+              try{
+                const gameInfo=await officialGameInfo(ts);
+                const r=await fetch(base+"/api/official-gameinfo-relay",{
+                  method:"POST",headers:{"authorization":"Bearer "+token,"content-type":"application/json"},
+                  body:JSON.stringify({gmTs:ts,gameInfo}),signal:timeout(60000)
+                });
+                const data=await r.json().catch(()=>({}));
+                if(!r.ok||!data.ok)throw Error("Worker relay HTTP "+r.status+" "+String(data.error||"").slice(0,130));
+                console.log("OFFICIAL_SETTLEMENT_RELAY="+JSON.stringify({
+                  gmTs:ts,verifiedRows:data.verifiedRows,settledNow:data.settledNow,
+                  pendingBefore:data.pendingBefore,pendingAfter:data.pendingAfter
+                }));
+                delivered++;settled+=Number(data.settledNow||0);
+              }catch(e){failures++;console.error("OFFICIAL_RELAY_ERROR:",ts,String(e.message||e).slice(0,200));}
+            }
+            console.log("OFFICIAL_RELAY_SUMMARY="+JSON.stringify({rounds:rounds.length,delivered,settled,failures}));
+            if(failures)process.exitCode=1;
+          })().catch(e=>{console.error("OFFICIAL_RELAY_FATAL:",String(e.message||e).slice(0,160));process.exitCode=1;});
+          NODE
