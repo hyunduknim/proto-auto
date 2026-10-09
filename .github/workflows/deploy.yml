@@ -154,6 +154,8 @@ jobs:
               qualityOverCandidates:dir.qualityOverCandidates||0,
               overReserveFilled:dir.overReserveFilled||0};
             result.overRebalance=d.marketMixAudit?.totalDirectionBalance||null;
+            result.candidateAvailability=d.marketMixAudit?.candidateAvailability||null;
+            result.plusTotalRepresentativeAudit=d.plusTotalRepresentativeAudit||null;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
