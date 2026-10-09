@@ -3204,6 +3204,29 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
       relayAudit:{at:nowIso(),totalSettled:4,lastSettlementAt:nowIso()}});
     t("R311 official relay status independent from direct errors",h.relayFresh&&h.mode==="GITHUB_OFFICIAL_RELAY_AVAILABLE"&&!h.directOk&&h.lastRelaySettled===4);
   }
+  {
+    const under={pick:"언더",calibratedP:.535,conservativeP:.49,marketP:.55,odds:1.72,reliability:.63,crossAgreement:.65};
+    const over={pick:"오버",calibratedP:.465,conservativeP:.423,marketP:.45,odds:2.10,reliability:.63,crossAgreement:.65};
+    t("R314 Over beats higher raw Under when bookmaker-relative value supports it",
+      compareMarketValue(over,under)<0&&relativeChoiceValue(over)>relativeChoiceValue(under));
+    const plus={...under,pick:"승",calibratedP:.56,conservativeP:.525,marketP:.59,odds:1.60};
+    const minus={...over,pick:"패",calibratedP:.44,conservativeP:.41,marketP:.41,odds:2.20};
+    t("R314 Minus handicap competes fairly against higher chance plus handicap",
+      compareMarketValue(minus,plus)<0);
+    const favorite={...under,pick:"승",calibratedP:.67,conservativeP:.63,marketP:.72,odds:1.30};
+    const draw={...over,pick:"무",calibratedP:.29,conservativeP:.265,marketP:.26,odds:3.6};
+    t("R314 positive-value draw can outrank high-chance unfavorable favorite",
+      compareMarketValue(draw,favorite)<0);
+    const drawGrade={gmTs:"260120",sport:"축구",marketFamily:"MONEYLINE",selectionMode:"DRAW_BEST_OF_ROUND",
+      finalPick:"무",finalOdds:3.6,hitProbability:.31,marketProbability:.29,safeHitProbability:.285,
+      aiQuality:.56,dataReliability:.61,crossAgreement:.58,dataIntegrityScore:.56,
+      independentGroupCount:2,axisOppositionCount:0,gradeAxisOppositionCount:0};
+    t("R314 evidence-backed draw may be recommended",relativeRecommendationFallbackPasses(drawGrade));
+    t("R314 weak unsupported draw stays general",!relativeRecommendationFallbackPasses({...drawGrade,aiQuality:.25}));
+    const valueNeutralUO={...drawGrade,marketFamily:"TOTAL",selectionMode:"DEEP_REVIEW",finalPick:"오버",
+      finalOdds:1.86,hitProbability:.50,marketProbability:.48};
+    t("R314 elite continues to reject negative-value UO",!relativeEliteFallbackPasses(valueNeutralUO));
+  }
   const ok=tests.every(x=>x.ok);return{ok,passed:tests.filter(x=>x.ok).length,total:tests.length,tests,version:APP_VERSION,build:BUILD_ID};
 }
 
