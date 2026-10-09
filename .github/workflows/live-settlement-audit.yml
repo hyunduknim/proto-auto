@@ -10,6 +10,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
+      - name: Audit remaining best-tier candidates without identifiers
+        run: |
+          curl --fail --silent --show-error --location --connect-timeout 5 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/grades.json"
+          node - "$RUNNER_TEMP/grades.json" <<'NODE'
+          const fs=require("node:fs");
+          const d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+          const rows=(d.markingGames||[]).filter(m=>m.pick&&m.odds>=1.31&&!m.resultFinal);
+          const by=xs=>xs.reduce((a,x)=>(a[x.selectionMode||"?"]=(a[x.selectionMode||"?"]||0)+1,a),{});
+          const strict=rows.filter(m=>m.selectionMode==="STRICT");
+          const number=m=>Number(m??0);
+          const fallback=m=>m.selectionMode==="STRICT"&&m.marketProbability&&
+            number(m.calibratedProbability)-number(m.marketProbability)>=.01&&
+            number(m.calibratedProbability)*number(m.odds)-1>=-.12&&
+            number(m.dataReliability)>=.57&&number(m.aiQuality)>=.60&&
+            number(m.crossAgreement)>=.55&&number(m.dataIntegrityScore)>=.52&&
+            number(m.independentGroupCount)>=2&&number(m.axisOppositionCount)===0&&
+            number(m.gradeAxisOppositionCount)===0;
+          console.log("R309_CANDIDATES="+JSON.stringify({active:rows.length,byMode:by(rows),strictCount:strict.length,qualityStrictCount:strict.filter(fallback).length,
+            counts:d.gradeAudit?.counts,activeCounts:d.gradeAudit?.activeCounts,
+            locked:d.gradeAudit?.locked,lockedCounts:d.gradeAudit?.lockedCounts,
+            strictStats:strict.slice(0,8).map(m=>({p:m.calibratedProbability,mp:m.marketProbability,ev:number(m.calibratedProbability)*number(m.odds)-1,quality:m.aiQuality,rel:m.dataReliability,cross:m.crossAgreement,integrity:m.dataIntegrityScore,grp:m.independentGroupCount,opp:m.gradeAxisOppositionCount}))}));
+          NODE
       - name: Read production state after official relay
         run: |
           curl --fail --silent --show-error --location --connect-timeout 5 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/state.json"
