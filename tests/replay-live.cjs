@@ -76,6 +76,9 @@ console.log("R321_ELIGIBILITY_POOL="+JSON.stringify(pools));
 const out={version:snapshot.app.version,round:S.round,at:new Date().toISOString(),locked:fixed.size,baseline,sampleDepth,
  market:S.marketMixAudit?.counts,marketTarget:S.marketMixAudit?.targetCounts,
  grade:S.gradeAudit?.counts,targets:S.gradeAudit?.targetCounts,
+ recommendationBalance:S.gradeAudit?.recommendationBalanceAudit,
+ relativeRisk:{elite:S.gradeAudit?.totalDirectionAudit?.relativeMarketOnly,
+   recommended:S.gradeAudit?.recommendationBalanceAudit?.relativeMarketOnly},
  direction:S.gradeAudit?.totalDirectionAudit,
  coverage:{...S.fullMarkAudit,waiting:S.fullMarkAudit?.waiting?.length||0,waitingEntriesOmitted:true},
  future:stats(future),totals:stats(combo),elite:stats(top),recommend:stats(rec),
@@ -94,6 +97,16 @@ const verifyBothSides=(xs)=>xs.some(m=>m.finalPick==="언더")&&xs.some(m=>m.fin
 const fidelity=Object.prototype.hasOwnProperty.call(snapshot.performanceDB||{},"priorSummaries")
   ?"COMPLETE_EXPORTED_PRIOR_SUMMARIES":"PARTIAL_PRIOR_SUMMARIES_NOT_EXPORTED_BY_LIVE_R320";
 const insufficient=[];
+const balancedRecommendation=S.gradeAudit?.recommendationBalanceAudit;
+if(balancedRecommendation){
+ const deviations=["MONEYLINE","HANDICAP","TOTAL"].map(k=>Math.abs(Number(balancedRecommendation.selected?.[k]||0)-Number(balancedRecommendation.target?.[k]||0)));
+ if(deviations.some(x=>x>1))insufficient.push("RECOMMEND_FAMILY_IMBALANCE");
+}
+if(S.gradeAudit?.totalDirectionAudit?.selectedOver<1||S.gradeAudit?.totalDirectionAudit?.selectedUnder<1)
+ insufficient.push("ELITE_SINGLE_TOTAL_DIRECTION");
+if((balancedRecommendation?.totalUnder||0)<1||(balancedRecommendation?.totalOver||0)<1)
+ insufficient.push("RECOMMEND_TOTAL_SINGLE_DIRECTION");
+
 if(fidelity!=="COMPLETE_EXPORTED_PRIOR_SUMMARIES")insufficient.push("INCOMPLETE_SOURCE_STATE");
 if(out.coverage.gapGames!==0)insufficient.push("REPRESENTATIVE_MARKING_GAPS");
 if(out.market.MONEYLINE!==out.marketTarget.MONEYLINE||
