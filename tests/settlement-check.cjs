@@ -149,6 +149,33 @@ const api = new Function(
   assert.equal(relayHealth.mode,"GITHUB_OFFICIAL_RELAY_AVAILABLE",
     "Displays honest official relay mode");
 
+  // R323: stale official direct success must not keep the UI green forever.
+  const staleAt=new Date(Date.now()-45*60*1000).toISOString();
+  const stalledState=api.createState();stalledState.gmTs="260120";stalledState.round=120;
+  stalledState.markets=[market(1901,"승","경기전")];
+  stalledState.resultAudit={ok:true,directOk:true,lastSuccessAt:staleAt,
+    source:"BETMAN_OFFICIAL_RESULT_PARALLEL_GAMEINFO_FINAL_SCORE"};
+  stalledState.relayAudit={at:staleAt};
+  const stalledHealth=api.settlementHealth(stalledState);
+  assert.equal(stalledHealth.pending,1,"Started unfinalized game is pending official settlement");
+  assert.equal(stalledHealth.stalled,true,"Stale pending official source must trigger warning");
+  assert.equal(stalledHealth.directOk,false,"Old direct success cannot imply an active connection");
+  assert.equal(stalledHealth.mode,"OFFICIAL_DATA_RETRYING","Stale source must show retry status");
+  assert.ok(stalledHealth.staleMinutes>=40,"Display minutes since official contact");
+  const stalledView=api.publicState(stalledState);
+  assert.equal(stalledView.markingGames[0].gameStarted,true,
+    "Pending started card cannot be labeled as an upcoming game");
+  const freshHealth=api.settlementHealth({...stalledState,
+    relayAudit:{at:new Date().toISOString()}});
+  assert.equal(freshHealth.stalled,false,"New verified relay restores connection status");
+
+  // GitHub schedule is best effort; the source workflow keeps its staggered
+  // five-minute cron as well as independently triggered runs.
+  const relayWorkflow=fs.readFileSync(path.join(__dirname,"..",
+    ".github/workflows/official-settlement-relay.yml"),"utf8");
+  assert.ok(relayWorkflow.includes('cron: "3-58/5 * * * *"'),
+    "Staggered five-minute relay must stay configured");
+
   const rejected = await api.ingestOfficialRelay({
     headers:new Headers(),json:async()=>({
       gmTs:"260120",gameInfo:{gmTs:"260119",compSchedules:{keys:[],datas:[]}}
