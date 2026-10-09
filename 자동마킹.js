@@ -2873,13 +2873,39 @@ function redactForExport(value){
 function buildAnalysisExport(state){
   const model=ensurePerformanceModel(state),safe=redactForExport(state),curMarkets=(safe.markets||[]).filter(m=>!state.gmTs||String(m.gmTs||"")===String(state.gmTs)),histMarkets=(safe.markets||[]).filter(m=>state.gmTs&&String(m.gmTs||"")!==String(state.gmTs));
   const curState=currentRoundStateView(state),histState={...state,markets:(state.markets||[]).filter(m=>state.gmTs&&String(m.gmTs||"")!==String(state.gmTs))};
-  return {schema:'PROTO_ANALYSIS_EXPORT_V3',purpose:'ChatGPT 재분석·백업·회차 비교용. 비공개 앱 API/인증정보는 포함하지 않음.',exportedAt:nowIso(),app:{version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE},round:{round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt},config:exportSafeConfig(),performanceSummary:safe.performanceSummary||null,directionAudit:directionAudit(state),summary:summary(curState),overallSummary:summary(state),audits:{source:state.sourceAudit,result:state.resultAudit,grade:state.gradeAudit,marketMix:state.marketMixAudit,analysis:state.analysisAudit,sharedAnalysis:state.sharedAnalysisAudit,learning:state.learningAudit,performance:state.performanceAudit,fiveApk:state.fiveApkAudit,jeongbaedang:state.jeongbaedangAudit,aux:state.auxAudit,reset:state.resetAudit,settlementRepair:state.settlementRepairAudit},currentRound:{representatives:representativeGames(curState),allGameAnalysis:allGameAnalysis(curState),markets:curMarkets},history:{representatives:representativeGames(histState),markets:histMarkets},learningModel:redactForExport(state.learningAudit?.model||{}),performanceDB:{version:model.version,createdAt:model.createdAt,updatedAt:model.updatedAt,bootstrapDone:!!model.bootstrapDone,bootstrapAt:model.bootstrapAt||null,teams:redactForExport(model.teams||{}),h2h:redactForExport(model.h2h||{}),seenGames:redactForExport(model.seenGames||{})},jeongbaedangDB:{version:ensureJeongbaedangModel(state).version,seedVersion:ensureJeongbaedangModel(state).seedVersion,seedMarkets:ensureJeongbaedangModel(state).seedMarkets,settledMarkets:ensureJeongbaedangModel(state).settledMarkets,choiceRows:ensureJeongbaedangModel(state).choiceRows,buckets:redactForExport(ensureJeongbaedangModel(state).buckets||{}),seen:redactForExport(ensureJeongbaedangModel(state).seen||{})},notes:['이 JSON을 나중에 ChatGPT에 첨부하면 회차별 마킹/정산/분석 가중치 검토에 사용할 수 있음.','공식정산 상세는 요약통계 저장 성공 후 삭제하며, history에는 삭제 전 정산대기 또는 저장실패 상세만 남음.','최종 적중·낙첨·적특 판정은 Betman 공식 결과 기준.','시장 30/30/40은 실제 대표픽 강제배분 목표이며 가능한 경우 정확히 맞춘다. 등급 20/30/50도 실제 슬롯을 채운다. 정상 배당 미시작 경기는 무조건 대표마킹한다.','환경변수·API 키·토큰·쿠키는 내보내지 않음. SC/PS/SN/PO 각 축의 provenance와 독립그룹 수도 함께 보존함.']};
+  return {schema:'PROTO_ANALYSIS_EXPORT_V3',purpose:'ChatGPT 재분석·백업·회차 비교용. 비공개 앱 API/인증정보는 포함하지 않음.',exportedAt:nowIso(),app:{version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE},round:{round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt},config:exportSafeConfig(),performanceSummary:safe.performanceSummary||null,directionAudit:directionAudit(state),summary:summary(curState),overallSummary:summary(state),audits:{source:state.sourceAudit,result:state.resultAudit,grade:state.gradeAudit,marketMix:state.marketMixAudit,analysis:state.analysisAudit,sharedAnalysis:state.sharedAnalysisAudit,learning:state.learningAudit,performance:state.performanceAudit,fiveApk:state.fiveApkAudit,jeongbaedang:state.jeongbaedangAudit,aux:state.auxAudit,reset:state.resetAudit,settlementRepair:state.settlementRepairAudit},currentRound:{representatives:representativeGames(curState),allGameAnalysis:allGameAnalysis(curState),markets:curMarkets},history:{representatives:representativeGames(histState),markets:histMarkets},learningModel:redactForExport(state.learningAudit?.model||{}),performanceDB:{version:model.version,createdAt:model.createdAt,updatedAt:model.updatedAt,bootstrapDone:!!model.bootstrapDone,bootstrapAt:model.bootstrapAt||null,teams:redactForExport(model.teams||{}),h2h:redactForExport(model.h2h||{}),seenGames:redactForExport(model.seenGames||{}),priorSummaries:redactForExport(model.priorSummaries||{})},jeongbaedangDB:{version:ensureJeongbaedangModel(state).version,seedVersion:ensureJeongbaedangModel(state).seedVersion,seedMarkets:ensureJeongbaedangModel(state).seedMarkets,settledMarkets:ensureJeongbaedangModel(state).settledMarkets,choiceRows:ensureJeongbaedangModel(state).choiceRows,buckets:redactForExport(ensureJeongbaedangModel(state).buckets||{}),seen:redactForExport(ensureJeongbaedangModel(state).seen||{})},notes:['이 JSON을 나중에 ChatGPT에 첨부하면 회차별 마킹/정산/분석 가중치 검토에 사용할 수 있음.','공식정산 상세는 요약통계 저장 성공 후 삭제하며, history에는 삭제 전 정산대기 또는 저장실패 상세만 남음.','최종 적중·낙첨·적특 판정은 Betman 공식 결과 기준.','시장 30/30/40은 실제 대표픽 강제배분 목표이며 가능한 경우 정확히 맞춘다. 등급 20/30/50도 실제 슬롯을 채운다. 정상 배당 미시작 경기는 무조건 대표마킹한다.','환경변수·API 키·토큰·쿠키는 내보내지 않음. SC/PS/SN/PO 각 축의 provenance와 독립그룹 수도 함께 보존함.']};
 }
 function exportFileName(state){const d=kstDateFromMs(Date.now())||nowIso().slice(0,10);return `proto_analysis_R297_round${state?.round||'unknown'}_${d.replace(/-/g,'')}.json`;}
 
 function selfTest(){
   // R253 배당전문 PS: 초기→현재 배당 이동은 PS 내부에서만 강화하고 별도 독립축으로 세지 않는다.
   const tests=[];const t=(name,ok,detail="")=>tests.push({name,ok:!!ok,detail});
+
+  // R321: prevent sport-average goals from masquerading as team-specific
+  // evidence; both sides of TOTAL remain symmetric with no quota flips.
+  t("R321 sport-wide samples cannot fabricate team scoring evidence",
+    !credibleTotalScoreInputs({scoreGames:0},{scoreGames:0},{scope:"SPORT",scoreSamples:138}));
+  t("R321 league prior alone cannot fabricate team scoring evidence",
+    !credibleTotalScoreInputs(null,null,{scope:"LEAGUE",scoreSamples:200}));
+  t("R321 verified score histories of both teams activate total model",
+    credibleTotalScoreInputs({scoreGames:5},{scoreGames:5},{scope:"SPORT",scoreSamples:0}));
+  t("R321 partial team histories plus league score evidence activate total model",
+    credibleTotalScoreInputs({scoreGames:2},{scoreGames:2},{scope:"LEAGUE",scoreSamples:24}));
+  t("R321 generic sport priors never produce a Total selection probability",
+    (()=>{const p=createState();p.performanceModel.priorSummaries={"축구|testleague":{
+      sport:"축구",league:"testleague",samples:138,wins:45,draws:42,losses:51,
+      scoreSamples:138,homeScoreSum:192,awayScoreSum:157,marginSum:35}};
+      const m={gmTs:"260120",date:"2099-12-31",time:"12:00",sport:"축구",league:"testleague",
+        home:"team X",away:"team Y",marketFamily:"TOTAL",line:4.5,
+        choices:[{label:"오버",odds:1.7},{label:"언더",odds:1.7}]};
+      return !buildPerformanceMarketModel(p,m).available;
+    })());
+  t("R321 directional audit cannot flip an actual Under into Over",
+    (()=>{const m={marketFamily:"TOTAL",finalPick:"언더"},a=new Map([["G",{m,q:{pick:"언더"}}]]);
+      const z=rebalanceTotalOverRepresentatives({},[{key:"G",ms:[m]}],a,[]);
+      return a.get("G").q.pick==="언더"&&z.changed===0&&z.selectedOver===0&&z.selectedUnder===1;
+    })());
+
   {const m={sport:"야구",marketFamily:"HANDICAP",line:2.5,finalPick:"승",selectionMode:"STRICT",finalOdds:1.8,marketProbability:.57,modelEdge:.08,hitProbability:.65,safeHitProbability:.61,dataReliability:.78,aiQuality:.72,confidenceScore:.75,crossAgreement:.8,dataIntegrityScore:.76,independentGroupCount:3,gradeAxisSupportCount:3,gradeAxisOppositionCount:0,axisAvailableCount:3,axisSupportCount:3,axisOppositionCount:0,oddsMovement:.01,choices:[{label:"승",odds:1.8},{label:"패",odds:1.8}]};
     t("R305 plus/minus parity",gradePasses(m,"가장추천")&&gradePasses({...m,line:-2.5,finalPick:"패"},"가장추천"));
     t("R305 under/over parity",gradePasses({...m,marketFamily:"TOTAL",finalPick:"언더"},"가장추천")&&gradePasses({...m,marketFamily:"TOTAL",finalPick:"오버"},"가장추천"));
