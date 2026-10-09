@@ -32,24 +32,9 @@ jobs:
       - name: Verify settlement, state persistence and public UI
         run: node tests/settlement-check.cjs
 
-  deploy-direct:
-    name: Deploy R327 directly with Wrangler
-    needs: verify
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - name: Deploy verified worker to production
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config wrangler.jsonc
-
   confirm-cloudflare:
     name: Confirm Cloudflare automatic deployment
-    needs: [verify, deploy-direct]
+    needs: verify
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
