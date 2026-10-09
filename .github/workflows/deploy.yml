@@ -86,6 +86,8 @@ jobs:
           const match=source.match(/const APP_VERSION = "([^"]+)";/);
           assert.ok(match,"Cannot determine source release version");
           const expected=match[1];
+          const migrationId=source.match(/const R317_MARKET_MIX_ID="([^"]+)";/)?.[1];
+          assert.ok(migrationId,"Cannot determine required persisted pregame repick");
           const endpoint="https://protonumber.mystyle276.workers.dev/api/state";
           const deadline=Date.now()+240000;
           const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -100,7 +102,7 @@ jobs:
                 if(!res.ok)throw Error("HTTP "+res.status);
                 const current=await res.json();
                 lastSeen=String(current.version||"unknown");
-                if(lastSeen===expected){found=current;break;}
+                if(lastSeen===expected&&current.marketRebalanceAudit?.id===migrationId){found=current;break;}
                 console.log("Worker rollout is not finished",attempts,":",lastSeen,"expected",expected);
               }catch(e){lastSeen=String(e?.message||e);
                 console.log("Retrying production validation",attempts,lastSeen);}
@@ -108,6 +110,9 @@ jobs:
             }
             assert.ok(found,"Worker version not propagated within 4 minutes; last="+lastSeen+", expected="+expected);
             const d=found,g=d.gradeAudit||{},counts=g.counts||{},health=d.settlementHealth||{};
+            const migration=d.marketRebalanceAudit;
+            assert.equal(migration?.id,migrationId,"Pregame repick migration did not run in production");
+            assert.ok(migration?.at,"Missing persisted repick timestamp");
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -115,6 +120,9 @@ jobs:
               "Official settlement health not exposed in live release");
             const q=d.summary||{};
             const result={version:d.version,round:d.round,grades:counts,
+              repick:{id:migration.id,at:migration.at,changedFuture:migration.changedFuture,
+                futureBefore:migration.futureBefore,futureAfter:migration.futureAfter,
+                preservedLocked:migration.preservedLocked},
               settled:Number(q.settled||0),hits:Number(q.hits||0),misses:Number(q.misses||0),
               pending:health.pending,officialChannel:health.mode,
               lastOfficialResultAt:health.lastOfficialResultAt||null,
