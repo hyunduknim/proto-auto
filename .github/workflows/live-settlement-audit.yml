@@ -1,9 +1,8 @@
-name: Live R308 settlement and best-pick audit
+name: Live R309 settlement and grade audit
 on:
   pull_request:
     branches: [main]
-    paths:
-      - .github/workflows/live-settlement-audit.yml
+    paths: [".github/workflows/live-settlement-audit.yml"]
 permissions:
   contents: read
 jobs:
@@ -11,24 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Read deployed Cloudflare Worker state
+      - name: Read production state after official relay
         run: |
-          curl --fail --silent --show-error --location --connect-timeout 5 --max-time 15 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/state.json"
+          curl --fail --silent --show-error --location --connect-timeout 5 --max-time 20 "https://protonumber.mystyle276.workers.dev/api/state" -o "$RUNNER_TEMP/state.json"
           node - "$RUNNER_TEMP/state.json" <<'NODE'
-          const fs=require('node:fs');
+          const fs=require("node:fs");
           const d=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-          const g=d.gradeAudit||{},r=d.resultAudit||{},o=d.sourceAudit||{};
-          const counts=(d.markingGames||[]).reduce((a,x)=>(a[x.displayGrade||"일반"]=(a[x.displayGrade||"일반"]||0)+1,a),{});
-          console.log("R308_LIVE_STATE="+JSON.stringify({
-            capturedAt:new Date().toISOString(),
-            version:d.version,round:d.round,
-            bestPickCounts:g.counts,liveBestPickCounts:counts,
-            gradeTargets:g.targetCounts,bestFallbackCount:g.fallbackBestCount,
-            eliteEligibility:g.eligibleCounts,summary:d.summary,
-            official:{ok:r.ok,lastAt:r.lastAt,lastSuccessAt:r.lastSuccessAt,
-              settledNow:r.settledNow,pending:r.pending,errorCount:r.errors?.length||0,
-              errors:(r.errors||[]).map(v=>String(v).replace(/https?:\/\/\S+/g,"[url]").slice(0,110))},
-            odds:{ok:o.ok,lastAt:o.lastAt,error:o.error||null}
-          }));
-          if(!String(d.version||"").includes("R308"))throw Error("R308 is not live");
+          const g=d.gradeAudit||{},r=d.resultAudit||{},rel=d.relayAudit||{};
+          const k={at:new Date().toISOString(),version:d.version,round:d.round,summary:d.summary,
+            counts:g.counts,gradeTargets:g.targetCounts,strictBest:g.strictBestCount,
+            fallbackBest:g.fallbackBestCount,fallbackRecommend:g.fallbackRecommendCount,
+            relay:{lastAt:rel.at,settledNow:rel.settledNow,verifiedRows:rel.verifiedRows,
+              pendingAfter:rel.pendingAfter,round:rel.gmTs,ok:rel.ok},
+            result:{ok:r.ok,pending:r.pending,lastAt:r.lastAt,
+              lastSuccessAt:r.lastSuccessAt,errorsCount:r.errors?.length||0},
+            pastGames:(d.pastGames||[]).length};
+          console.log("R309_PRODUCTION="+JSON.stringify(k));
+          if(!String(d.version||"").includes("R309"))process.exit(1);
           NODE
