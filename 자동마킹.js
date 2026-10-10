@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R347-URGENT-ODDS-RECOVERY";
-const BUILD_ID = "proto-betman-core-r347-urgent-odds-recovery";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R348-SIGNED-OFFICIAL-ODDS-RELAY";
+const BUILD_ID = "proto-betman-core-r348-signed-official-odds-relay";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -4052,7 +4052,7 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,fullRepickAudit:state.fullRepickAudit||null,gradeRevisionAudit:state.gradeRevisionAudit||null,recommendedFavoriteMigrationAudit:state.recommendedFavoriteMigrationAudit||null,recommendedFavoriteLiveAudit:state.recommendedFavoriteLiveAudit||null,recommendedFavoriteGuaranteeAudit:state.recommendedFavoriteGuaranteeAudit||null,recommendedFavoriteGuaranteeLiveAudit:state.recommendedFavoriteGuaranteeLiveAudit||null,recommendedLowOddsHandicapAudit:state.recommendedLowOddsHandicapAudit||null,recommendedLowOddsHandicapLiveAudit:state.recommendedLowOddsHandicapLiveAudit||null,kjDrawMigrationAudit:state.kjDrawMigrationAudit||null,kjDrawLiveAudit:state.kjDrawLiveAudit||null,kjDrawTrimAudit:state.kjDrawTrimAudit||null,recommendationPickAudit:state.recommendationPickAudit||null,recommendationTotalCorrectionAudit:state.recommendationTotalCorrectionAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,fullRepickAudit:state.fullRepickAudit||null,gradeRevisionAudit:state.gradeRevisionAudit||null,recommendedFavoriteMigrationAudit:state.recommendedFavoriteMigrationAudit||null,recommendedFavoriteLiveAudit:state.recommendedFavoriteLiveAudit||null,recommendedFavoriteGuaranteeAudit:state.recommendedFavoriteGuaranteeAudit||null,recommendedFavoriteGuaranteeLiveAudit:state.recommendedFavoriteGuaranteeLiveAudit||null,recommendedLowOddsHandicapAudit:state.recommendedLowOddsHandicapAudit||null,recommendedLowOddsHandicapLiveAudit:state.recommendedLowOddsHandicapLiveAudit||null,kjDrawMigrationAudit:state.kjDrawMigrationAudit||null,kjDrawLiveAudit:state.kjDrawLiveAudit||null,kjDrawTrimAudit:state.kjDrawTrimAudit||null,recommendationPickAudit:state.recommendationPickAudit||null,recommendationTotalCorrectionAudit:state.recommendationTotalCorrectionAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
   MEM.publicCacheKey=key;MEM.publicCache=value;return value;
 }
 function exportSafeConfig(){
@@ -4918,7 +4918,39 @@ async function ingestOfficialRelay(req,env){
   const scoreTrainingRows=[...officialRows,...officialTrainingRows];
   if(scoreTrainingRows.length)learned=ingestPerformanceRows(state,scoreTrainingRows);
   if(officialRows.length)jbAdded=ingestJeongbaedangOfficialRows(state,officialRows).markets;
-  if(settled||learned||jbAdded)markState(state);
+  // R348: signed GitHub runner can reach official GameInfo even when
+  // Cloudflare's direct source request fails. Ingest official odds ONLY for
+  // the already active round, keeping old valid prices and all settlements.
+  let priceRelay={accepted:false,fresh:0,priced:0,preserved:0,reason:"NO_VALID_CURRENT_ROUND_GAMEINFO"};
+  if(validGameInfo&&String(state.gmTs||"")===gmTs){
+    const parsedMarkets=parseBetmanMarkets(gameInfo,gmTs)
+      .filter(m=>!isArchivedMarket(state,m));
+    const freshPriced=parsedMarkets.filter(m=>validChoices(m).length>=2).length;
+    if(freshPriced>0){
+      const oldCurrent=(state.markets||[]).filter(m=>String(m.gmTs||"")===gmTs);
+      preserveSettlement(oldCurrent,parsedMarkets);
+      const merged=mergeLastKnownOfficialMarkets(oldCurrent,parsedMarkets);
+      recordOddsStability(state,merged.stability);
+      const otherRounds=(state.markets||[]).filter(m=>
+        String(m.gmTs||"")!==gmTs&&m.marked&&m.representativeSelected);
+      state.markets=dedupeMarkets([...merged.markets,...otherRounds]);
+      priceRelay={accepted:true,fresh:freshPriced,
+        priced:merged.markets.filter(m=>validChoices(m).length>=2).length,
+        preserved:merged.preserved,reason:null};
+      state.sourceAudit={...(state.sourceAudit||{}),ok:true,
+        lastAt:nowIso(),lastSuccessAt:nowIso(),
+        source:"BETMAN_OFFICIAL_JSON_VIA_SIGNED_GITHUB_RELAY",
+        round:state.round,gmTs,markets:merged.markets.length,
+        games:gameCount(merged.markets),pricedMarkets:priceRelay.priced,
+        freshPricedMarkets:freshPriced,
+        preservedClosedMarkets:merged.preserved,waitingMarkets:Math.max(0,merged.markets.length-priceRelay.priced),
+        errors:[]};
+      MEM.lastSourceSuccess=Date.now();
+    }else priceRelay.reason="NO_PRICED_OFFICIAL_GAMEINFO";
+  }
+  if(settled||learned||jbAdded||priceRelay.accepted)markState(state);
+  state.officialOddsRelayAudit={at:nowIso(),gmTs,...priceRelay,
+    source:"BETMAN_SIGNED_GITHUB_OIDC",currentRoundOnly:true};
   const now=nowIso(),previous=state.relayAudit||{},
     pendingAfter=pendingSettlementMarkets(state).filter(m=>String(m.gmTs||"")===gmTs).length,
     prevRounds=previous.rounds||{},rounds={...prevRounds};
@@ -4947,7 +4979,8 @@ async function ingestOfficialRelay(req,env){
   await saveState(state,env,true);
   return json({ok:true,gmTs,receivedRows:parsed.receivedRows,verifiedRows,
     resultApiRows:parsed.resultRows.length,gameInfoRows:parsed.gameInfoRows.length,
-    pendingBefore:pending.length,settledNow:settled,pendingAfter,at:now});
+    pendingBefore:pending.length,settledNow:settled,pendingAfter,
+    officialOddsRelay:priceRelay,at:now});
 }
 
 
