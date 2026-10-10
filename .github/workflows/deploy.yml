@@ -43,6 +43,8 @@ jobs:
         run: node tests/r370-0830-accuracy.cjs
       - name: Verify R371 exact relative grade display and historical locks
         run: node tests/r371-relative-grades.cjs
+      - name: Verify R372 existing saved cards migrate without altering results
+        run: node tests/r372-persisted-grade-migration.cjs
       - name: Verify R362 premium settlement when official results are published
         run: node tests/r362-premium-settlement.cjs
       - name: Verify R365 Zentoto full-time settlement source
