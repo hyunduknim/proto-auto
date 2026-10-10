@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R351-RECOMMENDED-OVER-GUARD";
-const BUILD_ID = "proto-betman-core-r351-recommended-over-guard";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R352-RECOMMENDED-OVER-EVIDENCE-RECHECK";
+const BUILD_ID = "proto-betman-core-r352-recommended-over-evidence-recheck";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -2375,9 +2375,10 @@ function r351BalanceRecommendedTotals(pool,baseline,lockedRecommended=[]){
     selected.filter(m=>m.marketFamily==="TOTAL").length;
   const overBefore=lockedRecommended.filter(isOver).length+selected.filter(isOver).length,
     underBefore=lockedRecommended.filter(isUnder).length+selected.filter(isUnder).length;
-  // 60% is a soft concentration alert, NOT an imposed direction quota:
-  // swaps are refused when alternate analysis is materially weaker.
-  const limit=Math.max(lockedRecommended.filter(isOver).length,Math.ceil(totalCount*.60));
+  // R352: act sooner than the old 60% threshold. 55% is a soft alert,
+  // NOT a quota: no replacement is made without independent evidence
+  // and a sufficiently competitive Under candidate.
+  const limit=Math.max(lockedRecommended.filter(isOver).length,Math.ceil(totalCount*.55));
   const swaps=[];
   while(lockedRecommended.filter(isOver).length+selected.filter(isOver).length>limit){
     const vulnerable=selected.filter(isOver).sort((a,b)=>gradeScore(a)-gradeScore(b));
@@ -2402,11 +2403,16 @@ function r351BalanceRecommendedTotals(pool,baseline,lockedRecommended=[]){
   }
   const overAfter=lockedRecommended.filter(isOver).length+selected.filter(isOver).length,
     underAfter=lockedRecommended.filter(isUnder).length+selected.filter(isUnder).length;
-  return {selected,audit:{id:"R351_RECOMMENDED_OVER_EVIDENCE_GUARD",
+  const eligibleAlternativeUnders=pool.filter(m=>!selectedSet.has(m)&&isUnder(m)&&
+    !m.manualOverride&&!m.resultFinal&&!started(m)&&Number(m.finalOdds)>=CFG.minRepOdds&&
+    !m.sportRisk?.gradeLimited&&Number(m.modelEdge)>=-.005&&ev(m)>=-.15&&
+    Number(m.independentGroupCount||0)>=1&&
+    Number(m.gradeAxisOppositionCount||0)===0&&Number(m.dataReliability||0)>=.50).length;
+  return {selected,audit:{id:"R352_RECOMMENDED_OVER_EVIDENCE_GUARD",
     total:totalCount,overBefore,underBefore,overAfter,underAfter,
     softOverLimit:limit,changedGrades:swaps.length*2,
-    swaps,remainingExcess:Math.max(0,overAfter-limit),
-    policy:"EVIDENCE_ONLY_UNDER_GRADE_PRIORITY_NO_FORCE_50_50_NO_PICK_CHANGE"}};
+    swaps,eligibleAlternativeUnders,remainingExcess:Math.max(0,overAfter-limit),
+    policy:"55PCT_SOFT_ALERT_EVIDENCE_ONLY_UNDER_GRADE_PRIORITY_NO_FORCED_DIRECTION_NO_PICK_CHANGE"}};
 }
 function assignGrades(state){
   // R324: 표시등급은 상대배분 순위이며, 엄격 추천자격 및 예상 EV를 별도 공개한다.
@@ -3303,7 +3309,7 @@ async function writeStoredState(env,str){
 // Only unlocked pregame grades change; selections and past settlements remain untouched.
 const R317_MARKET_MIX_ID="R338_EXPLICIT_ALL_98_PREGAME_REPICK";
 const R339_RECOMMENDATION_POLICY="R339_BALANCED_RECOMMENDATION_PLUS_RISK_GUARD";
-const R351_RECOMMENDED_DIRECTION_ID="R351_RECOMMENDED_OVER_EVIDENCE_GUARD";
+const R351_RECOMMENDED_DIRECTION_ID="R352_RECOMMENDED_OVER_EVIDENCE_GUARD";
 const R340_RECOMMENDATION_PICK_ID="R340_EVIDENCE_BACKED_RECOMMENDED_PLUS_REPICK";
 const R341_TOTAL_CORRECTION_ID="R341_REPLACE_R340_GENERAL_WIN_WITH_TOTAL";
 const R338_FULL_REPICK_ID="R338_REPLACE_ALL_UNLOCKED_PREGAME_SELECTIONS";
@@ -3714,7 +3720,7 @@ async function refreshR308GradePolicy(state,env){
         .map(m=>[gameSeed(m),m.no,m.finalPick,m.displayGrade,m.settlementStatus||null]))||
       ledger!==serializeState(state.settlementLedger||[])||
       cards!==serializeState(state.settledCards||{}))
-      throw Error("R351_REPRESENTATIVES_OR_SETTLEMENTS_CHANGED");
+      throw Error("R352_REPRESENTATIVES_OR_SETTLEMENTS_CHANGED");
     const changedGrades=afterReps.filter(m=>!started(m)&&!m.resultFinal&&
       gradeBefore.get(gameSeed(m))!==m.displayGrade).length;
     const newOver=afterReps.filter(m=>m.displayGrade==="추천"&&
@@ -4411,6 +4417,17 @@ function selfTest(){
   const r351Over=Array.from({length:6},(_,i)=>r351Make(i+9900,"오버"));
   const r351Under=Array.from({length:6},(_,i)=>r351Make(i+9910,"언더"));
   const r351Test=r351BalanceRecommendedTotals([...r351Over,...r351Under],r351Over);
+  const r352Baseline=[...Array.from({length:10},(_,i)=>r351Make(i+9930,"오버")),
+    ...Array.from({length:6},(_,i)=>r351Make(i+9950,"언더"))];
+  const r352Extra=Array.from({length:3},(_,i)=>r351Make(i+9970,"언더"));
+  const r352Test=r351BalanceRecommendedTotals([...r352Baseline,...r352Extra],r352Baseline);
+  t("R352 recommended 10 Over/6 Under must become <=9 Over when evidence supports",
+    r352Test.audit.overBefore===10&&r352Test.audit.overAfter===9&&
+    r352Test.audit.underAfter===7&&r352Test.audit.changedGrades===2);
+  const r352Weak=r352Extra.map(m=>({...m,independentGroupCount:0}));
+  const r352WeakTest=r351BalanceRecommendedTotals([...r352Baseline,...r352Weak],r352Baseline);
+  t("R352 no fabricated Under when alternatives lack independent evidence",
+    r352WeakTest.audit.overAfter===10&&r352WeakTest.audit.changedGrades===0);
   t("R351 reduce excessive recommended Over only with corroborated Under alternatives",
     r351Test.audit.overAfter<=4&&r351Test.audit.changedGrades>=4);
   const r351NoEvidence=r351Under.map(m=>({...m,independentGroupCount:0}));
