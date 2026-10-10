@@ -122,6 +122,25 @@ jobs:
             }
             assert.ok(found,"Worker version not propagated within 4 minutes; last="+lastSeen+", expected="+expected);
             const d=found,g=d.gradeAudit||{},counts=g.counts||{},health=d.settlementHealth||{};
+            if(expected.includes("R347-URGENT-ODDS-RECOVERY")){
+              const currentDate=new Intl.DateTimeFormat("en-CA",{
+                timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"
+              }).format(new Date());
+              const rows=(d.markingGames||[]).filter(x=>
+                x.date===currentDate&&String(x.time||"").startsWith("14:"));
+              const state14={date:currentDate,version:d.version,round:d.round,
+                sourceAudit:d.sourceAudit,updatedAt:d.updatedAt,
+                games:rows.length,marked:rows.filter(x=>!!x.pick).length,
+                priced:rows.filter(x=>Number(x.odds)>1).length,
+                examples:rows.slice(0,20).map(x=>({
+                  no:x.no,game:x.game,time:x.time,pick:x.pick,odds:x.odds,
+                  marketRows:(x.marketRows||[]).map(m=>({
+                    no:m.no,family:m.marketFamily,prices:(m.choices||[])
+                      .map(c=>({label:c.label,odds:c.odds}))
+                  }))
+                }))};
+              console.log("R347_14H_ODDS="+JSON.stringify(state14));
+            }
             const migration=d.marketRebalanceAudit;
             assert.equal(migration?.id,migrationId,"Pregame repick migration did not run in production");
             assert.ok(migration?.at,"Missing persisted repick timestamp");
