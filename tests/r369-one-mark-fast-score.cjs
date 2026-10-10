@@ -35,6 +35,7 @@ assert.equal(wrong.settled,0);
 const wrongKick=m.r369ApplyVerifiedScoreProvider(match,[{...fixture,eventStart:"2026-10-10T22:40:00+09:00"}],"260120",fixture.source);
 assert.equal(wrongKick.settled,0);
 const pass=m.r369ApplyVerifiedScoreProvider(match,[fixture],"260120",fixture.source);
+console.log("R369_TEST_SETTLEMENT="+JSON.stringify({pass,bad,wrong,wrongKick,pick:{no:pick.no,resultFinal:pick.resultFinal,status:pick.settlementStatus}}));
 assert.equal(pass.settled,1);assert.equal(pick.resultFinal,true);assert.equal(pick.hit,true);
 assert.equal(pick.settlementStatus,"적중");assert.equal(pick.displayGrade,"가장추천");
 assert.equal(pick.resultSource,"FLASHSCORE_VERIFIED_FULLTIME");
