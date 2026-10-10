@@ -180,6 +180,24 @@ jobs:
                 x.toFamily==="TOTAL"&&["언더","오버"].includes(x.toPick)),
                 "Correction selected a non-Under/Over outcome");
             }
+            if(expected.includes("R343-KJ-DRAW-WATCHLIST")){
+              const audit=d.kjDrawMigrationAudit||{};
+              assert.equal(audit.id,"R343_KJ_MONEYLINE_HANDICAP_DRAW_WATCHLIST",
+                "K/J draw interest marking was not applied");
+              assert.ok(Number(audit.changed)>=3&&Number(audit.changed)<=4,
+                "Not 3-4 actual K/J draw representatives; do not report success");
+              assert.equal(Number(audit.changed),Number(audit.selected),
+                "Some chosen K/J draws did not become representative marks");
+              assert.ok(Number(audit.byFamily?.MONEYLINE)>=1&&
+                Number(audit.byFamily?.HANDICAP)>=1,
+                "K/J regular draw and handicap draw were not mixed");
+              assert.equal(Number(audit.changedElsewhere),0,
+                "Unrelated K/J or other market representatives changed");
+              assert.equal(Number(audit.changedGrades),0,
+                "Original recommended/general/elite grade was changed");
+              assert.equal(Number(audit.changedLocked),0,
+                "Started/settled representative was altered");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -216,6 +234,7 @@ jobs:
             result.gradeRevisionAudit=d.gradeRevisionAudit||null;
             result.recommendationPickAudit=d.recommendationPickAudit||null;
             result.recommendationTotalCorrectionAudit=d.recommendationTotalCorrectionAudit||null;
+            result.kjDrawMigrationAudit=d.kjDrawMigrationAudit||null;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
