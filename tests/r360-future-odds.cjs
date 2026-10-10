@@ -55,8 +55,8 @@ s.markets.push(historical);
 const oldHistory=JSON.stringify(historical);
 a.markState(s);
 assert.equal(JSON.stringify(historical),oldHistory,"Started/settled market must remain unchanged");
-const future=s.markets.filter(m=>m.marked&&m.representativeSelected&&a.r360FutureEligible(m));
-assert.equal(future.length,12,"Every valid future fixture must have one representative");
+const futurePicks=s.markets.filter(m=>m.marked&&m.representativeSelected&&a.r360FutureEligible(m));
+assert.equal(futurePicks.length,12,"Every valid future fixture must have one representative");
 assert.equal(s.marketMixAudit.target.TOTAL,60);
 assert.equal(s.gradeAudit.target["가장추천"],15);
 assert.equal(s.gradeAudit.target["추천"],25);
@@ -73,7 +73,7 @@ assert.ok(!anomalousState.markets.find(x=>x.marketFamily==="TOTAL").marked,
 assert.ok(anomalousState.fullMarkAudit.blockedAnomalyMarkets>0);
 console.log("R360_SIMULATION="+JSON.stringify({
  cutoffKST:"2026-10-11 03:07:44",gradeTargets:s.gradeAudit.target,
- marketTargets:s.marketMixAudit.target,fixtureCount:future.length,
+ marketTargets:s.marketMixAudit.target,fixtureCount:futurePicks.length,
  futureMarkets:s.marketMixAudit.counts,gradeCount:s.gradeAudit.counts,
  confirmedAnomaliesBlocked:anomalyCases.length,settledFrozen:true,
  markedFallbackInCleanFamily:true,
