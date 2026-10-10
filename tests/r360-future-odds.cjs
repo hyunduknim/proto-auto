@@ -66,6 +66,15 @@ assert.equal(s.gradeAudit.target["가장추천"],15);
 assert.equal(s.gradeAudit.target["추천"],25);
 assert.equal(s.gradeAudit.target["일반"],60);
 assert.equal(s.gradeAudit.total,12,"Grade mix denominator must omit earlier games");
+console.log("R360_DEBUG_MARKET="+JSON.stringify({
+ total:s.marketMixAudit.total,
+ locked:s.marketMixAudit.locked,
+ lockedCounts:s.marketMixAudit.lockedCounts,
+ fullRoundCounts:s.marketMixAudit.fullRoundCounts,
+ active:s.marketMixAudit.counts,
+ future:futurePicks.length,historicalFrozen:immutable(historical)===oldHistory,
+ historicalMarked:historical.marked,historicalResultFinal:historical.resultFinal
+}));
 assert.equal(s.marketMixAudit.total,12,"Market mix denominator must omit earlier games");
 const anomalousState=a.createState();anomalousState.gmTs="260120";anomalousState.round=120;
 anomalousState.markets=[game(888,"MONEYLINE",[{label:"승",odds:1.85},{label:"패",odds:1.95}]),
