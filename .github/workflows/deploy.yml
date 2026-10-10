@@ -39,6 +39,8 @@ jobs:
         run: node tests/r359-live-hour-display.cjs
       - name: Simulate R360 future-only ratios and anomaly-resistant odds
         run: node tests/r360-future-odds.cjs
+      - name: Verify R362 premium settlement when official results are published
+        run: node tests/r362-premium-settlement.cjs
 
   confirm-cloudflare:
     name: Confirm Cloudflare automatic deployment
@@ -521,6 +523,19 @@ jobs:
                 currentTarget:{market:market.target,grade:grades.target},
                 anomalousOddsMarkets:audit.blockedAnomalyMarkets,
                 marketDeviation:market.deviation,gradeDeviation:grades.deviation
+              }));
+            }
+            if(expected.includes("R362-PREMIUM-SETTLEMENT-READINESS")){
+              assert.ok(health.premiumPendingByGrade,"R362 grade-specific pending status not propagated");
+              assert.ok(Number.isFinite(Number(health.premiumPendingByGrade["가장추천"])),"Premium grade count missing");
+              assert.ok(Number.isFinite(Number(health.premiumPendingByGrade["추천"])),"Recommended grade count missing");
+              const pending=health.premiumResultReadiness||null;
+              assert.ok(pending&&pending.policy==="OFFICIAL_CONFIRMED_ONLY_NO_GRADE_EXCLUSION",
+                "Signed official result status has not been checked with R362 release");
+              console.log("R362_LIVE_PREMIUM_SETTLEMENT="+JSON.stringify({
+                version:d.version,round:d.round,totalPending:health.pending,
+                premiumPending:health.premiumPendingByGrade,officialReadiness:pending,
+                actualSettled:d.summary?.settled,lastOfficialSource:d.relayAudit?.sourceStatus
               }));
             }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
