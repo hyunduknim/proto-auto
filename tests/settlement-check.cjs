@@ -224,12 +224,22 @@ const api = new Function(
     relayAudit:{at:new Date().toISOString()}});
   assert.equal(freshHealth.stalled,false,"New verified relay restores connection status");
 
-  // GitHub schedule is best effort; the source workflow keeps its staggered
-  // five-minute cron as well as independently triggered runs.
+  // GitHub cron is best-effort; validate the requested ten-minute
+  // official-result refresh and resilient continuation after Worker 502s.
   const relayWorkflow=fs.readFileSync(path.join(__dirname,"..",
     ".github/workflows/official-settlement-relay.yml"),"utf8");
-  assert.ok(relayWorkflow.includes('cron: "3-58/5 * * * *"'),
-    "Staggered five-minute relay must stay configured");
+  const watchdogWorkflow=fs.readFileSync(path.join(__dirname,"..",
+    ".github/workflows/settlement-relay-watchdog.yml"),"utf8");
+  assert.ok(relayWorkflow.includes('cron: "3-53/10 * * * *"'),
+    "Ten-minute official relay cron must be configured");
+  assert.ok(relayWorkflow.includes('await new Promise(resolve=>setTimeout(resolve,9*60*1000));'),
+    "Live official polling must continue at approximately ten-minute cadence");
+  assert.ok(relayWorkflow.includes('if: always()')&&
+    relayWorkflow.includes('[404,429,500,502,503,504].includes(r.status)'),
+    "Transient official relay errors must not break the next polling cycle");
+  assert.ok(watchdogWorkflow.includes('cron: "7-57/10 * * * *"')&&
+    watchdogWorkflow.includes('relayAgeMinutes>=10'),
+    "Independent watchdog must recover stale ten-minute result relays");
 
   const rejected = await api.ingestOfficialRelay({
     headers:new Headers(),json:async()=>({
