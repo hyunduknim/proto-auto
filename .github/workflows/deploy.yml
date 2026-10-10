@@ -289,6 +289,27 @@ jobs:
                 {MONEYLINE:30,HANDICAP:30,TOTAL:40},
                 "30/30/40 market targets unexpectedly changed");
             }
+            if(expected.includes("R349-7092-OVER-7097-PLUS")){
+              const audit=d.manualNumberMarkAudit||{},rows=audit.rows||[];
+              const row7092=rows.find(x=>Number(x.no)===7092),row7097=rows.find(x=>Number(x.no)===7097);
+              assert.equal(audit.id,"R349_MANUAL_PROTO_7092_OVER_7097_PLUS",
+                "Exact-number marking audit missing from production");
+              assert.ok(row7092&&row7097,"Both requested proto numbers must be checked");
+              assert.equal(row7092.family,"TOTAL","7092 must be an Under/Over market");
+              assert.equal(row7092.pick,"오버","7092 must be marked Over");
+              assert.equal(row7097.family,"HANDICAP","7097 must be a handicap market");
+              assert.equal(row7097.handicapDirection,"PLUS",
+                "7097 must be marked positive handicap");
+              assert.equal(Number(audit.applied),2,
+                "Both requested proto numbers must have official odds and be applied");
+              const active=(d.markingGames||[]).filter(x=>x.pick&&!x.resultFinal);
+              assert.ok(active.some(x=>Number(x.no)===7092&&
+                x.marketFamily==="TOTAL"&&x.pick==="오버"),
+                "7092 Over missing in actual representative cards");
+              assert.ok(active.some(x=>Number(x.no)===7097&&
+                x.marketFamily==="HANDICAP"&&x.handicapDirection==="플핸"),
+                "7097 positive handicap missing in actual representative cards");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -325,6 +346,7 @@ jobs:
             result.gradeRevisionAudit=d.gradeRevisionAudit||null;
             result.recommendationPickAudit=d.recommendationPickAudit||null;
             result.recommendationTotalCorrectionAudit=d.recommendationTotalCorrectionAudit||null;
+            result.manualNumberMarkAudit=d.manualNumberMarkAudit||null;
             result.kjDrawMigrationAudit=d.kjDrawMigrationAudit||null;
             result.kjDrawTrimAudit=d.kjDrawTrimAudit||null;
             result.recommendedFavoriteGuaranteeAudit=d.recommendedFavoriteGuaranteeAudit||null;
