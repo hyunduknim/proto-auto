@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R356-EV-PROVENANCE";
-const BUILD_ID = "proto-betman-core-r356-ev-provenance";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R357-AUTHORIZED-FEED-READINESS";
+const BUILD_ID = "proto-betman-core-r357-authorized-feed-readiness";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -348,6 +348,7 @@ function axisLayerPayload(g,axis){
 function normalizeDedicatedAxisGames(data,axis,sourceName=null){
   const rows=feedRows(data),out=[];for(const g of rows){if(!g||!g.date||!g.home||!g.away)continue;
     const base=g.features&&typeof g.features==="object"&&!Array.isArray(g.features)?{...g.features}:{},layer=axisLayerPayload(g,axis);
+    if(!Object.keys(layer).some(k=>!["updatedAt","source","status"].includes(k)))continue;
     base[axis]={...(base[axis]&&typeof base[axis]==="object"?base[axis]:{}),...layer};
     const updatedAt=String(g.updatedAt||g.fetchedAt||data?.updatedAt||"");
     out.push({date:String(g.date),time:String(g.time||""),home:String(g.home),away:String(g.away),sport:String(g.sport||""),updatedAt,source:String(g.source||data?.source||sourceName||`${axis.toUpperCase()}_AUTHORIZED_FEED`),features:stampAxisFeatures(base,updatedAt),status:String(g.status||""),homeScore:num(g.homeScore),awayScore:num(g.awayScore)});
@@ -361,7 +362,12 @@ async function fetchDedicatedAxisFeed(env,axis,force=false){
   if(!force&&cached&&now-last<30000)return cached;
   MEM.axisFeedLastAttempt[axis]=now;const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),CFG.fetchTimeoutMs);
   try{const r=await fetch(url,{headers:axisFeedHeaders(env,axis),signal:ac.signal,cache:"no-store"});if(!r.ok)throw new Error(`${axis.toUpperCase()}_FEED_HTTP_${r.status}`);
-    const data=await r.json(),games=normalizeDedicatedAxisGames(data,axis,meta.source),result={axis,enabled:true,ok:true,urlHost:new URL(url).hostname,games,at:nowIso()};
+    const data=await r.json(),games=normalizeDedicatedAxisGames(data,axis,meta.source);
+    // HTTP 200 is not proof of usable original analysis: reject empty/mismatched schemas.
+    if(!games.length)return {axis,enabled:true,ok:false,
+      urlHost:new URL(url).hostname,reason:"NO_USABLE_MATCH_RECORDS",
+      games:[],at:nowIso()};
+    const result={axis,enabled:true,ok:true,urlHost:new URL(url).hostname,games,at:nowIso()};
     MEM.axisFeedLastSuccess[axis]=Date.now();MEM.axisFeedCache[axis]=result;return result;
   }catch(e){return {axis,enabled:true,ok:false,reason:String(e?.message||e),games:[],at:nowIso()};}finally{clearTimeout(timer);}
 }
@@ -397,6 +403,37 @@ function combineAuxFeedResults(legacy,axisResults){
 async function fetchFourAxisAuxGames(env,force=false){
   const [legacy,scorecenter,pickschool,sportsnote,protoodds,jeongbaedang]=await Promise.all([fetchPublicAuxGames(env,force),fetchDedicatedAxisFeed(env,"scorecenter",force),fetchDedicatedAxisFeed(env,"pickschool",force),fetchDedicatedAxisFeed(env,"sportsnote",force),fetchDedicatedAxisFeed(env,"protoodds",force),fetchDedicatedAxisFeed(env,"jeongbaedang",force)]);
   return combineAuxFeedResults(legacy,[scorecenter,pickschool,sportsnote,protoodds,jeongbaedang]);
+}
+function feedIntegrationStatus(state,env){
+  // Read-only readiness. A configured URL or HTTP 200 never proves that data
+  // came from an APK's original app server, nor that matched predictions were used.
+  const names=["scorecenter","pickschool","sportsnote","protoodds"],connectors=state?.auxAudit?.connectors||{},
+    l=state?.fiveApkAudit?.layers||{};
+  const originalReceipt={scorecenter:Number(l.scorecenter?.liveExternal||0),
+    pickschool:Number(l.pickschool?.external||0),
+    sportsnote:Number(l.sportsnote?.external||0),
+    protoodds:Number(l.protoodds?.external||0)};
+  const axes={};
+  for(const axis of names){
+    const meta=AXIS_FEED_META[axis],supplied=!!firstEnv(env,meta.urlKeys),
+      validUrl=!!allowedAxisFeedUrl(env,axis),prior=connectors[axis]||{},
+      externalMatches=Math.max(0,originalReceipt[axis]||0);
+    const status=!supplied?"NOT_CONFIGURED":!validUrl?"URL_REJECTED":
+      !prior.enabled?"NOT_POLLED":!prior.ok?"FEED_UNAVAILABLE":
+      !externalMatches?"NO_USABLE_MATCHED_ANALYSIS":"AUTHORIZED_JSON_DATA_IN_USE";
+    axes[axis]={configured:validUrl,requested:supplied,status,
+      receivedMatches:externalMatches,feedRows:Number(prior.games||0),
+      lastFetchOk:prior.ok===true,
+      lastError:prior.reason||null};
+  }
+  const active=Object.values(axes).filter(x=>x.receivedMatches>0).length;
+  return {version:APP_VERSION,at:state?.auxAudit?.at||null,round:state?.round||null,
+    originalAppApiAuthorized:false,originalAppApiLiveVerified:false,
+    externalAuthorizedFeedsActive:active,
+    overall:active===4?"FOUR_AUTHORIZED_JSON_FEEDS_ACTIVE":
+      active?"PARTIAL_AUTHORIZED_JSON_FEEDS":"ORIGINAL_APK_FEEDS_NOT_CONNECTED",
+    axes,source:"CLOUDFLARE_SERVER_SIDE_CONFIG_AND_REPRESENTATIVE_AUDIT",
+    note:"APK 구조 기반 자체 분석과 공급자의 원본 서버 데이터는 다릅니다. 사용 허가된 피드 URL/인증·데이터가 없으면 원본 연동 완료로 표시하지 않습니다."};
 }
 async function fetchThreeAxisAuxGames(env,force=false){return fetchFourAxisAuxGames(env,force);} // backward-compatible alias
 
@@ -5763,8 +5800,11 @@ async function handleAppInternal(req,env,ctx){
     if(u.pathname==="/api/export-json"){
       const s=await bootstrapState(env);return jsonDownload(buildAnalysisExport(s),exportFileName(s));
     }
+    if(u.pathname==="/api/feed-status"){
+      const s=await loadState(env);return json(feedIntegrationStatus(s,env));
+    }
     if(u.pathname==="/api/diagnostics"){
-      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
+      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
     }
     if(u.pathname==="/api/self-test"){if(!adminAuthorized(req,env))return json({error:"unauthorized"},401);const report=selfTest();return json(report,report.ok?200:500);}
     return json({error:"not found"},404);
