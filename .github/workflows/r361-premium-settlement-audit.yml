@@ -80,6 +80,25 @@ jobs:
             const sample=resultRows.slice(0,4).map(r=>({no:r.no,date:r.date,time:r.time,
               family:r.family,outcome:r.outcome,status:r.statusText,terminal:r.terminal,score:r.score,
               resultFieldKeys:Object.keys(r.raw||{}).slice(0,28)}));
+            const numeric=resultRows.map(r=>Number(r.no)).filter(Number.isFinite).sort((a,b)=>a-b);
+            const valids=resultRows.filter(r=>r.outcome||r.specialStatus||(r.score&&/^\\s*\\d+(?:\\.\\d+)?\\s*[:：-]\\s*\\d+(?:\\.\\d+)?\\s*$/.test(r.score)));
+            const rawResult=Array.isArray(re.value?.detlBody)?re.value.detlBody:
+              Array.isArray(re.value?.winrstDetlBody)?re.value.winrstDetlBody:[];
+            const rawKeys=rawResult.flatMap(r=>Object.keys(r||{})).filter((v,i,a)=>a.indexOf(v)===i);
+            const high=rawResult.filter(r=>{
+              const json=JSON.stringify(r||{});
+              return /7287|7295|7310|7324|7328|7332|7346|7356/.test(json);
+            }).slice(0,12).map(r=>Object.fromEntries(Object.entries(r).filter(([k])=>
+              /GAME_RESULT|WIN_|RSLT|SCORE|MCH_DTM|GM_DT|FIX_MCH|SORT_SEQ|HOME_TEAM|AWAY_TEAM|GAME_NO|GAME_SEQ|BETTYP|NO|SEQUENCE|ST_CD|STATUS|WL_RSLT/i.test(k))));
+            console.log("R361_COVERAGE="+JSON.stringify({
+              totalParsed:resultRows.length,withDecisiveOutcome:valids.length,
+              minimumNo:numeric[0],maximumNo:numeric[numeric.length-1],
+              latestParsed:resultRows.slice(-8).map(r=>({no:r.no,score:r.score,
+                outcome:r.outcome,terminal:r.terminal,status:r.statusText,rawResult:r.raw?.GAME_RESULT,
+                resultAnnouncement:r.raw?.WL_RSLT_ANNC_DTM})),
+              rawResultRows:rawResult.length,rawResultKeys:rawKeys.slice(0,55),
+              eightTargetRowsInRaw:high,gameinfoSchedules:gi.value?.compSchedules?.keys?.length
+            }));
             console.log("R361_OFFICIAL_AUDIT="+JSON.stringify({
               version:state.version,round:state.round,gmTs:ts,time:time.toISOString(),
               settled:state.summary?.settled,pending:state.settlementHealth?.pending,
