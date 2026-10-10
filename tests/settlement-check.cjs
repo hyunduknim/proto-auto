@@ -282,6 +282,32 @@ const api = new Function(
     relayAudit:{at:new Date().toISOString()}});
   assert.equal(freshHealth.stalled,false,"New verified relay restores connection status");
 
+  // R358: transport success can report zero usable official result rows.
+  // Do NOT treat that as settlement completion, or rewrite started/settled picks.
+  const noResultState=api.createState();
+  noResultState.gmTs="260120";noResultState.round=120;
+  noResultState.markets=[market(19991,"승","경기전")];
+  const beforeNoResult=JSON.stringify(noResultState.markets);
+  noResultState.relayAudit={at:new Date().toISOString(),verifiedRows:0,
+    sourceStatus:{gameInfo:"fulfilled",resultApi:"rejected",
+      resultApiError:"fetch failed"},consecutiveEmptyChecks:4};
+  noResultState.resultAudit={ok:false,errors:["official result unavailable"]};
+  const noResultHealth=api.settlementHealth(noResultState);
+  assert.equal(noResultHealth.pending,1);
+  assert.equal(noResultHealth.officialVerifiedRows,0);
+  assert.equal(noResultHealth.officialDataPending,true);
+  assert.equal(noResultHealth.resultApiFailed,true);
+  assert.equal(noResultHealth.consecutiveEmptyChecks,4);
+  assert.equal(noResultHealth.relayFresh,true);
+  assert.equal(JSON.stringify(noResultState.markets),beforeNoResult,
+    "R358 must not alter pending odds, picks or completed results");
+  const positiveResultHealth=api.settlementHealth({...noResultState,
+    relayAudit:{...noResultState.relayAudit,verifiedRows:2,
+      sourceStatus:{gameInfo:"fulfilled",resultApi:"fulfilled"}}});
+  assert.equal(positiveResultHealth.officialDataPending,false);
+  assert.equal(positiveResultHealth.officialVerifiedRows,2);
+  assert.equal(positiveResultHealth.resultApiFailed,false);
+
   // GitHub cron is best-effort; validate the requested ten-minute
   // official-result refresh and resilient continuation after Worker 502s.
   const relayWorkflow=fs.readFileSync(path.join(__dirname,"..",
@@ -298,6 +324,12 @@ const api = new Function(
   assert.ok(watchdogWorkflow.includes('cron: "7-57/10 * * * *"')&&
     watchdogWorkflow.includes('relayAgeMinutes>=10'),
     "Independent watchdog must recover stale ten-minute result relays");
+  assert.ok(relayWorkflow.includes('for(let attempt=1;attempt<=3;attempt++)'),
+    "Result API must retry transient failures before leaving official data pending");
+  assert.ok(relayWorkflow.includes("resultApiError:resultInfoStatus.status")&&
+    relayWorkflow.includes("now-t(m)<=48*3600000"),
+    "Relay should disclose result API failures and keep long-running settlement polling");
+
 
   const rejected = await api.ingestOfficialRelay({
     headers:new Headers(),json:async()=>({

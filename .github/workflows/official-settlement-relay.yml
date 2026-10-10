@@ -69,12 +69,23 @@ jobs:
             const u="https://www.betman.co.kr/gamebuy/winrst/inqWinrstDetlBody.do";
             const ref="https://www.betman.co.kr/main/mainPage/gamebuy/winrstDetl.do?gmId=G101&gmTs="+encodeURIComponent(ts);
             const body=JSON.stringify({gmId:"G101",gmTs:String(ts),_sbmInfo:{debugMode:"false"}});
-            const r=await fetch(u,{method:"POST",headers:betmanHeaders(ref),body,
-              redirect:"follow",signal:timeout(9000)});
-            if(!r.ok)throw Error("RESULT_HTTP_"+r.status);
-            const data=await r.json();
-            if(data?.gmTs!=null&&String(data.gmTs)!==ts)throw Error("result round mismatch");
-            return data;
+            let lastError;
+            for(let attempt=1;attempt<=3;attempt++){
+              try{
+                const r=await fetch(u,{method:"POST",headers:betmanHeaders(ref),body,
+                  redirect:"follow",signal:timeout(12000)});
+                if(!r.ok)throw Error("RESULT_HTTP_"+r.status);
+                const data=await r.json();
+                if(data?.gmTs!=null&&String(data.gmTs)!==ts)throw Error("result round mismatch");
+                return data;
+              }catch(e){
+                lastError=e;
+                console.log("Official ResultInfo",ts,"attempt",attempt,
+                  "failed:",String(e?.message||e).slice(0,120));
+                if(attempt<3)await new Promise(resolve=>setTimeout(resolve,attempt*1200));
+              }
+            }
+            throw lastError;
           }
           async function signedToken(){
             const endpoint=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL||"");
@@ -119,8 +130,14 @@ jobs:
                 const payload={gmTs:ts};
                 if(gameInfoStatus.status==="fulfilled")payload.gameInfo=gameInfoStatus.value;
                 if(resultInfoStatus.status==="fulfilled")payload.officialResult=resultInfoStatus.value;
+                // Authenticated OIDC metadata is diagnostic only; never settles a market.
+                payload.sourceStatus={
+                  gameInfo:gameInfoStatus.status,resultApi:resultInfoStatus.status,
+                  resultApiError:resultInfoStatus.status==="rejected"?
+                    String(resultInfoStatus.reason?.message||resultInfoStatus.reason||"").slice(0,140):null
+                };
                 console.log("OFFICIAL_SOURCES="+JSON.stringify({gmTs:ts,
-                  gameInfo:gameInfoStatus.status,resultApi:resultInfoStatus.status}));
+                  ...payload.sourceStatus}));
                 // GitHub push triggers this workflow before Cloudflare Workers Builds finishes.
                 // Retry the relay endpoint only during the deployment race; never modify market data.
                 let data={};let deliveredToWorker=false;
@@ -192,7 +209,7 @@ jobs:
           script: |
             // GitHub's scheduled ten-minute events may be delayed or skipped.
             // Keep a ten-minute relay chain alive while represented games are
-            // running (up to eight hours after kickoff) or start soon.
+            // running or awaiting officially verified outcomes up to 48 hours after kickoff.
             // Continue even if the prior POST failed with a transient Worker 502.
             // The OIDC-verified official relay above is the ONLY settlement writer.
             const endpoint="https://protonumber.mystyle276.workers.dev/api/state";
@@ -208,7 +225,7 @@ jobs:
               const t=m=>Date.parse(String(m.date||"")+"T"+
                 String(m.time||"").slice(0,5)+":00+09:00");
               const open=rows.filter(m=>m.pick&&!m.resultFinal&&Number.isFinite(t(m)));
-              const running=open.filter(m=>t(m)<=now&&now-t(m)<=8*3600000);
+              const running=open.filter(m=>t(m)<=now&&now-t(m)<=48*3600000);
               const imminent=open.filter(m=>t(m)>now&&t(m)-now<=20*60000);
               return {pending:running.length,imminent:imminent.length,
                 settled:state.summary?.settled||0};
