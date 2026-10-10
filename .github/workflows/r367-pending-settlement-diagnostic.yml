@@ -27,13 +27,14 @@ jobs:
             const norm=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').normalize('NFC').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
             const pending=(s.resultAudit?.pendingNos||[]).map(m=>{
               const full=(s.markingGames||[]).find(v=>String(v.gmTs)===String(m.gmTs)&&Number(v.no)===Number(m.no));
-              const start=Date.parse(String(m.date)+'T'+String(m.time).slice(0,5)+':00+09:00'),elapsed=Math.round((now-start)/60000);
+              const date=full?.date||m.date,time=full?.time||m.time,home=full?.home||m.home,away=full?.away||m.away;
+              const start=Date.parse(String(date)+'T'+String(time).slice(0,5)+':00+09:00'),elapsed=Math.round((now-start)/60000);
               const zenExact=byNo.get(k(m));
-              const zens=zen.filter(z=>z.date===m.date&&z.time===m.time&&z.gmTs===m.gmTs);
-              return {no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,elapsedMin:elapsed,game:m.game,
+              const zens=zen.filter(z=>z.date===date&&z.time===time&&z.gmTs===m.gmTs);
+              return {no:m.no,gmTs:m.gmTs,date,time,elapsedMin:elapsed,game:full?.game||m.game,home,away,
                 family:m.marketFamily,line:m.line,pick:m.pick,grade:full?.displayGrade||null,
                 zenExact:zenExact?{terminal:zenExact.terminal,family:zenExact.marketFamily,score:zenExact.score,home:zenExact.home,away:zenExact.away,line:zenExact.line}:null,
-                otherSameTime:zens.filter(z=>norm(z.home)===norm(full?.home)&&norm(z.away)===norm(full?.away)).map(z=>({no:z.no,family:z.marketFamily,score:z.score,line:z.line})).slice(0,5)
+                otherSameTime:zens.filter(z=>norm(z.home)===norm(home)&&norm(z.away)===norm(away)).map(z=>({no:z.no,family:z.marketFamily,score:z.score,line:z.line})).slice(0,5)
               };
             });
             console.log('R367_PENDING_AUDIT='+JSON.stringify({at:new Date().toISOString(),version:s.version,
