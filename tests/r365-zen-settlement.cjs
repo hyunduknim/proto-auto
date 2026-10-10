@@ -17,7 +17,7 @@ const html='<html>'+wrap(7328,'1','프레스턴 노스엔드','밀월',
  wrap(7359,'3 : 1','알라베스','아틀레티코',
  ' <span class="handicap">(H+1.0)</span>')+
  wrap(9992,'0','LIVE','GAME','').replace('state_finish','state_run').replace('경기종료','전반 23')+
- wrap(9993,'2:3','HALF','GAME','')+'</html>';
+ wrap(9993,'2:3','HALF','GAME','').replace('state_finish','state_run').replace('경기종료','전반 45')+'</html>';
 const rows=parseZentoto(html),byNo=new Map(rows.map(r=>[r.no,r]));
 assert.equal(rows.length,4,"Ignore live/invalid or unqualified results");
 assert.equal(byNo.get(7328).score,"1");
