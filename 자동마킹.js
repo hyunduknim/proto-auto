@@ -3852,6 +3852,13 @@ async function refreshR308GradePolicy(state,env){
       preservedLocked:afterReps.filter(m=>started(m)||m.resultFinal).length,
       swaps:state.gradeAudit?.recommendationTotalDirectionAudit?.swaps||[],
       policy:"EVIDENCE_ONLY_GRADE_REBALANCE_PRESERVE_MANUAL_AND_MARKETS"};
+    // The prior R352 grade-only migration may still be pending on production.
+    // Apply the R353 user-requested 4 same-game TOTAL replacements after its
+    // no-pick-change assertion, in this same durable transaction.
+    if(state.recommendedPlusToTotalAudit?.id!==R353_PLUS_TOTAL_ID){
+      ROW_CACHE=new WeakMap();
+      try{r353RecommendedPlusToTotal(state);}finally{ROW_CACHE=null;}
+    }
     state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
     await persistState(env,true);return true;
   }
