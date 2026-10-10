@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R360-FUTURE-15-25-60-20-20-60";
-const BUILD_ID = "proto-betman-core-r360-future-ratios";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R362-PREMIUM-SETTLEMENT-READINESS";
+const BUILD_ID = "proto-betman-core-r362-premium-settlement-readiness";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5709,7 +5709,7 @@ const $=id=>document.getElementById(id);let state=null,timer=null,busy=false,pen
      ('10분 공식결과 재조회 중 · 결과행 0건'+(sh.resultApiFailed?' · 결과 API 오류':'')+
        (sh.overdueForResult?' · 장기대기 '+sh.overdueForResult+'경기':'')):
        '공식 정산 보조수집 연결됨'):sh.directOk?(sh.officialDataPending?
-     '공식결과 직접조회 중 · 최종 결과 미수신':'공식결과 직접조회 연결됨'):'공식결과 자동 재조회 중';$('notice').textContent=oddsMsg+' · '+officialMsg+' · ⭕ '+roundHits+' / ❌ '+roundMisses+' / 대기 '+Number(sh.pending??ra.pending??0);if(s.gradeAudit?.bestNegativeEvCount>0)$('notice').textContent+=' · 가장추천은 상대평가(양(+) 기대수익 미보장)';if(s.gradeAudit?.mode==='R324_EXACT_RELATIVE_20_30_50'){$('notice').textContent+=' · 등급 20/30/50 상대순위'+(s.gradeAudit.exact?' · 목표 개수 일치':' · 고정등급으로 목표 차이')+(s.gradeAudit.roundingRequired?' · 정수 반올림':'');}if(s.marketMixAudit?.exact===false){$('notice').textContent+=' · 시장 30/30/40 후보부족/고정픽 차이';}if(s.marketMixAudit?.drawVisibility){const d=s.marketMixAudit.drawVisibility;$('notice').textContent+=' · 축구 무승부 '+d.draws+'경기 · 근거충족 '+d.qualifiedSelected+'경기'+(d.shortfall?' · 후보부족 '+d.shortfall+'경기':'')+(d.excess?' · 고정/대안부족 초과 '+d.excess+'경기':'');}if(s.directionAudit?.warnings?.length)$('notice').textContent+=' · 방향 집중 참고 '+s.directionAudit.warnings.length+'건';$('meta').textContent='회차 '+e(s.round||'-')+' · '+e((s.updatedAt||'').replace('T',' ').slice(0,19));applyMarkMenu();$('pastMeta').textContent='정산 '+e(roundHits+roundMisses+roundVoids)+'경기 · 적중 '+e(roundHits)+' · 낙첨 '+e(roundMisses)+(roundVoids?' · 적특 '+e(roundVoids):'');$('pastList').innerHTML=pastRows.length?pastRows.map(pastResultHtml).join(''):'<div class="pastEmpty">아직 새로 정산된 경기가 없습니다.<br>119회차는 0승 0패 기준으로 다시 시작하며, 다음 정산 경기부터 경기명 옆에 적중⭕ / 낙첨❌ / 적특⚪으로 표시됩니다.<br><br>누적 · 적중 '+e(roundHits)+' / 낙첨 '+e(roundMisses)+(roundVoids?' / 적특 '+e(roundVoids):'')+'</div>';$('diag').textContent=JSON.stringify({source:s.sourceAudit,result:s.resultAudit,relay:s.relayAudit,settlementHealth:s.settlementHealth,grade:s.gradeAudit,market:s.marketMixAudit,analysis:s.analysisAudit,sharedAnalysis:s.sharedAnalysisAudit,learning:s.learningAudit,performance:s.performanceAudit,fiveApk:s.fiveApkAudit,jeongbaedang:s.jeongbaedangAudit,aux:s.auxAudit,directions:s.directionAudit,performanceSummary:s.performanceSummary},null,2);applyView()}async function load(){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),12000);try{const r=await fetch('/api/state?x='+Date.now(),{cache:'no-store',signal:ac.signal});if(!r.ok)throw new Error('HTTP_'+r.status);const s=await r.json();render(s);const j=s.refreshRequest;if(!busy&&pendingRefreshId&&j&&j.id===pendingRefreshId){$('notice').className='notice'+(j.status==='failed'?' err':j.status==='done'?' ok':'');$('notice').textContent=j.status==='failed'?'배당 갱신 실패 · '+j.error:j.status==='done'?'배당 갱신 완료':'배당 수집 중입니다. 완료되면 자동으로 표시됩니다.';if(j.status==='done'||j.status==='failed')pendingRefreshId=null}clearTimeout(timer);timer=setTimeout(load,pendingRefreshId?1000:Math.max(1000,Number(s.pollAfterMs)||3000))}catch(_){clearTimeout(timer);timer=setTimeout(load,5000)}finally{clearTimeout(tm)}}function setActionBusy(on,active){for(const id of ['refresh','results','reanalyze','exportJson']){const b=$(id);if(b)b.disabled=!!on}if(active)active.dataset.busy=on?'1':'0'}async function act(url,btn){if(busy){$('notice').className='notice';$('notice').textContent='이전 메뉴 작업을 처리 중입니다.';return}busy=true;const old=btn?.textContent||'';setActionBusy(true,btn);if(btn)btn.textContent='처리 중…';$('notice').className='notice';$('notice').textContent='요청 처리 중입니다. 잠시만 기다려주세요.';const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),45000);try{const tok=()=>{try{return localStorage.getItem('protoAdminToken')||''}catch(_){return ''}};let r=await fetch(url,{method:'POST',cache:'no-store',signal:ac.signal,headers:{'x-admin-token':tok()}});if(r.status===401){const t=prompt('관리자 토큰을 입력하세요');if(t){try{localStorage.setItem('protoAdminToken',t)}catch(_){}r=await fetch(url,{method:'POST',cache:'no-store',signal:ac.signal,headers:{'x-admin-token':t}})}}if(!r.ok)throw new Error(r.status===401?'관리자 토큰 필요':'HTTP_'+r.status);const x=await r.json();if(x.state)render(x.state);else await load();if(x.pending){pendingRefreshId=x.refreshRequest?.id||null;$('notice').className='notice';$('notice').textContent='배당 수집 중입니다. 완료되면 자동으로 표시됩니다.';clearTimeout(timer);timer=setTimeout(load,1000)}else{$('notice').className='notice ok';$('notice').textContent='메뉴 작업 완료'}}catch(err){$('notice').className='notice err';$('notice').textContent='메뉴 작업 실패 · '+String(err&&err.name==='AbortError'?'시간초과':(err&&err.message||err))}finally{clearTimeout(tm);if(btn)btn.textContent=old;setActionBusy(false,btn);busy=false}}async function saveAnalysisJson(btn){if(busy){$('notice').className='notice';$('notice').textContent='이전 메뉴 작업을 처리 중입니다.';return}busy=true;const b=btn||$('exportJson'),old=b?.textContent||'분석 JSON 저장';setActionBusy(true,b);if(b)b.textContent='JSON 만드는 중';try{const r=await fetch('/api/export-json?x='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('JSON_EXPORT_'+r.status);const blob=await r.blob(),cd=r.headers.get('content-disposition')||'',m=cd.match(/filename=\"?([^\";]+)\"?/i),name=m?m[1]:'proto_analysis.json',url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);$('notice').className='notice ok';$('notice').textContent='분석 JSON 저장 완료 · 나중에 이 파일을 첨부하면 회차/마킹/경기력DB 분석에 사용할 수 있습니다.'}catch(err){$('notice').className='notice err';$('notice').textContent='JSON 저장 실패 · '+String(err&&err.message||err)}finally{if(b)b.textContent=old;setActionBusy(false,b);busy=false}}function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('refresh','/api/round-refresh');bindActionButton('results','/api/results-refresh');bindActionButton('reanalyze','/api/reanalyze');bindActionButton('exportJson','EXPORT');const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>{markMenuMode='now';setView('marking');applyMarkMenu()});$('tabPast')?.addEventListener('click',()=>setView('past'));document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
+     '공식결과 직접조회 중 · 최종 결과 미수신':'공식결과 직접조회 연결됨'):'공식결과 자동 재조회 중';$('notice').textContent=oddsMsg+' · '+officialMsg+' · ⭕ '+roundHits+' / ❌ '+roundMisses+' / 대기 '+Number(sh.pending??ra.pending??0);const pp=sh.premiumPendingByGrade||{};if(Number(pp['가장추천']||0)+Number(pp['추천']||0)>0){$('notice').textContent+=' · 가장추천 정산대기 '+Number(pp['가장추천']||0)+' / 추천 정산대기 '+Number(pp['추천']||0);const ready=sh.premiumResultReadiness||{};if(Number(ready.unannounced||0)>0)$('notice').textContent+=' · 공식 결과 미발표 '+Number(ready.unannounced)+'건';}if(s.gradeAudit?.bestNegativeEvCount>0)$('notice').textContent+=' · 가장추천은 상대평가(양(+) 기대수익 미보장)';if(s.gradeAudit?.mode==='R324_EXACT_RELATIVE_20_30_50'){$('notice').textContent+=' · 등급 20/30/50 상대순위'+(s.gradeAudit.exact?' · 목표 개수 일치':' · 고정등급으로 목표 차이')+(s.gradeAudit.roundingRequired?' · 정수 반올림':'');}if(s.marketMixAudit?.exact===false){$('notice').textContent+=' · 시장 20/20/60 후보부족/고정픽 차이';}if(s.marketMixAudit?.drawVisibility){const d=s.marketMixAudit.drawVisibility;$('notice').textContent+=' · 축구 무승부 '+d.draws+'경기 · 근거충족 '+d.qualifiedSelected+'경기'+(d.shortfall?' · 후보부족 '+d.shortfall+'경기':'')+(d.excess?' · 고정/대안부족 초과 '+d.excess+'경기':'');}if(s.directionAudit?.warnings?.length)$('notice').textContent+=' · 방향 집중 참고 '+s.directionAudit.warnings.length+'건';$('meta').textContent='회차 '+e(s.round||'-')+' · '+e((s.updatedAt||'').replace('T',' ').slice(0,19));applyMarkMenu();$('pastMeta').textContent='정산 '+e(roundHits+roundMisses+roundVoids)+'경기 · 적중 '+e(roundHits)+' · 낙첨 '+e(roundMisses)+(roundVoids?' · 적특 '+e(roundVoids):'');$('pastList').innerHTML=pastRows.length?pastRows.map(pastResultHtml).join(''):'<div class="pastEmpty">아직 새로 정산된 경기가 없습니다.<br>119회차는 0승 0패 기준으로 다시 시작하며, 다음 정산 경기부터 경기명 옆에 적중⭕ / 낙첨❌ / 적특⚪으로 표시됩니다.<br><br>누적 · 적중 '+e(roundHits)+' / 낙첨 '+e(roundMisses)+(roundVoids?' / 적특 '+e(roundVoids):'')+'</div>';$('diag').textContent=JSON.stringify({source:s.sourceAudit,result:s.resultAudit,relay:s.relayAudit,settlementHealth:s.settlementHealth,grade:s.gradeAudit,market:s.marketMixAudit,analysis:s.analysisAudit,sharedAnalysis:s.sharedAnalysisAudit,learning:s.learningAudit,performance:s.performanceAudit,fiveApk:s.fiveApkAudit,jeongbaedang:s.jeongbaedangAudit,aux:s.auxAudit,directions:s.directionAudit,performanceSummary:s.performanceSummary},null,2);applyView()}async function load(){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),12000);try{const r=await fetch('/api/state?x='+Date.now(),{cache:'no-store',signal:ac.signal});if(!r.ok)throw new Error('HTTP_'+r.status);const s=await r.json();render(s);const j=s.refreshRequest;if(!busy&&pendingRefreshId&&j&&j.id===pendingRefreshId){$('notice').className='notice'+(j.status==='failed'?' err':j.status==='done'?' ok':'');$('notice').textContent=j.status==='failed'?'배당 갱신 실패 · '+j.error:j.status==='done'?'배당 갱신 완료':'배당 수집 중입니다. 완료되면 자동으로 표시됩니다.';if(j.status==='done'||j.status==='failed')pendingRefreshId=null}clearTimeout(timer);timer=setTimeout(load,pendingRefreshId?1000:Math.max(1000,Number(s.pollAfterMs)||3000))}catch(_){clearTimeout(timer);timer=setTimeout(load,5000)}finally{clearTimeout(tm)}}function setActionBusy(on,active){for(const id of ['refresh','results','reanalyze','exportJson']){const b=$(id);if(b)b.disabled=!!on}if(active)active.dataset.busy=on?'1':'0'}async function act(url,btn){if(busy){$('notice').className='notice';$('notice').textContent='이전 메뉴 작업을 처리 중입니다.';return}busy=true;const old=btn?.textContent||'';setActionBusy(true,btn);if(btn)btn.textContent='처리 중…';$('notice').className='notice';$('notice').textContent='요청 처리 중입니다. 잠시만 기다려주세요.';const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),45000);try{const tok=()=>{try{return localStorage.getItem('protoAdminToken')||''}catch(_){return ''}};let r=await fetch(url,{method:'POST',cache:'no-store',signal:ac.signal,headers:{'x-admin-token':tok()}});if(r.status===401){const t=prompt('관리자 토큰을 입력하세요');if(t){try{localStorage.setItem('protoAdminToken',t)}catch(_){}r=await fetch(url,{method:'POST',cache:'no-store',signal:ac.signal,headers:{'x-admin-token':t}})}}if(!r.ok)throw new Error(r.status===401?'관리자 토큰 필요':'HTTP_'+r.status);const x=await r.json();if(x.state)render(x.state);else await load();if(x.pending){pendingRefreshId=x.refreshRequest?.id||null;$('notice').className='notice';$('notice').textContent='배당 수집 중입니다. 완료되면 자동으로 표시됩니다.';clearTimeout(timer);timer=setTimeout(load,1000)}else{$('notice').className='notice ok';$('notice').textContent='메뉴 작업 완료'}}catch(err){$('notice').className='notice err';$('notice').textContent='메뉴 작업 실패 · '+String(err&&err.name==='AbortError'?'시간초과':(err&&err.message||err))}finally{clearTimeout(tm);if(btn)btn.textContent=old;setActionBusy(false,btn);busy=false}}async function saveAnalysisJson(btn){if(busy){$('notice').className='notice';$('notice').textContent='이전 메뉴 작업을 처리 중입니다.';return}busy=true;const b=btn||$('exportJson'),old=b?.textContent||'분석 JSON 저장';setActionBusy(true,b);if(b)b.textContent='JSON 만드는 중';try{const r=await fetch('/api/export-json?x='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('JSON_EXPORT_'+r.status);const blob=await r.blob(),cd=r.headers.get('content-disposition')||'',m=cd.match(/filename=\"?([^\";]+)\"?/i),name=m?m[1]:'proto_analysis.json',url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);$('notice').className='notice ok';$('notice').textContent='분석 JSON 저장 완료 · 나중에 이 파일을 첨부하면 회차/마킹/경기력DB 분석에 사용할 수 있습니다.'}catch(err){$('notice').className='notice err';$('notice').textContent='JSON 저장 실패 · '+String(err&&err.message||err)}finally{if(b)b.textContent=old;setActionBusy(false,b);busy=false}}function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('refresh','/api/round-refresh');bindActionButton('results','/api/results-refresh');bindActionButton('reanalyze','/api/reanalyze');bindActionButton('exportJson','EXPORT');const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>{markMenuMode='now';setView('marking');applyMarkMenu()});$('tabPast')?.addEventListener('click',()=>setView('past'));document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
 </script></body></html>`;
 
 async function bootstrapState(env){
@@ -5774,6 +5774,49 @@ function prepareOfficialRelayRows(input,gmTs,pending){
 function pendingSettlementMarkets(state){
   return (state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&started(m)&&!m.resultFinal&&settlementAllowed(m));
 }
+// R362: The relay may receive hundreds of Betman market rows before the
+// particular premium markets publish GAME_RESULT. Never treat a successful
+// HTTP request as a settled outcome or invent missing results.
+function premiumOfficialSettlementReadiness(state,officialResult,gmTs){
+  const pending=pendingSettlementMarkets(state).filter(m=>String(m.gmTs||"")===String(gmTs)&&
+    (m.displayGrade==="가장추천"||m.displayGrade==="추천"));
+  const gradeCounts={"가장추천":0,"추천":0};
+  for(const m of pending)gradeCounts[m.displayGrade]++;
+  const sourceOk=!!officialResult;
+  const rawRows=sourceOk?(
+    Array.isArray(officialResult.detlBody)?officialResult.detlBody:
+    Array.isArray(officialResult.winrstDetlBody)?officialResult.winrstDetlBody:
+    findDeepArray(officialResult,"detlBody",7)):[];
+  const index=new Map();
+  for(const r of rawRows){
+    const no=resultRowNo(r);
+    if(no!=null){const entries=index.get(no)||[];entries.push(r);index.set(no,entries);}
+  }
+  const cases=pending.map(m=>{
+    const raws=index.get(Number(m.no))||[];
+    const announced=raws.filter(r=>{
+      const fam=resultMarketFamily(resultMarketText(r));
+      const row={no:resultRowNo(r),gmTs:String(gmTs),family:fam,
+        score:resultScoreText(r),outcome:resultRowOutcome(r,fam),
+        specialStatus:resultRowSpecialStatus(r)};
+      return resultMatchesMarket(row,m)&&
+        !!(row.specialStatus||resolveOfficialOutcome(row,m).outcome);
+    });
+    const reason=!sourceOk?"RESULT_API_UNAVAILABLE":
+      !raws.length?"OFFICIAL_ROW_NOT_RETURNED":
+      !announced.length?"OFFICIAL_RESULT_NOT_ANNOUNCED":"OFFICIAL_MATCH_UNRESOLVED";
+    return {no:m.no,grade:m.displayGrade,marketFamily:m.marketFamily,pick:m.finalPick,
+      reason,officialRawRows:raws.length,
+      announcedAt:raws.find(r=>r.WL_RSLT_ANNC_DTM)?.WL_RSLT_ANNC_DTM||null};
+  });
+  const reasons=Object.fromEntries(["RESULT_API_UNAVAILABLE","OFFICIAL_ROW_NOT_RETURNED",
+    "OFFICIAL_RESULT_NOT_ANNOUNCED","OFFICIAL_MATCH_UNRESOLVED"].map(r=>
+      [r,cases.filter(x=>x.reason===r).length]));
+  return {at:nowIso(),gmTs:String(gmTs),sourceOk,rawRows:rawRows.length,
+    pending:cases.length,gradeCounts,reasons,
+    unannounced:reasons.OFFICIAL_RESULT_NOT_ANNOUNCED,
+    cases:cases.slice(0,50),policy:"OFFICIAL_CONFIRMED_ONLY_NO_GRADE_EXCLUSION"};
+}
 function settlementHealth(state){
   const r=state?.resultAudit||{},relay=state?.relayAudit||{};
   const contactMs=Date.parse(relay.at||""),successMs=Date.parse(r.lastSuccessAt||"");
@@ -5782,6 +5825,8 @@ function settlementHealth(state){
   const directFresh=Number.isFinite(directSince)&&Date.now()-directSince>=0&&Date.now()-directSince<=20*60000;
   const directOk=directFresh&&(!!r.directOk||!!(r.ok&&r.source==="BETMAN_OFFICIAL_RESULT_PARALLEL_GAMEINFO_FINAL_SCORE"));
   const pendingMarkets=pendingSettlementMarkets(state),pending=pendingMarkets.length;
+  const premiumPendingByGrade={"가장추천":0,"추천":0};
+  for(const m of pendingMarkets)if(premiumPendingByGrade[m.displayGrade]!=null)premiumPendingByGrade[m.displayGrade]++;
   // A successful signed relay can carry only fresh odds, NOT any verified result.
   // Keep transport health and actual verified result availability separate.
   const officialVerifiedRows=relayFresh?Number(relay.verifiedRows||0):
@@ -5796,7 +5841,9 @@ function settlementHealth(state){
   const staleMinutes=lastContactMs?Math.max(0,Math.floor((Date.now()-lastContactMs)/60000)):null;
   const stalled=!!pending&&(!relayFresh&&!directOk);
 
-  return {pending,directOk,directFresh,relayFresh,stalled,staleMinutes,
+  return {pending,premiumPendingByGrade,
+    premiumResultReadiness:relay.premiumResultReadiness||null,
+    directOk,directFresh,relayFresh,stalled,staleMinutes,
     officialVerifiedRows,officialDataPending,overdueForResult,
     relaySourceStatus:relay.sourceStatus||null,
     resultApiFailed:relayFresh?relay.sourceStatus?.resultApi==="rejected":null,
@@ -5877,6 +5924,7 @@ async function ingestOfficialRelay(req,env){
   if(settled||learned||jbAdded||priceRelay.accepted)markState(state);
   state.officialOddsRelayAudit={at:nowIso(),gmTs,...priceRelay,
     source:"BETMAN_SIGNED_GITHUB_OIDC",currentRoundOnly:true};
+  const premiumResultReadiness=premiumOfficialSettlementReadiness(state,officialResult,gmTs);
   const now=nowIso(),previous=state.relayAudit||{},
     pendingAfter=pendingSettlementMarkets(state).filter(m=>String(m.gmTs||"")===gmTs).length,
     prevRounds=previous.rounds||{},rounds={...prevRounds};
@@ -5893,7 +5941,7 @@ async function ingestOfficialRelay(req,env){
     receivedRows:parsed.receivedRows,verifiedRows,resultApiRows:parsed.resultRows.length,
     gameInfoRows:parsed.gameInfoRows.length,pendingBefore:pending.length,pendingAfter,
     settledNow:settled,totalSettled:Number(previous.totalSettled||0)+settled,
-    sourceStatus,consecutiveEmptyChecks,
+    sourceStatus,consecutiveEmptyChecks,premiumResultReadiness,
     lastVerifiedRowsAt:verifiedRows>0?now:previous.lastVerifiedRowsAt||null,
     lastSettlementAt:settled?now:previous.lastSettlementAt||null,
     lastSuccessAt:now,rounds:recentRounds};
@@ -5913,7 +5961,7 @@ async function ingestOfficialRelay(req,env){
     officialDataPending:pendingAfter>0&&verifiedRows===0,consecutiveEmptyChecks,
     resultApiRows:parsed.resultRows.length,gameInfoRows:parsed.gameInfoRows.length,
     pendingBefore:pending.length,settledNow:settled,pendingAfter,
-    officialOddsRelay:priceRelay,at:now});
+    premiumResultReadiness,officialOddsRelay:priceRelay,at:now});
 }
 
 
