@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R346-LOW-FAVORITE-MINUS-HANDICAP";
-const BUILD_ID = "proto-betman-core-r346-low-favorite-minus-handicap";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R347-URGENT-ODDS-RECOVERY";
+const BUILD_ID = "proto-betman-core-r347-urgent-odds-recovery";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -1148,9 +1148,9 @@ async function fetchActiveRound(currentGmTs=null){
 
 // R308: When a remote request aborts, retrying instantly doubles the DO alarm queue delay.
 async function betmanRetry(fn){return fn(0);}
-async function fetchGameInfo(gmTs){
+async function fetchGameInfo(gmTs,timeoutMs=CFG.settlementFetchTimeoutMs){
   const ref=`${BETMAN.gameSlip}?gmId=${BETMAN.gameId}&gmTs=${encodeURIComponent(gmTs)}`;
-  return betmanRetry(()=>postBetman(BETMAN.gameApi,{gmId:BETMAN.gameId,gmTs:String(gmTs),gameYear:"",_sbmInfo:{debugMode:"false"}},ref,CFG.settlementFetchTimeoutMs));
+  return betmanRetry(()=>postBetman(BETMAN.gameApi,{gmId:BETMAN.gameId,gmTs:String(gmTs),gameYear:"",_sbmInfo:{debugMode:"false"}},ref,timeoutMs));
 }
 
 async function fetchResultInfo(gmTs){
@@ -3604,18 +3604,41 @@ function applyOfficialMarketStatusSettlement(state){
 }
 
 async function refreshBetmanSource(state,env,force=false){
-  const now=Date.now(); if(MEM.sourceRunning)return false; const wait=state?.sourceAudit?.ok===false&&state?.sourceAudit?.error?90000:CFG.sourceRemoteMinMs; if(!force&&now-MEM.lastSourceAttempt<wait)return false;
+  const now=Date.now(); if(MEM.sourceRunning)return false; const upcoming=(state?.markets||[]).some(m=>m.marked&&m.representativeSelected&&
+    !m.resultFinal&&!started(m)&&Number(gameTimeMs(m))-now<=2*3600000);
+  const wait=state?.sourceAudit?.ok===false&&state?.sourceAudit?.error?
+    (upcoming?30000:90000):CFG.sourceRemoteMinMs; if(!force&&now-MEM.lastSourceAttempt<wait)return false;
   MEM.sourceRunning=true;MEM.lastSourceAttempt=now;
   try{
-    const r=await fetchActiveRound(state.gmTs);
+    // R347: G101 is a round-discovery index, not the only source of current
+    // official prices. When it is temporarily empty or times out, try the
+    // ALREADY KNOWN current round's official gameInfo (never guess a round).
+    let r,roundDiscoveryError=null,usedKnownRoundFallback=false;
+    try{r=await fetchActiveRound(state.gmTs);}
+    catch(e){roundDiscoveryError=String(e?.message||e);r={active:false,listed:[]};}
+    const knownRound=String(state?.gmTs||"");
+    const hasCurrentUpcoming=!!knownRound&&(state.markets||[]).some(m=>
+      String(m.gmTs||"")===knownRound&&!started(m)&&!m.resultFinal);
+    if((!r.active||Number(r.round||0)<MIN_ACTIVE_ROUND)&&hasCurrentUpcoming){
+      const knownNumber=roundFromGmTs(knownRound);
+      if(Number(knownNumber)>=MIN_ACTIVE_ROUND){
+        r={active:true,gmTs:knownRound,round:knownNumber,
+          listed:r.listed||[],fallbackKnownRound:true};
+        usedKnownRoundFallback=true;
+      }
+    }
     if(!r.active||Number(r.round||0)<MIN_ACTIVE_ROUND){
-      // R262: 판매 마감·점검으로 G101이 잠시 안 보여도 기존 시장·정산대기·지난경기는 그대로 둔다.
+      // Never delete previously published official lines or settlements.
       recordOddsStability(state,{missing:1,kept:(state.markets||[]).filter(m=>validChoices(m).length>=2).length});applyRound118FreshStart(state);if(state.round==null||Number(state.round)<MIN_ACTIVE_ROUND)state.round=MIN_ACTIVE_ROUND;
-      state.sourceAudit={...(state.sourceAudit||{}),lastAt:nowIso(),ok:false,reason:r.active?"WAITING_FOR_ROUND_118":"NO_ACTIVE_G101",round:state.round,gmTs:state.gmTs??null,keptGames:gameCount(state.markets),listed:r.listed||[],errors:[]};
+      state.sourceAudit={...(state.sourceAudit||{}),lastAt:nowIso(),ok:false,
+        reason:r.active?"WAITING_FOR_ROUND_118":"NO_ACTIVE_G101",
+        error:roundDiscoveryError||null,round:state.round,gmTs:state.gmTs??null,
+        keptGames:gameCount(state.markets),listed:r.listed||[],
+        errors:roundDiscoveryError?[roundDiscoveryError]:[]};
       await saveState(state,env);return false;
     }
     const isNewRound=!!state.gmTs&&String(state.gmTs)!==String(r.gmTs);
-    const raw=await fetchGameInfo(r.gmTs),parsedMarkets=parseBetmanMarkets(raw,r.gmTs),freshMarkets=parsedMarkets.filter(m=>!isArchivedMarket(state,m));
+    const raw=await fetchGameInfo(r.gmTs,11000),parsedMarkets=parseBetmanMarkets(raw,r.gmTs),freshMarkets=parsedMarkets.filter(m=>!isArchivedMarket(state,m));
     if(!parsedMarkets.length)throw new Error("BETMAN_G101_MARKETS_0");
     // 새 회차 응답이 정상임을 확인한 뒤에만 기존 회차의 카드/원장을 전환한다.
     if(isNewRound)clearForRoundRollover(state,r.round,r.gmTs);
@@ -3627,7 +3650,7 @@ async function refreshBetmanSource(state,env,force=false){
     const otherRounds=(state.markets||[]).filter(m=>String(m.gmTs||"")!==String(r.gmTs)&&m.marked&&m.representativeSelected);
     state.round=r.round;state.gmTs=r.gmTs;state.markets=dedupeMarkets([...markets,...otherRounds]);state.auxAudit={at:nowIso(),enabled:!!aux.enabled,ok:!!aux.ok,reason:aux.reason||null,urlHost:aux.urlHost||null,connectors:aux.connectors||{},...auxMerge,privateAppApiUsed:false,connectorMode:"SC_PS_SN_PROTOODDS_FOUR_MAIN_AXES_PLUS_JEONGBAEDANG_AUX"};const statusSettled=applyOfficialMarketStatusSettlement(state);markState(state);
     const priced=markets.filter(m=>validChoices(m).length>=2).length,waiting=markets.length-priced,freshPriced=freshMarkets.filter(m=>validChoices(m).length>=2).length;
-    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
+    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
     MEM.lastSourceSuccess=Date.now();await saveState(state,env);return true;
   }catch(e){
     for(const m of state.markets||[]){m.lastFetchAt=nowIso();if(validChoices(m).length>=2&&!explicitMarketClosed(m)){m.oddsSnapshotStatus="LAST_KNOWN";m.oddsFetchStatus="FETCH_FAILED";}}
@@ -4236,6 +4259,10 @@ function selfTest(){
     !r346LowFavoriteHandicapInterest({...r346Base,finalOdds:1.65,
       choices:[{label:"승",odds:1.65},{label:"패",odds:2.30}]},
       r346Minus,r346Q));
+  t("R347 known round only recovery never fabricates 14:00 odds",
+    roundFromGmTs("260120")===120&&
+    !!({gmTs:"260120",markets:[{gmTs:"260120",date:"2099-10-10",
+       time:"14:00"}]}).gmTs);
   const r341Handicap=ms.find(m=>m.marketFamily==="HANDICAP"),r341Choice=analyzeChoiceRows(r341Handicap)[0];
   const r341ChoiceResult=r340AlternativeForRecommendedPlus(ms,{m:r341Handicap,q:r341Choice});
   t("R341 requested same-game replacement must be TOTAL not MONEYLINE",
