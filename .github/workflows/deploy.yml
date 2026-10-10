@@ -43,6 +43,8 @@ jobs:
         run: node tests/r362-premium-settlement.cjs
       - name: Verify R365 Zentoto full-time settlement source
         run: node tests/r365-zen-settlement.cjs
+      - name: Verify R368 owner-requested void is narrow and clearly non-official
+        run: node tests/r368-requested-void.cjs
 
   confirm-cloudflare:
     name: Confirm Cloudflare automatic deployment
@@ -538,6 +540,32 @@ jobs:
                 version:d.version,round:d.round,totalPending:health.pending,
                 premiumPending:health.premiumPendingByGrade,officialReadiness:pending,
                 actualSettled:d.summary?.settled,lastOfficialSource:d.relayAudit?.sourceStatus
+              }));
+            }
+            if(expected.includes("R368-USER-REQUESTED-VOID-7277")){
+              const row=(d.pastGames||[]).find(x=>Number(x.no)===7277&&String(x.gmTs)==="260120");
+              const pending=(d.markingGames||[]).some(x=>Number(x.no)===7277&&
+                String(x.gmTs)==="260120"&&x.pick&&!x.resultFinal);
+              assert.ok(!pending,"R368 requested adjustment not persisted: #7277 still pending");
+              assert.ok(row&&row.resultFinal,"R368 #7277 not visible in past/settled cards");
+              if(row.settlementType==="USER_REQUESTED_VOID"){
+                assert.equal(row.resultSpecialStatus,"사용자요청");
+                assert.equal(row.resultSource,"USER_REQUESTED_VOID_NOT_OFFICIAL");
+                assert.equal(row.settlementStatus,"적특");
+                assert.equal(row.hit,null);
+                assert.equal(d.r368UserVoidAudit?.id,
+                  "R368_USER_REQUESTED_VOID_260120_7277");
+              } else {
+                assert.ok(row.resultSource?.startsWith("BETMAN_OFFICIAL")||
+                  row.resultSource?.startsWith("ESPN_")||
+                  row.resultSource?.startsWith("ZENTOTO_"),
+                  "Already settled only if a verified actual result exists");
+              }
+              console.log("R368_LIVE_USER_VOID="+JSON.stringify({
+                version:d.version,no:7277,status:row.settlementStatus,
+                type:row.settlementType,source:row.resultSource,
+                pending:d.settlementHealth?.pending,settled:d.summary?.settled,
+                voids:d.summary?.voids,hits:d.summary?.hits,misses:d.summary?.misses
               }));
             }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
