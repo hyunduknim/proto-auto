@@ -34,6 +34,10 @@ jobs:
         env:
           PROTONUMBER_URL: https://protonumber.mystyle276.workers.dev
           GITHUB_OIDC_AUD: protonumber-official-settlement
+          FLASHSCORE_FINAL_FEED_URL: ${{ vars.FLASHSCORE_FINAL_FEED_URL }}
+          AISCORE_FINAL_FEED_URL: ${{ vars.AISCORE_FINAL_FEED_URL }}
+          FLASHSCORE_FINAL_FEED_TOKEN: ${{ secrets.FLASHSCORE_FINAL_FEED_TOKEN }}
+          AISCORE_FINAL_FEED_TOKEN: ${{ secrets.AISCORE_FINAL_FEED_TOKEN }}
         run: |
           node <<'NODE'
           const base=process.env.PROTONUMBER_URL, aud=process.env.GITHUB_OIDC_AUD;
@@ -101,6 +105,28 @@ jobs:
             const body=await r.text();
             if(body.length<10000||body.length>4500000)throw Error("ZENTOTO_BAD_HTML_SIZE");
             return parseZentoto(body);
+          }
+          // Optional OWNER-AUTHORIZED results feeds. An official website URL is
+          // not automatically a feed; these must be licensed JSON adapters
+          // returning {results:[{gmTs,no,eventId,score,status,terminal,fullTime,
+          //   sport,eventStart,date,time,home,away}]}.
+          async function authorizedFinalFeed(ts,source){
+            const prefix=source==="FLASHSCORE_VERIFIED_FULLTIME"?"FLASHSCORE":"AISCORE";
+            const raw=process.env[prefix+"_FINAL_FEED_URL"];
+            if(!raw)return [];
+            const url=new URL(raw);
+            if(url.protocol!=="https:"||url.username||url.password||url.hash||
+              /^(localhost|127\\.|0\\.|10\\.|192\\.168\\.|172\\.(?:1[6-9]|2\\d|3[01])\\.)/i.test(url.hostname))
+              throw Error("UNSAFE_FEED_URL");
+            url.searchParams.set("gmTs",String(ts));
+            const secret=process.env[prefix+"_FINAL_FEED_TOKEN"]||"";
+            const headers={accept:"application/json","cache-control":"no-cache"};
+            if(secret)headers.authorization="Bearer "+secret;
+            const res=await fetch(url,{headers,redirect:"error",signal:timeout(14000)});
+            if(!res.ok)throw Error(prefix+"_FEED_HTTP_"+res.status);
+            const data=await res.json(),rows=data?.results;
+            if(!Array.isArray(rows)||rows.length>150)throw Error(prefix+"_INVALID_RESULTS");
+            return rows.map(r=>({...r,source})).filter(r=>String(r.gmTs)===String(ts));
           }
           async function signedToken(){
             const endpoint=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL||"");
@@ -176,9 +202,17 @@ jobs:
                   officialGameInfo(ts),officialResultInfo(ts)]);
                 const zenRows=verifiedZen.filter(x=>String(x.gmTs)===ts);
                 const espnRows=espn.filter(x=>String(x.gmTs)===ts);
-                if(gameInfoStatus.status==="rejected"&&resultInfoStatus.status==="rejected"&&!zenRows.length&&!espnRows.length)
+                const [fsResult,aiResult]=await Promise.allSettled([
+                  authorizedFinalFeed(ts,"FLASHSCORE_VERIFIED_FULLTIME"),
+                  authorizedFinalFeed(ts,"AISCORE_VERIFIED_FULLTIME")]);
+                const flashscoreRows=fsResult.status==="fulfilled"?fsResult.value:[],
+                  aiscoreRows=aiResult.status==="fulfilled"?aiResult.value:[];
+                if(fsResult.status==="rejected")console.log("FLASHSCORE_FEED_UNAVAILABLE="+String(fsResult.reason?.message||fsResult.reason).slice(0,90));
+                if(aiResult.status==="rejected")console.log("AISCORE_FEED_UNAVAILABLE="+String(aiResult.reason?.message||aiResult.reason).slice(0,90));
+                if(gameInfoStatus.status==="rejected"&&resultInfoStatus.status==="rejected"&&
+                  !zenRows.length&&!espnRows.length&&!flashscoreRows.length&&!aiscoreRows.length)
                   throw Error("all settlement and odds sources unavailable: "+String(gameInfoStatus.reason?.message||"gameInfo"));
-                const payload={gmTs:ts,zentotoRows:zenRows,espnRows};
+                const payload={gmTs:ts,zentotoRows:zenRows,espnRows,flashscoreRows,aiscoreRows};
                 if(gameInfoStatus.status==="fulfilled")payload.gameInfo=gameInfoStatus.value;
                 if(resultInfoStatus.status==="fulfilled")payload.officialResult=resultInfoStatus.value;
                 // Authenticated OIDC metadata is diagnostic only; never settles a market.
@@ -188,7 +222,7 @@ jobs:
                     String(resultInfoStatus.reason?.message||resultInfoStatus.reason||"").slice(0,140):null
                 };
                 console.log("OFFICIAL_SOURCES="+JSON.stringify({gmTs:ts,
-                  ...payload.sourceStatus}));
+                  ...payload.sourceStatus,flashscoreRows:flashscoreRows.length,aiscoreRows:aiscoreRows.length}));
                 // GitHub push triggers this workflow before Cloudflare Workers Builds finishes.
                 // Retry the relay endpoint only during the deployment race; never modify market data.
                 let data={};let deliveredToWorker=false;
@@ -219,6 +253,8 @@ jobs:
                   gmTs:ts,verifiedRows:data.verifiedRows,officialResultRows:data.resultApiRows||0,
                   officialGameInfoRows:data.gameInfoRows||0,settledNow:data.settledNow,
                   pendingBefore:data.pendingBefore,pendingAfter:data.pendingAfter,
+                  flashscoreSettlement:data.flashscoreSettlement||null,
+                  aiscoreSettlement:data.aiscoreSettlement||null,
                   zentotoSettlement:data.zentotoSettlement||null,
                   espnSettlement:data.espnSettlement||null,
                   officialOddsRelay:data.officialOddsRelay||null
