@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R366-SETTLEMENT-FINAL-SCORES";
-const BUILD_ID = "proto-r366-settlement-final-scores";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R367-ESPN-FULLTIME-SETTLEMENT";
+const BUILD_ID = "proto-r367-espn-fulltime-settlement";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -4895,6 +4895,7 @@ function publicState(state){
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
   const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+  espnSettlementAudit:state.espnSettlementAudit||null,
   marketMixAudit:state.marketMixAudit,r360PolicyAudit:state.r360PolicyAudit||null,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,fullRepickAudit:state.fullRepickAudit||null,gradeRevisionAudit:state.gradeRevisionAudit||null,recommendedFavoriteMigrationAudit:state.recommendedFavoriteMigrationAudit||null,recommendedFavoriteLiveAudit:state.recommendedFavoriteLiveAudit||null,recommendedFavoriteGuaranteeAudit:state.recommendedFavoriteGuaranteeAudit||null,recommendedFavoriteGuaranteeLiveAudit:state.recommendedFavoriteGuaranteeLiveAudit||null,recommendedLowOddsHandicapAudit:state.recommendedLowOddsHandicapAudit||null,recommendedLowOddsHandicapLiveAudit:state.recommendedLowOddsHandicapLiveAudit||null,kjDrawMigrationAudit:state.kjDrawMigrationAudit||null,kjDrawLiveAudit:state.kjDrawLiveAudit||null,kjDrawTrimAudit:state.kjDrawTrimAudit||null,recommendedPlusToTotalAudit:state.recommendedPlusToTotalAudit||null,soccerOddsGuardAudit:state.soccerOddsGuardAudit||null,soccerOddsGuardMigration:state.soccerOddsGuardMigration||null,recommendationPickAudit:state.recommendationPickAudit||null,recommendationTotalCorrectionAudit:state.recommendationTotalCorrectionAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,qualityPriorityAudit:state.qualityPriorityAudit||null,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
   MEM.publicCacheKey=key;MEM.publicCache=value;return value;
 }
@@ -5897,6 +5898,51 @@ function r365ApplyZentotoResults(state,rows,gmTs){
   audit.scoresUpdated=r366BackfillZentotoScores(state,rows,gmTs);
   return audit;
 }
+// R367: ESPN is a *supplemental* full-time source when Zen/Betman is delayed.
+// It is delivered only by the trusted OIDC GitHub relay. The sender matches
+// both translated team names and kickoff time against ESPN's public score feed;
+// the Worker independently protects exact saved Proto identity and selection.
+function r367ApplyEspnFinishedScores(state,rows,gmTs){
+  const audit={source:"ESPN_PUBLIC_FULLTIME",at:nowIso(),gmTs,checked:Array.isArray(rows)?rows.length:0,
+    matched:0,settled:0,rejected:0,reasons:{},sample:[]};
+  const reject=why=>{audit.rejected++;audit.reasons[why]=(audit.reasons[why]||0)+1;};
+  if(!Array.isArray(rows)||rows.length>120){reject("BAD_BATCH_SIZE");return audit;}
+  const pending=(state.markets||[]).filter(m=>String(m.gmTs||"")===gmTs&&m.marked&&
+    m.representativeSelected&&started(m)&&!m.resultFinal&&settlementAllowed(m)&&m.sport==="축구");
+  const counts=new Map();
+  for(const r of rows)counts.set(Number(r?.no),Number(counts.get(Number(r?.no))||0)+1);
+  for(const r of rows){
+    if(!r||r.source!=="ESPN_PUBLIC_FULLTIME"||r.status!=="STATUS_FULL_TIME"||
+      r.terminal!==true||r.fullTime!==true||String(r.gmTs||"")!==gmTs||
+      !/^\d{1,3}:\d{1,3}$/.test(String(r.score||""))||
+      !/^\d{6}$/.test(String(r.gmTs||""))||!Number.isInteger(Number(r.no))||
+      !/^(esp|ger|fra|ita|eng|ned|usa)\.1$/.test(String(r.leagueId||""))||
+      !/^\d{1,10}$/.test(String(r.eventId||""))){reject("UNVERIFIED_FINAL_PROVIDER_ROW");continue;}
+    if(counts.get(Number(r.no))!==1){reject("DUPLICATED_PROTO_NUMBER");continue;}
+    const m=pending.find(x=>Number(x.no)===Number(r.no));if(!m)continue;
+    const kick=gameTimeMs(m),eventKick=Date.parse(String(r.eventStart||""));
+    if(kick==null||!Number.isFinite(eventKick)||Math.abs(kick-eventKick)>120000){
+      reject("MATCH_START_MISMATCH");continue;
+    }
+    if(String(m.date)!==String(r.date)||String(m.time).slice(0,5)!==String(r.time).slice(0,5)||
+       norm(m.home)!==norm(r.home)||norm(m.away)!==norm(r.away)||
+       String(m.marketFamily)!==String(r.marketFamily)){reject("MATCH_IDENTITY_MISMATCH");continue;}
+    if(["TOTAL","HANDICAP"].includes(m.marketFamily)&&
+       (!Number.isFinite(Number(m.line))||Math.abs(Number(m.line)-Number(r.line))>.001)){
+       reject("BET_LINE_MISMATCH");continue;
+    }
+    const rr={gmTs,no:Number(m.no),date:m.date,time:m.time,home:m.home,away:m.away,
+      family:m.marketFamily,score:r.score,outcome:null,specialStatus:null,
+      terminal:true,partial:false,source:"ESPN_PUBLIC_FULLTIME"};
+    audit.matched++;
+    // Exactly one immutable saved selection per result, not a cross-market bulk guess.
+    const n=applyResults({markets:[m]},[rr],"ESPN_PUBLIC_FULLTIME_RESULT");
+    audit.settled+=n;
+    if(audit.sample.length<20)audit.sample.push({no:m.no,score:r.score,
+      family:m.marketFamily,pick:m.finalPick,settled:n>0,result:m.result||null});
+  }
+  return audit;
+}
 function pendingSettlementMarkets(state){
   return (state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&started(m)&&!m.resultFinal&&settlementAllowed(m));
 }
@@ -5988,7 +6034,8 @@ async function ingestOfficialRelay(req,env){
   let input;
   try{input=await req.json();}catch{return json({error:"invalid relay JSON"},400);}
   const gmTs=String(input?.gmTs||""),gameInfo=input?.gameInfo,officialResult=input?.officialResult,
-    zentotoRows=Array.isArray(input?.zentotoRows)?input.zentotoRows:[];
+    zentotoRows=Array.isArray(input?.zentotoRows)?input.zentotoRows:[],
+    espnRows=Array.isArray(input?.espnRows)?input.espnRows:[];
   const sourceStatus=input?.sourceStatus&&typeof input.sourceStatus==="object"?
     {gameInfo:["fulfilled","rejected"].includes(input.sourceStatus.gameInfo)?input.sourceStatus.gameInfo:null,
       resultApi:["fulfilled","rejected"].includes(input.sourceStatus.resultApi)?input.sourceStatus.resultApi:null,
@@ -6003,18 +6050,23 @@ async function ingestOfficialRelay(req,env){
       .some(k=>Array.isArray(officialResult?.[k])||findDeepArray(officialResult,k,5).length>0));
   const validZentoto=zentotoRows.length>0&&zentotoRows.length<=1000&&
     zentotoRows.every(r=>r&&r.source==="ZENTOTO_LEGACY_FULLTIME"&&r.terminal===true&&r.fullTime===true&&String(r.gmTs)===gmTs);
-  if(!/^\d{6}$/.test(gmTs)||(!validGameInfo&&!validResultInfo&&!validZentoto)||
+  const validEspn=espnRows.length>0&&espnRows.length<=120&&
+    espnRows.every(r=>r&&r.source==="ESPN_PUBLIC_FULLTIME"&&r.status==="STATUS_FULL_TIME"&&
+      r.terminal===true&&r.fullTime===true&&String(r.gmTs)===gmTs);
+  if(!/^\d{6}$/.test(gmTs)||(!validGameInfo&&!validResultInfo&&!validZentoto&&!validEspn)||
      (gameInfo&&!validGameInfo)||(officialResult&&!validResultInfo))
     return json({error:"invalid official payload or round"},400);
   const state=await loadState(env);
   const pending=pendingSettlementMarkets(state).filter(m=>String(m.gmTs||"")===gmTs);
   const parsed=prepareOfficialRelayRows(input,gmTs,pending);
   const zenAudit=r365ApplyZentotoResults(state,zentotoRows,gmTs);
+  const espnAudit=r367ApplyEspnFinishedScores(state,espnRows,gmTs);
   const officialTrainingRows=terminalOfficialScoringRows(state,gameInfo,gmTs);
   // Results API can contain official outcome codes; gameInfo needs terminal status or overdue final-score guard.
   const resultSettled=applyResults(state,parsed.resultRows);
   const fallbackSettled=applyResults(state,parsed.gameInfoRows);
-  const settled=zenAudit.settled+resultSettled+fallbackSettled,verifiedRows=parsed.resultRows.length+parsed.gameInfoRows.length;
+  const settled=zenAudit.settled+espnAudit.settled+resultSettled+fallbackSettled,
+    verifiedRows=parsed.resultRows.length+parsed.gameInfoRows.length+espnAudit.matched;
   let learned=0,jbAdded=0;
   const officialRows=[...parsed.resultRows,...parsed.gameInfoRows];
   // Broader terminal GameInfo score ingestion is training-only; neither
@@ -6053,6 +6105,7 @@ async function ingestOfficialRelay(req,env){
     }else priceRelay.reason="NO_PRICED_OFFICIAL_GAMEINFO";
   }
   if(settled||zenAudit.scoresUpdated||learned||jbAdded||priceRelay.accepted)markState(state);
+  state.espnSettlementAudit=espnAudit;
   state.zentotoSettlementAudit=zenAudit;
   state.officialOddsRelayAudit={at:nowIso(),gmTs,...priceRelay,
     source:"BETMAN_SIGNED_GITHUB_OIDC",currentRoundOnly:true};
@@ -6093,7 +6146,8 @@ async function ingestOfficialRelay(req,env){
     officialDataPending:pendingAfter>0&&verifiedRows===0,consecutiveEmptyChecks,
     resultApiRows:parsed.resultRows.length,gameInfoRows:parsed.gameInfoRows.length,
     pendingBefore:pending.length,settledNow:settled,pendingAfter,
-    premiumResultReadiness,zentotoSettlement:zenAudit,officialOddsRelay:priceRelay,at:now});
+    premiumResultReadiness,zentotoSettlement:zenAudit,espnSettlement:espnAudit,
+    officialOddsRelay:priceRelay,at:now});
 }
 
 
@@ -6178,7 +6232,7 @@ async function handleAppInternal(req,env,ctx){
       const s=await loadState(env);return json(feedIntegrationStatus(s,env));
     }
     if(u.pathname==="/api/diagnostics"){
-      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
+      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
     }
     if(u.pathname==="/api/self-test"){if(!adminAuthorized(req,env))return json({error:"unauthorized"},401);const report=selfTest();return json(report,report.ok?200:500);}
     return json({error:"not found"},404);
