@@ -1933,6 +1933,22 @@ function r336TotalQualityBackstop(x,bestUtility){
   return gap>=0&&gap<=.12&&edge>=.005&&ev>=-.095&&
     safe>=marketP-.07&&support&&integrity;
 }
+// R360: allow clean, priced totals to compete for the user's future 60%
+// allocation even when they miss an unusually narrow 0.045 utility gap.
+// They may be GENERAL only if recommendation EV/evidence gates are not met.
+function r360CleanTotalEligible(x,bestUtility){
+  if(x?.m?.marketFamily!=="TOTAL"||!x.q||
+    r360OddsAnomalyReason(x.m)||!representativeMarketEligible(x.m))return false;
+  const q=x.q,odds=Number(q.odds),p=Number(q.calibratedP),
+    safe=Number(q.conservativeP),mp=Number(q.marketP),
+    reliability=Number(q.reliability),integrity=Number(q.dataIntegrity),
+    utility=candidateUtility(x);
+  if(![odds,p,safe,mp,reliability,integrity,utility,bestUtility].every(Number.isFinite))return false;
+  const ev=p*odds-1;
+  return odds>=CFG.minRepOdds&&p>0&&safe>0&&mp>0&&ev>=-.16&&
+    safe>=mp-.12&&reliability>=.44&&integrity>=.30&&
+    bestUtility-utility<=.35;
+}
 function currentRoundMarket(m,state){return !state?.gmTs||String(m?.gmTs||"")===String(state.gmTs);}
 function currentRoundMarkets(state){return (state?.markets||[]).filter(m=>currentRoundMarket(m,state)&&settlementAllowed(m));}
 function currentRoundStateView(state){return {...state,summaryScope:"CURRENT",markets:currentRoundMarkets(state)};}
@@ -2189,7 +2205,7 @@ function assignRepresentativeMarkets(state){
     const forcedAlternate=!!original&&Object.keys(alternatives).length>0;
     const c=forcedAlternate?alternatives:Object.fromEntries(Object.entries(allC).filter(([,x])=>
       candidateUtility(x)+CFG.marketCandidateQualityGap>=bestUtility-1e-12||
-      r336TotalQualityBackstop(x,bestUtility)));
+      r336TotalQualityBackstop(x,bestUtility)||r360CleanTotalEligible(x,bestUtility)));
     if(Object.keys(c).length)games.push({key,ms,c,allC,bestUtility,original,forcedAlternate});else markUnselected(ms);
   }
   const lockedCounts={MONEYLINE:0,HANDICAP:0,TOTAL:0};for(const x of lockedCurrent)if(lockedCounts[x.m.marketFamily]!=null)lockedCounts[x.m.marketFamily]++;
