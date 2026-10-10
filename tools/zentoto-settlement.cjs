@@ -28,7 +28,7 @@ function parseZentoto(html){
     const home=strip(homeTag[1].replace(/<span\b[^>]*>[\s\S]*?<\/span>/g,"")),away=strip(awayTag[1]),
       score=strip(scoreTag[1]);
     if(!home||!away)continue;
-    const type=strip(homeTag[1].match(/\((?:U\/O|H[+-]?)\d+(?:\.\d+)?\)/i)?.[0]||"");
+    const type=strip(homeTag[1].match(/\((?:U\/O|H[+-]?)\d+(?:\.\d+)?\)/i)?.[0]||"").replace(/^\(|\)$/g,"");
     const total=type.match(/^U\/O(\d+(?:\.\d+)?)$/i),handicap=type.match(/^H([+-]?\d+(?:\.\d+)?)$/i);
     const family=total?"TOTAL":handicap?"HANDICAP":"MONEYLINE",line=total?Number(total[1]):handicap?Number(handicap[1]):null;
     // Explicit market identity, FULLTIME outcome, no totals guessed from handicap-adjusted scores.
