@@ -74,7 +74,8 @@ const pools=Object.fromEntries(["MONEYLINE","HANDICAP","TOTAL_UNDER","TOTAL_OVER
 }));
 console.log("R321_ELIGIBILITY_POOL="+JSON.stringify(pools));
 const out={version:snapshot.app.version,round:S.round,at:new Date().toISOString(),locked:fixed.size,baseline,sampleDepth,
- market:S.marketMixAudit?.counts,marketTarget:S.marketMixAudit?.targetCounts,\n  marketCandidates:S.marketMixAudit?.candidateAvailability,
+ market:S.marketMixAudit?.counts,marketTarget:S.marketMixAudit?.targetCounts,
+  marketCandidates:S.marketMixAudit?.candidateAvailability,
  grade:S.gradeAudit?.counts,targets:S.gradeAudit?.targetCounts,
  recommendationBalance:S.gradeAudit?.recommendationBalanceAudit,
  relativeRisk:{elite:S.gradeAudit?.totalDirectionAudit?.relativeMarketOnly,
