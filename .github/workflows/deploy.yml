@@ -218,6 +218,27 @@ jobs:
               assert.equal(Number(audit.unavailable?.length||0),0,
                 "Excess draw could not be restored safely");
             }
+            if(expected.includes("R345-RECOMMENDED-FAVORITES")){
+              const a=d.recommendedFavoriteGuaranteeAudit||{},
+                f=d.recommendedFavoriteGuaranteeLiveAudit||{};
+              assert.equal(a.id,"R345_RECOMMENDED_MONEYLINE_FAVORITE_GUARD",
+                "Recommended favorites correction did not persist");
+              assert.equal(Number(a.final?.underdogs),0,
+                "Some unstarted recommended general-win marks remain underdogs");
+              assert.equal(Number(a.final?.undecidable),0,
+                "Some unstarted recommended general-win marks have no valid favorite >=1.31");
+              assert.equal(Number(f.underdogs),0,
+                "Live recommended general-win selection still has underdog");
+              assert.equal(Number(f.undecidable),0,
+                "Live recommended general-win has unavailable favorite");
+              assert.equal(Number(a.otherMarketChanged),0,
+                "Unrelated representative market was modified");
+              assert.deepEqual(d.marketMixAudit?.target,
+                {MONEYLINE:30,HANDICAP:30,TOTAL:40},
+                "Global market mix target changed from 30/30/40");
+              assert.ok(Number(a.preservedLocked)>=0,
+                "Missing started/settled game preservation report");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -256,6 +277,8 @@ jobs:
             result.recommendationTotalCorrectionAudit=d.recommendationTotalCorrectionAudit||null;
             result.kjDrawMigrationAudit=d.kjDrawMigrationAudit||null;
             result.kjDrawTrimAudit=d.kjDrawTrimAudit||null;
+            result.recommendedFavoriteGuaranteeAudit=d.recommendedFavoriteGuaranteeAudit||null;
+            result.recommendedFavoriteGuaranteeLiveAudit=d.recommendedFavoriteGuaranteeLiveAudit||null;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
