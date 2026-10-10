@@ -34,11 +34,11 @@ jobs:
                   const m=data.match(new RegExp("(?<!\\d)"+n+"(?!\\d)"));
                   if(!m)return {no:n,found:false};
                   const around=data.slice(Math.max(0,m.index-180),Math.min(data.length,m.index+1400))
-                    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi," ")
-                    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi," ")
+                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi," ")
+                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi," ")
                     .replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ")
-                    .replace(/\\s+/g," ").slice(0,550);
-                  const statuses=[...around.matchAll(/경기종료|후반\\s*90|전반|경기전|취소|연기|FT|Finished/gi)].map(x=>x[0]);
+                    .replace(/\s+/g," ").slice(0,550);
+                  const statuses=[...around.matchAll(/경기종료|후반\s*90|전반|경기전|취소|연기|FT|Finished/gi)].map(x=>x[0]);
                   return {no:n,found:true,statuses:statuses.slice(0,3),sample:around.slice(0,290)};
                 });
                 report.push({name:row.name,status:r.status,finalUrl:r.url,bytes:data.length,
