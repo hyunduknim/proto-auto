@@ -28,3 +28,5 @@ jobs:
           node -e "const s=require(process.env.RUNNER_TEMP+'/prod-export.json');if(!s.currentRound?.markets?.length)throw Error('Missing real markets');console.log('SNAPSHOT',s.round?.round,'markets',s.currentRound.markets.length)"
       - name: Simulate new marking and settlement locks without writes
         run: node tests/replay-live.cjs "$RUNNER_TEMP/prod-export.json"
+      - name: Double-check R370 against earlier algorithm on identical production export
+        run: node tests/r370-compare-live.cjs "$RUNNER_TEMP/prod-export.json"

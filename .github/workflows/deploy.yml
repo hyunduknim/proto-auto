@@ -39,6 +39,8 @@ jobs:
         run: node tests/r359-live-hour-display.cjs
       - name: Simulate R360 future-only ratios and anomaly-resistant odds
         run: node tests/r360-future-odds.cjs
+      - name: Verify R370 accuracy-priority cutoff without losing any marks
+        run: node tests/r370-0830-accuracy.cjs
       - name: Verify R362 premium settlement when official results are published
         run: node tests/r362-premium-settlement.cjs
       - name: Verify R365 Zentoto full-time settlement source
