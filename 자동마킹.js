@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R371-RESTORED-GRADES";
-const BUILD_ID = "proto-r371-relative-grades-15-25-60-full-mark";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R372-GRADE-MIGRATION";
+const BUILD_ID = "proto-r372-persisted-relative-grades-15-25-60";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -4633,6 +4633,58 @@ async function r368MigrateRequestedVoid(state,env){
   await saveState(state,env,true);
   return true;
 }
+
+const R372_PERSISTED_GRADE_MIGRATION_ID="R372_APPLY_15_25_60_TO_EXISTING_MARKS";
+function r372RepairStoredGrades(state){
+  if(!state||!Array.isArray(state.markets)||!state.markets.length)return false;
+  const future=(state.markets||[]).filter(m=>
+    currentRoundMarket(m,state)&&m.marked&&m.representativeSelected&&
+    Number(m.finalOdds)>=CFG.minRepOdds&&r360FutureEligible(m));
+  if(!future.length)return false;
+  const target=gradeCaps(future.length),counts=Object.fromEntries(
+    ["가장추천","추천","일반"].map(g=>[g,future.filter(m=>m.displayGrade===g).length]));
+  if(state.gradeAudit?.mode==="R371_FUTURE_RELATIVE_15_25_60"&&
+     ["가장추천","추천","일반"].every(g=>counts[g]===target[g]&&
+       Number(state.gradeAudit.counts?.[g])===target[g])&&
+     state.r371GradeAudit?.exact===true)return false;
+  // This migration is DISPLAY-GRADE ONLY. Verify selection, odds, scores,
+  // prior grade and settlement across every frozen match before committing.
+  const selectionSnapshot=()=>serializeState((state.markets||[]).map(m=>[
+    m.gmTs,m.no,m.date,m.time,m.marketFamily,m.marked,m.representativeSelected,
+    m.finalPick,m.finalOdds,m.resultFinal,m.result,m.hit,m.settlementStatus,
+    m.settlementType,m.resultSource,m.homeScore,m.awayScore]));
+  const lockedSnapshot=()=>serializeState((state.markets||[])
+    .filter(m=>m.marked&&m.representativeSelected&&
+      (!r360FutureEligible(m)||m.resultFinal||started(m)))
+    .map(m=>[m.gmTs,m.no,m.finalPick,m.finalOdds,m.displayGrade,
+      m.gradeEvidenceQualified,m.gradeEvidenceTier,m.gradeEvidenceWarning,
+      m.resultFinal,m.hit,m.settlementStatus]));
+  const before=selectionSnapshot(),locked=lockedSnapshot(),
+    ledger=serializeState(state.settlementLedger||[]),
+    cards=serializeState(state.settledCards||{});
+  const beforeCount={...counts},audit=r371RestoreRelativeGrades(state);
+  if(before!==selectionSnapshot()||locked!==lockedSnapshot()||
+     ledger!==serializeState(state.settlementLedger||[])||
+     cards!==serializeState(state.settledCards||{}))
+     throw Error("R372_REPAIR_MODIFIED_PICK_OR_PAST_OR_SETTLEMENT");
+  if(!audit.exact||audit.total!==future.length)
+     throw Error("R372_RELATIVE_GRADE_TARGET_NOT_MET");
+  state.r372GradeMigration={
+    id:R372_PERSISTED_GRADE_MIGRATION_ID,gmTs:String(state.gmTs||""),
+    at:nowIso(),before:beforeCount,after:{...audit.counts},
+    lockedPreserved:audit.lockedPreserved,
+    picksUnchanged:true,settlementLedgerUnchanged:true,
+    pastGradeUnchanged:true,policy:"GRADE_ONLY_IMMEDIATE_PERSISTED_STATE_REPAIR"
+  };
+  return true;
+}
+async function r372MigratePersistedGrades(state,env){
+  if(!r372RepairStoredGrades(state))return false;
+  state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
+  if(!await persistState(env,true))throw Error("R372_GRADE_PERSIST_FAILED");
+  return true;
+}
+
 async function loadState(env){
   if(MEM.state){
     const removed=purgeMidnightMarkets(MEM.state),settlementRepaired=applyR249SettlementCorrection(MEM.state),jbCorrected=rebuildJeongbaedangForCorrectedSeed(MEM.state),roundReset=applyRound118FreshStart(MEM.state),round119Reset=applyRound119FreshReset(MEM.state),manualOverrideChanged=applyR291Proto6970Over(MEM.state),drawEngineChanged=applyR292DrawEngineMigration(MEM.state),reportReanalysisChanged=applyR294ReportDrawReanalysisMigration(MEM.state),selectionRebuildChanged=applyR302RatioDrawRebuildMigration(MEM.state);
@@ -4641,6 +4693,7 @@ async function loadState(env){
     await r354MigratePersistedSelections(MEM.state,env);
     await r360MigrateFuturePolicy(MEM.state,env);
     await r368MigrateRequestedVoid(MEM.state,env);
+    await r372MigratePersistedGrades(MEM.state,env);
     return MEM.state;
   }
   let loadedPurgeRemoved=0,loadedNeedsPersist=false;
@@ -4661,6 +4714,7 @@ async function loadState(env){
   await r354MigratePersistedSelections(MEM.state,env);
   await r360MigrateFuturePolicy(MEM.state,env);
   await r368MigrateRequestedVoid(MEM.state,env);
+  await r372MigratePersistedGrades(MEM.state,env);
   return MEM.state;
 }
 
