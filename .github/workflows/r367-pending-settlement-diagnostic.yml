@@ -1,0 +1,73 @@
+name: R367 identify real overdue pending settlements
+on:
+  pull_request:
+    paths: ['.github/workflows/r367-pending-settlement-diagnostic.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify pending game ages and public ZenToto terminal rows
+        run: |
+          node <<'NODE'
+          const {parseZentoto}=require('./tools/zentoto-settlement.cjs');
+          (async()=>{
+            const [stateResp,zenResp]=await Promise.all([
+              fetch('https://protonumber.mystyle276.workers.dev/api/state',{headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(18000)}),
+              fetch('https://v1.zentoto.com/proto/game',{headers:{accept:'text/html','user-agent':'Mozilla/5.0 (read-only settlement diagnostic)'},signal:AbortSignal.timeout(18000)})
+            ]);
+            if(!stateResp.ok||!zenResp.ok)throw Error('source unavailable '+stateResp.status+'/'+zenResp.status);
+            const s=await stateResp.json(),zen=parseZentoto(await zenResp.text()),now=Date.now();
+            const k=x=>String(x.gmTs)+':'+String(x.no);
+            const byNo=new Map(zen.map(z=>[k(z),z]));
+            const norm=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').normalize('NFC').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+            const pending=(s.resultAudit?.pendingNos||[]).map(m=>{
+              const full=(s.markingGames||[]).find(v=>String(v.gmTs)===String(m.gmTs)&&Number(v.no)===Number(m.no));
+              const date=full?.date||m.date,time=full?.time||m.time,home=full?.home||m.home,away=full?.away||m.away;
+              const start=Date.parse(String(date)+'T'+String(time).slice(0,5)+':00+09:00'),elapsed=Math.round((now-start)/60000);
+              const zenExact=byNo.get(k(m));
+              const zens=zen.filter(z=>z.date===date&&z.time===time&&z.gmTs===m.gmTs);
+              return {no:m.no,gmTs:m.gmTs,date,time,elapsedMin:elapsed,game:full?.game||m.game,home,away,
+                family:m.marketFamily,line:m.line,pick:m.pick,grade:full?.displayGrade||null,
+                zenExact:zenExact?{terminal:zenExact.terminal,family:zenExact.marketFamily,score:zenExact.score,home:zenExact.home,away:zenExact.away,line:zenExact.line}:null,
+                otherSameTime:zens.filter(z=>norm(z.home)===norm(home)&&norm(z.away)===norm(away)).map(z=>({no:z.no,family:z.marketFamily,score:z.score,line:z.line})).slice(0,5)
+              };
+            });
+            console.log('R367_PENDING_AUDIT='+JSON.stringify({at:new Date().toISOString(),version:s.version,
+              pending:s.settlementHealth?.pending,preexistingPending:pending.length,
+              overdue4h:pending.filter(x=>x.elapsedMin>240).length,
+              foundZenFinished:pending.filter(x=>x.zenExact?.terminal).length,
+              pending,zenRows:zen.length,relay:s.zentotoSettlementAudit,espnAudit:s.espnSettlementAudit,source:s.relayAudit?.sourceStatus}));
+          })().catch(e=>{console.error('R367_PENDING_ERROR',String(e));process.exitCode=1;});
+          NODE
+
+      - name: Check public finished-score provider coverage
+        run: |
+          node <<'NODE'
+          const leagues=["esp.1","ger.1","fra.1","ita.1","eng.1","ned.1","usa.1","eng.2","usa.2"];
+          const dates=["20261010","20261011"];
+          (async()=>{
+            const results=await Promise.allSettled(leagues.flatMap(league=>dates.map(async date=>{
+              const u="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league+"/scoreboard?dates="+date+"&limit=300";
+              const r=await fetch(u,{signal:AbortSignal.timeout(12000)});
+              if(!r.ok)throw Error(league+" "+date+" "+r.status);
+              const j=await r.json();
+              return {league,date,games:(j.events||[]).map(e=>({
+                name:e.name,at:e.date,finished:e.status?.type?.completed||false,
+                status:e.status?.type?.name||"",
+                teams:e.competitions?.[0]?.competitors?.map(c=>({side:c.homeAway,name:c.team?.displayName,score:c.score}))||[]
+              }))};
+            })));
+            const ok=results.filter(x=>x.status==="fulfilled").map(x=>x.value);
+            console.log("R367_SCORE_PROVIDERS="+JSON.stringify({
+              checked:results.length,ok:ok.length,failed:results.filter(x=>x.status==="rejected").map(x=>String(x.reason).slice(0,90)),
+              events:ok.flatMap(x=>x.games.map(g=>({league:x.league,date:x.date,...g}))).filter(g=>
+                /union|elvers|rayo|bilbao|lille|havre|manchester united|tottenham|inter|parma|barcelona|getafe|leipzig|frankfurt|feyenoord|alkmaar|toronto|montreal|madrid|villarr/i.test(g.name)
+              )
+            }));
+          })().catch(e=>{console.error(String(e));process.exitCode=1});
+          NODE
