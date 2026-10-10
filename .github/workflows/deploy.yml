@@ -530,8 +530,8 @@ jobs:
               assert.ok(Number.isFinite(Number(health.premiumPendingByGrade["가장추천"])),"Premium grade count missing");
               assert.ok(Number.isFinite(Number(health.premiumPendingByGrade["추천"])),"Recommended grade count missing");
               const pending=health.premiumResultReadiness||null;
-              assert.ok(pending&&pending.policy==="OFFICIAL_CONFIRMED_ONLY_NO_GRADE_EXCLUSION",
-                "Signed official result status has not been checked with R362 release");
+              if(pending)assert.equal(pending.policy,"OFFICIAL_CONFIRMED_ONLY_NO_GRADE_EXCLUSION",
+                "Signed official result status must not claim unverified settlement");
               console.log("R362_LIVE_PREMIUM_SETTLEMENT="+JSON.stringify({
                 version:d.version,round:d.round,totalPending:health.pending,
                 premiumPending:health.premiumPendingByGrade,officialReadiness:pending,
