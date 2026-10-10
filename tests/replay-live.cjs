@@ -109,7 +109,8 @@ assert.ok(top.every(m=>m.gradeEvidenceTier!=="MARKET_RELATIVE_NOT_INDEPENDENT"||
 assert.ok(Number.isFinite(Number(S.marketMixAudit?.deviation)), "Market deviation must be measured");
 console.log("MARKET_MIX_AUDIT="+JSON.stringify({target:S.marketMixAudit?.targetCounts,
   actual:S.marketMixAudit?.counts,deviation:S.marketMixAudit?.deviation}));
-assert.equal(after.length,S.gradeAudit?.total,"All current-round reps included in grade audit");
+assert.equal(after.filter(m=>Number(m.finalOdds)>=1.31).length,S.gradeAudit?.total,
+ "All priced >=1.31 current-round representatives included in grade audit; started legacy below-floor remains locked");
 
 const verifyBothSides=(xs)=>xs.some(m=>m.finalPick==="언더")&&xs.some(m=>m.finalPick==="오버");
 const fidelity=Object.prototype.hasOwnProperty.call(snapshot.performanceDB||{},"priorSummaries")
