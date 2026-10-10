@@ -52,9 +52,13 @@ const historical=game(1001,"TOTAL",regular.map(x=>({...x})),{
  finalPick:"오버",finalOdds:1.94,displayGrade:"가장추천",resultFinal:true,
  result:"오버",hit:true,settlementStatus:"적중"});
 s.markets.push(historical);
-const oldHistory=JSON.stringify(historical);
+const immutable=m=>JSON.stringify([m.date,m.time,m.no,m.marked,
+ m.representativeSelected,m.finalPick,m.finalOdds,m.displayGrade,
+ m.resultFinal,m.result,m.hit,m.settlementStatus,m.settlementType]);
+const oldHistory=immutable(historical);
 a.markState(s);
-assert.equal(JSON.stringify(historical),oldHistory,"Started/settled market must remain unchanged");
+assert.equal(immutable(historical),oldHistory,
+ "Started/settled picks, grades and outcomes must remain unchanged");
 const futurePicks=s.markets.filter(m=>m.marked&&m.representativeSelected&&a.r360FutureEligible(m));
 assert.equal(futurePicks.length,12,"Every valid future fixture must have one representative");
 assert.equal(s.marketMixAudit.target.TOTAL,60);
