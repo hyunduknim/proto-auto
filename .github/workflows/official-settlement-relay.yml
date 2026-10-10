@@ -106,7 +106,7 @@ jobs:
               ...[...nos,...started].map(m=>String(m.gmTs||"")),
               ...(/^\d{6}$/.test(activeGmTs)?[activeGmTs]:[])
             ].filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
-            if(!rounds.length){console.log("No official settlement pending; skipping relay.");return;}
+            if(!rounds.length){console.log("No known G101 round and no pending settlements; skipping relay.");return;}
             const token=await signedToken();
             let delivered=0,settled=0,failures=0;
             for(const ts of rounds){
@@ -129,7 +129,15 @@ jobs:
                     body:JSON.stringify(payload),signal:timeout(45000)
                   });
                   data=await r.json().catch(()=>({}));
-                  if(r.ok&&data.ok){deliveredToWorker=true;break;}
+                  if(r.ok&&data.ok){
+                    if(ts===activeGmTs&&payload.gameInfo&&
+                      !data.officialOddsRelay&&deliveryAttempt<10){
+                      console.log("Waiting for live Worker official-price-relay support",deliveryAttempt);
+                      await new Promise(resolve=>setTimeout(resolve,5000));
+                      continue;
+                    }
+                    deliveredToWorker=true;break;
+                  }
                   if((r.status===404||r.status===503)&&deliveryAttempt<10){
                     console.log("Worker deploying, relay endpoint retry",deliveryAttempt,"of 10",r.status);
                     await new Promise(resolve=>setTimeout(resolve,5000));
@@ -158,7 +166,20 @@ jobs:
               pending:final.settlementHealth?.pending??final.resultAudit?.pending,
               lastRelaySettledAt:final.relayAudit?.lastSettlementAt,
               relayRounds:Object.keys(final.relayAudit?.rounds||{}),
-              grades:final.gradeAudit?.counts||{}}));
+              grades:final.gradeAudit?.counts||{},
+              sourceStatus:{ok:final.sourceAudit?.ok,
+                source:final.sourceAudit?.source,
+                error:final.sourceAudit?.error||final.sourceAudit?.reason||null,
+                lastSuccessAt:final.sourceAudit?.lastSuccessAt},
+              officialOddsRelayAudit:final.officialOddsRelayAudit||null,
+              hour14:(final.markingGames||[]).filter(m=>
+                m.date===new Intl.DateTimeFormat("en-CA",{
+                  timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"
+                }).format(new Date())&&String(m.time||"").startsWith("14:"))
+                .map(m=>({no:m.no,game:m.game,pick:m.pick,odds:m.odds,
+                  pricedMarkets:(m.marketRows||[]).filter(row=>
+                    (row.choices||[]).some(c=>Number(c.odds)>1)).length}))
+              }));
             if(failures)process.exitCode=1;
           })().catch(e=>{console.error("OFFICIAL_RELAY_FATAL:",String(e.message||e).slice(0,160));process.exitCode=1;});
           NODE
