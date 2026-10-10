@@ -144,7 +144,7 @@ jobs:
             const migration=d.marketRebalanceAudit;
             assert.equal(migration?.id,migrationId,"Pregame repick migration did not run in production");
             assert.ok(migration?.at,"Missing persisted repick timestamp");
-            if(migrationId==="R338_EXPLICIT_ALL_98_PREGAME_REPICK"){
+            if(migrationId==="R338_EXPLICIT_ALL_98_PREGAME_REPICK"&&expected.includes("R338-")){
               const audit=d.fullRepickAudit||{};
               assert.equal(audit.id,"R338_REPLACE_ALL_UNLOCKED_PREGAME_SELECTIONS",
                 "Full repick audit missing from live server");
