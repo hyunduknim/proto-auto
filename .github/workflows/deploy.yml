@@ -31,6 +31,8 @@ jobs:
         run: node --check "자동마킹.js"
       - name: Verify settlement, state persistence and public UI
         run: node tests/settlement-check.cjs
+      - name: Verify R356 price EV and source authenticity
+        run: node tests/r356-evidence-safety.cjs
 
   confirm-cloudflare:
     name: Confirm Cloudflare automatic deployment
@@ -402,6 +404,36 @@ jobs:
                   sn:Number(ext.sportsnote?.external||0),
                   po:Number(ext.protoodds?.external||0)},
                 settlement:d.settlementHealth||null
+              }));
+            }
+            if(expected.includes("R356-EV-PROVENANCE")){
+              const a=d.qualityPriorityAudit||{},v=a.valueRisk||{},
+                origin=d.fiveApkAudit?.externalVerification||{},active=(d.markingGames||[])
+                  .filter(m=>m.pick&&!m.gameStarted&&!m.resultFinal);
+              assert.equal(a.id,"R356_PREMIUM_VALUE_AND_SOURCE_PROVENANCE_GUARD",
+                "R356 risk migration absent from production");
+              assert.equal(origin.status,
+                origin.anyExternalInput?"AUTHORIZED_JSON_INPUT_OBSERVED":"APK_STRUCTURE_ONLY_NO_EXTERNAL_FEEDS",
+                "external feed provenance is misrepresented");
+              assert.equal(origin.privateAppAPIConnected,false,
+                "private APK app connectivity must not be claimed");
+              assert.ok(origin.received&&["scorecenter","pickschool","sportsnote","protoodds"]
+                .every(k=>Number.isFinite(Number(origin.received[k]))),
+                "Four distinct external feed receipt counters missing");
+              const weak=active.filter(m=>["추천","가장추천"].includes(m.displayGrade)&&
+                (!Number.isFinite(Number(m.hitProbability))||
+                Number(m.hitProbability)*Number(m.odds)-1<
+                  (m.displayGrade==="가장추천"?0:-.035)-.001));
+              assert.equal(weak.length,0,"Premium mark has unqualified negative offered-price EV");
+              assert.equal(Number(v.unsafePremium),0,"R356 value audit detects unsafe active premium");
+              assert.deepEqual(d.marketMixAudit?.target,{MONEYLINE:30,HANDICAP:30,TOTAL:40});
+              assert.ok(active.every(m=>Number(m.odds)>=1.31));
+              console.log("R356_LIVE_PROOF="+JSON.stringify({
+                version:d.version,active:active.length,
+                actualExternalReceipts:origin.received,externalStatus:origin.status,
+                premiumCount:v.premium,blockedWeakValue:v.blockedRecommendationValue,
+                weakPremium:weak.length,locked:v.locked,
+                pending:d.settlementHealth?.pending,settlementMode:d.settlementHealth?.mode
               }));
             }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
