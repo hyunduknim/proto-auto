@@ -99,8 +99,13 @@ jobs:
               const dt=Date.parse(String(m.date)+"T"+String(m.time).slice(0,5)+":00+09:00");
               return Number.isFinite(dt)&&dt<=now;
             });
-            const rounds=[...new Set([...nos,...started].map(m=>String(m.gmTs||""))
-              .filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
+            // R348: always fetch the currently selected G101 round's official
+            // odds, even if no settled/pending games exist. This is also an odds relay.
+            const activeGmTs=String(state.gmTs||"");
+            const rounds=[...new Set([
+              ...[...nos,...started].map(m=>String(m.gmTs||"")),
+              ...(/^\d{6}$/.test(activeGmTs)?[activeGmTs]:[])
+            ].filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
             if(!rounds.length){console.log("No official settlement pending; skipping relay.");return;}
             const token=await signedToken();
             let delivered=0,settled=0,failures=0;
@@ -136,7 +141,8 @@ jobs:
                 console.log("OFFICIAL_SETTLEMENT_RELAY="+JSON.stringify({
                   gmTs:ts,verifiedRows:data.verifiedRows,officialResultRows:data.resultApiRows||0,
                   officialGameInfoRows:data.gameInfoRows||0,settledNow:data.settledNow,
-                  pendingBefore:data.pendingBefore,pendingAfter:data.pendingAfter
+                  pendingBefore:data.pendingBefore,pendingAfter:data.pendingAfter,
+                  officialOddsRelay:data.officialOddsRelay||null
                 }));
                 delivered++;settled+=Number(data.settledNow||0);
               }catch(e){failures++;console.error("OFFICIAL_RELAY_ERROR:",ts,String(e.message||e).slice(0,200));}
