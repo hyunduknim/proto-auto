@@ -6041,7 +6041,7 @@ function r369ApplyVerifiedScoreProvider(state,rows,gmTs,source){
        r.terminal!==true||r.fullTime!==true||r.sport!=="축구"||
        !Number.isSafeInteger(Number(r.no))||Number(r.no)<=0||
        !/^[A-Za-z0-9_-]{2,80}$/.test(String(r.eventId||""))||
-       !/^\\d{1,3}:\\d{1,3}$/.test(String(r.score||""))){reject("NOT_VERIFIED_FINAL");continue;}
+       !/^\d{1,3}:\d{1,3}$/.test(String(r.score||""))){reject("NOT_VERIFIED_FINAL");continue;}
     if(byNo.get(Number(r.no))!==1||byEvent.get(String(r.eventId))!==1){reject("DUPLICATE_EVENT");continue;}
     const m=marks.find(x=>String(x.gmTs||"")===String(gmTs)&&Number(x.no)===Number(r.no)&&
       x.sport==="축구"&&started(x)&&!x.resultFinal&&settlementAllowed(x));
