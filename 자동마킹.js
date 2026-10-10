@@ -2680,6 +2680,7 @@ function r342ApplyRecommendedFavorites(state){
 const R343_KJ_DRAW_ID="R343_KJ_MONEYLINE_HANDICAP_DRAW_WATCHLIST";
 function r343KJLeagueType(league){
   const x=String(league||"").toUpperCase().replace(/[\s_.-]/g,"");
+  if(/컵|CUP/.test(x))return null;
   if(/(?:K리그[12]?|K[12]리그|KLEAGUE[12]?|K[12]LEAGUE|KORK[12]|한국K[12]|대한민국K[12])/.test(x))return "K";
   if(/(?:J리그[123]?|J[123]리그|JLEAGUE[123]?|J[123]LEAGUE|JPNJ[123]|일본J[123])/.test(x))return "J";
   return null;
@@ -2736,19 +2737,29 @@ function r343BuildDrawWatchlist(state){
   }
   pool.sort((a,b)=>b.score-a.score||marketSort(a.m,b.m));
   const selected=[],used=new Set();
-  const add=(family,n)=>{
+  const add=(family,n,sameOnly=false)=>{
     for(const x of pool){
       if(selected.length>=4||n<=0)break;
-      if(used.has(x.key)||x.m.marketFamily!==family)continue;
+      if(used.has(x.key)||x.m.marketFamily!==family||(sameOnly&&!x.sameFamily))continue;
       selected.push(x);used.add(x.key);n--;
     }
   };
-  // Mix both draw markets: preferably two regular draws and two handicap draws.
-  add("MONEYLINE",2);add("HANDICAP",2);
+  // Same-family draw substitutions preserve the existing 30/30/40 market mix.
+  add("MONEYLINE",2,true);add("HANDICAP",2,true);
   for(const x of pool){
     if(selected.length>=4)break;
-    if(used.has(x.key))continue;
+    if(used.has(x.key)||!x.sameFamily)continue;
     selected.push(x);used.add(x.key);
+  }
+  // If the required 3-4 K/J draws cannot be reached without a family switch,
+  // permit the smallest number of cross-family interest substitutions.
+  if(selected.length<3){
+    add("MONEYLINE",2);add("HANDICAP",2);
+    for(const x of pool){
+      if(selected.length>=3)break;
+      if(used.has(x.key))continue;
+      selected.push(x);used.add(x.key);
+    }
   }
   return {selected,pool,rejected,gmTs:current};
 }
@@ -3846,7 +3857,7 @@ function selfTest(){
   const fixture={voteStatus:[{GM_SEQ:101,W_BET_CNT:60,D_BET_CNT:0,L_BET_CNT:40},{GM_SEQ:102,W_BET_CNT:52,D_BET_CNT:0,L_BET_CNT:48},{GM_SEQ:103,W_BET_CNT:55,D_BET_CNT:0,L_BET_CNT:45}],tooltipList:[{GM_SEQ:101,BCHG_W_ODDS:190,BCHG_L_ODDS:195},{GM_SEQ:102,BCHG_W_ODDS:185,BCHG_L_ODDS:175},{GM_SEQ:103,BCHG_W_ODDS:178,BCHG_L_ODDS:182}],compSchedules:{keys:["matchSeq","gameDate","itemCode","leagueShortName","homeName","awayName","betNm","winHandi","loseHandi","winTxt","drawTxt","loseTxt","winAllot","drawAllot","loseAllot"],datas:[[101,future,"BS","MLB","A","B","승패","","","승","","패",1.65,null,2.05],[102,future,"BS","MLB","A","B","핸디캡","2.5","","승","","패",1.82,null,1.72],[103,future,"BS","MLB","A","B","언더오버","7.5","","언더","","오버",1.74,null,1.80]]}};
   const ms=parseBetmanMarkets(fixture,"260117");t("03 betman parse",ms.length===3,`rows=${ms.length}`);
   t("R343 K/J league labels only",["K리그1","K2리그","J1리그","일본J2"].every(x=>
-    r343KJLeagueType(x)!=null)&&["EPL","MLB","J리그컵 아닌 유럽","K리그?"].some(x=>!r343KJLeagueType(x)));
+    r343KJLeagueType(x)!=null)&&["EPL","MLB","프리미어리그","J리그컵"].every(x=>!r343KJLeagueType(x)));
   const r342Sample=structuredClone(ms.find(m=>m.marketFamily==="MONEYLINE"));
   r342Sample.marked=true;r342Sample.representativeSelected=true;
   r342Sample.displayGrade="추천";r342Sample.finalPick="패";r342Sample.finalOdds=2.05;
