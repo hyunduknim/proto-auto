@@ -46,8 +46,8 @@ const s={markets:[
  [{label:"언더",odds:1.68},{label:"오버",odds:1.85}]),
  mk(7359,"알라베스","아틀레티코","HANDICAP",1,"승",
  [{label:"승",odds:1.65},{label:"무",odds:3.6},{label:"패",odds:4.0}]),
- mk(7358,"알라베스","아틀레티코","MONEYLINE",null,"패",
- [{label:"승",odds:1.75},{label:"무",odds:3.0},{label:"패",odds:2.5}])
+ {...mk(7358,"알라베스","아틀레티코","MONEYLINE",null,"패",
+ [{label:"승",odds:1.75},{label:"무",odds:3.0},{label:"패",odds:2.5}]),marked:false,representativeSelected:false}
 ]};
 const a=lib.r365ApplyZentotoResults(s,rows,"260120");
 assert.equal(a.settled,4,"Full-time Zen result must settle four matched wagers");
