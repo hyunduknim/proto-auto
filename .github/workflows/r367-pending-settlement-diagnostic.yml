@@ -44,3 +44,30 @@ jobs:
               pending,zenRows:zen.length,relay:s.zentotoSettlementAudit,source:s.relayAudit?.sourceStatus}));
           })().catch(e=>{console.error('R367_PENDING_ERROR',String(e));process.exitCode=1;});
           NODE
+
+      - name: Check public finished-score provider coverage
+        run: |
+          node <<'NODE'
+          const leagues=["esp.1","ger.1","fra.1","ita.1","eng.1","ned.1","usa.1","eng.2","usa.2"];
+          const dates=["20261010","20261011"];
+          (async()=>{
+            const results=await Promise.allSettled(leagues.flatMap(league=>dates.map(async date=>{
+              const u="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league+"/scoreboard?dates="+date+"&limit=300";
+              const r=await fetch(u,{signal:AbortSignal.timeout(12000)});
+              if(!r.ok)throw Error(league+" "+date+" "+r.status);
+              const j=await r.json();
+              return {league,date,games:(j.events||[]).map(e=>({
+                name:e.name,at:e.date,finished:e.status?.type?.completed||false,
+                status:e.status?.type?.name||"",
+                teams:e.competitions?.[0]?.competitors?.map(c=>({side:c.homeAway,name:c.team?.displayName,score:c.score}))||[]
+              }))};
+            })));
+            const ok=results.filter(x=>x.status==="fulfilled").map(x=>x.value);
+            console.log("R367_SCORE_PROVIDERS="+JSON.stringify({
+              checked:results.length,ok:ok.length,failed:results.filter(x=>x.status==="rejected").map(x=>String(x.reason).slice(0,90)),
+              events:ok.flatMap(x=>x.games.map(g=>({league:x.league,date:x.date,...g}))).filter(g=>
+                /union|elvers|rayo|bilbao|lille|havre|manchester united|tottenham|inter|parma|barcelona|getafe|leipzig|frankfurt|feyenoord|alkmaar|toronto|montreal|madrid|villarr/i.test(g.name)
+              )
+            }));
+          })().catch(e=>{console.error(String(e));process.exitCode=1});
+          NODE
