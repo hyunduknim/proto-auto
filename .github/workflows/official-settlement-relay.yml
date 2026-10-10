@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    # Every ten minutes; GitHub schedule is best-effort, so the active relay
+    # Every five minutes (GitHub Actions minimum); the active relay
     # chain and independent watchdog cover missed scheduler events.
-    - cron: "3-53/10 * * * *"
+    - cron: "3-58/5 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -202,13 +202,13 @@ jobs:
           })().catch(e=>{console.error("OFFICIAL_RELAY_FATAL:",String(e.message||e).slice(0,160));process.exitCode=1;});
           NODE
 
-      - name: Continue ten-minute official polling while matches are active
+      - name: Continue five-minute official polling while matches are active
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
             // GitHub's scheduled ten-minute events may be delayed or skipped.
-            // Keep a ten-minute relay chain alive while represented games are
+            // Keep a five-minute relay chain alive while represented games are
             // running or awaiting officially verified outcomes up to 48 hours after kickoff.
             // Continue even if the prior POST failed with a transient Worker 502.
             // The OIDC-verified official relay above is the ONLY settlement writer.
@@ -237,10 +237,10 @@ jobs:
               core.info("No live or imminent represented games; stop active polling.");
               return;
             }
-            // Do not chain every ~minute. Wait roughly nine minutes so the next
-            // official refresh occurs about ten minutes after the current one.
+            // Do not chain every ~minute. Wait approximately four minutes so the next
+            // official refresh occurs about five minutes after the current one. GitHub scheduling remains best-effort.
             // The independent watchdog covers abrupt job/runner termination.
-            await new Promise(resolve=>setTimeout(resolve,9*60*1000));
+            await new Promise(resolve=>setTimeout(resolve,4*60*1000));
             const current=await load();
             activity=relevant(current);
             if(activity.pending===0&&activity.imminent===0){
