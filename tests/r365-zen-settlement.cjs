@@ -96,7 +96,7 @@ const xmk=(no,date,time,home,away,family,line,pick)=>{
  family==="HANDICAP"?[{label:"승",odds:1.8},{label:"무",odds:3.4},{label:"패",odds:3.1}]:
  [{label:"오버",odds:1.8},{label:"언더",odds:1.75}];
  return {gmTs:"260120",no,date,time,sport:"축구",home,away,marketFamily:family,line,finalPick:pick,
-   finalOdds:1.75,displayGrade:"일반",choices,marked:true,representativeSelected:true,resultFinal:false};
+   finalOdds:1.75,pick,displayGrade:"일반",choices,marked:true,representativeSelected:true,resultFinal:false};
 };
 const tests=[
  xmk(7301,"2026-10-10","22:30","우니온 베를린","엘버스베르크","TOTAL",2.5,"언더"),
