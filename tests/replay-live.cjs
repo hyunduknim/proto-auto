@@ -6,7 +6,7 @@ const snapshot=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
 const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
-const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,gradeScore,relativeChoiceValue,getTeamProfile};")(structuredClone,URL);
+const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,representativeMarketEligible,r360OddsAnomalyReason,r360FutureEligible,gradeScore,relativeChoiceValue,getTeamProfile};")(structuredClone,URL);
 const S=model.createState();
 S.round=snapshot.round.round;S.gmTs=snapshot.round.gmTs;S.updatedAt=snapshot.round.updatedAt;
 S.markets=structuredClone(snapshot.currentRound.markets);
@@ -35,7 +35,7 @@ for(const x of before){
 const groups=model.groupMarkets(S.markets.filter(m=>model.currentRoundMarket(m,S)));
 for(const ms of groups.values()){
  if(ms.some(locked))continue;
- const qualified=ms.some(m=>model.validChoices(m).some(c=>Number(c.odds)>=1.31));
+ const qualified=ms.some(m=>model.representativeMarketEligible(m)&&model.validChoices(m).some(c=>Number(c.odds)>=1.31));
  if(qualified)assert.equal(selected(ms).length,1,"Missing or duplicate representative: "+ms[0]?.game);
 }
 const gradeSummary=g=>Object.fromEntries(["가장추천","추천","일반"].map(grade=>[grade,g.filter(m=>m.displayGrade===grade).length]));
@@ -75,6 +75,7 @@ const pools=Object.fromEntries(["MONEYLINE","HANDICAP","TOTAL_UNDER","TOTAL_OVER
 console.log("R321_ELIGIBILITY_POOL="+JSON.stringify(pools));
 const out={version:snapshot.app.version,round:S.round,at:new Date().toISOString(),locked:fixed.size,baseline,sampleDepth,
  market:S.marketMixAudit?.counts,marketTarget:S.marketMixAudit?.targetCounts,
+  marketCandidates:S.marketMixAudit?.candidateAvailability,
  grade:S.gradeAudit?.counts,targets:S.gradeAudit?.targetCounts,
  recommendationBalance:S.gradeAudit?.recommendationBalanceAudit,
  relativeRisk:{elite:S.gradeAudit?.totalDirectionAudit?.relativeMarketOnly,
@@ -109,8 +110,10 @@ assert.ok(top.every(m=>m.gradeEvidenceTier!=="MARKET_RELATIVE_NOT_INDEPENDENT"||
 assert.ok(Number.isFinite(Number(S.marketMixAudit?.deviation)), "Market deviation must be measured");
 console.log("MARKET_MIX_AUDIT="+JSON.stringify({target:S.marketMixAudit?.targetCounts,
   actual:S.marketMixAudit?.counts,deviation:S.marketMixAudit?.deviation}));
-assert.equal(after.filter(m=>Number(m.finalOdds)>=1.31).length,S.gradeAudit?.total,
- "All priced >=1.31 current-round representatives included in grade audit; started legacy below-floor remains locked");
+assert.equal(after.filter(m=>model.r360FutureEligible(m)&&Number(m.finalOdds)>=1.31).length,S.gradeAudit?.total,
+ "Only future >=1.31 representatives count toward R360 grade targets");
+assert.ok(future.every(m=>!model.r360OddsAnomalyReason(m)),
+ "No anomalous prices may be selected for future markets");
 
 const verifyBothSides=(xs)=>xs.some(m=>m.finalPick==="언더")&&xs.some(m=>m.finalPick==="오버");
 const fidelity=Object.prototype.hasOwnProperty.call(snapshot.performanceDB||{},"priorSummaries")
