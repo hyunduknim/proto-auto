@@ -3776,8 +3776,8 @@ function r371RestoreRelativeGrades(state){
     const manual=m.manualOverride||/^MANUAL/.test(String(m.selectionMode||""));
     return safe*.39+p*.27+quality*.20+
       clamp(ev,-.25,.15)*.08+integrity*.06+verified-
-      (manual?.14:0)-(m.moneylineRiskFlag?.08:0)-
-      (m.sportRisk?.gradeLimited?.05:0);
+      (manual?0.14:0)-(m.moneylineRiskFlag?0.08:0)-
+      (m.sportRisk?.gradeLimited?0.05:0);
   };
   const ordered=active.slice().sort((a,b)=>rankScore(b)-rankScore(a)||
     marketSort(a,b)||Number(a.no||0)-Number(b.no||0));
