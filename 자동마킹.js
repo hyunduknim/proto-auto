@@ -4829,7 +4829,7 @@ function selfTest(){
     const weakState=createState();weakState.gmTs="260120";weakState.round=120;
     weakState.markets=Array.from({length:20},(_,i)=>({...weakTotal,no:99400+i,home:"UN"+i,away:"UN2"+i}));
     assignGrades(weakState);
-    t("R316 relative UO confidence disclosed when EV negative",weakState.gradeAudit.counts["가장추천"]===4&&weakState.gradeAudit.bestNegativeEvCount===4&&weakState.gradeAudit.totalDirectionAudit.rejectedNegativeEV===20);
+    t("R356 negative-odds-EV UO never promoted to premium",weakState.gradeAudit.counts["가장추천"]===0&&weakState.gradeAudit.counts["추천"]===0&&weakState.gradeAudit.counts["일반"]===20&&weakState.gradeAudit.bestNegativeEvCount===4&&weakState.gradeAudit.totalDirectionAudit.rejectedNegativeEV===20);
     const strongState=createState();strongState.gmTs="260120";strongState.round=120;
     strongState.markets=Array.from({length:20},(_,i)=>({...weakTotal,no:99500+i,home:"EV"+i,away:"EV2"+i,finalPick:i%2?"오버":"언더",hitProbability:.65,finalOdds:1.7,safeHitProbability:.60,marketProbability:.59}));
     assignGrades(strongState);
