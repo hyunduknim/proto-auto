@@ -1,6 +1,9 @@
 name: Official settlement relay watchdog
 
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/settlement-relay-watchdog.yml']
   schedule:
     # Independent backup for delayed/dropped GitHub 5-minute schedule events.
     # The official relay itself remains the only writer and authenticates via OIDC.
@@ -32,7 +35,7 @@ jobs:
             if(!response.ok)throw Error("Settlement watchdog state HTTP "+response.status);
             const data=await response.json(),h=data.settlementHealth||{};
             const pending=Number(h.pending||0);
-            const stale=Number(h.staleMinutes);
+            const stale=h.staleMinutes==null?Infinity:Number(h.staleMinutes);
             const needsRelay=pending>0&&h.stalled===true&&
               (!Number.isFinite(stale)||stale>=10);
             core.info("SETTLEMENT_WATCHDOG_HEALTH="+JSON.stringify({
