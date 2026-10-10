@@ -5929,6 +5929,7 @@ async function ingestOfficialRelay(req,env){
   const sourceStatus=input?.sourceStatus&&typeof input.sourceStatus==="object"?
     {gameInfo:["fulfilled","rejected"].includes(input.sourceStatus.gameInfo)?input.sourceStatus.gameInfo:null,
       resultApi:["fulfilled","rejected"].includes(input.sourceStatus.resultApi)?input.sourceStatus.resultApi:null,
+      zentoto:zentotoRows.length?"fulfilled":"unavailable",
       resultApiError:input.sourceStatus.resultApi==="rejected"?
         String(input.sourceStatus.resultApiError||"UNKNOWN").slice(0,140):null}:null;
   const validRound=x=>x&&typeof x==="object"&&!Array.isArray(x)&&
@@ -5937,7 +5938,9 @@ async function ingestOfficialRelay(req,env){
   const validResultInfo=validRound(officialResult)&&(
     ["detlBody","winrstDetlBody","resultList","results","winrstList","matchResults","items","rows"]
       .some(k=>Array.isArray(officialResult?.[k])||findDeepArray(officialResult,k,5).length>0));
-  if(!/^\d{6}$/.test(gmTs)||(!validGameInfo&&!validResultInfo)||
+  const validZentoto=zentotoRows.length>0&&zentotoRows.length<=1000&&
+    zentotoRows.every(r=>r&&r.source==="ZENTOTO_LEGACY_FULLTIME"&&r.terminal===true&&r.fullTime===true&&String(r.gmTs)===gmTs);
+  if(!/^\d{6}$/.test(gmTs)||(!validGameInfo&&!validResultInfo&&!validZentoto)||
      (gameInfo&&!validGameInfo)||(officialResult&&!validResultInfo))
     return json({error:"invalid official payload or round"},400);
   const state=await loadState(env);
