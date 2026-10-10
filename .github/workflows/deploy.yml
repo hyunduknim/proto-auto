@@ -456,6 +456,27 @@ jobs:
                   "R357 readiness and actual live marking receipt counts disagree: "+k);
               console.log("R357_FEED_STATUS="+JSON.stringify(v));
             }
+            if(expected.includes("R358-OFFICIAL-RESULT-RETRY")){
+              const h=d.settlementHealth||{};
+              assert.ok(Number.isFinite(Number(h.officialVerifiedRows)),
+                "R358 must disclose actually verified official outcome rows");
+              assert.ok(typeof h.officialDataPending==="boolean",
+                "R358 must distinguish relay uptime from available official results");
+              assert.ok(Number.isFinite(Number(h.consecutiveEmptyChecks)),
+                "R358 must expose repeated successful-but-empty settlement polls");
+              if(h.pending>0&&h.relayFresh&&h.officialVerifiedRows===0)
+                assert.equal(h.officialDataPending,true,
+                  "R358 must flag pending outcomes instead of claiming data arrived");
+              console.log("R358_OFFICIAL_RESULT_HEALTH="+JSON.stringify({
+                version:d.version,pending:h.pending,
+                relayFresh:h.relayFresh,verifiedRows:h.officialVerifiedRows,
+                officialDataPending:h.officialDataPending,
+                resultApiFailed:h.resultApiFailed,
+                emptyChecks:h.consecutiveEmptyChecks,
+                overdueForResult:h.overdueForResult,
+                lastSettlementAt:h.relayLastSettledAt
+              }));
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
