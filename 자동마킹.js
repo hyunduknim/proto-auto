@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R368-USER-REQUESTED-VOID-7277";
-const BUILD_ID = "proto-r368-user-requested-void-7277";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R369-ONE-GAME-ONE-MARK";
+const BUILD_ID = "proto-betman-core-r369-single-mark-verified-score-feed";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -1323,6 +1323,39 @@ function dedupeMarkets(rows){
 function validChoices(m){ return (m?.choices||[]).filter(c=>Number.isFinite(num(c.odds))&&num(c.odds)>1); }
 function gameSeed(m){ return [m.date,m.time,norm(m.home),norm(m.away)].join("|"); }
 function groupMarkets(markets){ const mp=new Map(); for(const m of markets||[]){const k=gameSeed(m); if(!mp.has(k))mp.set(k,[]); mp.get(k).push(m);} return mp; }
+// R369 hard invariant: one represented market per fixture and round.
+// Pregame duplicates are repaired deterministically. Started/settled markets
+// are never touched or silently replaced, and their duplicates are reported.
+function r369SingleMarkAudit(state,repair=false){
+  const groups=new Map(),issues=[],repaired=[];
+  for(const m of state?.markets||[]){
+    const key=String(m.gmTs||"")+"|"+gameSeed(m),arr=groups.get(key)||[];
+    arr.push(m);groups.set(key,arr);
+  }
+  for(const [key,ms] of groups){
+    const marked=ms.filter(m=>m.marked||m.representativeSelected);
+    if(marked.length<=1)continue;
+    const frozen=marked.some(m=>started(m)||m.resultFinal);
+    if(!repair||frozen){
+      issues.push({key,marked:marked.map(m=>m.no),reason:frozen?"STARTED_OR_SETTLED_LOCK":"MULTIPLE_PREGAME_MARKS"});
+      continue;
+    }
+    const ordered=[...marked].sort((a,b)=>
+      Number(!!b.manualOverride)-Number(!!a.manualOverride)||
+      Number(b.representativeSelected)-Number(a.representativeSelected)||
+      Number(b.marketSelectionScore||0)-Number(a.marketSelectionScore||0)||
+      Number(a.no||0)-Number(b.no||0));
+    for(const m of ordered.slice(1))clearRepresentative([m]);
+    ordered[0].marked=true;ordered[0].representativeSelected=true;
+    repaired.push({key,kept:ordered[0].no,cleared:ordered.slice(1).map(m=>m.no)});
+  }
+  const selected=[...groups.entries()].flatMap(([key,ms])=>
+    ms.filter(m=>m.marked&&m.representativeSelected).map(m=>({key,no:m.no})));
+  return {policy:"EXACTLY_ONE_MAX_PER_FIXTURE_PER_ROUND",at:nowIso(),
+    fixtures:groups.size,selected:selected.length,duplicateGroups:issues.length,
+    issues:issues.slice(0,15),pregameRepaired:repaired.length,
+    repaired:repaired.slice(0,15),noAddedMarkets:true,startedAndSettledUntouched:true};
+}
 function marketSort(a,b){ return String(a.date||"").localeCompare(String(b.date||""))||String(a.time||"").localeCompare(String(b.time||""))||Number(a.no||0)-Number(b.no||0); }
 function gameCount(markets){ return groupMarkets(markets).size; }
 
@@ -2968,7 +3001,7 @@ function recordSettlementLedger(state,m){
   if(!m?.resultFinal||!m?.marked||!m?.representativeSelected||!settlementAllowed(m))return false;const row=compactSettlementResult(m),ledger=ensureSettlementLedger(state),key=settlementLedgerKey(row),idx=ledger.findIndex(x=>settlementLedgerKey(x)===key);
   if(idx>=0)ledger[idx]=row;else ledger.push(row);ledger.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.time||'').localeCompare(String(a.time||''))||Number(b.no||0)-Number(a.no||0));if(ledger.length>250)ledger.length=250;return true;
 }
-function canArchive(m){return !!(settlementAllowed(m)&&m.resultFinal&&m.marked&&m.representativeSelected&&m.resultVerifiedAt&&(/^(BETMAN_OFFICIAL|USER_REQUESTED_VOID_NOT_OFFICIAL)/.test(String(m.resultSource||'')))&&(typeof m.hit==='boolean'||m.settlementStatus==='적특'));}
+function canArchive(m){return !!(settlementAllowed(m)&&m.resultFinal&&m.marked&&m.representativeSelected&&m.resultVerifiedAt&&(/^(BETMAN_OFFICIAL|USER_REQUESTED_VOID_NOT_OFFICIAL|FLASHSCORE_VERIFIED_FULLTIME|AISCORE_VERIFIED_FULLTIME)/.test(String(m.resultSource||'')))&&(typeof m.hit==='boolean'||m.settlementStatus==='적특'));}
 // R273: 지난경기 화면용 최소 카드 스냅샷. 학습용 전체 상세와 분리해 현재 회차 동안만 보존한다.
 function legacySettlementCard(x){
   const family=String(x?.marketFamily||''),line=num(x?.line),pick=x?.pick??x?.finalPick??null,odds=num(x?.odds??x?.finalOdds),eff=num(x?.handicapEffectiveLine)??(family==='HANDICAP'&&line!=null?(String(pick)==='승'?line:String(pick)==='패'?-line:null):null);
@@ -3668,7 +3701,8 @@ function markState(state){buildLearningAudit(state);applyLearningContext(state);
     r355ApplyQualityPriority(state);
     r360RefreshMarketAudit(state);
     state.recommendedFavoriteGuaranteeLiveAudit=r345RecommendationFavoriteStatus(state);
-    buildFiveApkAudit(state);buildAnalysisAudit(state);}finally{ROW_CACHE=null;}
+    buildFiveApkAudit(state);buildAnalysisAudit(state);
+    state.oneGameOneMarkAudit=r369SingleMarkAudit(state,true);}finally{ROW_CACHE=null;}
   return state;}
 
 function preserveSettlement(oldMarkets,newMarkets){
@@ -4780,8 +4814,14 @@ function gameInfoRowUsableForPending(rr,pendingForRound){
 }
 function applyResults(state,resultRows,source="BETMAN_OFFICIAL_RESULT"){
   let changed=0;
+  const selectedCounts=new Map();
+  for(const row of state.markets||[])if(row.marked&&row.representativeSelected){
+    const k=String(row.gmTs||"")+"|"+gameSeed(row);
+    selectedCounts.set(k,(selectedCounts.get(k)||0)+1);
+  }
   for(const m of state.markets||[]){
     if(m.resultFinal||!m.marked||!m.representativeSelected||!started(m)||!settlementAllowed(m))continue;
+    if((selectedCounts.get(String(m.gmTs||"")+"|"+gameSeed(m))||0)!==1)continue;
     const rr=resultRows.filter(x=>resultMatchesMarket(x,m)).sort((a,b)=>
       Number(b.family===m.marketFamily)-Number(a.family===m.marketFamily)||Number(Number(b.no)===Number(m.no))-Number(Number(a.no)===Number(m.no)))
       .find(x=>x.specialStatus||resolveOfficialOutcome(x,m).outcome);if(!rr)continue;
