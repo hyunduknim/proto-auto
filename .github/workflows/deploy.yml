@@ -37,6 +37,8 @@ jobs:
         run: node tests/r357-feed-readiness.cjs
       - name: Verify R359 live-hour ordering preserves all marking cards
         run: node tests/r359-live-hour-display.cjs
+      - name: Simulate R360 future-only ratios and anomaly-resistant odds
+        run: node tests/r360-future-odds.cjs
 
   confirm-cloudflare:
     name: Confirm Cloudflare automatic deployment
@@ -496,6 +498,29 @@ jobs:
                 version:d.version,visibleGames:games.length,
                 marked:times.length,currentOrderAvailable:true,markedPreserved:true,
                 mostRecentCards:times.slice(-6)
+              }));
+            }
+            if(expected.includes("R360-FUTURE-15-25-60-20-20-60")){
+              const change=d.r360PolicyAudit||{},market=d.marketMixAudit||{},
+                grades=d.gradeAudit||{},audit=d.fullMarkAudit||{};
+              assert.equal(change.id,"R360_FUTURE_ONLY_20261011_030744_KST",
+                "R360 did not apply its future-only persisted policy migration");
+              assert.deepEqual(change.gradeTarget,{"가장추천":15,"추천":25,"일반":60});
+              assert.deepEqual(change.marketTarget,{MONEYLINE:20,HANDICAP:20,TOTAL:60});
+              assert.deepEqual(market.target,{MONEYLINE:20,HANDICAP:20,TOTAL:60});
+              assert.deepEqual(grades.target,{"가장추천":15,"추천":25,"일반":60});
+              assert.equal(change.officialResultsPreserved,true);
+              assert.ok(Number.isFinite(Number(audit.blockedAnomalyMarkets)),
+                "R360 abnormal odds guard diagnostic not available");
+              console.log("R360_LIVE_PROOF="+JSON.stringify({
+                version:d.version,round:d.round,effective:change.effectiveFrom,
+                futureBefore:change.futureBefore,futureAfter:change.futureAfter,
+                changedPicks:change.changedPicks,changedGrades:change.changedGrades,
+                lockedPreserved:change.preservedLocked,
+                marketActual:change.actualMarket,gradeActual:change.actualGrade,
+                currentTarget:{market:market.target,grade:grades.target},
+                anomalousOddsMarkets:audit.blockedAnomalyMarkets,
+                marketDeviation:market.deviation,gradeDeviation:grades.deviation
               }));
             }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
