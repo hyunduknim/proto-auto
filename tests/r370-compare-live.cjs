@@ -55,7 +55,10 @@ const metric=(s)=>{
 };
 const b=metric(base),n=metric(next);
 assert.equal(n.count,b.count,"All-games coverage must remain the same");
-assert.deepEqual(n.market,b.market,"Keep the requested 20/20/60 market distribution");
+const expectedMarket={MONEYLINE:Math.round(n.count*.20),HANDICAP:Math.round(n.count*.20)};
+expectedMarket.TOTAL=n.count-expectedMarket.MONEYLINE-expectedMarket.HANDICAP;
+assert.deepEqual(n.market,expectedMarket,
+  "R370 must honor 20/20/60 rounded target where all markets have options");
 const mapB=new Map(b.rows.map(x=>[x.key,x]));
 const changed=n.rows.filter(x=>{const old=mapB.get(x.key);return old&&(old.no!==x.no||old.pick!==x.pick);});
 console.log("R370_PRODUCTION_AB="+JSON.stringify({round:snapshot.round.round,
