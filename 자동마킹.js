@@ -3614,6 +3614,34 @@ function r353RecommendedPlusToTotal(state){
   return state.recommendedPlusToTotalAudit;
 }
 
+// R360: post-processing such as soccer safety and plus-to-total can replace
+// market families after initial allocation. Recount only changeable future picks,
+// never add a past/settled market back to the ratio denominator.
+function r360RefreshMarketAudit(state){
+  if(!state?.marketMixAudit)return null;
+  const all=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&
+    m.marked&&m.representativeSelected);
+  const future=all.filter(r360FutureEligible);
+  const fams=["MONEYLINE","HANDICAP","TOTAL"];
+  const counts=Object.fromEntries(fams.map(f=>
+    [f,future.filter(m=>m.marketFamily===f).length]));
+  const fullRoundCounts=Object.fromEntries(fams.map(f=>
+    [f,all.filter(m=>m.marketFamily===f).length]));
+  const targets=targetCounts(future.length,CFG.marketTarget);
+  const deviation=fams.reduce((n,f)=>n+Math.abs(counts[f]-targets[f]),0);
+  Object.assign(state.marketMixAudit,{
+    counts,total:future.length,targetCounts:targets,fullRoundCounts,
+    pct:Object.fromEntries(fams.map(f=>
+      [f,future.length?r3(counts[f]/future.length*100):0])),
+    deviation,exact:deviation===0,
+    shortfall:Object.fromEntries(fams.map(f=>[f,Math.max(0,targets[f]-counts[f])])),
+    excess:Object.fromEntries(fams.map(f=>[f,Math.max(0,counts[f]-targets[f])])),
+    effectiveFrom:"2026-10-11T03:07:44+09:00",
+    scope:"CURRENT_ROUND_FUTURE_REPRESENTATIVES_ONLY",
+    postProcessingRecount:true
+  });
+  return state.marketMixAudit;
+}
 function markState(state){buildLearningAudit(state);applyLearningContext(state);applyPerformanceContext(state);applyJeongbaedangContext(state);applyDirectionalGuardContext(state);
   // R260: 한 번의 markState 동안 시장별 분석행을 캐시한다(입력 컨텍스트 적용 이후에만 활성).
   ROW_CACHE=new WeakMap();
@@ -3622,6 +3650,7 @@ function markState(state){buildLearningAudit(state);applyLearningContext(state);
     r353RecommendedPlusToTotal(state);
     r354RepairUnlockedSoccerOdds(state);
     r355ApplyQualityPriority(state);
+    r360RefreshMarketAudit(state);
     state.recommendedFavoriteGuaranteeLiveAudit=r345RecommendationFavoriteStatus(state);
     buildFiveApkAudit(state);buildAnalysisAudit(state);}finally{ROW_CACHE=null;}
   return state;}
