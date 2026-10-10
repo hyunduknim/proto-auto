@@ -1,0 +1,39 @@
+name: R365 Zentoto original HTML settlement parser check
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '자동마킹.js'
+      - 'tools/zentoto-settlement.cjs'
+      - '.github/workflows/official-settlement-relay.yml'
+      - '.github/workflows/r365-zentoto-live-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare live public ZenToto terminal rows to unfinished representative pick numbers
+        run: |
+          node <<'NODE'
+          const assert=require('node:assert/strict'),{parseZentoto}=require('./tools/zentoto-settlement.cjs');
+          (async()=>{
+            const response=await fetch('https://v1.zentoto.com/proto/game',{
+              signal:AbortSignal.timeout(20000),
+              headers:{accept:'text/html','user-agent':'Mozilla/5.0 (compatible; public settlement parser audit)'}});
+            assert.equal(response.status,200,'Zentoto public HTML source not accessible');
+            const html=await response.text(),rows=parseZentoto(html);
+            const ids=[7287,7295,7310,7324,7328,7332,7346,7356];
+            const hits=rows.filter(x=>ids.includes(x.no)&&x.gmTs==='260120');
+            console.log('R365_REAL_ZENTOTO='+JSON.stringify({rows:rows.length,htmlBytes:html.length,
+              targetMatches:hits.length,targets:hits.map(x=>({no:x.no,date:x.date,time:x.time,
+                family:x.marketFamily,score:x.score,teams:x.home+' / '+x.away,line:x.line}))}));
+            assert.equal(hits.length,8,'All eight verified overdue fixtures must be parsed from actual finished Proto rows');
+            assert.equal(hits.find(x=>x.no===7287)?.score,'5');
+            assert.equal(hits.find(x=>x.no===7346)?.score,'6');
+            assert.ok(hits.every(x=>x.terminal&&x.fullTime));
+          })().catch(e=>{console.error('R365_REAL_ZENTOTO_ERROR',String(e));process.exitCode=1;});
+          NODE
