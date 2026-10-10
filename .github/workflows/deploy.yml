@@ -198,6 +198,26 @@ jobs:
               assert.equal(Number(audit.changedLocked),0,
                 "Started/settled representative was altered");
             }
+            if(expected.includes("R344-KJ-DRAW-2-3")){
+              const audit=d.kjDrawTrimAudit||{},active=(d.markingGames||[])
+                .filter(m=>m.selectionMode==="KJ_DRAW_INTEREST"&&!m.gameStarted&&!m.resultFinal);
+              assert.equal(audit.id,"R344_KJ_DRAW_2_TO_3_PER_ROUND",
+                "2-3 K/J draw migration missing in live worker");
+              assert.ok(active.length>=2&&active.length<=3,
+                "Actual unstarted K/J draw watchlist is not 2-3 games");
+              assert.equal(active.length,Number(audit.remainingActive),
+                "Live draw marking count differs from persisted R344 audit");
+              assert.ok(active.every(m=>m.pick==="무"&&
+                ["MONEYLINE","HANDICAP"].includes(m.marketFamily)&&
+                /(?:K리그|K[12]리그|J[123]?리그|J[123]?LEAGUE|KLEAGUE)/i.test(m.league||"")),
+                "Non K/J or non-draw representative was marked as K/J draw");
+              assert.ok(new Set(active.map(m=>m.marketFamily)).size>=2,
+                "K/J watchlist must include both regular and handicap draws");
+              assert.ok(new Set(active.map(m=>/J/i.test(m.league||"")?"J":"K")).size>=2,
+                "K/J watchlist must include both leagues when available");
+              assert.equal(Number(audit.unavailable?.length||0),0,
+                "Excess draw could not be restored safely");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -235,6 +255,7 @@ jobs:
             result.recommendationPickAudit=d.recommendationPickAudit||null;
             result.recommendationTotalCorrectionAudit=d.recommendationTotalCorrectionAudit||null;
             result.kjDrawMigrationAudit=d.kjDrawMigrationAudit||null;
+            result.kjDrawTrimAudit=d.kjDrawTrimAudit||null;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
