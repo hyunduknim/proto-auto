@@ -1,0 +1,42 @@
+name: Inspect live marking schedule
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/inspect-marking-schedule.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Compare live marked cards to the current KST hour
+        shell: bash
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const r=await fetch("https://protonumber.mystyle276.workers.dev/api/state?inspect="+Date.now(),
+              {headers:{"cache-control":"no-cache"},signal:AbortSignal.timeout(25000)});
+            if(!r.ok)throw Error("Live Worker response HTTP "+r.status);
+            const s=await r.json();
+            const now=Date.now(),rows=Array.isArray(s.markingGames)?s.markingGames:[],
+              t=m=>Date.parse(String(m.date||"")+"T"+String(m.time||"").slice(0,5)+":00+09:00"),
+              pre=rows.filter(m=>Number.isFinite(t(m))&&t(m)>now),
+              started=rows.filter(m=>Number.isFinite(t(m))&&t(m)<=now),
+              summary=arr=>arr.slice(0,15).map(m=>({no:m.no,date:m.date,time:m.time,
+                game:m.game,pick:m.pick,odds:m.odds,finished:m.resultFinal,
+                quotedMarkets:(m.marketRows||[]).filter(x=>(x.choices||[]).some(c=>Number(c.odds)>1)).length}));
+            const sorted=[...rows].sort((a,b)=>t(a)-t(b)),hourly=s.hourlyMarking||[];
+            const audit={observedAt:new Date().toISOString(),version:s.version,round:s.round,
+              gmTs:s.gmTs,stateUpdatedAt:s.updatedAt,source:s.sourceAudit,
+              officialRelay:s.officialOddsRelayAudit,
+              totalVisible:rows.length,started:started.length,future:pre.length,
+              pendingStarted:started.filter(m=>m.pick).length,
+              lastVisible:summary(sorted.slice(-15)),
+              nextUpcoming:summary(pre.sort((a,b)=>t(a)-t(b))),
+              hourly:hourly.slice(-35)};
+            console.log("LIVE_MARKING_SCHEDULE_AUDIT="+JSON.stringify(audit));
+            if(!rows.length)throw Error("Live view has no game cards");
+          })().catch(e=>{console.error(e);process.exitCode=1;});
+          NODE
