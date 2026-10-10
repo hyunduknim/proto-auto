@@ -128,9 +128,9 @@ assert.equal(es.markets[0].resultScoreText,"1:0");
 assert.equal(es.markets[1].result,"승");
 assert.ok(es.markets.slice(2).every(m=>!m.resultFinal),"Abandoned and live must never settle");
 assert.equal(lib.r367ApplyEspnFinishedScores(es,confirmed,"260120").settled,0,"Idempotent");
-const bad=[{...confirmed[0],no:7277,date:"2026-10-10",time:"21:00",
+const wrongKickoff=[{...confirmed[0],no:7277,date:"2026-10-10",time:"21:00",
  home:"라요 바예카노",away:"아틀레틱 빌바오",eventStart:"2026-10-10T13:30:00Z"}];
-assert.equal(lib.r367ApplyEspnFinishedScores(es,bad,"260120").settled,0,"Kickoff mismatch must not settle");
+assert.equal(lib.r367ApplyEspnFinishedScores(es,wrongKickoff,"260120").settled,0,"Kickoff mismatch must not settle");
 const badTeam=[{...confirmed[0],no:7277,date:"2026-10-10",time:"21:00",
  home:"다른팀",away:"아틀레틱 빌바오",eventStart:"2026-10-10T12:00:00Z"}];
 assert.equal(lib.r367ApplyEspnFinishedScores(es,badTeam,"260120").settled,0,"Team identity mismatch");
