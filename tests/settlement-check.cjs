@@ -9,7 +9,7 @@ const nonModule = source
 assert.notEqual(nonModule, source, "Worker module extraction must match actual file");
 const api = new Function(
   "structuredClone", "URL",
-  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, prepareOfficialRelayRows, settlementHealth, ingestOfficialRelay, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState, terminalOfficialScoringRows, ingestPerformanceRows, moneylinePickRisk, candidateUtility, r336TotalQualityBackstop };"
+  nonModule + "\nreturn { selfTest, createState, parseBetmanResultRows, applyResults, applyOfficialMarketStatusSettlement, gameInfoRowUsableForPending, prepareOfficialRelayRows, settlementHealth, ingestOfficialRelay, recordSettlementLedger, ensureSettledCards, readStoredState, saveState, publicState, terminalOfficialScoringRows, ingestPerformanceRows, moneylinePickRisk, candidateUtility, r336TotalQualityBackstop, r354UnsafeSoccerChoice, r354RepairUnlockedSoccerOdds };"
 )(structuredClone, URL);
 
 (async () => {
@@ -42,6 +42,64 @@ const api = new Function(
 
   assert.equal(api.r336TotalQualityBackstop({...totalCandidate,q:{...totalCandidate.q,independentGroupCount:0}},totalUtility+.08),false,
     "U/O picks without independent provenance must not be promoted");
+
+  // R354: extreme 120th-round soccer prices cannot become ordinary
+  // pre-match representatives when a safer same-game official market exists.
+  const futureDate="2099-10-10",oldDate="2020-10-10";
+  const soccer=(no,home,away,family,prices,date=futureDate,opts={})=>({
+    no,date,time:"23:00",gmTs:"260120",sport:"축구",league:"Bundesliga",
+    home,away,game:home+" vs "+away,market:family,
+    marketFamily:family,domesticOddsFetchedAt:new Date().toISOString(),
+    marked:false,representativeSelected:false,resultFinal:false,choices:
+      prices.map(([label,odds])=>({label,odds,openingOdds:odds})),...opts
+  });
+  const extreme=soccer(7406,"Barcelona","Getafe","MONEYLINE",
+    [["승",1.03],["무",8.00],["패",18.50]],futureDate,{
+      marked:true,representativeSelected:true,finalPick:"패",finalOdds:18.5,
+      displayGrade:"일반",moneylineRiskFlag:true});
+  const handicap=soccer(7407,"Barcelona","Getafe","HANDICAP",
+    [["승",1.66],["무",3.85],["패",3.5]]);
+  const total=soccer(7410,"Barcelona","Getafe","TOTAL",
+    [["언더",2.05],["오버",1.54]]);
+  const started=soccer(7289,"Augsburg","Bayern","MONEYLINE",
+    [["승",8.8],["무",6.3],["패",1.14]],oldDate,{
+      marked:true,representativeSelected:true,finalPick:"승",
+      finalOdds:8.8,displayGrade:"일반"});
+  const manual=soccer(7451,"PSG","LeMans","MONEYLINE",
+    [["승",1.04],["무",8],["패",16]],futureDate,{
+      marked:true,representativeSelected:true,finalPick:"패",
+      finalOdds:16,displayGrade:"일반",manualOverride:true});
+  const handicapRisk=soccer(7339,"AstonVilla","Brentford","HANDICAP",
+    [["승",4.65],["무",3.95],["패",1.47]],futureDate,{
+      marked:true,representativeSelected:true,finalPick:"승",
+      finalOdds:4.65,displayGrade:"일반"});
+  const hcTotal=soccer(7341,"AstonVilla","Brentford","TOTAL",
+    [["언더",2.13],["오버",1.5]]);
+  const liveState={round:120,gmTs:"260120",markets:[
+    extreme,handicap,total,started,manual,handicapRisk,hcTotal],
+    settlementLedger:[{no:8888,hit:true}],settledCards:{rows:[]}};
+  const oldLocked=JSON.stringify([started.no,started.finalPick,started.finalOdds]);
+  const oldManual=JSON.stringify([manual.no,manual.finalPick,manual.finalOdds]);
+  const originalLedger=JSON.stringify(liveState.settlementLedger);
+  const guard=api.r354RepairUnlockedSoccerOdds(liveState);
+  assert.equal(guard.changed,2,
+    "Extreme 18.50 moneyline and 4.65 handicap must be replaced, not maintained");
+  assert.equal(liveState.markets.filter(m=>m.marked&&m.representativeSelected).length,4,
+    "Exactly one representative must remain per priced game");
+  assert.ok(liveState.markets.find(m=>m.home==="Barcelona"&&m.marked&&m.representativeSelected&&
+    Number(m.finalOdds)<=3.50));
+  assert.ok(liveState.markets.find(m=>m.home==="AstonVilla"&&m.marked&&m.representativeSelected&&
+    Number(m.finalOdds)<=3.50));
+  assert.equal(JSON.stringify([started.no,started.finalPick,started.finalOdds]),oldLocked,
+    "Already-started Bundesliga games must stay immutable");
+  assert.equal(JSON.stringify([manual.no,manual.finalPick,manual.finalOdds]),oldManual,
+    "User-selected manual bets must remain unchanged");
+  assert.equal(JSON.stringify(liveState.settlementLedger),originalLedger,
+    "Settlements may not be changed by pregame repricing");
+  assert.equal(api.r354UnsafeSoccerChoice(extreme,{pick:"패",odds:18.50,calibratedP:.05}),true);
+  assert.equal(api.r354UnsafeSoccerChoice(total,{pick:"오버",odds:1.54,calibratedP:.6}),false);
+  assert.equal(api.r354RepairUnlockedSoccerOdds(liveState).changed,0,
+    "No repeated re-marking once the risky pregame choices are corrected");
 
   // R332: reproduce low-probability general-win selections observed on round 120.
   const ml={marketFamily:"MONEYLINE",choices:[
