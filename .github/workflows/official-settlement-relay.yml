@@ -144,7 +144,16 @@ jobs:
             const zenStatus=await Promise.allSettled([zentotoFinished()]);
             const zen=zenStatus[0].status==="fulfilled"?zenStatus[0].value:[];
             const wanted=new Set([...nos,...started,...scoreBackfill].map(m=>String(m.gmTs||"")+":"+String(m.no||"")));
-            const verifiedZen=zen.filter(m=>wanted.has(String(m.gmTs)+":"+String(m.no)));
+            // Include the finished moneyline result for a wanted total/handicap
+            // fixture, even when that moneyline Proto number wasn't selected.
+            // Matching full-time fixture identity only; no additional market is settled.
+            const fixtureKey=m=>[String(m.gmTs),String(m.date),String(m.time).slice(0,5),
+              String(m.home||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").normalize("NFC").toLowerCase().replace(/[^a-z0-9가-힣]/g,""),
+              String(m.away||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").normalize("NFC").toLowerCase().replace(/[^a-z0-9가-힣]/g,"")].join("|");
+            const primaryZen=zen.filter(m=>wanted.has(String(m.gmTs)+":"+String(m.no)));
+            const wantedFixtures=new Set(primaryZen.map(fixtureKey));
+            const verifiedZen=zen.filter(m=>wanted.has(String(m.gmTs)+":"+String(m.no))||
+              (m.marketFamily==="MONEYLINE"&&wantedFixtures.has(fixtureKey(m))));
             console.log("ZENTOTO_SOURCE="+JSON.stringify({
               status:zenStatus[0].status,
               rows:zen.length,verifiedPending:verifiedZen.length,
