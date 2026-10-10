@@ -239,6 +239,37 @@ jobs:
               assert.ok(Number(a.preservedLocked)>=0,
                 "Missing started/settled game preservation report");
             }
+            if(expected.includes("R346-LOW-FAVORITE-MINUS-HANDICAP")){
+              const a=d.recommendedLowOddsHandicapAudit||{},
+                live=d.recommendedLowOddsHandicapLiveAudit||{};
+              assert.equal(a.id,"R346_INTEREST_ONLY_LOW_FAVORITE_TO_MINUS_HANDICAP",
+                "Low-odds minus-handicap migration missing from live Worker");
+              assert.ok(Number(a.reviewed)>=0&&Number(a.changed)>=0,
+                "Low-odds review counters missing");
+              assert.equal(Number(a.actualChanged),Number(a.changed),
+                "Saved representative swaps differ from audit");
+              assert.equal(Number(a.unrelatedChanged),0,
+                "Unrelated markets were modified by the low-odds rule");
+              assert.ok(Number(a.preservedLocked)>=0,
+                "Locked picks preservation audit missing");
+              assert.equal(Number(a.marketCountsBefore?.MONEYLINE)-Number(a.changed),
+                Number(a.marketCountsAfter?.MONEYLINE),
+                "Moneyline market count change inconsistent");
+              assert.equal(Number(a.marketCountsBefore?.HANDICAP)+Number(a.changed),
+                Number(a.marketCountsAfter?.HANDICAP),
+                "Handicap market count change inconsistent");
+              assert.ok((a.changes||[]).every(x=>
+                x.fromFamily==="MONEYLINE"&&x.toFamily==="HANDICAP"&&
+                x.fromPick===x.toPick&&Number(x.effectiveHandicap)<0&&
+                Number(x.fromOdds)>=1.31&&Number(x.fromOdds)<=1.45&&
+                Number(x.toOdds)>Number(x.fromOdds)),
+                "Swaps must retain the favorite team and use only its minus handicap");
+              assert.equal(live.id,a.id,
+                "Live low-odds handicap review not enabled");
+              assert.deepEqual(d.marketMixAudit?.target,
+                {MONEYLINE:30,HANDICAP:30,TOTAL:40},
+                "30/30/40 market targets unexpectedly changed");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
