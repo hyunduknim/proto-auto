@@ -1335,7 +1335,7 @@ function r360OddsAnomalyReason(m){
   if(labels.some(x=>!x)||new Set(labels).size!==labels.length)return "DUPLICATE_OR_MISSING_CHOICE";
   if(choices.some(c=>Number(c.odds)>100||Number(c.odds)<1.02))return "IMPLAUSIBLE_EXTREME_ODDS";
   const implied=choices.reduce((sum,c)=>sum+1/Number(c.odds),0);
-  if(!Number.isFinite(implied)||implied>1.35)return "INVALID_IMPLIED";
+  if(!Number.isFinite(implied))return "INVALID_IMPLIED";
   if(implied<.80||implied>1.35)return "OUTLIER_BOOKMAKER_MARGIN";
   for(const c of choices){
     const opening=Number(c.openingOdds),current=Number(c.odds);
