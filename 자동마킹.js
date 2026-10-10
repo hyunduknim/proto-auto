@@ -4976,6 +4976,9 @@ function publicState(state){
   const cur=currentRoundStateView(state);
   const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
+  flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
+  aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
+  oneGameOneMarkAudit:state.oneGameOneMarkAudit||r369SingleMarkAudit(state,false),
   marketMixAudit:state.marketMixAudit,r360PolicyAudit:state.r360PolicyAudit||null,r368UserVoidAudit:state.r368UserVoidAudit||null,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,fullRepickAudit:state.fullRepickAudit||null,gradeRevisionAudit:state.gradeRevisionAudit||null,recommendedFavoriteMigrationAudit:state.recommendedFavoriteMigrationAudit||null,recommendedFavoriteLiveAudit:state.recommendedFavoriteLiveAudit||null,recommendedFavoriteGuaranteeAudit:state.recommendedFavoriteGuaranteeAudit||null,recommendedFavoriteGuaranteeLiveAudit:state.recommendedFavoriteGuaranteeLiveAudit||null,recommendedLowOddsHandicapAudit:state.recommendedLowOddsHandicapAudit||null,recommendedLowOddsHandicapLiveAudit:state.recommendedLowOddsHandicapLiveAudit||null,kjDrawMigrationAudit:state.kjDrawMigrationAudit||null,kjDrawLiveAudit:state.kjDrawLiveAudit||null,kjDrawTrimAudit:state.kjDrawTrimAudit||null,recommendedPlusToTotalAudit:state.recommendedPlusToTotalAudit||null,soccerOddsGuardAudit:state.soccerOddsGuardAudit||null,soccerOddsGuardMigration:state.soccerOddsGuardMigration||null,recommendationPickAudit:state.recommendationPickAudit||null,recommendationTotalCorrectionAudit:state.recommendationTotalCorrectionAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,qualityPriorityAudit:state.qualityPriorityAudit||null,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
   MEM.publicCacheKey=key;MEM.publicCache=value;return value;
 }
@@ -6023,6 +6026,43 @@ function r367ApplyEspnFinishedScores(state,rows,gmTs){
   }
   return audit;
 }
+// R369: only OIDC-authenticated LICENSED feed rows; do not scrape UI pages.
+function r369ApplyVerifiedScoreProvider(state,rows,gmTs,source){
+  const audit={source,at:nowIso(),gmTs,received:rows?.length||0,
+    matched:0,settled:0,rejected:0,reasons:{},configured:!!rows?.length};
+  const reject=k=>{audit.rejected++;audit.reasons[k]=(audit.reasons[k]||0)+1;};
+  if(!Array.isArray(rows)||rows.length>150){reject("INVALID_BATCH");return audit;}
+  const byNo=new Map(),byEvent=new Map();
+  for(const r of rows){const n=Number(r?.no),e=String(r?.eventId||"");
+    byNo.set(n,(byNo.get(n)||0)+1);byEvent.set(e,(byEvent.get(e)||0)+1);}
+  const marks=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected);
+  for(const r of rows){
+    if(!r||r.source!==source||r.gmTs!==String(gmTs)||r.status!=="FT"||
+       r.terminal!==true||r.fullTime!==true||r.sport!=="축구"||
+       !Number.isSafeInteger(Number(r.no))||Number(r.no)<=0||
+       !/^[A-Za-z0-9_-]{2,80}$/.test(String(r.eventId||""))||
+       !/^\\d{1,3}:\\d{1,3}$/.test(String(r.score||""))){reject("NOT_VERIFIED_FINAL");continue;}
+    if(byNo.get(Number(r.no))!==1||byEvent.get(String(r.eventId))!==1){reject("DUPLICATE_EVENT");continue;}
+    const m=marks.find(x=>String(x.gmTs||"")===String(gmTs)&&Number(x.no)===Number(r.no)&&
+      x.sport==="축구"&&started(x)&&!x.resultFinal&&settlementAllowed(x));
+    if(!m){reject("NO_STARTED_PICK");continue;}
+    if(marks.filter(x=>String(x.gmTs||"")===String(gmTs)&&gameSeed(x)===gameSeed(m)).length!==1){
+      reject("MULTIPLE_MARKS");continue;}
+    const t=Date.parse(String(r.eventStart||"")),kick=gameTimeMs(m);
+    if(!Number.isFinite(t)||kick==null||Math.abs(t-kick)>180000){reject("KICKOFF_MISMATCH");continue;}
+    if(r.date!==m.date||String(r.time).slice(0,5)!==String(m.time).slice(0,5)||
+       !r.home||!r.away||norm(r.home)!==norm(m.home)||norm(r.away)!==norm(m.away)||
+       (r.marketFamily&&r.marketFamily!==m.marketFamily)){reject("FIXTURE_MISMATCH");continue;}
+    const rr={gmTs:String(gmTs),no:m.no,date:m.date,time:m.time,home:m.home,away:m.away,
+      family:"MONEYLINE",score:r.score,terminal:true,partial:false,specialStatus:null};
+    const result=resolveOfficialOutcome(rr,m);
+    if(!result.outcome||result.void){reject("UNKNOWN_OR_PUSH");continue;}
+    const settled=applyResults({markets:[m]},[rr],source);
+    if(settled!==1){reject("NO_SETTLEMENT");continue;}
+    audit.matched++;audit.settled++;
+  }
+  return audit;
+}
 function pendingSettlementMarkets(state){
   return (state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&started(m)&&!m.resultFinal&&settlementAllowed(m));
 }
@@ -6094,6 +6134,9 @@ function settlementHealth(state){
   const stalled=!!pending&&(!relayFresh&&!directOk);
 
   return {pending,premiumPendingByGrade,
+    scoreProviderPreference:"FLASHSCORE_THEN_AISCORE_LICENSED_FULL_TIME",
+    scoreProviderConnected:{flashscore:!!state.flashscoreSettlementAudit?.configured,
+      aiscore:!!state.aiscoreSettlementAudit?.configured},
     premiumResultReadiness:relay.premiumResultReadiness||null,
     directOk,directFresh,relayFresh,stalled,staleMinutes,
     officialVerifiedRows,officialDataPending,overdueForResult,
@@ -6115,7 +6158,9 @@ async function ingestOfficialRelay(req,env){
   try{input=await req.json();}catch{return json({error:"invalid relay JSON"},400);}
   const gmTs=String(input?.gmTs||""),gameInfo=input?.gameInfo,officialResult=input?.officialResult,
     zentotoRows=Array.isArray(input?.zentotoRows)?input.zentotoRows:[],
-    espnRows=Array.isArray(input?.espnRows)?input.espnRows:[];
+    espnRows=Array.isArray(input?.espnRows)?input.espnRows:[],
+    flashscoreRows=Array.isArray(input?.flashscoreRows)?input.flashscoreRows:[],
+    aiscoreRows=Array.isArray(input?.aiscoreRows)?input.aiscoreRows:[];
   const sourceStatus=input?.sourceStatus&&typeof input.sourceStatus==="object"?
     {gameInfo:["fulfilled","rejected"].includes(input.sourceStatus.gameInfo)?input.sourceStatus.gameInfo:null,
       resultApi:["fulfilled","rejected"].includes(input.sourceStatus.resultApi)?input.sourceStatus.resultApi:null,
@@ -6133,20 +6178,29 @@ async function ingestOfficialRelay(req,env){
   const validEspn=espnRows.length>0&&espnRows.length<=120&&
     espnRows.every(r=>r&&r.source==="ESPN_PUBLIC_FULLTIME"&&r.status==="STATUS_FULL_TIME"&&
       r.terminal===true&&r.fullTime===true&&String(r.gmTs)===gmTs);
-  if(!/^\d{6}$/.test(gmTs)||(!validGameInfo&&!validResultInfo&&!validZentoto&&!validEspn)||
-     (gameInfo&&!validGameInfo)||(officialResult&&!validResultInfo))
+  const verifiedFast=(rows,source)=>rows.length>0&&rows.length<=150&&rows.every(r=>
+    r&&r.source===source&&String(r.gmTs)===gmTs);
+  const flashReady=verifiedFast(flashscoreRows,"FLASHSCORE_VERIFIED_FULLTIME"),
+    aiReady=verifiedFast(aiscoreRows,"AISCORE_VERIFIED_FULLTIME");
+  if(!/^\d{6}$/.test(gmTs)||(!validGameInfo&&!validResultInfo&&!validZentoto&&!validEspn&&!flashReady&&!aiReady)||
+     (gameInfo&&!validGameInfo)||(officialResult&&!validResultInfo)||
+     (flashscoreRows.length&&!flashReady)||(aiscoreRows.length&&!aiReady))
     return json({error:"invalid official payload or round"},400);
   const state=await loadState(env);
   const pending=pendingSettlementMarkets(state).filter(m=>String(m.gmTs||"")===gmTs);
   const parsed=prepareOfficialRelayRows(input,gmTs,pending);
+  const flashAudit=r369ApplyVerifiedScoreProvider(state,flashscoreRows,gmTs,
+    "FLASHSCORE_VERIFIED_FULLTIME");
+  const aiAudit=r369ApplyVerifiedScoreProvider(state,aiscoreRows,gmTs,
+    "AISCORE_VERIFIED_FULLTIME");
   const zenAudit=r365ApplyZentotoResults(state,zentotoRows,gmTs);
   const espnAudit=r367ApplyEspnFinishedScores(state,espnRows,gmTs);
   const officialTrainingRows=terminalOfficialScoringRows(state,gameInfo,gmTs);
   // Results API can contain official outcome codes; gameInfo needs terminal status or overdue final-score guard.
   const resultSettled=applyResults(state,parsed.resultRows);
   const fallbackSettled=applyResults(state,parsed.gameInfoRows);
-  const settled=zenAudit.settled+espnAudit.settled+resultSettled+fallbackSettled,
-    verifiedRows=parsed.resultRows.length+parsed.gameInfoRows.length+espnAudit.matched;
+  const settled=flashAudit.settled+aiAudit.settled+zenAudit.settled+espnAudit.settled+resultSettled+fallbackSettled,
+    verifiedRows=parsed.resultRows.length+parsed.gameInfoRows.length+espnAudit.matched+flashAudit.matched+aiAudit.matched;
   let learned=0,jbAdded=0;
   const officialRows=[...parsed.resultRows,...parsed.gameInfoRows];
   // Broader terminal GameInfo score ingestion is training-only; neither
@@ -6186,6 +6240,8 @@ async function ingestOfficialRelay(req,env){
   }
   if(settled||zenAudit.scoresUpdated||learned||jbAdded||priceRelay.accepted)markState(state);
   state.espnSettlementAudit=espnAudit;
+  state.flashscoreSettlementAudit=flashAudit;
+  state.aiscoreSettlementAudit=aiAudit;
   state.zentotoSettlementAudit=zenAudit;
   state.officialOddsRelayAudit={at:nowIso(),gmTs,...priceRelay,
     source:"BETMAN_SIGNED_GITHUB_OIDC",currentRoundOnly:true};
@@ -6227,6 +6283,7 @@ async function ingestOfficialRelay(req,env){
     resultApiRows:parsed.resultRows.length,gameInfoRows:parsed.gameInfoRows.length,
     pendingBefore:pending.length,settledNow:settled,pendingAfter,
     premiumResultReadiness,zentotoSettlement:zenAudit,espnSettlement:espnAudit,
+    flashscoreSettlement:flashAudit,aiscoreSettlement:aiAudit,
     officialOddsRelay:priceRelay,at:now});
 }
 
