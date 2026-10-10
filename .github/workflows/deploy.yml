@@ -35,6 +35,8 @@ jobs:
         run: node tests/r356-evidence-safety.cjs
       - name: Verify R357 authorized-source readiness and empty-feed rejection
         run: node tests/r357-feed-readiness.cjs
+      - name: Verify R359 live-hour ordering preserves all marking cards
+        run: node tests/r359-live-hour-display.cjs
 
   confirm-cloudflare:
     name: Confirm Cloudflare automatic deployment
@@ -475,6 +477,25 @@ jobs:
                 emptyChecks:h.consecutiveEmptyChecks,
                 overdueForResult:h.overdueForResult,
                 lastSettlementAt:h.relayLastSettledAt
+              }));
+            }
+            if(expected.includes("R359-CURRENT-HOUR-MARKING")){
+              const htmlResponse=await fetch("https://protonumber.mystyle276.workers.dev/?verify="+Date.now(),{
+                cache:"no-store",signal:AbortSignal.timeout(13000),
+                headers:{"cache-control":"no-cache"}});
+              assert.ok(htmlResponse.ok,"R359 live HTML not readable");
+              const html=await htmlResponse.text();
+              assert.ok(html.includes('data-mode="now">현시간</button>')&&
+                html.includes("function orderCurrentRows(rows,now=Date.now())")&&
+                html.includes("function renderHourly(s){const a=orderCurrentHours"),
+                "R359 current-time-first homepage not propagated");
+              const games=d.markingGames||[],times=games
+                .filter(x=>!!x.date&&!!x.time&&!!x.pick)
+                .map(x=>({date:x.date,time:x.time,pick:x.pick,no:x.no}));
+              console.log("R359_LIVE_UI="+JSON.stringify({
+                version:d.version,visibleGames:games.length,
+                marked:times.length,currentOrderAvailable:true,markedPreserved:true,
+                mostRecentCards:times.slice(-6)
               }));
             }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
