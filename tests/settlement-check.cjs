@@ -316,8 +316,8 @@ const api = new Function(
     ".github/workflows/settlement-relay-watchdog.yml"),"utf8");
   assert.ok(relayWorkflow.includes('cron: "3-58/5 * * * *"'),
     "Five-minute official relay cron must be configured");
-  assert.ok(relayWorkflow.includes('await new Promise(resolve=>setTimeout(resolve,9*60*1000));'),
-    "Live official polling must continue at approximately ten-minute cadence");
+  assert.ok(relayWorkflow.includes('await new Promise(resolve=>setTimeout(resolve,4*60*1000));'),
+    "Live official polling must continue at approximately five-minute cadence");
   assert.ok(relayWorkflow.includes('if: always()')&&
     relayWorkflow.includes('[404,429,500,502,503,504].includes(r.status)'),
     "Transient official relay errors must not break the next polling cycle");
