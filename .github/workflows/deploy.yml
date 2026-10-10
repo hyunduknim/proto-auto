@@ -301,8 +301,9 @@ jobs:
               assert.equal(row7097.family,"HANDICAP","7097 must be a handicap market");
               assert.equal(row7097.handicapDirection,"PLUS",
                 "7097 must be marked positive handicap");
-              assert.ok(Number(row7097.odds)>1&&row7097.belowStandardFloor===true,
-                "Explicit 7097 plus-handicap low-odds manual exception must be disclosed");
+              assert.ok(Number(row7097.odds)>1&&
+                Boolean(row7097.belowStandardFloor)===(Number(row7097.odds)<1.31),
+                "7097 manual marking must disclose whether the live odds break the 1.31 floor");
               assert.equal(Number(audit.applied),2,
                 "Both requested proto numbers must have official odds and be applied");
               const active=(d.markingGames||[]).filter(x=>x.pick&&!x.resultFinal);
