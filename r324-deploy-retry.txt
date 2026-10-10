@@ -1,3 +1,5 @@
 R324 Cloudflare Workers build retry. The deployed application source remains unchanged.
 
 R327 retry 2026-10-10: retry existing Cloudflare Workers Builds integration without modifying application logic; verify production version before marking deployment successful.
+
+R366 retry 2026-10-11 04:57 KST: retry production delivery of already validated final-score display patch; do not modify saved picks, grade ratios, odds, settlement outcomes or business logic. Require live /api/state version verification.
