@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R343-KJ-DRAW-WATCHLIST";
-const BUILD_ID = "proto-betman-core-r343-kj-draw-watchlist";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R344-KJ-DRAW-2-3";
+const BUILD_ID = "proto-betman-core-r344-kj-draw-2-3";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -2678,6 +2678,7 @@ function r342ApplyRecommendedFavorites(state){
 
 
 const R343_KJ_DRAW_ID="R343_KJ_MONEYLINE_HANDICAP_DRAW_WATCHLIST";
+const R344_KJ_DRAW_ID="R344_KJ_DRAW_2_TO_3_PER_ROUND";
 function r343KJLeagueType(league){
   const x=String(league||"").toUpperCase().replace(/[\s_.-]/g,"");
   if(/컵|CUP/.test(x))return null;
@@ -2737,30 +2738,21 @@ function r343BuildDrawWatchlist(state){
   }
   pool.sort((a,b)=>b.score-a.score||marketSort(a.m,b.m));
   const selected=[],used=new Set();
-  const add=(family,n,sameOnly=false)=>{
-    for(const x of pool){
-      if(selected.length>=4||n<=0)break;
-      if(used.has(x.key)||x.m.marketFamily!==family||(sameOnly&&!x.sameFamily))continue;
-      selected.push(x);used.add(x.key);n--;
-    }
+  const add=family=>{
+    const x=pool.find(x=>!used.has(x.key)&&x.sameFamily&&x.m.marketFamily===family);
+    if(x){selected.push(x);used.add(x.key);}
   };
-  // Same-family draw substitutions preserve the existing 30/30/40 market mix.
-  add("MONEYLINE",2,true);add("HANDICAP",2,true);
-  for(const x of pool){
-    if(selected.length>=4)break;
-    if(used.has(x.key)||!x.sameFamily)continue;
-    selected.push(x);used.add(x.key);
-  }
-  // If the required 3-4 K/J draws cannot be reached without a family switch,
-  // permit the smallest number of cross-family interest substitutions.
-  if(selected.length<3){
-    add("MONEYLINE",2);add("HANDICAP",2);
-    for(const x of pool){
-      if(selected.length>=3)break;
-      if(used.has(x.key))continue;
-      selected.push(x);used.add(x.key);
-    }
-  }
+  // R344: never exceed 3 games; favor one each of regular and handicap draw,
+  // preferably spanning both K and J, without disturbing the 30/30/40 market mix.
+  add("MONEYLINE");add("HANDICAP");
+  const leagues=new Set(selected.map(x=>r343KJLeagueType(x.m.league)));
+  const remaining=pool.filter(x=>x.sameFamily&&!used.has(x.key));
+  remaining.sort((a,b)=>{
+    const da=leagues.has(r343KJLeagueType(a.m.league))?0:1,
+      db=leagues.has(r343KJLeagueType(b.m.league))?0:1;
+    return db-da||b.score-a.score||marketSort(a.m,b.m);
+  });
+  if(remaining.length&&selected.length<3)selected.push(remaining[0]);
   return {selected,pool,rejected,gmTs:current};
 }
 function r343ApplyKJDraws(state){
@@ -2800,6 +2792,70 @@ function r343ApplyKJDraws(state){
       fromFamily:old.marketFamily,fromPick:item.oldPick});
   }
   return {applied,skipped,rows};
+}
+
+
+function r344TrimLegacyKJDraws(state){
+  // R343 already marked four games in round 120. Revert only the lowest
+  // evidence/value excess unstarted pick to its recorded original selection.
+  const audit=state.kjDrawMigrationAudit||{},oldOverride=state.kjDrawOverride;
+  if(oldOverride?.id!==R343_KJ_DRAW_ID||
+     String(oldOverride.gmTs||"")!==String(state.gmTs||""))return {changed:0,retained:0,skippedLocked:0};
+  const entries=(oldOverride.picks||[]).map(item=>{
+    const ms=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&gameSeed(m)===item.key);
+    const cur=ms.find(m=>m.marked&&m.representativeSelected);
+    const row=(audit.rows||[]).find(x=>gameSeed({date:x.date,time:x.time,
+      home:String(x.game||"").split(" vs ")[0],away:String(x.game||"").split(" vs ")[1]})===item.key)||
+      (audit.rows||[]).find(x=>Number(x.no)===Number(item.no));
+    return {item,ms,cur,row,
+      league:r343KJLeagueType(cur?.league),
+      family:item.family,ev:Number(row?.EV)};
+  });
+  const active=entries.filter(x=>x.cur&&!started(x.cur)&&!x.cur.resultFinal&&
+    String(x.cur.finalPick)==="무");
+  // Started/settled draws remain immutable even if exceeding the new cap.
+  const locked=entries.filter(x=>x.cur&&(started(x.cur)||x.cur.resultFinal));
+  const rank=(a,b)=>(Number.isFinite(b.ev)?b.ev:-1)-(Number.isFinite(a.ev)?a.ev:-1)||
+    marketSort(a.cur,b.cur);
+  // Preserve at least one each regular/handicap and K/J when supported.
+  let keep=active.slice().sort(rank).slice(0,Math.min(3,active.length));
+  if(active.length>3){
+    let best=null;
+    for(let i=0;i<active.length;i++)for(let j=i+1;j<active.length;j++)
+      for(let k=j+1;k<active.length;k++){
+        const combo=[active[i],active[j],active[k]],
+          familyDiversity=new Set(combo.map(x=>x.family)).size,
+          leagueDiversity=new Set(combo.map(x=>x.league)).size;
+        const score=(familyDiversity>1?1e3:0)+(leagueDiversity>1?1e3:0)+
+          combo.reduce((acc,x)=>acc+(Number.isFinite(x.ev)?x.ev:-1),0);
+        if(!best||score>best.score)best={score,combo};
+      }
+    if(best)keep=best.combo;
+  }
+  const keepKeys=new Set([...keep,...locked].map(x=>x.item.key));
+  const removed=[],unavailable=[];
+  for(const x of active.filter(x=>!keepKeys.has(x.item.key))){
+    const original=x.ms.find(m=>Number(m.no)===Number(x.item.oldNo));
+    if(!original||!representativeMarketEligible(original)){unavailable.push(x.item.key);continue;}
+    const rows=analyzeChoiceRows(original),q=rows.find(q=>
+      String(q.pick)===String(x.item.oldPick)&&Number(q.odds)>=CFG.minRepOdds);
+    if(!q){unavailable.push(x.item.key);continue;}
+    const prev=x.cur,grade=prev.displayGrade,originPick=prev.finalPick;
+    clearRepresentative([prev]);
+    r342WriteFavoriteSnapshot(original,q,rows);
+    original.displayGrade=grade;
+    original.gradeEvidenceQualified=oddsFresh(original)&&!explicitMarketClosed(original)&&
+      gradePasses(original,grade);
+    original.gradeEvidenceTier=r322GradeTier(original,grade)||"RELATIVE_RANK_ONLY";
+    original.analysisReason="K·J리그 무승부 후보 2~3경기 제한에 따라 기존 마킹 복원";
+    removed.push({game:x.item.key,no:prev.no,oldPick:originPick,
+      restoredNo:original.no,restoredPick:original.finalPick,
+      marketFamily:original.marketFamily});
+  }
+  oldOverride.picks=entries.filter(x=>keepKeys.has(x.item.key)||unavailable.includes(x.item.key))
+    .map(x=>x.item);
+  return {changed:removed.length,retained:oldOverride.picks.length,
+    skippedLocked:locked.length,unavailable,removed};
 }
 
 function markState(state){buildLearningAudit(state);applyLearningContext(state);applyPerformanceContext(state);applyJeongbaedangContext(state);applyDirectionalGuardContext(state);
@@ -3162,7 +3218,8 @@ async function refreshR308GradePolicy(state,env){
     if(!await persistState(env,true))throw Error("R342_SAVE_FAILED");
     return true;
   }
-  if(state.kjDrawMigrationAudit?.id!==R343_KJ_DRAW_ID){
+  if(state.kjDrawMigrationAudit?.id!==R343_KJ_DRAW_ID||
+     String(state.kjDrawMigrationAudit?.gmTs||state.kjDrawOverride?.gmTs||"")!==String(state.gmTs||"")){
     // One-off K/J draw watchlist request. Save the exact picks so future
     // source refreshes reapply ONLY the chosen matches, not another mass repick.
     ROW_CACHE=new WeakMap();
@@ -3198,7 +3255,8 @@ async function refreshR308GradePolicy(state,env){
     const byFamily={MONEYLINE:0,HANDICAP:0};
     for(const row of applied.rows)byFamily[row.marketFamily]++;
     state.kjDrawMigrationAudit={id:R343_KJ_DRAW_ID,at:nowIso(),
-      requestedMin:3,requestedMax:4,availableGames:new Set(selection.pool.map(x=>x.key)).size,
+      gmTs:String(state.gmTs||""),requestedMin:2,requestedMax:3,
+      availableGames:new Set(selection.pool.map(x=>x.key)).size,
       consideredMarkets:selection.pool.length,selected:selection.selected.length,
       changed:applied.applied,skipped:applied.skipped,byFamily,
       changedElsewhere,changedGrades,changedLocked,rows:applied.rows,
@@ -3206,6 +3264,32 @@ async function refreshR308GradePolicy(state,env){
       note:"일반무·핸디무 혼합 관심경기, 실제 배당·모델확률 사용, 강제 양의 EV 주장 없음"};
     state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
     if(!await persistState(env,true))throw Error("R343_PERSISTENCE_FAILED");
+    return true;
+  }
+  if(state.kjDrawTrimAudit?.id!==R344_KJ_DRAW_ID||
+    String(state.kjDrawTrimAudit?.gmTs||"")!==String(state.gmTs||"")){
+    const before=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&m.marked&&m.representativeSelected);
+    const lockedBefore=serializeState(before.filter(m=>started(m)||m.resultFinal)
+      .map(m=>[gameSeed(m),m.no,m.finalPick,m.displayGrade,m.settlementStatus||null]));
+    const ledger=serializeState(state.settlementLedger||[]),
+      settled=serializeState(state.settledCards||{});
+    ROW_CACHE=new WeakMap();let result;
+    try{result=r344TrimLegacyKJDraws(state);}finally{ROW_CACHE=null;}
+    const after=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&m.marked&&m.representativeSelected);
+    const lockedAfter=serializeState(after.filter(m=>started(m)||m.resultFinal)
+      .map(m=>[gameSeed(m),m.no,m.finalPick,m.displayGrade,m.settlementStatus||null]));
+    if(lockedBefore!==lockedAfter||ledger!==serializeState(state.settlementLedger||[])||
+      settled!==serializeState(state.settledCards||{}))
+      throw Error("R344_LOCKED_SETTLEMENT_CHANGED");
+    const activeDraws=(state.kjDrawOverride?.picks||[]).filter(p=>
+      after.some(m=>gameSeed(m)===p.key&&m.finalPick==="무"&&!started(m)&&!m.resultFinal)).length;
+    state.kjDrawTrimAudit={id:R344_KJ_DRAW_ID,gmTs:String(state.gmTs||""),
+      at:nowIso(),removed:result.changed,remainingActive:activeDraws,
+      retained:result.retained,skippedLocked:result.skippedLocked,
+      unavailable:result.unavailable,restored:result.removed||[],
+      note:"K/J regular and handicap draw watchlist limited to 2-3 active games; qualified evidence separate"};
+    state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
+    if(!await persistState(env,true))throw Error("R344_PERSISTENCE_FAILED");
     return true;
   }
   if(state.gradeAudit?.mode==="R324_EXACT_RELATIVE_20_30_50")return false;
@@ -3701,7 +3785,7 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,fullRepickAudit:state.fullRepickAudit||null,gradeRevisionAudit:state.gradeRevisionAudit||null,recommendedFavoriteMigrationAudit:state.recommendedFavoriteMigrationAudit||null,recommendedFavoriteLiveAudit:state.recommendedFavoriteLiveAudit||null,kjDrawMigrationAudit:state.kjDrawMigrationAudit||null,kjDrawLiveAudit:state.kjDrawLiveAudit||null,recommendationPickAudit:state.recommendationPickAudit||null,recommendationTotalCorrectionAudit:state.recommendationTotalCorrectionAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames);const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,marketMixAudit:state.marketMixAudit,marketRebalanceAudit:state.marketRebalanceAudit||null,plusTotalRepresentativeAudit:state.plusTotalRepresentativeAudit||null,fullRepickAudit:state.fullRepickAudit||null,gradeRevisionAudit:state.gradeRevisionAudit||null,recommendedFavoriteMigrationAudit:state.recommendedFavoriteMigrationAudit||null,recommendedFavoriteLiveAudit:state.recommendedFavoriteLiveAudit||null,kjDrawMigrationAudit:state.kjDrawMigrationAudit||null,kjDrawLiveAudit:state.kjDrawLiveAudit||null,kjDrawTrimAudit:state.kjDrawTrimAudit||null,recommendationPickAudit:state.recommendationPickAudit||null,recommendationTotalCorrectionAudit:state.recommendationTotalCorrectionAudit||null,analysisAudit:state.analysisAudit,sharedAnalysisAudit:state.sharedAnalysisAudit,fullMarkAudit:state.fullMarkAudit,learningAudit:state.learningAudit,performanceAudit:state.performanceAudit,fiveApkAudit:state.fiveApkAudit,jeongbaedangAudit:state.jeongbaedangAudit,cleanupAudit:state.cleanupAudit,auxAudit:state.auxAudit,resetAudit:state.resetAudit,settlementRepairAudit:state.settlementRepairAudit,markingGames:activeGames,pastGames,hourlyMarking:buildHourlyMarking(cur),pollAfterMs:resultPollMsForState(cur)};
   MEM.publicCacheKey=key;MEM.publicCache=value;return value;
 }
 function exportSafeConfig(){
