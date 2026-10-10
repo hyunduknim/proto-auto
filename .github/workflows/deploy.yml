@@ -33,6 +33,8 @@ jobs:
         run: node tests/settlement-check.cjs
       - name: Verify R356 price EV and source authenticity
         run: node tests/r356-evidence-safety.cjs
+      - name: Verify R357 authorized-source readiness and empty-feed rejection
+        run: node tests/r357-feed-readiness.cjs
 
   confirm-cloudflare:
     name: Confirm Cloudflare automatic deployment
@@ -435,6 +437,24 @@ jobs:
                 weakPremium:weak.length,locked:v.locked,
                 pending:d.settlementHealth?.pending,settlementMode:d.settlementHealth?.mode
               }));
+            }
+            if(expected.includes("R357-AUTHORIZED-FEED-READINESS")){
+              const url="https://protonumber.mystyle276.workers.dev/api/feed-status";
+              const res=await fetch(url+"?verify="+Date.now(),{headers:{accept:"application/json"}});
+              assert.equal(res.ok,true,"R357 live source readiness status endpoint unavailable");
+              const v=await res.json();
+              assert.equal(v.version,d.version,"R357 status endpoint has different deployed version");
+              assert.ok(v.axes&&["scorecenter","pickschool","sportsnote","protoodds"]
+                .every(k=>typeof v.axes[k]?.status==="string"&&
+                  Number.isFinite(Number(v.axes[k].receivedMatches))),
+                "four source readiness records incomplete");
+              assert.equal(v.originalAppApiLiveVerified,false,
+                "do not claim private APK original API verification without proof");
+              const source=d.fiveApkAudit?.externalVerification?.received||{};
+              for(const k of ["scorecenter","pickschool","sportsnote","protoodds"])
+                assert.equal(Number(v.axes[k].receivedMatches),Number(source[k]||0),
+                  "R357 readiness and actual live marking receipt counts disagree: "+k);
+              console.log("R357_FEED_STATUS="+JSON.stringify(v));
             }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
