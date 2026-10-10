@@ -414,6 +414,21 @@ jobs:
             result.recommendedFavoriteGuaranteeLiveAudit=d.recommendedFavoriteGuaranteeLiveAudit||null;
             result.recommendedDirectionMigrationAudit=d.recommendedDirectionMigrationAudit||null;
             result.recommendationTotalDirectionAudit=d.gradeAudit?.recommendationTotalDirectionAudit||null;
+            const apks=d.fiveApkAudit||{},layers=apks.layers||{},ext={
+              version:d.version,round:d.round,at:apks.at||null,
+              representatives:Number(apks.representatives||0),
+              scorecenter:{internalActive:Number(layers.scorecenter?.active||0),externalReceived:Number(layers.scorecenter?.liveExternal||0)},
+              pickschool:{internalActive:Number(layers.pickschool?.active||0),externalReceived:Number(layers.pickschool?.external||0)},
+              sportsnote:{internalActive:Number(layers.sportsnote?.active||0),externalReceived:Number(layers.sportsnote?.external||0)},
+              protoodds:{internalActive:Number(layers.protoodds?.active||0),externalReceived:Number(layers.protoodds?.external||0)},
+              marketMix:{target:d.marketMixAudit?.target,actual:d.marketMixAudit?.pct,shortfall:d.marketMixAudit?.shortfall},
+              grades:{target:g.target,actual:g.counts,strictBest:g.strictBestCount,strictRecommend:g.strictRecommendCount,
+                fallbackBest:g.fallbackBestCount,fallbackRecommend:g.fallbackRecommendCount},
+              settlement:{mode:health.mode,pending:health.pending,lastOfficialResultAt:health.lastOfficialResultAt}
+            };
+            assert.ok(apks.at&&apks.layers,"Live Worker did not expose the four APK evidence audit");
+            console.log("APK_EXTERNAL_AUDIT="+JSON.stringify(ext));
+            result.apkExternalAudit=ext;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
