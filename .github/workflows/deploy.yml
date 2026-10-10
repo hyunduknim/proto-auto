@@ -314,6 +314,28 @@ jobs:
                 x.marketFamily==="HANDICAP"&&x.handicapDirection==="플핸"),
                 "7097 positive handicap missing in actual representative cards");
             }
+            if(expected.includes("R351-RECOMMENDED-OVER-GUARD")){
+              const a=d.recommendedDirectionMigrationAudit||{},q=d.gradeAudit?.recommendationTotalDirectionAudit||{};
+              assert.equal(a.id,"R351_RECOMMENDED_OVER_EVIDENCE_GUARD",
+                "Live recommended-Over rebalance did not run");
+              assert.equal(q.id,a.id,"Recommendation directional guard missing in live grade audit");
+              assert.equal(Number(a.changedPicks),0,"Unrequested representative picks changed");
+              assert.ok(Number(a.overAfter)<=Number(a.overBefore),
+                "Recommended Over concentration failed to decrease or remain stable");
+              assert.equal(Number(a.overAfter),Number(q.overAfter),
+                "Persisted and live Over counts disagree");
+              assert.ok(Number(a.changedGrades)>0,
+                "No actual recommended-grade selections changed; do not claim the skew was repaired");
+              assert.deepEqual(d.marketMixAudit?.target,{MONEYLINE:30,HANDICAP:30,TOTAL:40},
+                "30/30/40 market target must not be altered");
+              const rows=d.manualNumberMarkAudit?.rows||[];
+              const customOver=rows.find(x=>Number(x.no)===7092),
+                customPlus=rows.find(x=>Number(x.no)===7097);
+              if(String(d.gmTs||"")==="260120"){
+                assert.equal(customOver?.pick,"오버","User specified Over changed");
+                assert.equal(customPlus?.handicapDirection,"PLUS","User specified plus handicap changed");
+              }
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -355,6 +377,8 @@ jobs:
             result.kjDrawTrimAudit=d.kjDrawTrimAudit||null;
             result.recommendedFavoriteGuaranteeAudit=d.recommendedFavoriteGuaranteeAudit||null;
             result.recommendedFavoriteGuaranteeLiveAudit=d.recommendedFavoriteGuaranteeLiveAudit||null;
+            result.recommendedDirectionMigrationAudit=d.recommendedDirectionMigrationAudit||null;
+            result.recommendationTotalDirectionAudit=d.gradeAudit?.recommendationTotalDirectionAudit||null;
             console.log("PRODUCTION_HEALTH="+JSON.stringify(result));
             const summary=process.env.GITHUB_STEP_SUMMARY;
             if(summary)fs.appendFileSync(summary,
