@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R370-0830-ACCURACY";
-const BUILD_ID = "proto-r370-0830-accuracy-first-full-mark";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R371-RESTORED-GRADES";
+const BUILD_ID = "proto-r371-relative-grades-15-25-60-full-mark";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -3752,6 +3752,125 @@ function r360RefreshMarketAudit(state){
   });
   return state.marketMixAudit;
 }
+
+// R371: Grade labels represent the best 15%, next 25%, and remaining 60%
+// of ALL priced, unstarted selections in the active round. Unlike a premium
+// evidence certification, this relative ranking never claims proven +EV.
+// It changes only display grades, never picks, odds, settlement, or coverage.
+const R371_RELATIVE_GRADE_ID="R371_FUTURE_RELATIVE_GRADES_15_25_60";
+function r371RestoreRelativeGrades(state){
+  const names=["가장추천","추천","일반"],fams=["MONEYLINE","HANDICAP","TOTAL"];
+  const reps=(state.markets||[]).filter(m=>
+    currentRoundMarket(m,state)&&m.marked&&m.representativeSelected&&
+    Number(m.finalOdds)>=CFG.minRepOdds);
+  const active=reps.filter(r360FutureEligible),locked=reps.filter(m=>!r360FutureEligible(m));
+  const targets=gradeCaps(active.length);
+  const rankScore=m=>{
+    const p=clamp(Number(m.hitProbability||0),0,1),
+      safe=clamp(Number(m.safeHitProbability??p),0,1),
+      ev=p*Number(m.finalOdds||0)-1,
+      quality=clamp(Number(gradeScore(m)||0),0,1),
+      integrity=clamp(Number(m.dataIntegrityScore||0),0,1);
+    const verified=Number(r355GradeEligible(m,"가장추천"))*0.11+
+      Number(r355GradeEligible(m,"추천"))*0.05;
+    const manual=m.manualOverride||/^MANUAL/.test(String(m.selectionMode||""));
+    return safe*.39+p*.27+quality*.20+
+      clamp(ev,-.25,.15)*.08+integrity*.06+verified-
+      (manual?0.14:0)-(m.moneylineRiskFlag?0.08:0)-
+      (m.sportRisk?.gradeLimited?0.05:0);
+  };
+  const ordered=active.slice().sort((a,b)=>rankScore(b)-rankScore(a)||
+    marketSort(a,b)||Number(a.no||0)-Number(b.no||0));
+  const counts={"가장추천":0,"추천":0,"일반":0},strict={"가장추천":0,"추천":0};
+  let unverifiedPremium=0,negativeEvPremium=0;
+  for(let i=0;i<ordered.length;i++){
+    const m=ordered[i],
+      grade=i<targets["가장추천"]?"가장추천":
+        i<targets["가장추천"]+targets["추천"]?"추천":"일반";
+    m.displayGrade=grade;m.gradeRelativeRank=i+1;
+    const ev=Number(m.hitProbability)*Number(m.finalOdds)-1;
+    if(grade==="일반"){
+      m.gradeEvidenceQualified=false;
+      m.gradeEvidenceTier=null;
+      m.gradeEvidenceWarning=null;
+    }else{
+      const certified=r355GradeEligible(m,grade)&&gradePasses(m,grade);
+      m.gradeEvidenceQualified=!!certified;
+      m.gradeEvidenceTier=certified?
+        (r322GradeTier(m,grade)||"STRICT"):"RELATIVE_RANK_ONLY";
+      if(certified)strict[grade]++;
+      else{
+        unverifiedPremium++;
+        if(ev<0)negativeEvPremium++;
+      }
+      const priceMsg=Number.isFinite(ev)?
+        " · 모델 예상 EV "+(ev*100).toFixed(1)+"%":" · 수익성 검증자료 부족";
+      m.gradeEvidenceWarning=certified?null:
+        "현재 미시작 경기 내 상대순위 등급 · 엄격 추천자격 미달 · 적중 보장 아님"+
+        priceMsg+" · 독립 경기력·외부 자료와 실제 적중률 추가 검증 필요";
+      if(!oddsFresh(m)||explicitMarketClosed(m))
+        m.gradeEvidenceWarning=(m.gradeEvidenceWarning||"")+" · 배당 갱신/판매가능 여부 별도 확인";
+    }
+    counts[grade]++;
+  }
+  const pct=Object.fromEntries(names.map(k=>
+    [k,active.length?r3(counts[k]/active.length*100):0]));
+  const familiesFor=grade=>Object.fromEntries(fams.map(f=>
+    [f,active.filter(m=>m.displayGrade===grade&&m.marketFamily===f).length]));
+  const shortfall=Object.fromEntries(names.map(k=>[k,Math.max(0,targets[k]-counts[k])]));
+  const excess=Object.fromEntries(names.map(k=>[k,Math.max(0,counts[k]-targets[k])]));
+  const exact=names.every(k=>counts[k]===targets[k]);
+  const audit={id:R371_RELATIVE_GRADE_ID,at:nowIso(),
+    target:{"가장추천":15,"추천":25,"일반":60},
+    targetCounts:targets,counts,pct,total:active.length,
+    lockedPreserved:locked.length,strictVerified:strict,
+    unverifiedPremium,negativeEvPremium,exact,
+    relativeLabelsNotCertifiedPicks:true,picksUnchanged:true,settlementsUnchanged:true,
+    policy:"FULL_MARK_100_PERCENT_WITH_RELATIVE_DISPLAY_GRADES_AND_SEPARATE_EVIDENCE"};
+  state.r371GradeAudit=audit;
+  if(state.gradeAudit){
+    Object.assign(state.gradeAudit,{
+      at:audit.at,mode:"R371_FUTURE_RELATIVE_15_25_60",
+      targetPolicy:"FIXED_RELATIVE_DISPLAY_QUOTA_INDEPENDENT_OF_STRICT_EVIDENCE",
+      counts,pct,total:active.length,activeCounts:{...counts},targetCounts:targets,
+      shortfall,excess,exact,deviation:0,infeasibleReasons:[],
+      strictBestCount:strict["가장추천"],strictRecommendCount:strict["추천"],
+      fallbackBestCount:counts["가장추천"]-strict["가장추천"],
+      fallbackRecommendCount:counts["추천"]-strict["추천"],
+      bestNegativeEvCount:active.filter(m=>m.displayGrade==="가장추천"&&
+        Number(m.hitProbability)*Number(m.finalOdds)-1<0).length,
+      relativeRiskWarningCount:unverifiedPremium,
+      ranking:"보수 적중확률·보정확률·근거품질 상대순위. 엄격 검증 여부와 예상 EV를 별도 명시.",
+      scope:"CURRENT_ROUND_FUTURE_ONLY_LOCKED_PRESERVED"
+    });
+    if(state.gradeAudit.recommendationBalanceAudit){
+      const rec=state.gradeAudit.recommendationBalanceAudit;
+      rec.target=targetCounts(counts["추천"],CFG.marketTarget);
+      rec.selected=familiesFor("추천");
+      rec.plusAfter=active.filter(m=>m.displayGrade==="추천"&&m.marketFamily==="HANDICAP"&&directionForPick(m)==="PLUS").length;
+      rec.policy="R371_FINAL_RELATIVE_GRADE_ALLOCATION_NO_PICK_CHANGE";
+    }
+    if(state.gradeAudit.totalDirectionAudit){
+      const t=state.gradeAudit.totalDirectionAudit;
+      t.selectedUnder=active.filter(m=>m.displayGrade==="가장추천"&&m.finalPick==="언더"&&m.marketFamily==="TOTAL").length;
+      t.selectedOver=active.filter(m=>m.displayGrade==="가장추천"&&m.finalPick==="오버"&&m.marketFamily==="TOTAL").length;
+    }
+  }
+  if(state.qualityPriorityAudit){
+    const q=state.qualityPriorityAudit;
+    Object.assign(q,{id:R371_RELATIVE_GRADE_ID,at:audit.at,
+      targets,counts,strictVerified:strict,unverifiedPremium,negativeEvPremium,
+      policy:"RELATIVE_DISPLAY_TARGET_15_25_60_WITH_SEPARATE_STRICT_EVIDENCE"});
+    if(q.valueRisk){
+      q.valueRisk.premium=counts["가장추천"]+counts["추천"];
+      q.valueRisk.unsafePremium=active.filter(m=>
+        (m.displayGrade==="추천"||m.displayGrade==="가장추천")&&
+        !r356PremiumValueSafety(m,m.displayGrade).ok).length;
+    }
+  }
+  return audit;
+}
+
 function markState(state){buildLearningAudit(state);applyLearningContext(state);applyPerformanceContext(state);applyJeongbaedangContext(state);applyDirectionalGuardContext(state);
   // R260: 한 번의 markState 동안 시장별 분석행을 캐시한다(입력 컨텍스트 적용 이후에만 활성).
   ROW_CACHE=new WeakMap();
@@ -3762,9 +3881,10 @@ function markState(state){buildLearningAudit(state);applyLearningContext(state);
     r355ApplyQualityPriority(state);
     r360RefreshMarketAudit(state);
     r370AccuracyAudit(state);
+    state.oneGameOneMarkAudit=r369SingleMarkAudit(state,true);
+    r371RestoreRelativeGrades(state);
     state.recommendedFavoriteGuaranteeLiveAudit=r345RecommendationFavoriteStatus(state);
-    buildFiveApkAudit(state);buildAnalysisAudit(state);
-    state.oneGameOneMarkAudit=r369SingleMarkAudit(state,true);}finally{ROW_CACHE=null;}
+    buildFiveApkAudit(state);buildAnalysisAudit(state);}finally{ROW_CACHE=null;}
   return state;}
 
 function preserveSettlement(oldMarkets,newMarkets){
@@ -5318,7 +5438,7 @@ function selfTest(){
     JSON.stringify({after:recBalanceLocked.plusAfter,limit:recBalanceLocked.plusLimit}));
   const st=createState();st.round=117;st.gmTs="260117";st.markets=structuredClone(ms);markState(st);const reps=st.markets.filter(m=>m.marked&&m.representativeSelected);t("07 priced game always representative-marked",reps.length===1,`reps=${reps.length}`);t("08 min odds",reps.every(m=>Number(m.finalOdds)>=1.31));t("09 ai quality",reps.every(m=>Number.isFinite(Number(m.aiQuality))));t("10 model edge",reps.every(m=>Number.isFinite(Number(m.modelEdge))));t("11 movement",reps.every(m=>Number.isFinite(Number(m.oddsMovement))));t("12 analysis audit",st.analysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW");t("13 public game",representativeGames(st).length===1);t("13a shared audit",st.sharedAnalysisAudit.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"&&st.sharedAnalysisAudit.analyzedMarkets===3);t("13b all market analysis",st.markets.every(m=>m.sharedAnalysis&&m.sharedAnalysis.engine==="SC_PS_SN_PO_R259_DEEP_REVIEW"));t("13c all choice analysis",st.markets.every(m=>Array.isArray(m.sharedAnalysis?.choices)&&m.sharedAnalysis.choices.length===2));t("13d detailed analysis",allGameAnalysis(st).length===1&&allGameAnalysis(st)[0].markets.length===3);
   // R254: 새 회차 대표픽은 상대 순위로 20/30/50을 실제 배분한다.
-  const weak=createState();weak.round=117;weak.gmTs="260117";weak.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`WH${i}`;x.away=`WA${i}`;x.game=`WH${i} vs WA${i}`;for(const c of x.choices)c.openingOdds=c.odds;x.date="2099-10-02";weak.markets.push(x);}}markState(weak);t("14 grade current-round mode",weak.gradeAudit.mode==="R360_EVIDENCE_GATED_15_25_60_FUTURE");t("15 weak grades are general when 20/30 quotas have no evidence",weak.gradeAudit.counts["가장추천"]===0&&weak.gradeAudit.counts["추천"]===0&&weak.gradeAudit.counts["일반"]===10&&weak.gradeAudit.total===10,JSON.stringify(weak.gradeAudit.counts));
+  const weak=createState();weak.round=117;weak.gmTs="260117";weak.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`WH${i}`;x.away=`WA${i}`;x.game=`WH${i} vs WA${i}`;for(const c of x.choices)c.openingOdds=c.odds;x.date="2099-10-02";weak.markets.push(x);}}markState(weak);t("14 grade current-round mode",weak.gradeAudit.mode==="R371_FUTURE_RELATIVE_15_25_60");t("15 weak grades use transparent relative quotas without fake evidence",JSON.stringify(weak.gradeAudit.counts)===JSON.stringify(gradeCaps(10))&&weak.gradeAudit.total===10&&weak.markets.filter(m=>m.marked&&m.representativeSelected&&m.displayGrade!=="일반").every(m=>m.gradeEvidenceQualified||!!m.gradeEvidenceWarning),JSON.stringify(weak.gradeAudit.counts));
   // 대표픽을 직접 구성해 20/30/50 등급 목표 배정 검증
   const strong=createState();strong.markets=[];for(let i=0;i<10;i++){const x=structuredClone(ms[0]);x.no=500+i;x.home=`SH${i}`;x.away=`SA${i}`;x.game=`SH${i} vs SA${i}`;x.date="2099-10-02";x.marked=true;x.representativeSelected=true;x.finalPick="승";x.finalOdds=1.75;x.hitProbability=i<2?.68:i<5?.62:.56;x.safeHitProbability=i<2?.66:i<5?.60:.54;x.aiQuality=i<2?.66:i<5?.58:.50;x.marketSelectionScore=x.aiQuality;x.marketProbability=.59;x.modelEdge=i<5?.02:0;x.modelEdgeAvailable=true;x.dataReliability=.75;x.dataCoverage=.75;x.confidenceScore=i<2?.72:i<5?.64:.52;x.independentEvidence=i<5;x.crossAgreement=i<5?.80:.50;x.oddsMovement=.02;x.dataIntegrityScore=.75;x.axisAvailableCount=i<5?3:1;x.axisSupportCount=i<2?3:i<5?2:1;x.axisOppositionCount=0;x.axisSupportRatio=x.axisSupportCount/x.axisAvailableCount;x.axisUnanimous=i<2;x.independentGroupCount=i<2?3:i<5?2:1;x.gradeAxisSupportCount=x.independentGroupCount;x.gradeAxisOppositionCount=0;x.segmentAdjustment=0;strong.markets.push(x);}assignGrades(strong);t("16 strongest non-total can reach relative top tier",strong.gradeAudit.counts["가장추천"]===2,JSON.stringify(strong.gradeAudit.counts));t("17 rec target",strong.gradeAudit.counts["추천"]===2,JSON.stringify(strong.gradeAudit.counts));t("18 balanced grade rest",strong.gradeAudit.counts["일반"]===6,JSON.stringify(strong.gradeAudit.counts));
   const fb=createState();fb.markets=[];for(let i=0;i<10;i++){const x=structuredClone(strong.markets[i]);x.no=560+i;x.home=`FBH${i}`;x.away=`FBA${i}`;x.game=`FBH${i} vs FBA${i}`;x.representativeGatePassed=false;x.selectionMode="DEEP_REVIEW";x.deepReviewScore=i<5?.72:.48;x.deepReviewRecommended=i<5;x.hitProbability=i<2?.69:i<5?.63:.55;x.safeHitProbability=i<2?.65:i<5?.59:.52;x.dataReliability=.72;x.aiQuality=i<2?.66:i<5?.58:.50;x.confidenceScore=i<2?.70:i<5?.63:.52;x.independentEvidence=i<5;x.crossAgreement=i<5?.72:.48;x.dataIntegrityScore=.72;x.axisAvailableCount=i<5?3:1;x.axisSupportCount=i<2?3:i<5?2:1;x.axisOppositionCount=0;x.axisSupportRatio=x.axisSupportCount/x.axisAvailableCount;x.axisUnanimous=i<2;x.independentGroupCount=i<2?3:i<5?2:1;x.gradeAxisSupportCount=x.independentGroupCount;x.gradeAxisOppositionCount=0;x.segmentAdjustment=0;fb.markets.push(x);}assignGrades(fb);t("18a deep review exact relative grades across all families",fb.gradeAudit.counts["가장추천"]===2&&fb.gradeAudit.counts["추천"]===2&&fb.gradeAudit.counts["일반"]===6,JSON.stringify(fb.gradeAudit.counts));
@@ -5449,8 +5569,8 @@ check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
 {const ml=m([1.55,2.35]),hc=m([2.25,1.55],{no:2,marketFamily:'HANDICAP',market:'마이너스 핸디캡',line:-1});const ma=analyzeMarket(ml),ha=analyzeMarket(hc);check('market families independently analyzed',ma.analyzed&&ha.analyzed&&Number.isFinite(ma.summary?.modelEdge)&&Number.isFinite(ha.summary?.modelEdge));}
 {const s=state([m([1.25,3.6]),m([1.5,2.5],{no:2,marketFamily:'TOTAL',market:'언더오버'})]);const reps=s.markets.filter(x=>x.marked&&x.representativeSelected);check('weak no-independent game still receives one representative',reps.length===1&&reps[0].displayGrade==='일반');}
 {const s=state([m([1.8,1.8])]),r=representativeGames(s)[0];check('balanced weak game deep-review marked general',r?.selectionStatus==='대표픽'&&!!r.pick&&r.displayGrade==='일반'&&r.selectionMode==='DEEP_REVIEW');}
-{const s=state(Array.from({length:20},(_,i)=>m([1.4,3],{no:i+1,home:'H'+i,away:'A'+i})));check('weak ranked set never force-fills premium',s.gradeAudit.counts['가장추천']===0&&s.gradeAudit.counts['추천']===0&&s.gradeAudit.counts['일반']===20&&s.markets.every(x=>x.displayGrade==='일반'||r355GradeEligible(x,x.displayGrade)));}
-{const s=state(Array.from({length:20},(_,i)=>m([1.65,2.05],{no:i+1,home:'H'+i,away:'A'+i})));check('mid confidence never exceeds evidence-backed target caps',s.gradeAudit.counts['가장추천']<=4&&s.gradeAudit.counts['추천']<=6&&s.gradeAudit.counts['일반']>=10&&s.markets.every(x=>x.displayGrade==='일반'||r355GradeEligible(x,x.displayGrade)));}
+{const s=state(Array.from({length:20},(_,i)=>m([1.4,3],{no:i+1,home:'H'+i,away:'A'+i})));check('weak ranked set fills display targets but warns on unsupported recommendations',JSON.stringify(s.gradeAudit.counts)===JSON.stringify(gradeCaps(20))&&s.markets.every(x=>x.displayGrade==='일반'||x.gradeEvidenceQualified||!!x.gradeEvidenceWarning));}
+{const s=state(Array.from({length:20},(_,i)=>m([1.65,2.05],{no:i+1,home:'H'+i,away:'A'+i})));check('mid confidence allocates display grades with evidence caveats',JSON.stringify(s.gradeAudit.counts)===JSON.stringify(gradeCaps(20))&&s.markets.every(x=>x.displayGrade==='일반'||x.gradeEvidenceQualified||!!x.gradeEvidenceWarning));}
 {const s=state([m([1.4,3])]);const a=s.markets[0].sharedAnalysis?.summary;check('conservative probability created',Number(a?.conservativeProbability)>0&&Number(a?.conservativeProbability)<=Number(a?.calibratedProbability));const x=s.markets[0];x.marked=true;x.representativeSelected=true;x.finalPick='승';x.finalOdds=1.4;x.selectionStatus='대표픽';x.date='2020-01-01';const b=JSON.stringify(x);markState(s);check('locked pick unchanged',JSON.stringify(x)===b);}
 {const s=state([m([1.4,3])]);s.markets[0].choices=choices([1.8,1.8]);markState(s);check('newly strict-ineligible remains marked by deep review',s.markets[0].marked===true&&s.markets[0].representativeSelected===true&&s.markets[0].selectionMode==='DEEP_REVIEW');}
 {const x=m([1.3,4]);check('floor enforced',bestChoiceForMarket(x)===null);const y=m([1.31,3]);check('floor inclusive',bestChoiceForMarket(y)?.odds===1.31);}

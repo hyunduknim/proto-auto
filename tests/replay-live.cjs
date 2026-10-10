@@ -86,20 +86,28 @@ const out={version:snapshot.app.version,round:S.round,at:new Date().toISOString(
  gradeStats:gradeSummary(after),
  eliteOpposed:top.filter(m=>Number(m.gradeAxisOppositionCount||0)>0).length,
  eliteBelowNoVig:top.filter(m=>Number(m.hitProbability)<Number(m.marketProbability)).length,
- invalidElite:top.filter(m=>m.marketFamily!=="TOTAL").length
+ unverifiedEliteMissingWarning:top.filter(m=>!m.gradeEvidenceQualified&&!m.gradeEvidenceWarning).length
 };
 delete out.coverage.waiting;console.log("REPLAY="+JSON.stringify(out));
 assert.equal(out.coverage.gapGames,0,"All priced pregame games must be marked");
-assert.equal(out.invalidElite,0,"Elite limited to Total U/O");
-assert.equal(after.filter(m=>m.displayGrade==="가장추천"&&m.marketFamily!=="TOTAL").length,0,
- "Only Under/Over may enter highest recommendation tier");
+assert.equal(out.unverifiedEliteMissingWarning,0,
+ "All relative elite picks without strict validation require a visible warning");
+assert.deepEqual(S.gradeAudit?.counts,S.gradeAudit?.targetCounts,
+ "Every future priced match must get a 15/25/60 relative display grade");
+assert.ok(top.every(m=>m.gradeEvidenceQualified||m.gradeEvidenceTier==="RELATIVE_RANK_ONLY"),
+ "Uncertified elite must be labeled as relative-rank-only");
 // R356: when no U/O candidate is value-qualified, never invent both elite directions.
 const bothQualified=(pools.TOTAL_UNDER?.veryStrong||0)>0&&(pools.TOTAL_OVER?.veryStrong||0)>0;
 if(!bothQualified)console.log("DIRECTION_EVIDENCE_INSUFFICIENT: no forced elite Over/Under");
-assert.ok(top.every(m=>Number(m.hitProbability)*Number(m.finalOdds)-1>=-1e-9),
-  "Elite cannot have negative offered-price EV");
-assert.ok(rec.every(m=>Number(m.hitProbability)*Number(m.finalOdds)-1>=-.035-1e-9),
-  "Recommended picks cannot have materially negative offered-price EV");
+assert.ok(top.every(m=>!m.gradeEvidenceQualified||
+  Number(m.hitProbability)*Number(m.finalOdds)-1>=-1e-9),
+  "Strict-certified elite cannot have negative offered-price EV");
+assert.ok(rec.every(m=>!m.gradeEvidenceQualified||
+  Number(m.hitProbability)*Number(m.finalOdds)-1>=-.035-1e-9),
+  "Strict-certified recommended must meet the price EV standard");
+assert.ok([...top,...rec].every(m=>m.gradeEvidenceQualified||
+  (m.gradeEvidenceWarning||"").includes("엄격 추천자격 미달")),
+  "Relative premium cannot masquerade as independently validated certainty");
 const recMix=S.gradeAudit?.recommendationBalanceAudit;
 // Only enforce existence of explicit audit fields; lack of qualified candidates is a warning, not quota-filling.
 assert.ok(["MONEYLINE","HANDICAP","TOTAL"].every(k=>
