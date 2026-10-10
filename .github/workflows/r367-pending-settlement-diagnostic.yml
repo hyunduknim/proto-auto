@@ -41,7 +41,7 @@ jobs:
               pending:s.settlementHealth?.pending,preexistingPending:pending.length,
               overdue4h:pending.filter(x=>x.elapsedMin>240).length,
               foundZenFinished:pending.filter(x=>x.zenExact?.terminal).length,
-              pending,zenRows:zen.length,relay:s.zentotoSettlementAudit,source:s.relayAudit?.sourceStatus}));
+              pending,zenRows:zen.length,relay:s.zentotoSettlementAudit,espnAudit:s.espnSettlementAudit,source:s.relayAudit?.sourceStatus}));
           })().catch(e=>{console.error('R367_PENDING_ERROR',String(e));process.exitCode=1;});
           NODE
 
