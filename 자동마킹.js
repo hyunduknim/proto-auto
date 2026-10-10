@@ -3024,7 +3024,7 @@ function r349ApplyManualNumbers(state){
     locked:0,rows:[],policy:"EXACT_PROTO_NUMBERS_ONLY_OVER_AND_PLUS_NO_OTHER_GAMES"};
   for(const request of requests){
     const candidates=(state?.markets||[]).filter(m=>currentRoundMarket(m,state)&&
-      Number(m.no)===request.no);
+      String(m.gmTs||"")==="260120"&&Number(m.no)===request.no);
     const target=candidates.find(m=>m.marketFamily===request.family);
     const row={no:request.no,requested:request.pick||"플핸",family:request.family,
       status:null};
