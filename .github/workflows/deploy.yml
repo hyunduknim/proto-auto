@@ -355,6 +355,21 @@ jobs:
                 {MONEYLINE:30,HANDICAP:30,TOTAL:40},
                 "User's market balance 30/30/40 was changed");
             }
+            if(expected.includes("R353-RECOMMENDED-PLUS-FIVE")){
+              const a=d.recommendedPlusToTotalAudit||{};
+              assert.equal(a.id,"R353_RECOMMENDED_PLUS_FIVE_FOUR_SAME_GAME_TOTAL",
+                "Live 9-to-5 recommended plus-handicap conversion did not run");
+              assert.ok(Number(a.after)<=5||Number(a.lockedPlus)>5,
+                "Recommended plus-handicap count still exceeds five");
+              assert.ok(Number(a.planned)>=Math.min(4,Math.max(0,Number(a.before)-5))||
+                Number(a.lockedPlus)>=5,
+                "Four same-game total replacements were not persisted");
+              assert.deepEqual(d.marketMixAudit?.target,
+                {MONEYLINE:30,HANDICAP:30,TOTAL:40},
+                "Original market-mix targets were altered");
+              assert.ok(Number(a.preservedLocked)>=0,
+                "Started/settled selections preservation was not checked");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -388,6 +403,7 @@ jobs:
             result.plusTotalRepresentativeAudit=d.plusTotalRepresentativeAudit||null;
             result.fullRepickAudit=d.fullRepickAudit||null;
             result.recommendationBalanceAudit=d.gradeAudit?.recommendationBalanceAudit||null;
+            result.recommendedPlusToTotalAudit=d.recommendedPlusToTotalAudit||null;
             result.gradeRevisionAudit=d.gradeRevisionAudit||null;
             result.recommendationPickAudit=d.recommendationPickAudit||null;
             result.recommendationTotalCorrectionAudit=d.recommendationTotalCorrectionAudit||null;
