@@ -1,6 +1,7 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
 const {parseZentoto}=require("../tools/zentoto-settlement.cjs");
+const {matchFinished}=require("../tools/espn-final-settlement.cjs");
 const wrap=(no,score,home,away,tag,extra="")=>'<div class="game row col-xs-12">'+
  '<div class="col-xs-5 date tar">2026-10-10(토) 23:00</div>'+
  '<p class="proto_uid">'+no+'</p>'+
@@ -31,7 +32,7 @@ const src=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const lib=new Function("structuredClone","URL",src+
- "\nreturn {r365ApplyZentotoResults,r366BackfillZentotoScores};")(structuredClone,URL);
+ "\nreturn {r365ApplyZentotoResults,r366BackfillZentotoScores,r367ApplyEspnFinishedScores};")(structuredClone,URL);
 const mk=(no,home,away,marketFamily,line,finalPick,choices)=>({
  gmTs:"260120",no,date:"2026-10-10",time:"23:00",home,away,
  game:home+" vs "+away,sport:"축구",marketFamily,line,finalPick,
@@ -89,3 +90,52 @@ assert.equal(reject.settled,0);assert.equal(reject.reasons.BET_LINE_MISMATCH,1);
 console.log("R365_ZEN_SIMULATION="+JSON.stringify({parsed:rows.length,settled:a.settled,
   results:s.markets.slice(1,4).map(m=>({no:m.no,grade:m.displayGrade||"일반",settlement:m.settlementStatus})),
   wrongLineRejected:true,untouchedUnavailable:true,idempotent:true}));
+
+const xmk=(no,date,time,home,away,family,line,pick)=>{
+ const choices=family==="MONEYLINE"?[{label:"승",odds:1.7},{label:"무",odds:3},{label:"패",odds:3.4}]:
+ family==="HANDICAP"?[{label:"승",odds:1.8},{label:"무",odds:3.4},{label:"패",odds:3.1}]:
+ [{label:"오버",odds:1.8},{label:"언더",odds:1.75}];
+ return {gmTs:"260120",no,date,time,sport:"축구",home,away,marketFamily:family,line,finalPick:pick,
+   finalOdds:1.75,displayGrade:"일반",choices,marked:true,representativeSelected:true,resultFinal:false};
+};
+const tests=[
+ xmk(7301,"2026-10-10","22:30","우니온 베를린","엘버스베르크","TOTAL",2.5,"언더"),
+ xmk(7393,"2026-10-11","00:15","릴OSC","르아브르AC","MONEYLINE",null,"승"),
+ xmk(7277,"2026-10-10","21:00","라요 바예카노","아틀레틱 빌바오","MONEYLINE",null,"승"),
+ xmk(7461,"2026-10-11","04:00","레알 마드리드","비야레알","MONEYLINE",null,"승")
+];
+const espnEvent=(id,date,home,away,scoreHome,scoreAway,status="STATUS_FULL_TIME",completed=true)=>({
+ id,date,status:{type:{completed,name:status}},competitions:[{competitors:[
+   {homeAway:"home",team:{displayName:home},score:String(scoreHome)},
+   {homeAway:"away",team:{displayName:away},score:String(scoreAway)}
+ ]}]
+});
+const api={
+ "ger.1":[espnEvent("123456789","2026-10-10T13:30:00Z","1. FC Union Berlin","SV Elversberg",1,0)],
+ "fra.1":[espnEvent("123456788","2026-10-10T15:15:00Z","Lille","Le Havre AC",1,0)],
+ "esp.1":[
+   espnEvent("123456787","2026-10-10T12:00:00Z","Rayo Vallecano","Athletic Club",0,0,"STATUS_ABANDONED",false),
+   espnEvent("123456786","2026-10-10T19:00:00Z","Real Madrid","Villarreal",0,0,"STATUS_SECOND_HALF",false)]
+};
+const confirmed=matchFinished(tests,api,Date.parse("2026-10-11T06:00:00+09:00"));
+assert.deepEqual(confirmed.map(x=>x.no),[7301,7393],"Must reject aborted or live source results");
+assert.deepEqual(confirmed.map(x=>x.score),["1:0","1:0"]);
+const es={markets:tests};
+const result=lib.r367ApplyEspnFinishedScores(es,confirmed,"260120");
+assert.equal(result.settled,2);
+assert.equal(es.markets[0].result,"언더");
+assert.equal(es.markets[0].resultScoreText,"1:0");
+assert.equal(es.markets[1].result,"승");
+assert.ok(es.markets.slice(2).every(m=>!m.resultFinal),"Abandoned and live must never settle");
+assert.equal(lib.r367ApplyEspnFinishedScores(es,confirmed,"260120").settled,0,"Idempotent");
+const bad=[{...confirmed[0],no:7277,date:"2026-10-10",time:"21:00",
+ home:"라요 바예카노",away:"아틀레틱 빌바오",eventStart:"2026-10-10T13:30:00Z"}];
+assert.equal(lib.r367ApplyEspnFinishedScores(es,bad,"260120").settled,0,"Kickoff mismatch must not settle");
+const badTeam=[{...confirmed[0],no:7277,date:"2026-10-10",time:"21:00",
+ home:"다른팀",away:"아틀레틱 빌바오",eventStart:"2026-10-10T12:00:00Z"}];
+assert.equal(lib.r367ApplyEspnFinishedScores(es,badTeam,"260120").settled,0,"Team identity mismatch");
+const wrongLine=[{...confirmed[0],no:7277,marketFamily:"TOTAL",line:4.5}];
+assert.equal(lib.r367ApplyEspnFinishedScores(es,wrongLine,"260120").settled,0);
+assert.equal(es.markets[0].finalOdds,1.75,"Never touch immutable odds");
+console.log("R367_ESPN_SETTLEMENT_SIMULATION="+JSON.stringify({fullTime:confirmed.length,settled:result.settled,
+ suspendedUnchanged:true,liveUnchanged:true,identityProtected:true,oddsPreserved:true}));
