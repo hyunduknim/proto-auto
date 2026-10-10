@@ -370,6 +370,40 @@ jobs:
               assert.ok(Number(a.preservedLocked)>=0,
                 "Started/settled selections preservation was not checked");
             }
+            if(expected.includes("R355-EVIDENCE-PRIORITY")){
+              const q=d.qualityPriorityAudit||{},live=(d.markingGames||[])
+                .filter(x=>x.pick&&!x.gameStarted&&!x.resultFinal);
+              assert.equal(q.id,"R355_QUALITY_OVER_QUOTA_EXTERNAL_FEEDS_UNVERIFIED",
+                "R355 evidence priority was not applied to live state");
+              assert.equal(g.mode,"R355_EVIDENCE_GATED_20_30_50_TARGET",
+                "Premium-grade ratio is still being force-filled");
+              assert.deepEqual(g.target,{"가장추천":20,"추천":30,"일반":50},
+                "20/30/50 grade goals changed");
+              assert.deepEqual(d.marketMixAudit?.target,
+                {MONEYLINE:30,HANDICAP:30,TOTAL:40},
+                "30/30/40 market goals changed");
+              assert.ok(live.every(x=>Number(x.odds)>=1.31),
+                "Sub-1.31 representative is still marked");
+              const invalid=live.filter(x=>
+                ["가장추천","추천"].includes(x.displayGrade)&&
+                !(x.gradeEvidenceQualified||x.gradeEvidenceTier==="CORROBORATED_RELATIVE"));
+              assert.equal(invalid.length,0,
+                "Unsupported premium grades are still shown as recommendations");
+              const weakWarnings=live.filter(x=>x.displayGrade==="일반"&&
+                x.gradeEvidenceWarning&&x.gradeEvidenceWarning.includes("근거 부족")).length;
+              assert.ok(weakWarnings>0,"Normal-risk evidence warnings were not surfaced");
+              const ext=d.fiveApkAudit?.layers||{};
+              console.log("R355_QUALITY_PROOF="+JSON.stringify({
+                version:d.version,liveGames:live.length,qualityPriority:q,
+                invalidPremium:invalid.length,normalRiskWarnings:weakWarnings,
+                targets:{grade:g.target,market:d.marketMixAudit?.target},
+                external:{sc:Number(ext.scorecenter?.liveExternal||0),
+                  ps:Number(ext.pickschool?.external||0),
+                  sn:Number(ext.sportsnote?.external||0),
+                  po:Number(ext.protoodds?.external||0)},
+                settlement:d.settlementHealth||null
+              }));
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
@@ -414,6 +448,8 @@ jobs:
             result.recommendedFavoriteGuaranteeLiveAudit=d.recommendedFavoriteGuaranteeLiveAudit||null;
             result.recommendedDirectionMigrationAudit=d.recommendedDirectionMigrationAudit||null;
             result.recommendationTotalDirectionAudit=d.gradeAudit?.recommendationTotalDirectionAudit||null;
+            result.qualityPriorityAudit=d.qualityPriorityAudit||null;
+            result.fullMarkAudit=d.fullMarkAudit||null;
             const apks=d.fiveApkAudit||{},layers=apks.layers||{},ext={
               version:d.version,round:d.round,at:apks.at||null,
               representatives:Number(apks.representatives||0),
