@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R349-7092-OVER-7097-PLUS";
-const BUILD_ID = "proto-betman-core-r349-7092-over-7097-plus";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.10-R350-7093-OVER-7097-PLUS";
+const BUILD_ID = "proto-betman-core-r350-7093-over-7097-plus";
 const STATE_KEY = "proto_betman_core_r200:state";
 const CUTOFF_DATE = "2026-10-02";
 const PURGE_DATE = "2026-10-02";
@@ -3003,11 +3003,12 @@ function r344TrimLegacyKJDraws(state){
     skippedLocked:locked.length,unavailable,removed};
 }
 
-const R349_MANUAL_NUMBERS_ID="R349_MANUAL_PROTO_7092_OVER_7097_PLUS";
+const R349_MANUAL_NUMBERS_ID="R350_MANUAL_7092_SAME_GAME_7093_OVER_AND_7097_PLUS";
 function r349PickForRequestedMarket(m,request){
   if(!m||m.marketFamily!==request.family||!representativeMarketEligible(m))return null;
   const choices=validChoices(m),analyzed=analyzeChoiceRows(m);
-  const eligible=analyzed.filter(q=>Number(q.odds)>=CFG.minRepOdds&&
+  const requestedFloor=request.allowBelowStandardFloor?1.01:CFG.minRepOdds;
+  const eligible=analyzed.filter(q=>Number(q.odds)>=requestedFloor&&
     choices.some(c=>String(c.label)===String(q.pick)&&
       Math.abs(Number(c.odds)-Number(q.odds))<.0001)&&
     (request.pick?String(q.pick)===request.pick:
@@ -3017,19 +3018,26 @@ function r349PickForRequestedMarket(m,request){
   return eligible[0]||null;
 }
 function r349ApplyManualNumbers(state){
-  const requests=[{no:7092,family:"TOTAL",pick:"오버"},
-    {no:7097,family:"HANDICAP",direction:"PLUS"}];
+  const requests=[{no:7092,targetNo:7093,family:"TOTAL",pick:"오버"},
+    {no:7097,family:"HANDICAP",direction:"PLUS",allowBelowStandardFloor:true}];
   const audit={id:R349_MANUAL_NUMBERS_ID,at:nowIso(),gmTs:String(state?.gmTs||""),
     requested:requests.length,applied:0,changed:0,already:0,pending:0,
     locked:0,rows:[],policy:"EXACT_PROTO_NUMBERS_ONLY_OVER_AND_PLUS_NO_OTHER_GAMES"};
   for(const request of requests){
     const candidates=(state?.markets||[]).filter(m=>currentRoundMarket(m,state)&&
-      String(m.gmTs||"")==="260120"&&Number(m.no)===request.no);
+      String(m.gmTs||"")==="260120"&&Number(m.no)===Number(request.targetNo||request.no));
     const target=candidates.find(m=>m.marketFamily===request.family);
-    const row={no:request.no,requested:request.pick||"플핸",family:request.family,
-      status:null};
+    const row={no:request.no,targetNo:request.targetNo||request.no,
+      requested:request.pick||"플핸",family:request.family,status:null};
     if(!target){row.status=candidates.length?"MARKET_MISMATCH":"NOT_FOUND";audit.pending++;audit.rows.push(row);continue;}
     row.game=gameSeed(target);row.date=target.date;row.time=target.time;
+    if(request.targetNo){
+      const source=(state.markets||[]).find(m=>currentRoundMarket(m,state)&&
+        String(m.gmTs||"")==="260120"&&Number(m.no)===request.no);
+      if(source&&gameSeed(source)!==gameSeed(target)){
+        row.status="SOURCE_GAME_MISMATCH";audit.pending++;audit.rows.push(row);continue;
+      }
+    }
     const peers=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&
       gameSeed(m)===gameSeed(target));
     const old=peers.find(m=>m.marked&&m.representativeSelected);
@@ -3039,8 +3047,10 @@ function r349ApplyManualNumbers(state){
     }
     const q=r349PickForRequestedMarket(target,request);
     if(!q){row.status="NO_ELIGIBLE_OFFICIAL_ODDS";audit.pending++;audit.rows.push(row);continue;}
-    const grade=old?.displayGrade||target.displayGrade||"일반";
+    const belowFloor=Number(q.odds)<CFG.minRepOdds;
+    const grade=belowFloor?"일반":(old?.displayGrade||target.displayGrade||"일반");
     row.odds=Number(q.odds);row.pick=q.pick;
+    row.belowStandardFloor=belowFloor;
     row.handicapDirection=request.family==="HANDICAP"?handicapDirection(target,q.pick):null;
     row.previous=old?{no:old.no,family:old.marketFamily,pick:old.finalPick}:null;
     const already=old===target&&String(old.finalPick)===String(q.pick);
@@ -3057,7 +3067,9 @@ function r349ApplyManualNumbers(state){
     target.displayGrade=grade;
     target.gradeEvidenceQualified=false;
     target.gradeEvidenceTier="USER_SELECTED";
-    target.gradeEvidenceWarning="사용자 지정 마킹 · 분석 추천 자격과 별개";
+    target.gradeEvidenceWarning="사용자 지정 마킹 · 분석 추천 자격과 별개"+
+      (belowFloor?" · 수동지정 배당 "+Number(q.odds).toFixed(2)+
+        " (기본 최소배당 "+CFG.minRepOdds.toFixed(2)+" 미만)":"");
     target.analysisReason="사용자 지정 프로토 "+request.no+"번 "+(request.pick||"플핸")+
       " · 실제 배당 "+Number(q.odds).toFixed(2)+" · 분석 보정확률 "+
       (Number(q.calibratedP)*100).toFixed(1)+"%";
