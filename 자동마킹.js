@@ -5783,19 +5783,19 @@ function r366BackfillZentotoScores(state,rows,gmTs){
   const key=r=>[String(r.date),String(r.time).slice(0,5),norm(r.home),norm(r.away)].join("|");
   const ml=new Map();
   for(const r of valid){
-    if(r.marketFamily!=="MONEYLINE"||!/^\\d{1,3}:\\d{1,3}$/.test(String(r.score||"")))continue;
+    if(r.marketFamily!=="MONEYLINE"||!/^\d{1,3}:\d{1,3}$/.test(String(r.score||"")))continue;
     const k=key(r),score=String(r.score);
     if(!ml.has(k))ml.set(k,score);
     else if(ml.get(k)!==score)ml.set(k,null); // contradictory result: no cross-market score
   }
   const finalScore=r=>{
     const full=ml.get(key(r));
-    if(r.marketFamily==="MONEYLINE")return full||(/^\\d{1,3}:\\d{1,3}$/.test(String(r.score||""))?String(r.score):null);
-    if(r.marketFamily==="TOTAL"&&/^\\d{1,3}$/.test(String(r.score||""))){
+    if(r.marketFamily==="MONEYLINE")return full||(/^\d{1,3}:\d{1,3}$/.test(String(r.score||""))?String(r.score):null);
+    if(r.marketFamily==="TOTAL"&&/^\d{1,3}$/.test(String(r.score||""))){
       if(full){const [h,a]=full.split(":").map(Number);if(h+a===Number(r.score))return full;}
       return "합계 "+r.score+"점";
     }
-    if(r.marketFamily==="HANDICAP"&&/^\\d{1,3}(?:\\.\\d+)?:\\d{1,3}(?:\\.\\d+)?$/.test(String(r.score||""))){
+    if(r.marketFamily==="HANDICAP"&&/^\d{1,3}(?:\.\d+)?:\d{1,3}(?:\.\d+)?$/.test(String(r.score||""))){
       if(full&&Number.isFinite(Number(r.line))){
         const [h,a]=full.split(":").map(Number),[ah,aa]=String(r.score).split(":").map(Number);
         if(Math.abs(h+Number(r.line)-ah)<.001&&Math.abs(a-aa)<.001)return full;
@@ -5822,7 +5822,7 @@ function r366BackfillZentotoScores(state,rows,gmTs){
       const old=String(m[list.field]||"").trim();
       const placeholder=!old||old==="-"||old==="점수 -"||old==="점수 확인중";
       const provisional=/^(합계 |핸디적용 )/.test(old);
-      const actual=/^\\d{1,3}:\\d{1,3}$/.test(next);
+      const actual=/^\d{1,3}:\d{1,3}$/.test(next);
       if(!placeholder&&!(provisional&&actual))continue;
       if(old===next)continue;
       m[list.field]=next;changed++;
