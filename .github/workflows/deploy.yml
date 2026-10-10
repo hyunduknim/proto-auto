@@ -41,6 +41,8 @@ jobs:
         run: node tests/r360-future-odds.cjs
       - name: Verify R362 premium settlement when official results are published
         run: node tests/r362-premium-settlement.cjs
+      - name: Verify R365 Zentoto full-time settlement source
+        run: node tests/r365-zen-settlement.cjs
 
   confirm-cloudflare:
     name: Confirm Cloudflare automatic deployment

@@ -24,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Checkout the verified Zentoto parser
+        uses: actions/checkout@v4
       - name: Install Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -35,6 +37,7 @@ jobs:
         run: |
           node <<'NODE'
           const base=process.env.PROTONUMBER_URL, aud=process.env.GITHUB_OIDC_AUD;
+          const {parseZentoto}=require('./tools/zentoto-settlement.cjs');
           const timeout=ms=>AbortSignal.timeout(ms);
           const betmanHeaders=ref=>({
             "content-type":"application/json; charset=UTF-8",
@@ -87,6 +90,17 @@ jobs:
             }
             throw lastError;
           }
+          // One public HTML read per relay, no credentials or private endpoints.
+          async function zentotoFinished(){
+            const r=await fetch("https://v1.zentoto.com/proto/game",{
+              headers:{accept:"text/html","user-agent":"Mozilla/5.0 (compatible; ProtoResultCheck/1.0)"},
+              signal:timeout(25000)
+            });
+            if(!r.ok)throw Error("ZENTOTO_HTTP_"+r.status);
+            const body=await r.text();
+            if(body.length<10000||body.length>4500000)throw Error("ZENTOTO_BAD_HTML_SIZE");
+            return parseZentoto(body);
+          }
           async function signedToken(){
             const endpoint=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL||"");
             const bearer=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
@@ -120,14 +134,25 @@ jobs:
             ].filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
             if(!rounds.length){console.log("No known G101 round and no pending settlements; skipping relay.");return;}
             const token=await signedToken();
+            const zenStatus=await Promise.allSettled([zentotoFinished()]);
+            const zen=zenStatus[0].status==="fulfilled"?zenStatus[0].value:[];
+            const wanted=new Set([...nos,...started].map(m=>String(m.gmTs||"")+":"+String(m.no||"")));
+            const verifiedZen=zen.filter(m=>wanted.has(String(m.gmTs)+":"+String(m.no)));
+            console.log("ZENTOTO_SOURCE="+JSON.stringify({
+              status:zenStatus[0].status,
+              rows:zen.length,verifiedPending:verifiedZen.length,
+              scoreSamples:verifiedZen.slice(0,10).map(m=>({no:m.no,round:m.gmTs,score:m.score,market:m.marketFamily})),
+              error:zenStatus[0].status==="rejected"?String(zenStatus[0].reason?.message||"").slice(0,120):null
+            }));
             let delivered=0,settled=0,failures=0;
             for(const ts of rounds){
               try{
                 const [gameInfoStatus,resultInfoStatus]=await Promise.allSettled([
                   officialGameInfo(ts),officialResultInfo(ts)]);
-                if(gameInfoStatus.status==="rejected"&&resultInfoStatus.status==="rejected")
-                  throw Error("both official endpoints unavailable: "+String(gameInfoStatus.reason?.message||"gameInfo"));
-                const payload={gmTs:ts};
+                const zenRows=verifiedZen.filter(x=>String(x.gmTs)===ts);
+                if(gameInfoStatus.status==="rejected"&&resultInfoStatus.status==="rejected"&&!zenRows.length)
+                  throw Error("all settlement and odds sources unavailable: "+String(gameInfoStatus.reason?.message||"gameInfo"));
+                const payload={gmTs:ts,zentotoRows:zenRows};
                 if(gameInfoStatus.status==="fulfilled")payload.gameInfo=gameInfoStatus.value;
                 if(resultInfoStatus.status==="fulfilled")payload.officialResult=resultInfoStatus.value;
                 // Authenticated OIDC metadata is diagnostic only; never settles a market.
@@ -168,6 +193,7 @@ jobs:
                   gmTs:ts,verifiedRows:data.verifiedRows,officialResultRows:data.resultApiRows||0,
                   officialGameInfoRows:data.gameInfoRows||0,settledNow:data.settledNow,
                   pendingBefore:data.pendingBefore,pendingAfter:data.pendingAfter,
+                  zentotoSettlement:data.zentotoSettlement||null,
                   officialOddsRelay:data.officialOddsRelay||null
                 }));
                 delivered++;settled+=Number(data.settledNow||0);
@@ -189,6 +215,7 @@ jobs:
                 source:final.sourceAudit?.source,
                 error:final.sourceAudit?.error||final.sourceAudit?.reason||null,
                 lastSuccessAt:final.sourceAudit?.lastSuccessAt},
+              zentotoSettlementAudit:final.zentotoSettlementAudit||null,
               officialOddsRelayAudit:final.officialOddsRelayAudit||null,
               hour14:(final.markingGames||[]).filter(m=>
                 m.date===new Intl.DateTimeFormat("en-CA",{
