@@ -336,6 +336,25 @@ jobs:
                 assert.equal(customPlus?.handicapDirection,"PLUS","User specified plus handicap changed");
               }
             }
+            if(expected.includes("R352-RECOMMENDED-OVER-EVIDENCE-RECHECK")){
+              const a=d.recommendedDirectionMigrationAudit||{},q=d.gradeAudit?.recommendationTotalDirectionAudit||{};
+              assert.equal(a.id,"R352_RECOMMENDED_OVER_EVIDENCE_GUARD",
+                "Live R352 recommendation-direction migration missing");
+              assert.equal(q.id,a.id,
+                "Live recommended Over/Under ratio audit missing");
+              assert.equal(Number(a.changedPicks),0,
+                "R352 changed actual representative picks without permission");
+              assert.ok(Number(a.overAfter)<=Number(a.overBefore),
+                "Recommended Over concentration got worse");
+              assert.equal(Number(a.overAfter),Number(q.overAfter),
+                "Live recommended Over counts disagree");
+              assert.ok(Number(q.softOverLimit)<=Math.max(Number(q.total),Math.ceil(Number(q.total)*.55))&&
+                Number(q.softOverLimit)>=Math.ceil(Number(q.total)*.55),
+                "R352 55% soft concentration alert not applied");
+              assert.deepEqual(d.marketMixAudit?.target,
+                {MONEYLINE:30,HANDICAP:30,TOTAL:40},
+                "User's market balance 30/30/40 was changed");
+            }
             assert.ok(d.summary&&g.counts,"Live source lacks marking grade audit");
             const countTotal=Number(counts["가장추천"]||0)+Number(counts["추천"]||0)+Number(counts["일반"]||0);
             if(Number(g.total||0)>0)assert.equal(countTotal,Number(g.total),"Invalid grade counters");
