@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths: ['.github/workflows/settlement-relay-watchdog.yml']
   schedule:
-    # Independent backup for delayed/dropped GitHub 5-minute schedule events.
+    # Independent ten-minute backup for delayed/dropped official relay events.
     # The official relay itself remains the only writer and authenticates via OIDC.
     - cron: "7-57/10 * * * *"
   workflow_dispatch:
@@ -35,20 +35,36 @@ jobs:
             if(!response.ok)throw Error("Settlement watchdog state HTTP "+response.status);
             const data=await response.json(),h=data.settlementHealth||{};
             const pending=Number(h.pending||0);
-            const stale=h.staleMinutes==null?Infinity:Number(h.staleMinutes);
-            const needsRelay=pending>0&&h.stalled===true&&
-              (!Number.isFinite(stale)||stale>=10);
+            // Check GitHub relay recency, not the direct Betman result poll:
+            // a successful direct poll must not conceal a failed official relay.
+            const lastRelayMs=Date.parse(h.relayLastContact||"");
+            const relayAgeMinutes=Number.isFinite(lastRelayMs)?
+              Math.max(0,(Date.now()-lastRelayMs)/60000):Infinity;
+            const needsRelay=pending>0&&relayAgeMinutes>=10;
             core.info("SETTLEMENT_WATCHDOG_HEALTH="+JSON.stringify({
               version:data.version,round:data.round,pending,
               settled:data.summary?.settled,lastRelayContact:h.relayLastContact,
+              relayAgeMinutes:Number.isFinite(relayAgeMinutes)?Math.round(relayAgeMinutes):null,
               staleMinutes:h.staleMinutes,stalled:h.stalled,needsRelay
             }));
             if(!needsRelay){
               core.info("Recent verified official relay or no pending games: no action.");
               return;
             }
-            // Only dispatch the EXISTING secured OIDC-backed official result relay.
-            // Do not generate scores, override picks, or mutate the settlement ledger.
+            // Do not queue duplicate GitHub relay jobs when a scheduled or
+            // live-chain execution is already running or waiting.
+            const {data:existing}=await github.rest.actions.listWorkflowRuns({
+              owner:context.repo.owner,repo:context.repo.repo,
+              workflow_id:"official-settlement-relay.yml",per_page:20
+            });
+            const alreadyQueued=(existing.workflow_runs||[]).some(w=>
+              ["queued","pending","in_progress","waiting","requested"].includes(w.status));
+            if(alreadyQueued){
+              core.info("SETTLEMENT_WATCHDOG_RELAY_ALREADY_RUNNING=1");
+              return;
+            }
+            // Only dispatch the EXISTING OIDC-authenticated official relay.
+            // Never infer unofficial outcomes or modify picks/settlement rules.
             await github.rest.actions.createWorkflowDispatch({
               owner:context.repo.owner,repo:context.repo.repo,
               workflow_id:"official-settlement-relay.yml",ref:"main"
