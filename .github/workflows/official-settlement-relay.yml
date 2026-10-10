@@ -38,6 +38,7 @@ jobs:
           node <<'NODE'
           const base=process.env.PROTONUMBER_URL, aud=process.env.GITHUB_OIDC_AUD;
           const {parseZentoto}=require('./tools/zentoto-settlement.cjs');
+          const {fetchFinishedLeagueScores}=require('./tools/espn-final-settlement.cjs');
           const timeout=ms=>AbortSignal.timeout(ms);
           const betmanHeaders=ref=>({
             "content-type":"application/json; charset=UTF-8",
@@ -143,6 +144,14 @@ jobs:
             const token=await signedToken();
             const zenStatus=await Promise.allSettled([zentotoFinished()]);
             const zen=zenStatus[0].status==="fulfilled"?zenStatus[0].value:[];
+            // R367: only exact-fixture ESPN FULL_TIME results; separate from live scores.
+            const espnTask=await fetchFinishedLeagueScores(started);
+            const espn=espnTask.rows;
+            console.log("ESPN_FULLTIME_SOURCE="+JSON.stringify({
+              checked:espnTask.checks,succeeded:espnTask.succeeded,
+              matches:espn.length,errors:espnTask.errors,results:espn.slice(0,30).map(
+                m=>({no:m.no,score:m.score,league:m.leagueId,eventId:m.eventId}))
+            }));
             const wanted=new Set([...nos,...started,...scoreBackfill].map(m=>String(m.gmTs||"")+":"+String(m.no||"")));
             // Include the finished moneyline result for a wanted total/handicap
             // fixture, even when that moneyline Proto number wasn't selected.
@@ -166,9 +175,10 @@ jobs:
                 const [gameInfoStatus,resultInfoStatus]=await Promise.allSettled([
                   officialGameInfo(ts),officialResultInfo(ts)]);
                 const zenRows=verifiedZen.filter(x=>String(x.gmTs)===ts);
-                if(gameInfoStatus.status==="rejected"&&resultInfoStatus.status==="rejected"&&!zenRows.length)
+                const espnRows=espn.filter(x=>String(x.gmTs)===ts);
+                if(gameInfoStatus.status==="rejected"&&resultInfoStatus.status==="rejected"&&!zenRows.length&&!espnRows.length)
                   throw Error("all settlement and odds sources unavailable: "+String(gameInfoStatus.reason?.message||"gameInfo"));
-                const payload={gmTs:ts,zentotoRows:zenRows};
+                const payload={gmTs:ts,zentotoRows:zenRows,espnRows};
                 if(gameInfoStatus.status==="fulfilled")payload.gameInfo=gameInfoStatus.value;
                 if(resultInfoStatus.status==="fulfilled")payload.officialResult=resultInfoStatus.value;
                 // Authenticated OIDC metadata is diagnostic only; never settles a market.
@@ -210,6 +220,7 @@ jobs:
                   officialGameInfoRows:data.gameInfoRows||0,settledNow:data.settledNow,
                   pendingBefore:data.pendingBefore,pendingAfter:data.pendingAfter,
                   zentotoSettlement:data.zentotoSettlement||null,
+                  espnSettlement:data.espnSettlement||null,
                   officialOddsRelay:data.officialOddsRelay||null
                 }));
                 delivered++;settled+=Number(data.settledNow||0);
@@ -232,6 +243,7 @@ jobs:
                 error:final.sourceAudit?.error||final.sourceAudit?.reason||null,
                 lastSuccessAt:final.sourceAudit?.lastSuccessAt},
               zentotoSettlementAudit:final.zentotoSettlementAudit||null,
+              espnSettlementAudit:final.espnSettlementAudit||null,
               officialOddsRelayAudit:final.officialOddsRelayAudit||null,
               hour14:(final.markingGames||[]).filter(m=>
                 m.date===new Intl.DateTimeFormat("en-CA",{
