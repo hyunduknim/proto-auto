@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    # Stagger away from the start of each five-minute window to avoid
-    # high scheduler contention; schedule events remain best-effort on GitHub.
-    - cron: "3-58/5 * * * *"
+    # Every ten minutes; GitHub schedule is best-effort, so the active relay
+    # chain and independent watchdog cover missed scheduler events.
+    - cron: "3-53/10 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -22,7 +22,7 @@ jobs:
   settle:
     name: Fetch official GameInfo and securely settle pending bets
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     steps:
       - name: Install Node.js 22
         uses: actions/setup-node@v4
@@ -139,8 +139,8 @@ jobs:
                     }
                     deliveredToWorker=true;break;
                   }
-                  if((r.status===404||r.status===503)&&deliveryAttempt<10){
-                    console.log("Worker deploying, relay endpoint retry",deliveryAttempt,"of 10",r.status);
+                  if([404,429,500,502,503,504].includes(r.status)&&deliveryAttempt<10){
+                    console.log("Worker relay temporarily unavailable, retry",deliveryAttempt,"of 10",r.status);
                     await new Promise(resolve=>setTimeout(resolve,5000));
                     continue;
                   }
@@ -185,14 +185,15 @@ jobs:
           })().catch(e=>{console.error("OFFICIAL_RELAY_FATAL:",String(e.message||e).slice(0,160));process.exitCode=1;});
           NODE
 
-      - name: Continue live official polling while matches are active
-        if: success()
+      - name: Continue ten-minute official polling while matches are active
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
-            // GitHub's scheduled five-minute events may be delayed or skipped.
-            // Keep exactly one relay chain alive while an actual represented
-            // game is running (up to eight hours after kickoff) or starts soon.
+            // GitHub's scheduled ten-minute events may be delayed or skipped.
+            // Keep a ten-minute relay chain alive while represented games are
+            // running (up to eight hours after kickoff) or start soon.
+            // Continue even if the prior POST failed with a transient Worker 502.
             // The OIDC-verified official relay above is the ONLY settlement writer.
             const endpoint="https://protonumber.mystyle276.workers.dev/api/state";
             const load=async()=>{
@@ -219,9 +220,10 @@ jobs:
               core.info("No live or imminent represented games; stop active polling.");
               return;
             }
-            // Bound runner use and prevent duplicate self-dispatches if another
-            // workflow_dispatch or schedule run has already queued.
-            await new Promise(resolve=>setTimeout(resolve,20000));
+            // Do not chain every ~minute. Wait roughly nine minutes so the next
+            // official refresh occurs about ten minutes after the current one.
+            // The independent watchdog covers abrupt job/runner termination.
+            await new Promise(resolve=>setTimeout(resolve,9*60*1000));
             const current=await load();
             activity=relevant(current);
             if(activity.pending===0&&activity.imminent===0){
