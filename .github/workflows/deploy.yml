@@ -45,6 +45,8 @@ jobs:
         run: node tests/r365-zen-settlement.cjs
       - name: Verify R368 owner-requested void is narrow and clearly non-official
         run: node tests/r368-requested-void.cjs
+      - name: Verify R369 invariant and signed final-score source adapters
+        run: node tests/r369-one-mark-fast-score.cjs
 
   confirm-cloudflare:
     name: Confirm Cloudflare automatic deployment
