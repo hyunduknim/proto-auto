@@ -3218,12 +3218,15 @@ function r353RecommendedPlusToTotal(state){
     marketSort(a.source,b.source));
   for(const item of scored.slice(0,remaining)){
     const source=item.source,key=gameSeed(source);
+    // Snapshot before clearRepresentative() resets the original odds and pick.
+    const old={no:source.no,pick:source.finalPick,odds:Number(source.finalOdds),
+      probability:Number(source.hitProbability)};
     const switched=switchOne(source,item.best.m.no,item.best.q.pick,false);
     if(!switched){blocked.push({game:key,reason:"UNAVAILABLE_DURING_WRITE"});continue;}
     targets[key]={no:switched.m.no,pick:switched.q.pick};
-    changes.push({game:key,fromNo:source.no,fromPick:source.finalPick,
+    changes.push({game:key,fromNo:old.no,fromPick:old.pick,
       toNo:switched.m.no,toPick:switched.q.pick,odds:Number(switched.q.odds),
-      oldEV:r3(Number(source.hitProbability)*Number(source.finalOdds)-1),
+      oldEV:r3(old.probability*old.odds-1),
       newEV:r3(Number(switched.q.calibratedP)*Number(switched.q.odds)-1),
       grade:"추천"});
   }
