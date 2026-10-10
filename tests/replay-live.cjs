@@ -92,16 +92,23 @@ assert.equal(out.coverage.gapGames,0,"All priced pregame games must be marked");
 assert.equal(out.invalidElite,0,"Elite limited to Total U/O");
 assert.equal(after.filter(m=>m.displayGrade==="가장추천"&&m.marketFamily!=="TOTAL").length,0,
  "Only Under/Over may enter highest recommendation tier");
-assert.ok((out.direction.selectedUnder||0)>0&&(out.direction.selectedOver||0)>0,
- "Eligible Under and Over must both be represented in simulated elite tier");
+// R356: when no U/O candidate is value-qualified, never invent both elite directions.
+const bothQualified=(pools.TOTAL_UNDER?.veryStrong||0)>0&&(pools.TOTAL_OVER?.veryStrong||0)>0;
+if(!bothQualified)console.log("DIRECTION_EVIDENCE_INSUFFICIENT: no forced elite Over/Under");
+assert.ok(top.every(m=>Number(m.hitProbability)*Number(m.finalOdds)-1>=-1e-9),
+  "Elite cannot have negative offered-price EV");
+assert.ok(rec.every(m=>Number(m.hitProbability)*Number(m.finalOdds)-1>=-.035-1e-9),
+  "Recommended picks cannot have materially negative offered-price EV");
 const recMix=S.gradeAudit?.recommendationBalanceAudit;
-assert.ok(["MONEYLINE","HANDICAP","TOTAL"].every(k=>recMix?.selected?.[k]===recMix?.target?.[k]),
- "Recommendation needs balanced family allocation");
-assert.ok(recMix.totalUnder>0&&recMix.totalOver>0,
- "Recommendation TOTAL should include both real Under and Over");
+// Only enforce existence of explicit audit fields; lack of qualified candidates is a warning, not quota-filling.
+assert.ok(["MONEYLINE","HANDICAP","TOTAL"].every(k=>
+  Number.isFinite(Number(recMix?.selected?.[k]??NaN))&&Number.isFinite(Number(recMix?.target?.[k]??NaN))),
+  "Recommendation market audit numbers must be present");
 assert.ok(top.every(m=>m.gradeEvidenceTier!=="MARKET_RELATIVE_NOT_INDEPENDENT"||!!m.gradeEvidenceWarning),
  "Market-relative most-recommended items must carry independent-source caution");
-assert.equal(S.marketMixAudit?.deviation,0,"Target 30/30/40 must hold");
+assert.ok(Number.isFinite(Number(S.marketMixAudit?.deviation)), "Market deviation must be measured");
+console.log("MARKET_MIX_AUDIT="+JSON.stringify({target:S.marketMixAudit?.targetCounts,
+  actual:S.marketMixAudit?.counts,deviation:S.marketMixAudit?.deviation}));
 assert.equal(after.length,S.gradeAudit?.total,"All current-round reps included in grade audit");
 
 const verifyBothSides=(xs)=>xs.some(m=>m.finalPick==="언더")&&xs.some(m=>m.finalPick==="오버");
