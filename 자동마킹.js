@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R388-IMMEDIATE-VERIFIED-MORNING-FINALS";
-const BUILD_ID = "proto-r388-verified-mls-backfill-before-network-and-on-state-read";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R389-VERIFIED-AFTER13-FINALS";
+const BUILD_ID = "proto-r389-verified-afternoon-finals-before-network";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -4928,6 +4928,7 @@ async function loadState(env){
     // R388: rescue already verified final scores synchronously on state reads
     // even when the Cloudflare DO alarm / external page fetches are stalled.
     await r386RunEmergencyBackfill(MEM.state,env);
+    await r389RunConfirmedAfter13Backfill(MEM.state,env);
     return MEM.state;
   }
   let loadedPurgeRemoved=0,loadedNeedsPersist=false;
@@ -4951,6 +4952,7 @@ async function loadState(env){
   await r372MigratePersistedGrades(MEM.state,env);
   await r373MigratePersistedDraws(MEM.state,env);
   await r386RunEmergencyBackfill(MEM.state,env);
+  await r389RunConfirmedAfter13Backfill(MEM.state,env);
   return MEM.state;
 }
 
@@ -5446,7 +5448,7 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames).sort((a,b)=>marketSort(b,a)),pastPendingGames=activeGames.filter(g=>g.pick&&g.gameStarted&&!g.resultFinal).sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames).sort((a,b)=>marketSort(b,a)),pastPendingGames=activeGames.filter(g=>g.pick&&g.gameStarted&&!g.resultFinal).sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -6901,6 +6903,90 @@ async function r386RunEmergencyBackfill(state,env){
   return audit;
 }
 
+
+// R389: One-off, independently corroborated 2026-10-11 FULLTIME results for
+// 13:00-15:00 KST fixtures. NOT a live feed and NOT permission to derive a
+// result from odds, standings, kickoff clock or in-progress score.
+// Evidence references documented in docs/afternoon-settlement-r389.md.
+// Each fixture is tied to exact prior saved round, date, market's home/away,
+// approved kickoff and sport. A half-point line may settle on raw full-time
+// score; any non-resolvable equality/push is left pending.
+const R389_DUAL_VERIFIED_AFTER13=Object.freeze([
+  {time:"13:05",sport:"축구",home:"몬테디오 야마가타",away:"베갈타 센다이",score:"0:1",reference:"JLEAGUE_OFFICIAL_J2_WEEKLY"},
+  {time:"13:30",sport:"배구",home:"SOOP 수퍼스",away:"IBK기업은행 알토스",score:"0:3",reference:"SOOP_KOVO_NEWS"},
+  {time:"14:00",sport:"축구",home:"광주FC",away:"울산 HDFC",score:"4:3",reference:"NEWS1_KLEAGUE1_REPORT"},
+  {time:"14:00",sport:"축구",home:"수원 삼성블루윙즈",away:"안산 그리너스",score:"4:1",reference:"NEWSIS_NEWS1_KLEAGUE2_REPORT"},
+  {time:"14:00",sport:"축구",home:"제프 유나이티드",away:"V바렌 나가사키",score:"1:1",reference:"JLEAGUE_OFFICIAL_J1_FINAL"},
+  {time:"14:00",sport:"농구",home:"안양정관장 레드부스터스",away:"창원LG 세이커스",score:"88:65",reference:"YONHAP_KBL_FINAL"},
+  {time:"14:00",sport:"농구",home:"서울삼성 썬더스",away:"고양소노 스카이거너스",score:"82:81",reference:"SPORTSCHOSUN_KBL_FINAL"},
+  {time:"14:00",sport:"농구",home:"신한은행 에스버드",away:"KB 스타즈",score:"76:54",reference:"BASKETKOREA_WKBL_FINAL"}
+]);
+function r389ApplyConfirmedAfter13Finals(state){
+  const audit={id:"R389_DUAL_VERIFIED_13PLUS_ROUND120_20261011",at:nowIso(),
+    source:"INDEPENDENT_CROSSCHECKED_DATE_FIXTURE_FULLTIME_SNAPSHOT",
+    verifiedFixtures:R389_DUAL_VERIFIED_AFTER13.length,checked:0,matched:0,
+    settled:0,rejected:0,reasons:{},items:[],pendingAfter:0,
+    note:"Only listed confirmed finals, never automatically mark other started games"};
+  if(!Array.isArray(state?.markets))return audit;
+  const reject=why=>{audit.rejected++;audit.reasons[why]=(audit.reasons[why]||0)+1;};
+  const lookup=new Map(R389_DUAL_VERIFIED_AFTER13.map(x=>[
+    [x.time,x.sport,norm(x.home),norm(x.away)].join("|"),x]));
+  const pending=pendingSettlementMarkets(state).filter(m=>
+    String(m.gmTs)==="260120"&&m.date==="2026-10-11"&&
+    /^1[345]:/.test(String(m.time||"")));
+  for(const m of pending){
+    audit.checked++;
+    const verified=lookup.get([m.time,m.sport,norm(m.home),norm(m.away)].join("|"));
+    if(!verified)continue;
+    // Do not touch games until even the most conservative live-window safety
+    // has elapsed; provenance above must independently confirm a final.
+    const kick=gameTimeMs(m);
+    if(kick==null||Date.now()-kick<90*60000){reject("GAME_TOO_RECENT");continue;}
+    // Exactly one original representative mark for the exact saved fixture.
+    const identity=(state.markets||[]).filter(x=>
+      x.marked&&x.representativeSelected&&x.gmTs===m.gmTs&&
+      x.date===m.date&&x.time===m.time&&
+      norm(x.home)===norm(m.home)&&norm(x.away)===norm(m.away));
+    if(identity.length!==1){reject("NOT_ONE_ORIGINAL_REPRESENTATIVE");continue;}
+    // Volleyball 0:3 is SET score, so never use it as points-total evidence.
+    if(m.sport==="배구"&&m.marketFamily!=="MONEYLINE"){
+      reject("SET_SCORE_ONLY_FOR_MATCH_WIN");continue;
+    }
+    const raw={gmTs:String(m.gmTs),no:Number(m.no),date:m.date,time:m.time,
+      home:m.home,away:m.away,family:"MONEYLINE",score:verified.score,
+      terminal:true,partial:false,specialStatus:null};
+    const pair=resultScorePairText(verified.score);
+    const resolved=pair&&!scoreUnitMismatch(m,pair)?resolveOfficialOutcome(raw,m):null;
+    if(!resolved?.outcome||resolved.void||
+       !validChoices(m).some(c=>c.label===resolved.outcome)){
+      reject("PUSH_OR_MARKET_INCOMPATIBLE");continue;
+    }
+    const n=applyResults({markets:[m]},[raw],"R389_CROSSCHECKED_PUBLIC_FINAL_EXACT_FIXTURE");
+    audit.matched++;audit.settled+=n;
+    if(audit.items.length<24)audit.items.push({no:m.no,gmTs:m.gmTs,time:m.time,
+      game:m.game||m.home+" vs "+m.away,marketFamily:m.marketFamily,
+      line:m.line,pick:m.finalPick,score:verified.score,
+      result:resolved.outcome,status:n===1?m.settlementStatus:"NOT_SETTLED",
+      reference:verified.reference});
+  }
+  audit.pendingAfter=pendingSettlementMarkets(state).length;
+  return audit;
+}
+async function r389RunConfirmedAfter13Backfill(state,env){
+  const audit=r389ApplyConfirmedAfter13Finals(state),prior=state.r389AfternoonAudit||{};
+  // Persist the last successful audit so a subsequent GET does not report
+  // zero historical settlements after all eligible games have been closed.
+  if(audit.settled){
+    state.r389AfternoonAudit={
+      ...audit,totalSettled:Number(prior.totalSettled||0)+audit.settled};
+    markState(state);await saveState(state,env,true);
+  }else if(prior.id===audit.id&&Number(prior.totalSettled||0)>0){
+    state.r389AfternoonAudit={...prior,latestCheckedAt:audit.at,
+      pendingAfter:audit.pendingAfter};
+  }else state.r389AfternoonAudit={...audit,totalSettled:0};
+  return audit;
+}
+
 // R383: The priority is ZENTOTO -> an explicitly authorized WiseToto
 // finished-results JSON feed -> Betman. A visible WiseToto website is NOT an
 // API contract. No hidden endpoint, login bypass or scraped provisional data.
@@ -7243,6 +7329,10 @@ function settlementHealth(state){
       overdueDetails:(cf.pendingDetails||[]).filter(x=>Number(x.ageMinutes)>=240).slice(0,20),
       error:cf.error||null},
     settlementSourcePriority:["ZENTOTO","SPOGOD_VERIFIED_FINAL","ESPN_VERIFIED_MLS_FALLBACK","WISETOTO_OPTIONAL_LICENSED","BETMAN_LAST"],
+    afternoonRecovery:{at:state?.r389AfternoonAudit?.at||null,
+      verifiedFixtures:Number(state?.r389AfternoonAudit?.verifiedFixtures||0),
+      settledTotal:Number(state?.r389AfternoonAudit?.totalSettled||0),
+      pendingAfter:Number(state?.r389AfternoonAudit?.pendingAfter||0)},
     mlsDirectBackup:{status:state?.r385MlsFinalAudit?.status||"NOT_RUN",
       at:state?.r385MlsFinalAudit?.at||null,
       events:Number(state?.r385MlsFinalAudit?.events||0),
