@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R380-SETTLEMENT-RELAY-RECOVERY";
-const BUILD_ID = "proto-r380-safe-zen-fixture-final-and-relay-recovery";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R381-CLOUDFLARE-NATIVE-SETTLEMENT";
+const BUILD_ID = "proto-r381-cloudflare-do-cron-public-final-without-actions";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6484,6 +6484,116 @@ function r380ApplyZentotoFixtureFinals(state,rows,gmTs){
   }
   return audit;
 }
+// R381: Free-running Cloudflare cron/DO settlement fallback. Only public,
+// conclusively full-time ZenToto HTML; no HTML page may directly change picks.
+// Parse only the public, full-time, terminal Proto settlement rows.
+// This module never submits a bet or modifies saved selections.
+const r381ZenStrip = x => String(x||"").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,"")
+  .replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/gi," ")
+  .replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">")
+  .replace(/\s+/g," ").trim();
+function r381ParseZentoto(html){
+  if(typeof html!=="string"||html.length<100)return [];
+  const blocks=html.split(/<div class="game row col-xs-12">/);
+  const results=[],seen=new Set();
+  for(const block of blocks.slice(1)){
+    const noMatch=block.match(/<p class="proto_uid">\s*(\d{3,6})\s*<\/p>/);
+    if(!noMatch)continue;
+    const no=Number(noMatch[1]);
+    if(seen.has(no))continue;
+    const status=block.match(/<p class="game_state([^"]*)"[^>]*>\s*([^<]*)<\/p>/);
+    if(!status||!/\bstate_finish\b/.test(status[1])||r381ZenStrip(status[2])!=="경기종료")continue;
+    const round=block.match(/(?:game_round|round)=["']?(\d{6})/i)||
+      block.match(/game_round=(\d{6})&proto_uid=/)||
+      block.match(/\/(\d{6})\/\d{3,6}/);
+    if(!round)continue;
+    const datetime=block.match(/<div class="col-xs-5 date tar">\s*(20\d{2}-\d{2}-\d{2})\([^)]*\)\s*(\d{2}:\d{2})\s*<\/div>/);
+    if(!datetime)continue;
+    const homeTag=block.match(/<p class="home">([\s\S]*?)<\/p>/),awayTag=block.match(/<p class="away">([\s\S]*?)<\/p>/),
+      scoreTag=block.match(/<p class="vs">([\s\S]*?)<\/p>/);
+    if(!homeTag||!awayTag||!scoreTag)continue;
+    const home=r381ZenStrip(homeTag[1].replace(/<span\b[^>]*>[\s\S]*?<\/span>/g,"")),away=r381ZenStrip(awayTag[1]),
+      score=r381ZenStrip(scoreTag[1]);
+    if(!home||!away)continue;
+    const type=r381ZenStrip(homeTag[1].match(/\((?:U\/O|H[+-]?)\d+(?:\.\d+)?\)/i)?.[0]||"").replace(/^\(|\)$/g,"");
+    const total=type.match(/^U\/O(\d+(?:\.\d+)?)$/i),handicap=type.match(/^H([+-]?\d+(?:\.\d+)?)$/i);
+    const family=total?"TOTAL":handicap?"HANDICAP":"MONEYLINE",line=total?Number(total[1]):handicap?Number(handicap[1]):null;
+    // Explicit market identity, FULLTIME outcome, no totals guessed from handicap-adjusted scores.
+    if(family==="TOTAL"&&!/^\d{1,3}$/.test(score))continue;
+    if(family!=="TOTAL"&&!/^\d{1,3}(?:\.\d)?\s*:\s*\d{1,3}(?:\.\d)?$/.test(score))continue;
+    if(family==="MONEYLINE"&&!/\bwdl=["']W["']/.test(block)&&!/\bwdl=["']D["']/.test(block))continue;
+    seen.add(no);
+    results.push({source:"ZENTOTO_LEGACY_FULLTIME",gmTs:round[1],no,
+      date:datetime[1],time:datetime[2],home,away,marketFamily:family,line,
+      score:score.replace(/\s+/g,""),terminal:true,fullTime:true});
+  }
+  return results;
+}
+
+function r381ZenRoundCandidates(rows,pending){
+  const selectedNos=new Set(pending.map(m=>Number(m.no)));
+  const fixtures=new Set(pending.filter(m=>m.date&&m.time&&m.home&&m.away).map(m=>
+    [String(m.gmTs),String(m.date),String(m.time).slice(0,5),norm(m.home),norm(m.away)].join("|")));
+  return rows.filter(r=>selectedNos.has(Number(r.no))||
+    (r.marketFamily==="MONEYLINE"&&fixtures.has(
+      [String(r.gmTs),String(r.date),String(r.time).slice(0,5),norm(r.home),norm(r.away)].join("|"))));
+}
+async function r381RefreshCloudflareZentoto(state,env,force=false){
+  const pending=pendingSettlementMarkets(state),now=Date.now();
+  if(!pending.length)return {source:"CLOUDFLARE_ZENTOTO_PUBLIC_FINAL",status:"NO_STARTED_PENDING",settled:0};
+  const previous=state.cloudflareSettlementAudit||{},previousMs=Date.parse(previous.at||"");
+  if(!force&&Number.isFinite(previousMs)&&now-previousMs<5*60000)
+    return {source:"CLOUDFLARE_ZENTOTO_PUBLIC_FINAL",status:"THROTTLED",settled:0};
+  const audit={source:"CLOUDFLARE_ZENTOTO_PUBLIC_FINAL",at:nowIso(),status:"CHECKING",
+    pendingBefore:pending.length,pendingAfter:pending.length,received:0,candidates:0,
+    settled:0,scoresUpdated:0,perRound:[],error:null,
+    policy:"FULLTIME_ONLY_EXACT_ROUND_KICKOFF_TEAMS_MARKET_NO_GUESSES"};
+  const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),12000);
+  try{
+    const response=await fetch("https://v1.zentoto.com/proto/game",{
+      headers:{"accept":"text/html","user-agent":"Mozilla/5.0 (compatible; ProtoResultCheck/1.0)"},
+      redirect:"error",signal:ac.signal});
+    if(!response.ok)throw Error("ZEN_HTTP_"+response.status);
+    const contentType=String(response.headers?.get("content-type")||"");
+    if(contentType&&!/text\/html/i.test(contentType))throw Error("ZEN_NOT_HTML");
+    const body=await response.text();
+    if(body.length<10000||body.length>4500000)throw Error("ZEN_INVALID_HTML_LENGTH");
+    const rows=r381ParseZentoto(body);
+    audit.received=rows.length;
+    const pendingByRound=new Map();
+    for(const m of pending){
+      const ts=String(m.gmTs||"");
+      if(!/^\d{6}$/.test(ts))continue;
+      if(!pendingByRound.has(ts))pendingByRound.set(ts,[]);
+      pendingByRound.get(ts).push(m);
+    }
+    for(const [ts,targets] of pendingByRound){
+      const selected=r381ZenRoundCandidates(rows.filter(r=>String(r.gmTs)===ts),targets);
+      audit.candidates+=selected.length;
+      if(!selected.length)continue;
+      // These existing validators reject wrong lines, partial scores,
+      // duplicate fixtures and ambiguous 2-way pushes.
+      const exact=r365ApplyZentotoResults(state,selected,ts),
+        fixture=r380ApplyZentotoFixtureFinals(state,selected,ts);
+      audit.settled+=exact.settled+fixture.settled;
+      audit.scoresUpdated+=Number(exact.scoresUpdated||0);
+      audit.perRound.push({gmTs:ts,rows:selected.length,exactSettled:exact.settled,
+        fixtureSettled:fixture.settled,rejected:exact.rejected,
+        reasons:exact.reasons,ambiguous:fixture.skippedAmbiguous,
+        unresolvedPush:fixture.skippedPush});
+    }
+    audit.pendingAfter=pendingSettlementMarkets(state).length;
+    audit.status=rows.length?"FINISHED_ROWS_CHECKED":"NO_VERIFIABLE_FINISHED_ROWS";
+    if(audit.settled||audit.scoresUpdated)markState(state);
+  }catch(error){
+    audit.status="SOURCE_UNAVAILABLE";
+    audit.error=String(error?.message||error).slice(0,160);
+  }finally{clearTimeout(timer);}
+  state.cloudflareSettlementAudit=audit;
+  // Record source outages as diagnostics, but never overwrite stored outcomes.
+  await saveState(state,env,audit.settled>0||audit.scoresUpdated>0);
+  return audit;
+}
 // R367: ESPN is a *supplemental* full-time source when Zen/Betman is delayed.
 // It is delivered only by the trusted OIDC GitHub relay. The sender matches
 // both translated team names and kickoff time against ESPN's public score feed;
@@ -6801,6 +6911,10 @@ async function runTick(env){return serializedOperation(()=>runTickInternal(env))
 async function runTickInternal(env){
   const s=await loadState(env);let cur=MEM.state||s;
   if(hasLivePending(cur))await refreshBetmanResults(cur,env,false);
+  cur=MEM.state||cur;
+  // GitHub Actions quota may be exhausted; Cloudflare cron/DO polls an
+  // independent public final-result source with strict settlement guards.
+  await r381RefreshCloudflareZentoto(cur,env,false);
   cur=MEM.state||cur;await refreshBetmanSource(cur,env,false);
   // Next DO alarm handles the next official result check; no duplicate long remote call in one tick.
   return MEM.state||cur;
@@ -6873,7 +6987,7 @@ async function handleAppInternal(req,env,ctx){
       const s=await loadState(env);return json(feedIntegrationStatus(s,env));
     }
     if(u.pathname==="/api/diagnostics"){
-      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
+      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
     }
     if(u.pathname==="/api/self-test"){if(!adminAuthorized(req,env))return json({error:"unauthorized"},401);const report=selfTest();return json(report,report.ok?200:500);}
     return json({error:"not found"},404);
