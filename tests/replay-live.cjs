@@ -54,8 +54,21 @@ console.log("R373_DRAW_DISCOVERY="+JSON.stringify({total:drawCandidates.length,
   marketDraws:drawCandidates.filter(x=>x.family==="MONEYLINE").length,
   handicapDraws:drawCandidates.filter(x=>x.family==="HANDICAP").length,
   oldDraws:selected(S.markets).filter(m=>m.sport==="축구"&&m.finalPick==="무").length,
-  top:drawCandidates.slice(0,65)}));
+  top:drawCandidates.slice(0,18)}));
 
+const auditR373=S.r373DrawInterestAudit||{},interest=(S.markets||[]).filter(m=>
+ m.marked&&m.representativeSelected&&m.selectionMode==="R373_DRAW_INTEREST"&&!locked(m));
+console.log("R373_DRAW_REPLAY="+JSON.stringify({
+  chosen:auditR373.chosen,changed:auditR373.changed,examined:auditR373.examined,
+  rows:auditR373.rows,actual:interest.map(m=>({no:m.no,game:m.game,
+    family:m.marketFamily,pick:m.finalPick,odds:m.finalOdds,
+    grade:m.displayGrade,selectionMode:m.selectionMode}))}));
+assert.ok(interest.length<=2,"Maximum two future relative-interest draw picks");
+assert.ok(interest.every(m=>m.sport==="축구"&&m.finalPick==="무"&&
+ ["MONEYLINE","HANDICAP"].includes(m.marketFamily)&&Number(m.finalOdds)>=1.31),
+ "Draw interests must be priced, genuine soccer regular/handicap markets");
+assert.equal(new Set(interest.map(m=>[m.date,m.time,m.home,m.away].join("|"))).size,
+ interest.length,"Draw interest fixtures must never duplicate");
 const after=selected(S.markets),future=after.filter(m=>!locked(m));
 for(const x of before){
  const cur=S.markets.find(m=>id(m)===id(x));
