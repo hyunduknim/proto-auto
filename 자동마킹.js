@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R392-SETTLEMENT-VISIBILITY-FILTERS";
-const BUILD_ID = "proto-r392-display-only-filters-all-rounds";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R393-TEN-MINUTE-SETTLEMENT-WATCHDOG";
+const BUILD_ID = "proto-r393-10min-watchdog-fast-refresh-kept";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5469,7 +5469,7 @@ function publicState(state){
     pastGames=mergeCurrentPastCards(state,savedSettled).sort((a,b)=>marketSort(b,a)),
     pastPendingGames=pendingSettlementMarkets(state)
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      .sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,tenMinuteSettlementAudit:state.tenMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -7592,17 +7592,50 @@ function hasUpcomingWithin(s,ms){const now=Date.now();return (s?.markets||[]).so
 let OPERATION_QUEUE=Promise.resolve();
 function serializedOperation(fn){const task=OPERATION_QUEUE.then(fn,fn);OPERATION_QUEUE=task.catch(()=>{});return task;}
 async function runTick(env){return serializedOperation(()=>runTickInternal(env));}
+// R393: additional ten-minute settlement reconciliation. Keep the existing
+// 1-minute Cloudflare cron, frequent DO alarms, <=2-minute Zen/Spogod checks,
+// and 1-1.5-second UI state reads. This never marks or voids a match.
+function r393TenMinuteDue(state,nowMs){
+  if(!pendingSettlementMarkets(state).length)return false;
+  const last=Date.parse(state?.tenMinuteSettlementAudit?.checkedAt||"");
+  return !Number.isFinite(last)||nowMs-last>=10*60000;
+}
+function r393TenMinuteAudit(state,before,nowMs){
+  const pending=pendingSettlementMarkets(state),
+    overdue=pending.filter(m=>{
+      const kickoff=gameTimeMs(m);
+      return kickoff!=null&&nowMs-kickoff>=3*3600000;
+    }),
+    zen=state?.cloudflareSettlementAudit||{},
+    spogod=state?.spogodSettlementAudit||{},
+    official=state?.resultAudit||{};
+  return {policy:"TEN_MINUTE_FORCED_SOURCE_RECHECK_IN_ADDITION_TO_FASTER_POLLING",
+    checkedAt:new Date(nowMs).toISOString(),intervalMinutes:10,
+    pendingBefore:Number(before)||0,pendingAfter:pending.length,
+    pendingDecrease:Math.max(0,(Number(before)||0)-pending.length),
+    overdueThreeHours:overdue.length,
+    zen:{status:zen.status||"NOT_RUN",at:zen.at||null,error:zen.error||null},
+    spogod:{status:spogod.status||"NOT_RUN",at:spogod.at||null,error:spogod.error||null,
+      indexMatches:Number(spogod.indexMatches||0),detailChecked:Number(spogod.detailChecked||0)},
+    official:{status:official.ok===true?"OK":official.ok===false?"ERROR":"UNKNOWN",
+      at:official.at||null},
+    oldestPending:pending.slice().sort(marketSort).slice(0,12)
+      .map(m=>({gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,
+        game:m.game||m.home+" vs "+m.away}))};
+}
 async function runTickInternal(env){
   const s=await loadState(env);let cur=MEM.state||s;
+  const tenMinuteDue=r393TenMinuteDue(cur,Date.now());
+  const pendingBefore=tenMinuteDue?pendingSettlementMarkets(cur).length:0;
   // R388: saved final-score recovery has no network. It is already performed
   // by loadState() before any remote source can block this tick.
   // R384: Zen first, Spogod verified full-time second, optional licensed Wise, Betman last.
   // A failure in one source never blocks the next source and cannot alter
   // already settled scores, picks, prices or historical records.
-  try{await r381RefreshCloudflareZentoto(cur,env,false);}
+  try{await r381RefreshCloudflareZentoto(cur,env,tenMinuteDue);}
   catch(e){MEM.lastAlarmError="R384_ZEN:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
-  try{await r384RefreshSpogodResults(cur,env,false);}
+  try{await r384RefreshSpogodResults(cur,env,tenMinuteDue);}
   catch(e){MEM.lastAlarmError="R384_SPOGOD:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
   try{await r385RefreshMlsFinals(cur,env,false);}
@@ -7612,9 +7645,15 @@ async function runTickInternal(env){
   try{await r383RefreshWisetotoResults(cur,env,false);}
   catch(e){MEM.lastAlarmError="R383_WISE:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
-  if(hasLivePending(cur))await refreshBetmanResults(cur,env,false);
+  if(hasLivePending(cur))await refreshBetmanResults(cur,env,tenMinuteDue);
   cur=MEM.state||cur;await refreshBetmanSource(cur,env,false);
-  // Next DO alarm handles the next official result check; no duplicate long remote call in one tick.
+  if(tenMinuteDue){
+    // Audit only verified state transitions; do not convert STARTED into FINAL.
+    cur=MEM.state||cur;
+    cur.tenMinuteSettlementAudit=r393TenMinuteAudit(cur,pendingBefore,Date.now());
+    await saveState(cur,env,true);
+  }
+  // Next DO alarm handles the next fast check; ten-minute sweep is additional.
   return MEM.state||cur;
 }
 function doStub(env){const ns=env?.PROTO_DO;if(!ns||typeof ns.idFromName!=="function")return null;return ns.get(ns.idFromName("main"));}
@@ -7703,7 +7742,7 @@ async function handleAppInternal(req,env,ctx){
         cf=s.cloudflareSettlementAudit||{};
       return json({version:APP_VERSION,round:s.round,gmTs:s.gmTs,
         checkedAt:cf.at||null,sourceStatus:cf.status||"NOT_RUN",
-        sourceError:cf.error||null,pending:q.length,olderRoundPending:q.filter(m=>!currentRoundMarket(m,s)).length,
+        sourceError:cf.error||null,tenMinuteSettlementAudit:s.tenMinuteSettlementAudit||null,pending:q.length,olderRoundPending:q.filter(m=>!currentRoundMarket(m,s)).length,
         pendingByKickoff:q.map(m=>({no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,
           sport:m.sport,game:m.game||m.home+" vs "+m.away,pick:m.finalPick,
           ageMinutes:gameTimeMs(m)==null?null:Math.max(0,Math.floor((Date.now()-gameTimeMs(m))/60000)),
@@ -7714,7 +7753,7 @@ async function handleAppInternal(req,env,ctx){
           .slice(0,500)});
     }
     if(u.pathname==="/api/diagnostics"){
-      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,wisetotoSettlementAudit:s.wisetotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
+      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,tenMinuteSettlementAudit:s.tenMinuteSettlementAudit||null,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,wisetotoSettlementAudit:s.wisetotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
     }
     if(u.pathname==="/api/self-test"){if(!adminAuthorized(req,env))return json({error:"unauthorized"},401);const report=selfTest();return json(report,report.ok?200:500);}
     return json({error:"not found"},404);
