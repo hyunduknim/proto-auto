@@ -6,7 +6,7 @@ const snapshot=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
 const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
-const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,representativeMarketEligible,r360OddsAnomalyReason,r360FutureEligible,gradeScore,relativeChoiceValue,getTeamProfile};")(structuredClone,URL);
+const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,representativeMarketEligible,r360OddsAnomalyReason,r360FutureEligible,gradeScore,relativeChoiceValue,getTeamProfile,representativeGames,currentRoundStateView,publicState};")(structuredClone,URL);
 const S=model.createState();
 S.round=snapshot.round.round;S.gmTs=snapshot.round.gmTs;S.updatedAt=snapshot.round.updatedAt;
 S.markets=structuredClone(snapshot.currentRound.markets);
@@ -52,6 +52,15 @@ for(const ms of groups.values()){
  const qualified=ms.some(m=>model.representativeMarketEligible(m)&&model.validChoices(m).some(c=>Number(c.odds)>=1.31));
  if(qualified)assert.equal(selected(ms).length,1,"Missing or duplicate representative: "+ms[0]?.game);
 }
+const ui=model.publicState(S);
+const cards=ui.markingGames||[];
+console.log("R373_UI_0930="+JSON.stringify({
+  count:cards.filter(m=>String(m.date)==="2026-10-11"&&String(m.time||"").startsWith("09:30")).length,
+  cards:cards.filter(m=>String(m.date)==="2026-10-11"&&String(m.time||"").startsWith("09:30")).map(m=>({
+   no:m.no,game:m.game,date:m.date,time:m.time,pick:m.pick,odds:m.odds,
+   grade:m.displayGrade,selectionStatus:m.selectionStatus,gameStarted:m.gameStarted})),
+  hourly:ui.hourlyMarking?.filter(x=>String(x.date)==="2026-10-11"&&String(x.hour)==="09"),
+  allCards:cards.length,round:ui.round}));
 const gradeSummary=g=>Object.fromEntries(["가장추천","추천","일반"].map(grade=>[grade,g.filter(m=>m.displayGrade===grade).length]));
 const combo=future.filter(m=>m.marketFamily==="TOTAL"), top=future.filter(m=>m.displayGrade==="가장추천"),rec=future.filter(m=>m.displayGrade==="추천");
 const stats=xs=>({count:xs.length,under:xs.filter(m=>m.finalPick==="언더").length,over:xs.filter(m=>m.finalPick==="오버").length,
