@@ -17,6 +17,16 @@ S.learningAudit=structuredClone(snapshot.audits?.learning||{});
 S.directionGuardAudit=structuredClone(snapshot.audits?.directionGuard||{});
 const selected=a=>a.filter(m=>m.marked&&m.representativeSelected);
 const locked=m=>m.resultFinal||model.started(m);
+const at0930=xs=>xs.filter(m=>String(m.date)==="2026-10-11"&&String(m.time||"").startsWith("09:30"));
+const audit0930=(label,ms)=>Object.values(Object.groupBy(at0930(ms),m=>m.date+"|"+m.time+"|"+m.home+"|"+m.away)).map(xs=>{
+  const rep=xs.find(m=>m.marked&&m.representativeSelected);
+  return {game:xs[0].game||xs[0].home+" vs "+xs[0].away,rounds:[...new Set(xs.map(m=>m.gmTs))],
+    nos:xs.map(m=>m.no),families:xs.map(m=>m.marketFamily),
+    priced:xs.map(m=>({no:m.no,prices:(m.choices||[]).map(c=>c.odds),status:m.selectionStatus})),
+    selected:rep?{no:rep.no,pick:rep.finalPick,odds:rep.finalOdds,grade:rep.displayGrade}:null,
+    locked:xs.some(model.started),settled:xs.some(m=>m.resultFinal)};
+});
+console.log("R373_SOURCE_0930="+JSON.stringify(audit0930("source",S.markets)));
 const before=selected(S.markets).filter(locked);
 const id=m=>[m.gmTs,m.no,m.date,m.time,m.marketFamily,m.line].join("|");
 const record=m=>[m.finalPick,m.finalOdds,m.displayGrade,m.resultFinal,m.hit,m.settlementStatus,m.result];
@@ -28,6 +38,10 @@ const baseline={
 };
 model.markState(S);
 const after=selected(S.markets),future=after.filter(m=>!locked(m));
+console.log("R373_REPLAY_0930="+JSON.stringify(audit0930("replay",S.markets)));
+const prod0930=(snapshot.currentRound?.markets||[]).filter(m=>String(m.date)==="2026-10-11"&&String(m.time||"").startsWith("09:30"));
+console.log("R373_EXPORT_0930="+JSON.stringify({count:prod0930.length,selected:prod0930.filter(m=>m.marked&&m.representativeSelected).map(m=>({no:m.no,game:m.game,pick:m.finalPick,odds:m.finalOdds})),sourceAudit:snapshot.audits?.source||null}));
+
 for(const x of before){
  const cur=S.markets.find(m=>id(m)===id(x));
  assert.deepEqual(record(cur),fixed.get(id(x)),"Locked started/settled pick changed: "+id(x));
