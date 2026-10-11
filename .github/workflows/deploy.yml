@@ -59,6 +59,8 @@ jobs:
         run: node tests/r362-premium-settlement.cjs
       - name: Verify R365 Zentoto full-time settlement source
         run: node tests/r365-zen-settlement.cjs
+      - name: Verify R380 settlement fixture recovery and resilient watchdog
+        run: node tests/r380-settlement-recovery.cjs
       - name: Verify R368 owner-requested void is narrow and clearly non-official
         run: node tests/r368-requested-void.cjs
       - name: Verify R369 invariant and signed final-score source adapters
