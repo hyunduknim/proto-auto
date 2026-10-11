@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R376-MYSCOREBOT-OPTIONAL-BRIDGE";
-const BUILD_ID = "proto-r376-myscorebot-authorized-feed-pregame-only";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R377-VERIFIED-FORM-GUARD";
+const BUILD_ID = "proto-r377-pregame-team-history-quality-guard";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -66,6 +66,30 @@ function r370AccuracyInputs(x){
   return {adjustedP,adjustedSafe,market,ev:adjustedP*odds-1,
     evidenceWeight,teamScoring,external};
 }
+// R377: verified pregame team-history contradiction is a conservative veto,
+// NOT another probability model, source vote, automatic draw, or a settlement rule.
+function r377PerformanceConfirmation(m,q){
+  const neutral={available:false,penalty:0,source:"NONE",reason:"NO_VALID_TEAM_HISTORY"};
+  if(!m||!q||!r370FutureEligible(m)||!m.performanceAvailable||
+    !String(m.performanceSource||"").startsWith("SC_BETMAN_RESULT_DB"))return neutral;
+  const f=m.performanceFeatures||{},coverage=Number(m.performanceCoverage),
+    hg=Number(f.homeGames),ag=Number(f.awayGames),p=Number(m.performanceProbabilities?.[q.pick]),
+    market=Number(q.marketP);
+  if(![coverage,hg,ag,p,market].every(Number.isFinite)||
+    coverage<.50||Math.min(hg,ag)<5||p<=0||p>=1||market<=0||market>=1)return neutral;
+  const family=String(m.marketFamily||"");
+  if(family==="TOTAL"&&Number(f.priorScoreSamples||0)<6)return neutral;
+  if(!["MONEYLINE","HANDICAP","TOTAL"].includes(family))return neutral;
+  const choices=Object.values(m.performanceProbabilities||{}).map(Number);
+  if(choices.length<2||choices.some(x=>!Number.isFinite(x)||x<0||x>1)||
+    Math.abs(choices.reduce((a,b)=>a+b,0)-1)>.035)return neutral;
+  const gap=market-p; // Against both team history AND the market anchor.
+  const penalty=gap>.075?
+    clamp((gap-.075)*.24,0,.055)*clamp(.65+coverage*.35,.65,1):0;
+  return {available:true,penalty:r3(penalty),source:"SC_BETMAN_VERIFIED_TEAM_HISTORY",
+    reason:penalty>0?"VERIFIED_FORM_OPPOSES_MARKET_CHOICE":"NO_MEANINGFUL_CONTRADICTION",
+    historicalP:r3(p),marketP:r3(market),coverage:r3(coverage)};
+}
 function r370AccuracyUtility(x){
   const z=r370AccuracyInputs(x);
   if(!z)return marketComparableComponents(x).score;
@@ -76,7 +100,8 @@ function r370AccuracyUtility(x){
     clamp(z.ev,-.25,.15)*.08+
     clamp(Number(q.reliability||0)-.5,-.5,.5)*.03+
     clamp(Number(q.dataIntegrity||0)-.5,-.5,.5)*.02-
-    Math.min(.06,opposition*.02);
+    Math.min(.06,opposition*.02)-
+    r377PerformanceConfirmation(x.m,q).penalty;
   return clamp(score,0,1.2);
 }
 function r370CompareMarketChoices(m,a,b){
@@ -93,6 +118,8 @@ function r370AccuracyAudit(state){
   state.r370AccuracyAudit={
     id:R370_POLICY_ID,effectiveFrom:"2026-10-11T08:30:00+09:00",at:nowIso(),
     selected:selected.length,totals:total.length,totalMissingTeamScoringEvidence:missingTeamScores,
+    verifiedFormContradictions:selected.filter(m=>r377PerformanceConfirmation(m,{pick:m.finalPick,marketP:m.marketProbability}).penalty>0).length,
+    performanceGuardId:"R377_VERIFIED_TEAM_HISTORY_CONTRADICTION",
     expectedEVNegative:selected.filter(m=>Number(m.hitProbability)*Number(m.finalOdds)-1<0).length,
     markedOnly:true,noPassOrExclusion:true,preserveStartedAndSettled:true,
     gradeRatios:[15,25,60],marketRatios:[20,20,60],
