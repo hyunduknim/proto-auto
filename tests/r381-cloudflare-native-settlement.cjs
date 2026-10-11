@@ -39,10 +39,10 @@ const fetcher=async(url,options)=>{
  return {ok:true,status:200,headers:{get:()=> "text/html; charset=utf-8"},
    text:async()=>responseHtml};
 };
-const factory=new Function("structuredClone","URL","fetch","onSave",source+
+const factory=new Function("structuredClone","URL","fetch","onSave","AbortController","setTimeout","clearTimeout",source+
  "\nsaveState=async(state,env,force)=>{onSave(state,force);return state;};"+
  "\nreturn {r381ParseZentoto,r381ZenRoundCandidates,r381RefreshCloudflareZentoto,CFG};");
-const lib=factory(structuredClone,URL,fetcher,()=>{saved++});
+const lib=factory(structuredClone,URL,fetcher,()=>{saved++},AbortController,setTimeout,clearTimeout);
 const rows=lib.r381ParseZentoto(finishedHtml);
 assert.equal(rows.length,3,"Only finished rows should survive parsing");
 const s={markets:[
