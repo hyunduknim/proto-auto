@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R389-VERIFIED-AFTER13-FINALS";
-const BUILD_ID = "proto-r389-verified-afternoon-finals-before-network";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R390-ZENTOTO-SPOGOD-FAIR-SETTLEMENT";
+const BUILD_ID = "proto-r390-zen-first-spogod-roundrobin";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6643,6 +6643,18 @@ function r384ApplySpogodFinal(state,rows){
   }
   return audit;
 }
+// R390: Fairly rotate Spogod FINAL detail checks so the first twelve pending
+// markets cannot indefinitely starve later games. This only changes which
+// existing pending markets are checked; strict FINAL/score guards remain.
+function r390SpogodDetailBatch(indexed,previousOffset){
+  if(!Array.isArray(indexed)||!indexed.length)
+    return {batch:[],nextOffset:0,total:0,start:0};
+  const total=indexed.length,raw=Number(previousOffset),
+    start=Number.isSafeInteger(raw)&&raw>=0?raw%total:0,
+    count=Math.min(12,total);
+  const batch=Array.from({length:count},(_,i)=>indexed[(start+i)%total]);
+  return {batch,nextOffset:total>count?(start+count)%total:0,total,start};
+}
 async function r384RefreshSpogodResults(state,env,force=false){
   const pending=pendingSettlementMarkets(state);
   if(!pending.length)return {source:"SPOGOD_PUBLIC_EXACT_FINAL",
@@ -6687,7 +6699,11 @@ async function r384RefreshSpogodResults(state,env,force=false){
       if(list.length===1)indexed.push({market:m,...list[0]});
     }
     audit.indexMatches=indexed.length;
-    const detailResults=await Promise.allSettled(indexed.slice(0,12).map(async row=>{
+    const detailWindow=r390SpogodDetailBatch(indexed,old.nextDetailOffset);
+    audit.detailChecked=detailWindow.batch.length;
+    audit.detailWindowStart=detailWindow.start;
+    audit.nextDetailOffset=detailWindow.nextOffset;
+    const detailResults=await Promise.allSettled(detailWindow.batch.map(async row=>{
       const detail=await html("https://spogod.com/match/"+row.id+"/",800000);
       return {row,verified:r384SpogodDetailFinal(detail,row.market,row.score)};
     }));
