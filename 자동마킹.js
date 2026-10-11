@@ -6452,7 +6452,7 @@ function r380ApplyZentotoFixtureFinals(state,rows,gmTs){
   if(!Array.isArray(rows)||rows.length>1000)return audit;
   const candidates=rows.filter(r=>r&&r.source==="ZENTOTO_LEGACY_FULLTIME"&&
     r.terminal===true&&r.fullTime===true&&r.marketFamily==="MONEYLINE"&&
-    String(r.gmTs)===String(gmTs)&&/^\\d{1,3}:\\d{1,3}$/.test(String(r.score||""))&&
+    String(r.gmTs)===String(gmTs)&&/^\d{1,3}:\d{1,3}$/.test(String(r.score||""))&&
     r.date&&r.time&&r.home&&r.away&&Number.isSafeInteger(Number(r.no))&&Number(r.no)>0);
   audit.candidates=candidates.length;
   const key=r=>[String(r.gmTs),String(r.date),String(r.time).slice(0,5),
