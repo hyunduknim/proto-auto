@@ -37,8 +37,9 @@ assert.ok(html.includes("function renderHourly(s){const a=orderCurrentHours"));
 assert.ok(html.includes("markMenuMode=['now','date','time','marked','best','rec','normal']"));
 assert.ok(!html.includes("else if(markMenuMode==='time')rows.sort"),
  "Time-only sorting across calendar days must not be applied");
-assert.ok(html.includes("orderCurrentRows(pastRows).map(pastResultHtml)"),
- "Past game cards must also be displayed in chronological order");
+assert.ok(html.includes("const pastChronology=orderCurrentRows([...pastRows,...pastPending])")&&
+ html.includes("pastChronology.map(m=>m.resultFinal?pastResultHtml(m):pastPendingHtml(m))"),
+ "Past settled and unfinished cards must both be displayed in chronological order");
 assert.ok(source.includes("const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort)"),
  "Current-state API should deliver chronological cards as well");
 assert.ok(source.includes("pastGames=mergeCurrentPastCards(state,livePastGames).sort(marketSort)"),
