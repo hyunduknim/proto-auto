@@ -75,6 +75,8 @@ jobs:
         run: node tests/r388-immediate-morning-recovery.cjs
       - name: Verify R390 Zentoto-first Spogod fair detail queue
         run: node tests/r390-spogod-fair-rotation.cjs
+      - name: Verify R392 settlement history UI filters never affect engine or source order
+        run: node tests/r392-settlement-filters.cjs
       - name: Verify R389 eight corroborated 13:00+ finals with frozen picks and scores
         run: node tests/r389-confirmed-afternoon.cjs
       - name: Verify R368 owner-requested void is narrow and clearly non-official
