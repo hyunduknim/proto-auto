@@ -154,6 +154,26 @@ jobs:
             }
             assert.ok(found,"Worker version not propagated within 4 minutes; last="+lastSeen+", expected="+expected);
             const d=found,g=d.gradeAudit||{},counts=g.counts||{},health=d.settlementHealth||{};
+            // R379 production invariant: only the past tab reverses chronology.
+            if(expected.includes("R379-PAST-NEWEST-FIRST")){
+              const ascending=(a,b)=>String(a.date||"").localeCompare(String(b.date||""))||
+                String(a.time||"").localeCompare(String(b.time||""))||
+                Number(a.no||0)-Number(b.no||0);
+              for(const [name,rows,descending] of [
+                ["markingGames",d.markingGames,false],
+                ["pastGames",d.pastGames,true],
+                ["pastPendingGames",d.pastPendingGames,true]]){
+                assert.ok(Array.isArray(rows),"R379 "+name+" is missing");
+                for(let i=1;i<rows.length;i++){
+                  const cmp=ascending(rows[i-1],rows[i]);
+                  assert.ok(descending?cmp>=0:cmp<=0,
+                    "R379 "+name+" is not in the required "+(descending?"descending":"ascending")+" order");
+                }
+              }
+              console.log("R379_PRODUCTION_CHRONOLOGY="+JSON.stringify({
+                markingAscending:true,pastDescending:true,pendingDescending:true,
+                past:d.pastGames.length,pending:d.pastPendingGames.length}));
+            }
             if(expected.includes("R374-GPT-CURATED-DRAWS")){
               const a=d.r373DrawInterestAudit||{},
                 expectedNumbers=new Set([7543,7637]),
