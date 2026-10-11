@@ -39,6 +39,10 @@ assert.ok(!html.includes("else if(markMenuMode==='time')rows.sort"),
  "Time-only sorting across calendar days must not be applied");
 assert.ok(html.includes("orderCurrentRows(pastRows).map(pastResultHtml)"),
  "Past game cards must also be displayed in chronological order");
+assert.ok(source.includes("const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort)"),
+ "Current-state API should deliver chronological cards as well");
+assert.ok(source.includes("pastGames=mergeCurrentPastCards(state,livePastGames).sort(marketSort)"),
+ "Settled archive API should deliver chronological cards as well");
 const kickoff=[{no:7502,date:"2026-10-11",time:"09:30"},
  {no:7488,date:"2026-10-11",time:"08:30"},
  {no:7487,date:"2026-10-11",time:"08:30"},
