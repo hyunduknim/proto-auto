@@ -6744,7 +6744,12 @@ function settlementHealth(state){
   const lastContactMs=Math.max(Number.isFinite(contactMs)?contactMs:0,
     Number.isFinite(directSince)?directSince:0);
   const staleMinutes=lastContactMs?Math.max(0,Math.floor((Date.now()-lastContactMs)/60000)):null;
-  const stalled=!!pending&&(!relayFresh&&!directOk);
+  const cf=state?.cloudflareSettlementAudit||{},cfMs=Date.parse(cf.at||""),
+    cloudflareFresh=Number.isFinite(cfMs)&&Date.now()-cfMs>=0&&Date.now()-cfMs<=15*60000&&
+      cf.status==="FINISHED_ROWS_CHECKED",
+    cloudflareMatched=cloudflareFresh&&Number(cf.candidates||0)>0;
+  // Successful transport is not the same as a matching final score.
+  const stalled=!!pending&&(!relayFresh&&!directOk&&!cloudflareMatched);
 
   return {pending,premiumPendingByGrade,
     scoreProviderPreference:"FLASHSCORE_THEN_AISCORE_LICENSED_FULL_TIME",
@@ -6752,6 +6757,10 @@ function settlementHealth(state){
       aiscore:!!state.aiscoreSettlementAudit?.configured},
     premiumResultReadiness:relay.premiumResultReadiness||null,
     directOk,directFresh,relayFresh,stalled,staleMinutes,
+    cloudflareNative:{status:cf.status||"NOT_RUN",at:cf.at||null,
+      sourceFresh:cloudflareFresh,matchingRows:Number(cf.candidates||0),
+      settledLastCheck:Number(cf.settled||0),pendingAfter:Number(cf.pendingAfter??pending),
+      error:cf.error||null},
     officialVerifiedRows,officialDataPending,overdueForResult,
     relaySourceStatus:relay.sourceStatus||null,
     resultApiFailed:relayFresh?relay.sourceStatus?.resultApi==="rejected":null,
@@ -6761,7 +6770,10 @@ function settlementHealth(state){
     relayLastSettledAt:relay.lastSettlementAt||null,
     lastOfficialResultAt:Number.isFinite(successMs)?r.lastSuccessAt:null,
     lastRelaySettled:Number(relay.totalSettled||0),
-    mode:relayFresh?"GITHUB_OFFICIAL_RELAY_AVAILABLE":directOk?"BETMAN_DIRECT_AVAILABLE":"OFFICIAL_DATA_RETRYING",
+    mode:cloudflareMatched?"CLOUDFLARE_NATIVE_FINAL_MATCHED":
+      relayFresh?"GITHUB_OFFICIAL_RELAY_AVAILABLE":
+      directOk?"BETMAN_DIRECT_AVAILABLE":
+      cloudflareFresh?"CLOUDFLARE_NATIVE_NO_MATCH":"OFFICIAL_DATA_RETRYING",
     lastRelayRound:relay.gmTs||null};
 }
 async function ingestOfficialRelay(req,env){
