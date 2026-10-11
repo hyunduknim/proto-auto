@@ -1,12 +1,8 @@
 name: Official Betman settlement relay
 
+# R381 FREE MODE: Cloudflare cron/DO handles regular settlement.
+# Retained only for manual fallback if GitHub Actions quota is later restored.
 on:
-  push:
-    branches: [main]
-  schedule:
-    # Every five minutes (GitHub Actions minimum); the active relay
-    # chain and independent watchdog cover missed scheduler events.
-    - cron: "3-58/5 * * * *"
   workflow_dispatch:
 
 permissions:

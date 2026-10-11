@@ -61,6 +61,8 @@ jobs:
         run: node tests/r365-zen-settlement.cjs
       - name: Verify R380 settlement fixture recovery and resilient watchdog
         run: node tests/r380-settlement-recovery.cjs
+      - name: Verify R381 free Cloudflare full-time settlement with no GitHub cron dependency
+        run: node tests/r381-cloudflare-native-settlement.cjs
       - name: Verify R368 owner-requested void is narrow and clearly non-official
         run: node tests/r368-requested-void.cjs
       - name: Verify R369 invariant and signed final-score source adapters

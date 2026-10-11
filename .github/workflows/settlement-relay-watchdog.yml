@@ -1,13 +1,8 @@
 name: Official settlement relay watchdog
 
+# R381 FREE MODE: Cloudflare cron/DO handles regular settlement.
+# Retained only for manual fallback if GitHub Actions quota is later restored.
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/settlement-relay-watchdog.yml', '.github/workflows/official-settlement-relay.yml']
-  schedule:
-    # Independent 5-minute backup. GitHub cron can be delayed; push also wakes it.
-    # The official OIDC relay remains the only settlement writer.
-    - cron: "2-57/5 * * * *"
   workflow_dispatch:
 
 permissions:
