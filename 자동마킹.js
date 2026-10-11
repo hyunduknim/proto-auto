@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R383-ZEN-WISE-BETMAN-PRIORITY";
-const BUILD_ID = "proto-r383-zen-licensed-wise-betman-order-safe";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R384-ZEN-SPOGOD-FIRST";
+const BUILD_ID = "proto-r384-zen-spogod-strict-final-only";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5442,7 +5442,7 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames).sort((a,b)=>marketSort(b,a)),pastPendingGames=activeGames.filter(g=>g.pick&&g.gameStarted&&!g.resultFinal).sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames).sort((a,b)=>marketSort(b,a)),pastPendingGames=activeGames.filter(g=>g.pick&&g.gameStarted&&!g.resultFinal).sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -6560,6 +6560,160 @@ function r382PendingSourceCoverage(pending,rows){
         ageMinutes,reason,sourceRowsForRound:countByRound.get(String(m.gmTs))||0};
     });
 }
+
+// R384: Spogod is SECOND to Zen. Require matching dated index AND a separate
+// match detail showing explicit FINAL with identical raw, unadjusted score.
+// Some finished index entries currently have still-OPEN detail pages.
+function r384SpogodIndexCards(html,m){
+  if(typeof html!=="string"||html.length<500||html.length>1900000||
+    !m||!m.home||!m.away)return [];
+  const re=/<a\b[^>]*\bhref\s*=\s*(["'])(?:https?:\/\/(?:www\.)?spogod\.com)?\/match\/(\d{1,8})\/?(?:\?[^"']*)?\1[^>]*>([\s\S]*?)<\/a>/gi;
+  const out=[],seen=new Set();let a;
+  while((a=re.exec(html))!==null){
+    const id=Number(a[2]),txt=r381ZenStrip(a[3]),n=norm(txt),
+      h=norm(m.home),v=norm(m.away),pos=n.indexOf(h);
+    if(!Number.isSafeInteger(id)||seen.has(id)||!h||!v||pos<0||
+       n.indexOf(v,pos+h.length)<0||!txt.includes(String(m.time||"")))continue;
+    const score=txt.match(/(?:^|\s)(\d{1,3})\s*:\s*(\d{1,3})\s*(?:홈\s*승|원정\s*승|무)(?:\s|$)/);
+    if(!score)continue;  // Reject live scores and purchase percentage triplets
+    seen.add(id);out.push({id,score:Number(score[1])+":"+Number(score[2])});
+  }
+  return out;
+}
+function r384SpogodDetailFinal(html,m,indexScore){
+  if(typeof html!=="string"||html.length<500||html.length>800000||
+      !/^\d{1,3}:\d{1,3}$/.test(String(indexScore||"")))return null;
+  const title=html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i),
+    t=title?norm(r381ZenStrip(title[1])):"";
+  if(!t||!t.includes(norm(m.home))||!t.includes(norm(m.away)))return null;
+  const flat=r381ZenStrip(html),scoreRe=/(\d{1,3})\s*:\s*(\d{1,3})/g;
+  const date=String(m.date||""),time=String(m.time||"");
+  if(!/^\d{4}-\d\d-\d\d$/.test(date)||!/^\d\d:\d\d$/.test(time))return null;
+  const mm=Number(date.slice(5,7)),dd=Number(date.slice(8,10));
+  const dateCheck=new RegExp(mm+"월\\s*"+dd+"일\\s*(?:\\([^)]*\\))?\\s*"+time);
+  let hit=null,a;
+  while((a=scoreRe.exec(flat))!==null){
+    const score=Number(a[1])+":"+Number(a[2]);
+    if(score!==indexScore)continue;
+    const before=flat.slice(Math.max(0,a.index-100),a.index),
+      after=flat.slice(a.index+a[0].length,a.index+a[0].length+100),
+      context=flat.slice(Math.max(0,a.index-350),a.index);
+    if(!norm(before).endsWith(norm(m.home))||
+       !norm(after).startsWith(norm(m.away)+"final")||
+       !dateCheck.test(context))continue;
+    if(hit)return null; // conflicting or duplicated details
+    hit={score,status:"FINAL",source:"SPOGOD_PUBLIC_EXACT_FINAL"};
+  }
+  return hit;
+}
+function r384ApplySpogodFinal(state,rows){
+  const audit={matched:0,settled:0,rejected:0,reasons:{},sample:[]};
+  const reject=k=>{audit.rejected++;audit.reasons[k]=(audit.reasons[k]||0)+1;};
+  if(!Array.isArray(rows)||rows.length>15){reject("INVALID_BATCH");return audit;}
+  const picked=new Set();
+  for(const r of rows){
+    if(!r||r.source!=="SPOGOD_PUBLIC_EXACT_FINAL"||r.status!=="FINAL"||
+      !/^\d{1,3}:\d{1,3}$/.test(String(r.score||""))){reject("NOT_FINAL");continue;}
+    const m=pendingSettlementMarkets(state).find(x=>x===r.market&&
+      String(x.date)===String(r.date)&&String(x.time)===String(r.time)&&
+      norm(x.home)===norm(r.home)&&norm(x.away)===norm(r.away));
+    if(!m){reject("MISMATCH_OR_ALREADY_SETTLED");continue;}
+    const key=String(m.gmTs)+":"+String(m.no);
+    if(picked.has(key)){reject("DUPLICATE_MARKET");continue;}picked.add(key);
+    const pair=resultScorePairText(r.score);
+    if(!pair||scoreUnitMismatch(m,pair)){reject("SCORE_UNIT_MISMATCH");continue;}
+    const rr={gmTs:String(m.gmTs),no:Number(m.no),date:m.date,time:m.time,
+      home:m.home,away:m.away,family:"MONEYLINE",score:r.score,
+      terminal:true,partial:false,specialStatus:null};
+    const resolved=resolveOfficialOutcome(rr,m);
+    if(!resolved?.outcome||resolved.void||
+      !validChoices(m).some(c=>c.label===resolved.outcome)){
+      reject("PUSH_OR_INVALID_MARKET_OUTCOME");continue;
+    }
+    const count=applyResults({markets:[m]},[rr],"SPOGOD_PUBLIC_EXACT_FINAL_RESULT");
+    audit.matched++;audit.settled+=count;
+    if(audit.sample.length<10)audit.sample.push({no:m.no,score:r.score,
+      family:m.marketFamily,result:resolved.outcome,settled:count===1});
+  }
+  return audit;
+}
+async function r384RefreshSpogodResults(state,env,force=false){
+  const pending=pendingSettlementMarkets(state);
+  if(!pending.length)return {source:"SPOGOD_PUBLIC_EXACT_FINAL",
+    status:"NO_STARTED_PENDING",settled:0};
+  const old=state.spogodSettlementAudit||{},at=Date.parse(old.at||"");
+  if(!force&&Number.isFinite(at)&&Date.now()-at<2*60000)
+    return {source:"SPOGOD_PUBLIC_EXACT_FINAL",status:"THROTTLED",settled:0};
+  const audit={source:"SPOGOD_PUBLIC_EXACT_FINAL",at:nowIso(),status:"CHECKING",
+    pendingBefore:pending.length,pendingAfter:pending.length,indexPages:0,
+    indexMatches:0,verifiedDetails:0,notFinalDetails:0,matched:0,settled:0,
+    rejected:0,reasons:{},error:null,
+    policy:"FINISHED_INDEX_AND_DETAIL_FINAL_EXACT_SCORE_DATE_KICKOFF_TEAMS"};
+  async function html(url,cap){
+    const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),6500);
+    try{
+      const r=await fetch(url,{headers:{"accept":"text/html",
+        "user-agent":"Mozilla/5.0 (compatible; ProtoResultCheck/1.0)"},
+        redirect:"error",signal:ac.signal});
+      if(!r.ok)throw Error("SPOGOD_HTTP_"+r.status);
+      const type=String(r.headers?.get("content-type")||"");
+      if(type&&!/text\/html/i.test(type))throw Error("SPOGOD_NOT_HTML");
+      const body=await r.text();
+      if(body.length<500||body.length>cap)throw Error("SPOGOD_BAD_HTML_SIZE");
+      return body;
+    }finally{clearTimeout(timer);}
+  }
+  try{
+    const days=[...new Set(pending.map(m=>String(m.date||""))
+      .filter(d=>/^\d{4}-\d\d-\d\d$/.test(d)))].slice(0,3);
+    const pageResponses=await Promise.allSettled(days.map(async date=>
+      ({date,body:await html("https://spogod.com/today/?d="+date,1900000)})));
+    const pages=pageResponses.filter(x=>x.status==="fulfilled").map(x=>x.value);
+    audit.indexPages=pages.length;
+    if(!pages.length)throw Error("SPOGOD_INDEX_UNAVAILABLE");
+    const indexed=[];
+    for(const m of pending){
+      const page=pages.find(x=>x.date===m.date);
+      if(!page)continue;
+      const list=r384SpogodIndexCards(page.body,m);
+      if(list.length>1){audit.rejected++;audit.reasons.MULTIPLE_INDEX_MATCHES=
+        (audit.reasons.MULTIPLE_INDEX_MATCHES||0)+1;continue;}
+      if(list.length===1)indexed.push({market:m,...list[0]});
+    }
+    audit.indexMatches=indexed.length;
+    const detailResults=await Promise.allSettled(indexed.slice(0,12).map(async row=>{
+      const detail=await html("https://spogod.com/match/"+row.id+"/",800000);
+      return {row,verified:r384SpogodDetailFinal(detail,row.market,row.score)};
+    }));
+    const ready=[];
+    for(const x of detailResults){
+      if(x.status==="rejected"){
+        audit.rejected++;audit.reasons.DETAIL_FETCH_ERROR=
+          (audit.reasons.DETAIL_FETCH_ERROR||0)+1;continue;
+      }
+      if(!x.value.verified){audit.notFinalDetails++;continue;}
+      const {market}=x.value.row;audit.verifiedDetails++;
+      ready.push({...x.value.verified,market,date:market.date,time:market.time,
+        home:market.home,away:market.away});
+    }
+    const applied=r384ApplySpogodFinal(state,ready);
+    audit.matched=applied.matched;audit.settled=applied.settled;
+    audit.rejected+=applied.rejected;audit.sample=applied.sample;
+    for(const [k,n] of Object.entries(applied.reasons))
+      audit.reasons[k]=(audit.reasons[k]||0)+n;
+    audit.pendingAfter=pendingSettlementMarkets(state).length;
+    audit.status=audit.verifiedDetails?"FINISHED_ROWS_CHECKED":
+      audit.indexMatches?"DETAIL_NOT_FINAL_OR_NOT_VERIFIED":"NO_VERIFIED_FINAL_ROWS";
+    if(audit.settled)markState(state);
+  }catch(e){
+    audit.status="SOURCE_UNAVAILABLE";
+    audit.error=String(e?.message||e).slice(0,160);
+  }
+  state.spogodSettlementAudit=audit;
+  await saveState(state,env,audit.settled>0);
+  return audit;
+}
+
 // R383: The priority is ZENTOTO -> an explicitly authorized WiseToto
 // finished-results JSON feed -> Betman. A visible WiseToto website is NOT an
 // API contract. No hidden endpoint, login bypass or scraped provisional data.
@@ -6678,7 +6832,7 @@ async function r381RefreshCloudflareZentoto(state,env,force=false){
   const pending=pendingSettlementMarkets(state),now=Date.now();
   if(!pending.length)return {source:"CLOUDFLARE_ZENTOTO_PUBLIC_FINAL",status:"NO_STARTED_PENDING",settled:0};
   const previous=state.cloudflareSettlementAudit||{},previousMs=Date.parse(previous.at||"");
-  if(!force&&Number.isFinite(previousMs)&&now-previousMs<5*60000)
+  if(!force&&Number.isFinite(previousMs)&&now-previousMs<2*60000)
     return {source:"CLOUDFLARE_ZENTOTO_PUBLIC_FINAL",status:"THROTTLED",settled:0};
   const audit={source:"CLOUDFLARE_ZENTOTO_PUBLIC_FINAL",at:nowIso(),status:"CHECKING",
     pendingBefore:pending.length,pendingAfter:pending.length,received:0,candidates:0,
@@ -6901,7 +7055,14 @@ function settlementHealth(state){
       settledLastCheck:Number(cf.settled||0),pendingAfter:Number(cf.pendingAfter??pending),
       overdueDetails:(cf.pendingDetails||[]).filter(x=>Number(x.ageMinutes)>=240).slice(0,20),
       error:cf.error||null},
-    settlementSourcePriority:["ZENTOTO","WISETOTO_AUTHORIZED_IF_CONFIGURED","BETMAN_LAST"],
+    settlementSourcePriority:["ZENTOTO","SPOGOD_VERIFIED_FINAL","WISETOTO_OPTIONAL_LICENSED","BETMAN_LAST"],
+    spogodNative:{status:state?.spogodSettlementAudit?.status||"NOT_RUN",
+      at:state?.spogodSettlementAudit?.at||null,
+      indexMatches:Number(state?.spogodSettlementAudit?.indexMatches||0),
+      verifiedDetails:Number(state?.spogodSettlementAudit?.verifiedDetails||0),
+      rejectedNonFinal:Number(state?.spogodSettlementAudit?.notFinalDetails||0),
+      settledLastCheck:Number(state?.spogodSettlementAudit?.settled||0),
+      error:state?.spogodSettlementAudit?.error||null},
     wisetotoNative:{status:state?.wisetotoSettlementAudit?.status||"NOT_CONFIGURED",
       at:state?.wisetotoSettlementAudit?.at||null,
       settledLastCheck:Number(state?.wisetotoSettlementAudit?.settled||0),
@@ -7067,11 +7228,14 @@ function serializedOperation(fn){const task=OPERATION_QUEUE.then(fn,fn);OPERATIO
 async function runTick(env){return serializedOperation(()=>runTickInternal(env));}
 async function runTickInternal(env){
   const s=await loadState(env);let cur=MEM.state||s;
-  // R383 priority: Zen primary, authorized Wise second, Betman last.
+  // R384: Zen first, Spogod verified full-time second, optional licensed Wise, Betman last.
   // A failure in one source never blocks the next source and cannot alter
   // already settled scores, picks, prices or historical records.
   try{await r381RefreshCloudflareZentoto(cur,env,false);}
-  catch(e){MEM.lastAlarmError="R383_ZEN:"+String(e?.message||e).slice(0,160);}
+  catch(e){MEM.lastAlarmError="R384_ZEN:"+String(e?.message||e).slice(0,160);}
+  cur=MEM.state||cur;
+  try{await r384RefreshSpogodResults(cur,env,false);}
+  catch(e){MEM.lastAlarmError="R384_SPOGOD:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
   try{await r383RefreshWisetotoResults(cur,env,false);}
   catch(e){MEM.lastAlarmError="R383_WISE:"+String(e?.message||e).slice(0,160);}
@@ -7128,7 +7292,17 @@ async function handleAppInternal(req,env,ctx){
     if(u.pathname==="/")return html(INDEX);
     if(req.method==="POST"&&u.pathname.startsWith("/api/")&&!adminAuthorized(req,env))return json({error:"unauthorized"},401);
     if(u.pathname==="/api/results-refresh"&&req.method==="POST"){
-      const s=await bootstrapState(env);await refreshBetmanResults(s,env,true);return json({ok:true,state:publicState(MEM.state||s)});
+      // R384 manual "결과 확인" obeys exactly the same source precedence as the
+      // automatic Cloudflare cron instead of going straight to slow Betman.
+      let s=await bootstrapState(env);
+      try{await r381RefreshCloudflareZentoto(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_ZEN:"+String(e?.message||e).slice(0,140);}
+      s=MEM.state||s;
+      try{await r384RefreshSpogodResults(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_SPOGOD:"+String(e?.message||e).slice(0,140);}
+      s=MEM.state||s;
+      try{await r383RefreshWisetotoResults(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_WISE_OPTIONAL:"+String(e?.message||e).slice(0,140);}
+      s=MEM.state||s;
+      if(hasLivePending(s))await refreshBetmanResults(s,env,true);
+      return json({ok:true,state:publicState(MEM.state||s)});
     }
     if(u.pathname==="/api/reanalyze"&&req.method==="POST"){
       const s=await bootstrapState(env);markState(s);await saveState(s,env,true);return json({ok:true,state:publicState(MEM.state||s)});
