@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R379-PAST-NEWEST-FIRST";
-const BUILD_ID = "proto-r379-past-results-descending-marking-ascending";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R380-SETTLEMENT-RELAY-RECOVERY";
+const BUILD_ID = "proto-r380-safe-zen-fixture-final-and-relay-recovery";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6442,6 +6442,48 @@ function r365ApplyZentotoResults(state,rows,gmTs){
   audit.scoresUpdated=r366BackfillZentotoScores(state,rows,gmTs);
   return audit;
 }
+// R380: In ZenToto's finished table the selected TOTAL/HANDICAP Proto row
+// may be absent while the same fixture's raw MONEYLINE full-time score exists.
+// Only use a unique, verified, unadjusted score from the exact same round,
+// kickoff and normalized home/away; never infer from live or adjusted scores.
+function r380ApplyZentotoFixtureFinals(state,rows,gmTs){
+  const audit={source:"ZENTOTO_FULLTIME_EXACT_FIXTURE",at:nowIso(),gmTs,
+    candidates:0,matched:0,settled:0,skippedAmbiguous:0,skippedPush:0};
+  if(!Array.isArray(rows)||rows.length>1000)return audit;
+  const candidates=rows.filter(r=>r&&r.source==="ZENTOTO_LEGACY_FULLTIME"&&
+    r.terminal===true&&r.fullTime===true&&r.marketFamily==="MONEYLINE"&&
+    String(r.gmTs)===String(gmTs)&&/^\d{1,3}:\d{1,3}$/.test(String(r.score||""))&&
+    r.date&&r.time&&r.home&&r.away&&Number.isSafeInteger(Number(r.no))&&Number(r.no)>0);
+  audit.candidates=candidates.length;
+  const key=r=>[String(r.gmTs),String(r.date),String(r.time).slice(0,5),
+    norm(r.home),norm(r.away)].join("|");
+  const byFixture=new Map();
+  for(const r of candidates){
+    const k=key(r),arr=byFixture.get(k)||[];arr.push(r);byFixture.set(k,arr);
+  }
+  const selected=(state.markets||[]).filter(m=>String(m.gmTs||"")===String(gmTs)&&
+    m.marked&&m.representativeSelected&&!m.resultFinal&&started(m)&&settlementAllowed(m)&&
+    ["TOTAL","HANDICAP"].includes(m.marketFamily));
+  for(const m of selected){
+    const candidates=byFixture.get(key(m))||[];
+    // Require exactly one original market score; duplicates are ambiguous.
+    if(candidates.length!==1){if(candidates.length>1)audit.skippedAmbiguous++;continue;}
+    const raw=candidates[0],score=resultScorePairText(raw.score);
+    if(!score||scoreUnitMismatch(m,score))continue;
+    // Two-way line equality is not automatically a void. Official rules
+    // must verify a push; don't turn an ordinary tie into an unrequested void.
+    const calculated=deriveOutcomeFromOfficialScore({score:raw.score},m);
+    if(!calculated||calculated==="무"&&!validChoices(m).some(c=>c.label==="무")){
+      audit.skippedPush++;continue;
+    }
+    const rr={gmTs:String(gmTs),no:Number(raw.no),date:m.date,time:m.time,
+      home:m.home,away:m.away,family:"MONEYLINE",score:raw.score,
+      outcome:null,specialStatus:null,terminal:true,partial:false};
+    audit.matched++;
+    audit.settled+=applyResults({markets:[m]},[rr],"ZENTOTO_PUBLIC_FULLTIME_EXACT_FIXTURE_RESULT");
+  }
+  return audit;
+}
 // R367: ESPN is a *supplemental* full-time source when Zen/Betman is delayed.
 // It is delivered only by the trusted OIDC GitHub relay. The sender matches
 // both translated team names and kickoff time against ESPN's public score feed;
@@ -6655,12 +6697,13 @@ async function ingestOfficialRelay(req,env){
   const aiAudit=r369ApplyVerifiedScoreProvider(state,aiscoreRows,gmTs,
     "AISCORE_VERIFIED_FULLTIME");
   const zenAudit=r365ApplyZentotoResults(state,zentotoRows,gmTs);
+  const zenFixtureAudit=r380ApplyZentotoFixtureFinals(state,zentotoRows,gmTs);
   const espnAudit=r367ApplyEspnFinishedScores(state,espnRows,gmTs);
   const officialTrainingRows=terminalOfficialScoringRows(state,gameInfo,gmTs);
   // Results API can contain official outcome codes; gameInfo needs terminal status or overdue final-score guard.
   const resultSettled=applyResults(state,parsed.resultRows);
   const fallbackSettled=applyResults(state,parsed.gameInfoRows);
-  const settled=flashAudit.settled+aiAudit.settled+zenAudit.settled+espnAudit.settled+resultSettled+fallbackSettled,
+  const settled=flashAudit.settled+aiAudit.settled+zenAudit.settled+zenFixtureAudit.settled+espnAudit.settled+resultSettled+fallbackSettled,
     verifiedRows=parsed.resultRows.length+parsed.gameInfoRows.length+espnAudit.matched+flashAudit.matched+aiAudit.matched;
   let learned=0,jbAdded=0;
   const officialRows=[...parsed.resultRows,...parsed.gameInfoRows];
@@ -6703,7 +6746,7 @@ async function ingestOfficialRelay(req,env){
   state.espnSettlementAudit=espnAudit;
   state.flashscoreSettlementAudit=flashAudit;
   state.aiscoreSettlementAudit=aiAudit;
-  state.zentotoSettlementAudit=zenAudit;
+  state.zentotoSettlementAudit={...zenAudit,fixtureFallback:zenFixtureAudit};
   state.officialOddsRelayAudit={at:nowIso(),gmTs,...priceRelay,
     source:"BETMAN_SIGNED_GITHUB_OIDC",currentRoundOnly:true};
   const premiumResultReadiness=premiumOfficialSettlementReadiness(state,officialResult,gmTs);
@@ -6743,7 +6786,7 @@ async function ingestOfficialRelay(req,env){
     officialDataPending:pendingAfter>0&&verifiedRows===0,consecutiveEmptyChecks,
     resultApiRows:parsed.resultRows.length,gameInfoRows:parsed.gameInfoRows.length,
     pendingBefore:pending.length,settledNow:settled,pendingAfter,
-    premiumResultReadiness,zentotoSettlement:zenAudit,espnSettlement:espnAudit,
+    premiumResultReadiness,zentotoSettlement:zenAudit,zentotoFixtureFallback:zenFixtureAudit,espnSettlement:espnAudit,
     flashscoreSettlement:flashAudit,aiscoreSettlement:aiAudit,
     officialOddsRelay:priceRelay,at:now});
 }

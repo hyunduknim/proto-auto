@@ -3,11 +3,11 @@ name: Official settlement relay watchdog
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/settlement-relay-watchdog.yml']
+    paths: ['.github/workflows/settlement-relay-watchdog.yml', '.github/workflows/official-settlement-relay.yml']
   schedule:
-    # Independent ten-minute backup for delayed/dropped official relay events.
-    # The official relay itself remains the only writer and authenticates via OIDC.
-    - cron: "7-57/10 * * * *"
+    # Independent 5-minute backup. GitHub cron can be delayed; push also wakes it.
+    # The official OIDC relay remains the only settlement writer.
+    - cron: "2-57/5 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -29,21 +29,29 @@ jobs:
         with:
           script: |
             const endpoint="https://protonumber.mystyle276.workers.dev/api/state";
-            const response=await fetch(endpoint+"?watchdog="+Date.now(),{
-              headers:{"cache-control":"no-cache"},signal:AbortSignal.timeout(20000)
-            });
-            if(!response.ok)throw Error("Settlement watchdog state HTTP "+response.status);
-            const data=await response.json(),h=data.settlementHealth||{};
+            let data=null,liveError=null;
+            try{
+              const response=await fetch(endpoint+"?watchdog="+Date.now(),{
+                headers:{"cache-control":"no-cache"},signal:AbortSignal.timeout(20000)
+              });
+              if(!response.ok)throw Error("Settlement watchdog state HTTP "+response.status);
+              data=await response.json();
+            }catch(error){
+              liveError=String(error?.message||error);
+              core.warning("SETTLEMENT_WATCHDOG_STATE_UNAVAILABLE="+liveError.slice(0,160));
+            }
+            const h=data?.settlementHealth||{};
             const pending=Number(h.pending||0);
             // Check GitHub relay recency, not the direct Betman result poll:
             // a successful direct poll must not conceal a failed official relay.
             const lastRelayMs=Date.parse(h.relayLastContact||"");
             const relayAgeMinutes=Number.isFinite(lastRelayMs)?
               Math.max(0,(Date.now()-lastRelayMs)/60000):Infinity;
-            const needsRelay=pending>0&&relayAgeMinutes>=10;
+            // A down/unreadable Worker must not stop the recovery chain forever.
+            const needsRelay=!!liveError||(pending>0&&relayAgeMinutes>=7);
             core.info("SETTLEMENT_WATCHDOG_HEALTH="+JSON.stringify({
-              version:data.version,round:data.round,pending,
-              settled:data.summary?.settled,lastRelayContact:h.relayLastContact,
+              version:data?.version||null,round:data?.round||null,pending,
+              settled:data?.summary?.settled||null,liveError,lastRelayContact:h.relayLastContact,
               relayAgeMinutes:Number.isFinite(relayAgeMinutes)?Math.round(relayAgeMinutes):null,
               staleMinutes:h.staleMinutes,stalled:h.stalled,needsRelay
             }));
