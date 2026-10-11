@@ -6786,7 +6786,7 @@ async function ingestOfficialRelay(req,env){
     officialDataPending:pendingAfter>0&&verifiedRows===0,consecutiveEmptyChecks,
     resultApiRows:parsed.resultRows.length,gameInfoRows:parsed.gameInfoRows.length,
     pendingBefore:pending.length,settledNow:settled,pendingAfter,
-    premiumResultReadiness,zentotoSettlement:zenAudit,espnSettlement:espnAudit,
+    premiumResultReadiness,zentotoSettlement:zenAudit,zentotoFixtureFallback:zenFixtureAudit,espnSettlement:espnAudit,
     flashscoreSettlement:flashAudit,aiscoreSettlement:aiAudit,
     officialOddsRelay:priceRelay,at:now});
 }
