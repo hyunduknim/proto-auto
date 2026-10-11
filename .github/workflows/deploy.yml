@@ -65,6 +65,8 @@ jobs:
         run: node tests/r381-cloudflare-native-settlement.cjs
       - name: Verify R382 first-priority Cloudflare native settlement and 08:30 queue diagnostics
         run: node tests/r382-native-settlement-first.cjs
+      - name: Verify R383 settlement preference Zen, licensed Wise, Betman and strict score guards
+        run: node tests/r383-wise-priority.cjs
       - name: Verify R368 owner-requested void is narrow and clearly non-official
         run: node tests/r368-requested-void.cjs
       - name: Verify R369 invariant and signed final-score source adapters
