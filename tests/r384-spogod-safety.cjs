@@ -12,7 +12,8 @@ const detail=(h,a,score,status,time="08:30",day=11)=>
  '<html><head><title>'+h+' vs '+a+' 분석·픽 — MLS</title></head><body>'+
  '⚽ MLS · 10월 '+day+'일(일) '+time+' 프로토 승부식 120회차 '+h+' '+
  score+' '+a+' '+status+' 일반 경기 마켓</body></html>'+' '.repeat(850);
-const fetcher=async(url)=>{
+const fetcher=async(url,options)=>{
+ assert.equal(options.redirect,"follow","Cloudflare-compatible public Spogod fetch");
  fetches++;
  const body=url.includes("/today/?")?day:
    url.includes("/1851/")?detail("애틀랜타 유나이티드FC","FC신시내티","1:3","FINAL"):

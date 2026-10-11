@@ -29,7 +29,7 @@ let saves=0,calls=0,payload={events:[a,live]};
 const fetcher=async(url,opts)=>{
  calls++;
  assert.ok(url.startsWith("https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=20261010"));
- assert.equal(opts.redirect,"error");
+ assert.equal(opts.redirect,"follow");
  return {ok:true,headers:{get:()=> "application/json"},
  text:async()=>JSON.stringify(payload)};
 };

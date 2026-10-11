@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R395-SPOGOD-RECENT-DATE-PRIORITY";
-const BUILD_ID = "proto-r395-spogod-current-date-fair-recheck";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R396-CLOUDFLARE-REDIRECT-REPAIR";
+const BUILD_ID = "proto-r396-cf-redirect-compatible-settlement";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6766,7 +6766,7 @@ async function r384RefreshSpogodResults(state,env,force=false){
     try{
       const r=await fetch(url,{headers:{"accept":"text/html",
         "user-agent":"Mozilla/5.0 (compatible; ProtoResultCheck/1.0)"},
-        redirect:"error",signal:ac.signal});
+        redirect:"follow",signal:ac.signal});
       if(!r.ok)throw Error("SPOGOD_HTTP_"+r.status);
       const type=String(r.headers?.get("content-type")||"");
       if(type&&!/text\/html/i.test(type))throw Error("SPOGOD_NOT_HTML");
@@ -6930,7 +6930,7 @@ async function r385RefreshMlsFinals(state,env,force=false){
   try{
     const url="https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=20261010&limit=300";
     const res=await fetch(url,{headers:{accept:"application/json"},
-      redirect:"error",signal:ac.signal});
+      redirect:"follow",signal:ac.signal});
     if(!res.ok)throw Error("ESPN_MLS_HTTP_"+res.status);
     const ct=String(res.headers?.get("content-type")||"");
     if(ct&&!/application\/json/i.test(ct))throw Error("ESPN_MLS_NOT_JSON");
@@ -7193,7 +7193,9 @@ async function r383RefreshWisetotoResults(state,env,force=false){
     const headers={accept:"application/json"};
     const token=String(env?.WISETOTO_SETTLEMENT_FEED_BEARER_TOKEN||"");
     if(token)headers.authorization="Bearer "+token;
-    const response=await fetch(url,{headers,redirect:"error",signal:ac.signal});
+    // Licensed bearer feed: never forward credentials to redirected origins.
+    const response=await fetch(url,{headers,redirect:"manual",signal:ac.signal});
+    if(response.status>=300&&response.status<400)throw Error("WISE_REDIRECT_BLOCKED");
     if(!response.ok)throw Error("WISE_HTTP_"+response.status);
     const contentType=String(response.headers?.get("content-type")||"");
     if(contentType&&!/application\/json/i.test(contentType))throw Error("WISE_NOT_JSON");
@@ -7236,7 +7238,7 @@ async function r381RefreshCloudflareZentoto(state,env,force=false){
   try{
     const response=await fetch("https://v1.zentoto.com/proto/game",{
       headers:{"accept":"text/html","user-agent":"Mozilla/5.0 (compatible; ProtoResultCheck/1.0)"},
-      redirect:"error",signal:ac.signal});
+      redirect:"follow",signal:ac.signal});
     if(!response.ok)throw Error("ZEN_HTTP_"+response.status);
     const contentType=String(response.headers?.get("content-type")||"");
     if(contentType&&!/text\/html/i.test(contentType))throw Error("ZEN_NOT_HTML");

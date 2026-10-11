@@ -22,7 +22,7 @@ let saved=0,calls=0,fail=false;
 const fetcher=async(url,options)=>{
  calls++;
  assert.equal(url,"https://results.example.com/authorized/wise-final");
- assert.equal(options.redirect,"error");
+ assert.equal(options.redirect,"manual");
  assert.equal(options.headers.authorization,"Bearer test-token");
  if(fail)throw Error("source disconnected");
  const results=[wise(9101,"A","B","1:0","TOTAL",{line:2.5}),

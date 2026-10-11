@@ -33,7 +33,7 @@ let responseHtml=finishedHtml,saved=0,requested=0;
 const fetcher=async(url,options)=>{
  requested++;
  assert.equal(url,"https://v1.zentoto.com/proto/game");
- assert.equal(options.redirect,"error");
+ assert.equal(options.redirect,"follow");
  assert.ok(options.signal);
  if(responseHtml===null)throw Error("source temporarily unavailable");
  return {ok:true,status:200,headers:{get:()=> "text/html; charset=utf-8"},
