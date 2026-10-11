@@ -45,6 +45,8 @@ jobs:
         run: node tests/r371-relative-grades.cjs
       - name: Verify R372 existing saved cards migrate without altering results
         run: node tests/r372-persisted-grade-migration.cjs
+      - name: Verify R374 only the two GPT-curated draws can be marked before kickoff
+        run: node tests/r374-curated-draw-only.cjs
       - name: Verify R362 premium settlement when official results are published
         run: node tests/r362-premium-settlement.cjs
       - name: Verify R365 Zentoto full-time settlement source
@@ -144,6 +146,34 @@ jobs:
             }
             assert.ok(found,"Worker version not propagated within 4 minutes; last="+lastSeen+", expected="+expected);
             const d=found,g=d.gradeAudit||{},counts=g.counts||{},health=d.settlementHealth||{};
+            if(expected.includes("R374-GPT-CURATED-DRAWS")){
+              const a=d.r373DrawInterestAudit||{},
+                expectedNumbers=new Set([7543,7637]),
+                cards=(d.markingGames||[]).filter(m=>
+                  m.selectionMode==="R373_DRAW_INTEREST"&&!m.resultFinal&&!m.gameStarted);
+              assert.equal(a.id,"R374_GPT_CURATED_ROUND120_DRAWS_ONLY",
+                "R374 curated draw migration did not run in production");
+              assert.deepEqual((a.approvedMarkets||[]).map(x=>Number(x.no)).sort(),
+                [7543,7637],"Unexpected approved draw market numbers");
+              assert.ok(cards.length<=2,"At most two curated draws are allowed");
+              assert.ok(cards.every(m=>expectedNumbers.has(Number(m.no))&&
+                m.sport==="축구"&&m.pick==="무"&&
+                ((Number(m.no)===7543&&m.marketFamily==="HANDICAP")||
+                 (Number(m.no)===7637&&m.marketFamily==="MONEYLINE"))),
+                "An unauthorized game was selected for a draw");
+              const kst=Date.now(),current=(d.markingGames||[]).filter(m=>
+                expectedNumbers.has(Number(m.no))&&!m.resultFinal&&!m.gameStarted);
+              if(current.length>0)
+                assert.equal(cards.length,current.length,
+                  "At least one still-upcoming approved soccer draw is missing");
+              console.log("R374_PRODUCTION_CURATED_DRAWS="+JSON.stringify({
+                version:d.version,approved:[7543,7637],draws:cards.map(m=>({
+                  no:m.no,game:m.game,date:m.date,time:m.time,pick:m.pick,
+                  odds:m.odds,grade:m.displayGrade})),
+                gapGames:d.fullMarkAudit?.gapGames,
+                settled:d.summary?.settled,pending:d.settlementHealth?.pending
+              }));
+            }
             if(expected.includes("R373-EVIDENCE-DRAW-INTEREST")){
               const a=d.r373DrawInterestAudit||{};
               assert.equal(a.id,"R373_FUTURE_SOCCER_MONEYLINE_HANDICAP_DRAW_INTEREST",

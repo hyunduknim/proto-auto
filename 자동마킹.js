@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R373-EVIDENCE-DRAW-INTEREST";
-const BUILD_ID = "proto-r373-pregame-soccer-draw-interest-safe";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R374-GPT-CURATED-DRAWS";
+const BUILD_ID = "proto-r374-verified-round120-curated-draws-only";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -3874,9 +3874,26 @@ function r371RestoreRelativeGrades(state){
 
 // R373: inspect genuine existing full-time soccer draw markets; "interest"
 // means relative market-value review, NEVER independently certified advice.
-const R373_DRAW_INTEREST_ID="R373_FUTURE_SOCCER_MONEYLINE_HANDICAP_DRAW_INTEREST";
+// R374: only the explicitly reviewed soccer draw markets for this round.
+// Pair the official proto market number with the fixture identity to prevent
+// a market collision or an automatic unreviewed draw from being substituted.
+const R373_DRAW_INTEREST_ID="R374_GPT_CURATED_ROUND120_DRAWS_ONLY";
+const R374_GPT_CURATED_DRAW_MARKETS=Object.freeze([
+  {gmTs:"260120",no:7543,date:"2026-10-11",time:"14:00",
+    family:"HANDICAP",home:"수원삼성블루윙즈",away:"안산그리너스"},
+  {gmTs:"260120",no:7637,date:"2026-10-11",time:"20:00",
+    family:"MONEYLINE",home:"사우샘프턴",away:"포츠머스"}
+]);
+function r374IsApprovedDrawMarket(m){
+  if(!m||started(m)||m.resultFinal)return false;
+  return R374_GPT_CURATED_DRAW_MARKETS.some(x=>
+    String(m.gmTs)===x.gmTs&&Number(m.no)===x.no&&
+    String(m.date)===x.date&&String(m.time)===x.time&&
+    String(m.marketFamily)===x.family&&
+    norm(m.home)===norm(x.home)&&norm(m.away)===norm(x.away));
+}
 function r373DrawInterestCandidate(m){
-  if(!m||m.sport!=="축구"||!["MONEYLINE","HANDICAP"].includes(m.marketFamily)||
+  if(!r374IsApprovedDrawMarket(m)||m.sport!=="축구"||!["MONEYLINE","HANDICAP"].includes(m.marketFamily)||
     started(m)||m.resultFinal||m.manualOverride||!representativeMarketEligible(m)||
     !oddsFresh(m)||explicitMarketClosed(m))return null;
   const q=analyzeChoiceRows(m).find(x=>x.pick==="무"&&
@@ -3898,7 +3915,7 @@ function r373DrawInterestCandidate(m){
 }
 function r373ApplySoccerDrawInterests(state){
   const groups=groupMarkets((state.markets||[]).filter(m=>currentRoundMarket(m,state))),
-    future=[],pastChanged=[];
+    future=[];
   for(const [key,ms] of groups){
     const base=ms.find(m=>m.marked&&m.representativeSelected);
     if(!base||base.sport!=="축구"||started(base)||base.resultFinal||
@@ -3945,8 +3962,8 @@ function r373ApplySoccerDrawInterests(state){
   return {id:R373_DRAW_INTEREST_ID,at:nowIso(),round:state.round,gmTs:state.gmTs,
     examined:future.length,chosen:rows.length,changed,already,
     lockedPreserved:lockedInterest.length,rows,
-    labels:"RELATIVE_INTEREST_NOT_CERTIFIED",autoDeployUnrelated:false,
-    policy:"MAX_TWO_UPCOMING_ONE_EACH_MONEYLINE_HANDICAP; MAX_THREE_ACROSS_ROUND; NO_START_OR_SETTLED_CHANGES; NO_FORCED_DRAW"};
+    labels:"CURATED_RELATIVE_INTEREST_NOT_CERTIFIED",approvedMarkets:R374_GPT_CURATED_DRAW_MARKETS.map(x=>({no:x.no,gmTs:x.gmTs})),autoDeployUnrelated:false,
+    policy:"ONLY_GPT_REVIEWED_7543_HANDICAP_AND_7637_MONEYLINE_IN_ROUND_120; NO_OTHERS; NO_START_OR_SETTLED_CHANGES; NO_FORCED_DRAW"};
 }
 function r373DrawSelectionSignature(state){
   return serializeState((state?.markets||[]).filter(m=>m.marked&&m.representativeSelected)
