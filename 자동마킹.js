@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R387-FAST-ONCE-SETTLEMENT";
-const BUILD_ID = "proto-r387-avoid-manual-duplicate-source-timeouts";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R388-MLS-READ-SELFHEAL";
+const BUILD_ID = "proto-r388-on-read-verified-morning-backfill";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -4925,6 +4925,7 @@ async function loadState(env){
     await r368MigrateRequestedVoid(MEM.state,env);
     await r372MigratePersistedGrades(MEM.state,env);
     await r373MigratePersistedDraws(MEM.state,env);
+    await r388RecoverCompletedMorningMlsOnRead(MEM.state,env);
     return MEM.state;
   }
   let loadedPurgeRemoved=0,loadedNeedsPersist=false;
@@ -4947,6 +4948,7 @@ async function loadState(env){
   await r368MigrateRequestedVoid(MEM.state,env);
   await r372MigratePersistedGrades(MEM.state,env);
   await r373MigratePersistedDraws(MEM.state,env);
+  await r388RecoverCompletedMorningMlsOnRead(MEM.state,env);
   return MEM.state;
 }
 
@@ -6885,6 +6887,33 @@ function r386ApplyVerifiedMlsRecovery(state){
       outcome:resolved.outcome,pick:m.finalPick,settled:n===1});
   }
   return audit;
+}
+// R388: startup/API-state read self-healing if the minute cron/DO alarm did
+// not complete. Only exact round-120 Oct-11 MLS fixtures with two published
+// final-source scores, unchanged official selection and minimum 3h since start.
+// Existing settled wagers and unrelated games remain frozen.
+let R388_RECOVERING_MORNING=false;
+async function r388RecoverCompletedMorningMlsOnRead(state,env){
+  if(R388_RECOVERING_MORNING||!state||String(state.gmTs)!=="260120"||
+     Number(state.round)!==120)return false;
+  const eligible=pendingSettlementMarkets(state).some(m=>r385MlsFixtureSpec(m)&&
+    Number.isFinite(gameTimeMs(m))&&Date.now()-gameTimeMs(m)>=3*3600000);
+  if(!eligible)return false;
+  R388_RECOVERING_MORNING=true;
+  try{
+    const previous=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&
+      m.resultFinal).map(m=>[m.gmTs,m.no,m.finalPick,m.finalOdds,m.result,m.hit,m.settlementStatus]);
+    const audit=await r386RunEmergencyBackfill(state,env);
+    const after=(MEM.state?.markets||state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&
+      m.resultFinal);
+    for(const x of previous){
+      if(!after.some(m=>String(m.gmTs)===String(x[0])&&Number(m.no)===Number(x[1])&&
+        m.finalPick===x[2]&&m.finalOdds===x[3]&&m.result===x[4]&&
+        m.hit===x[5]&&m.settlementStatus===x[6]))
+        throw Error("R388_EXISTING_SETTLEMENT_CHANGED");
+    }
+    return Number(audit.settled||0)>0;
+  }finally{R388_RECOVERING_MORNING=false;}
 }
 async function r386RunEmergencyBackfill(state,env){
   const audit=r386ApplyVerifiedMlsRecovery(state);
