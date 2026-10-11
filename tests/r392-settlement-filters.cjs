@@ -14,8 +14,8 @@ const at=Date.parse('2026-10-11T13:00:00+09:00');
 for(const [key,n] of [['all',5],['pending',2],['overdue',2],['hit',1],['miss',1],['void',1]])
 assert.equal(fn(rows,key,at).length,n,key);
 assert.equal(rows.length,5,'Filtering never mutates the source list');
-assert.ok(source.indexOf('r381RefreshCloudflareZentoto(cur,env,false);')<
- source.indexOf('r384RefreshSpogodResults(cur,env,false);'),'Zentoto first, Spogod second');
+assert.ok(source.indexOf('r381RefreshCloudflareZentoto(cur,env,fiveMinuteDue);')<
+ source.indexOf('r384RefreshSpogodResults(cur,env,fiveMinuteDue);'),'Zentoto first, Spogod second');
 assert.ok(source.includes('olderRoundPending:q.filter('),'Previous round queue kept');
 assert.ok(source.includes('pastPendingGames:p')||source.includes('pastPendingGames,'),'Pending displayed');
 console.log('R392_FILTER_DISPLAY_ONLY_PASS');

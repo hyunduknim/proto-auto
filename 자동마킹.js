@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R394-FIVE-MINUTE-SETTLEMENT-WATCHDOG";
-const BUILD_ID = "proto-r394-5min-watchdog-fast-refresh-kept";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R395-SPOGOD-RECENT-DATE-PRIORITY";
+const BUILD_ID = "proto-r395-spogod-current-date-fair-recheck";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6712,14 +6712,42 @@ function r384ApplySpogodFinal(state,rows){
 // R390: Fairly rotate Spogod FINAL detail checks so the first twelve pending
 // markets cannot indefinitely starve later games. This only changes which
 // existing pending markets are checked; strict FINAL/score guards remain.
-function r390SpogodDetailBatch(indexed,previousOffset){
+function r390SpogodDetailBatch(indexed,previousOffset,limit=12){
   if(!Array.isArray(indexed)||!indexed.length)
     return {batch:[],nextOffset:0,total:0,start:0};
   const total=indexed.length,raw=Number(previousOffset),
     start=Number.isSafeInteger(raw)&&raw>=0?raw%total:0,
-    count=Math.min(12,total);
+    count=Math.min(total,Math.max(0,Math.min(12,Number.isFinite(Number(limit))?Math.floor(Number(limit)):12)));
   const batch=Array.from({length:count},(_,i)=>indexed[(start+i)%total]);
   return {batch,nextOffset:total>count?(start+count)%total:0,total,start};
+}
+// R395: Prevent old pending rounds from monopolizing the three public
+// Spogod date pages. Always include the two newest started dates, while
+// fairly rotating the remaining older pending dates through the third slot.
+// Selection order changes only source requests, NEVER a result or saved pick.
+function r395SpogodDateBatch(pending,previousOffset){
+  const dates=[...new Set((pending||[]).map(m=>String(m?.date||""))
+    .filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)))].sort().reverse();
+  if(dates.length<=3)return {days:dates,nextOffset:0,total:dates.length,historic:Math.max(0,dates.length-2)};
+  const older=dates.slice(2),n=Number(previousOffset),
+    start=Number.isSafeInteger(n)&&n>=0?n%older.length:0;
+  return {days:[...dates.slice(0,2),older[start]],
+    nextOffset:(start+1)%older.length,total:dates.length,historic:older.length};
+}
+// Eight fast detail checks target recent games; up to four audit older dates.
+// Remaining slots flow to whichever queue still has pending matches.
+function r395SpogodPriorityDetailBatch(indexed,days,recentOffset,olderOffset){
+  const selected=new Set((days||[]).slice(0,2));
+  const recent=(indexed||[]).filter(r=>selected.has(String(r?.market?.date||""))),
+    older=(indexed||[]).filter(r=>!selected.has(String(r?.market?.date||"")));
+  const recentLimit=Math.min(recent.length,Math.max(8,12-Math.min(4,older.length))),
+    olderLimit=Math.min(older.length,12-recentLimit);
+  const a=r390SpogodDetailBatch(recent,recentOffset,recentLimit),
+    b=r390SpogodDetailBatch(older,olderOffset,olderLimit);
+  return {batch:[...a.batch,...b.batch],recentChecked:a.batch.length,
+    olderChecked:b.batch.length,recentTotal:recent.length,olderTotal:older.length,
+    nextRecentOffset:a.nextOffset,nextOlderOffset:b.nextOffset,
+    start:a.start,nextOffset:a.nextOffset};
 }
 async function r384RefreshSpogodResults(state,env,force=false){
   const pending=pendingSettlementMarkets(state);
@@ -6748,8 +6776,12 @@ async function r384RefreshSpogodResults(state,env,force=false){
     }finally{clearTimeout(timer);}
   }
   try{
-    const days=[...new Set(pending.map(m=>String(m.date||""))
-      .filter(d=>/^\d{4}-\d\d-\d\d$/.test(d)))].slice(0,3);
+    const dates=r395SpogodDateBatch(pending,old.nextDayOffset);
+    const days=dates.days;
+    audit.datesChecked=days;
+    audit.availableDateCount=dates.total;
+    audit.rotatingHistoricDates=dates.historic;
+    audit.nextDayOffset=dates.nextOffset;
     const pageResponses=await Promise.allSettled(days.map(async date=>
       ({date,body:await html("https://spogod.com/today/?d="+date,1900000)})));
     const pages=pageResponses.filter(x=>x.status==="fulfilled").map(x=>x.value);
@@ -6765,10 +6797,17 @@ async function r384RefreshSpogodResults(state,env,force=false){
       if(list.length===1)indexed.push({market:m,...list[0]});
     }
     audit.indexMatches=indexed.length;
-    const detailWindow=r390SpogodDetailBatch(indexed,old.nextDetailOffset);
+    const detailWindow=r395SpogodPriorityDetailBatch(indexed,days,
+      old.nextRecentDetailOffset??old.nextDetailOffset,old.nextOlderDetailOffset);
     audit.detailChecked=detailWindow.batch.length;
+    audit.detailRecentChecked=detailWindow.recentChecked;
+    audit.detailHistoricChecked=detailWindow.olderChecked;
+    audit.detailRecentTotal=detailWindow.recentTotal;
+    audit.detailHistoricTotal=detailWindow.olderTotal;
     audit.detailWindowStart=detailWindow.start;
     audit.nextDetailOffset=detailWindow.nextOffset;
+    audit.nextRecentDetailOffset=detailWindow.nextRecentOffset;
+    audit.nextOlderDetailOffset=detailWindow.nextOlderOffset;
     const detailResults=await Promise.allSettled(detailWindow.batch.map(async row=>{
       const detail=await html("https://spogod.com/match/"+row.id+"/",800000);
       return {row,verified:r384SpogodDetailFinal(detail,row.market,row.score)};

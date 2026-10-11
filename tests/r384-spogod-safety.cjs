@@ -60,10 +60,10 @@ const selectedBefore=[a,b,c].map(m=>[m.no,m.finalPick,m.finalOdds,m.displayGrade
  const throttle=await lib.r384RefreshSpogodResults(state,{},false);
  assert.equal(throttle.status,"THROTTLED");
  assert.equal(fetches,n);
- const zen=source.indexOf("await r381RefreshCloudflareZentoto(cur,env,false)"),
-   spogod=source.indexOf("await r384RefreshSpogodResults(cur,env,false)"),
+ const zen=source.indexOf("await r381RefreshCloudflareZentoto(cur,env,fiveMinuteDue)"),
+   spogod=source.indexOf("await r384RefreshSpogodResults(cur,env,fiveMinuteDue)"),
    wise=source.indexOf("await r383RefreshWisetotoResults(cur,env,false)"),
-   betman=source.indexOf("await refreshBetmanResults(cur,env,false)");
+   betman=source.indexOf("await refreshBetmanResults(cur,env,fiveMinuteDue)");
  assert.ok(zen>=0&&spogod>zen&&wise>spogod&&betman>wise,
    "Settlement order must be Zen -> Spogod -> optional Wise -> Betman");
  console.log("R384_SPOGOD_PASS="+JSON.stringify({

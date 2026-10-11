@@ -36,8 +36,8 @@ assert.deepEqual(diagnostics.map(d=>d.no),[8101,8102,8103,8104]);
 assert.ok(diagnostics.every(d=>d.time==="08:30"),"08:30 kickoff retained");
 assert.ok(diagnostics.every(d=>d.ageMinutes>=0),"Elapsed-start evidence maintained");
 assert.equal(pending.every(m=>!m.resultFinal),true,"Read-only diagnostic must never settle");
-assert.ok(source.indexOf("await r381RefreshCloudflareZentoto(cur,env,false)")<
- source.indexOf("if(hasLivePending(cur))await refreshBetmanResults(cur,env,false)"),
+assert.ok(source.indexOf("await r381RefreshCloudflareZentoto(cur,env,fiveMinuteDue)")<
+ source.indexOf("if(hasLivePending(cur))await refreshBetmanResults(cur,env,fiveMinuteDue)"),
  "Slow Betman requests must never precede Cloudflare native final checks");
 assert.ok(source.includes('u.pathname==="/api/settlement-queue"'));
 assert.ok(source.includes("audit.pendingDetails=r382PendingSourceCoverage(remaining,rows)"));

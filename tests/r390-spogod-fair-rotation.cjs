@@ -16,8 +16,8 @@ assert.equal(seen.size,29,"Full pending index coverage must be achieved in 3 pol
 assert.deepEqual(batch(rows.slice(0,5),99).batch.map(x=>x.id),[5,1,2,3,4]);
 assert.equal(batch(rows.slice(0,5),99).nextOffset,0);
 assert.equal(batch([],999).batch.length,0);
-assert.ok(s.indexOf("r381RefreshCloudflareZentoto(cur,env,false);")<
- s.indexOf("r384RefreshSpogodResults(cur,env,false);"),"Zen first, Spogod second");
+assert.ok(s.indexOf("r381RefreshCloudflareZentoto(cur,env,fiveMinuteDue);")<
+ s.indexOf("r384RefreshSpogodResults(cur,env,fiveMinuteDue);"),"Zen first, Spogod second");
 assert.ok(s.includes('status:"FINAL",source:"SPOGOD_PUBLIC_EXACT_FINAL"'));
 assert.ok(s.includes("r389RunConfirmedAfter13Backfill(MEM.state,env)"));
 console.log("R390_ZEN_SPOGOD_FAIR_CHECK="+JSON.stringify({
