@@ -20,3 +20,9 @@ MLS 08:30, 09:30, 10:30, 11:30(한국시간) 경기의 최종 점수가 스포�
 `GET /api/diagnostics` → `settlementHealth.cloudflareNative`, `spogodNative`, `mlsDirectBackup` 및 `settlementHealth.pending`; `GET /api/state` → `r385MlsFinalAudit`.
 
 **프로덕션 Worker가 R385로 전환됐는지 반드시 확인한다.** Cloudflare Workers Builds success만으로 실제 배포를 확정하지 않는다. 무료 GitHub Actions 쿼터 소진 시 테스트 자동실행에 의존하지 않음.
+
+## 2026-10-11 16:35 KST: deployment retry and real-state gate
+
+Cloudflare Workers Builds check for R385 commit `41b4c0217e1af7cd399e26b34fbd4750f8e93f0b` failed immediately. The repository's offline function-only regression returned one verified MLS full-time result and correctly settled its stored TOTAL selection, but this does **not** establish a live release. Retry the identical code through a new Git integration build and inspect the *deployed* `/api/diagnostics` and `/api/state` before declaring morning games settled. Specifically require version containing `R385-MLS-SETTLEMENT-RECOVERY`, `r385MlsFinalAudit.status`, `r385MlsFinalAudit.settled`, and the started-pending queue to show what actually changed. A Cloudflare check marked success proves the build, not necessarily the active Worker version or a real final-result fetch.
+
+No manual alteration of outcomes, previous hits/misses or grade/pick histories is authorized by this retry. Keep the existing priority: Zentoto first, Spogod second, verified MLS supplemental next, and official settlement fallback. If Cloudflare build fails again, examine its actual build log in Cloudflare Dashboard rather than attributing the pending matches to source latency.
