@@ -6973,9 +6973,17 @@ function r389ApplyConfirmedAfter13Finals(state){
   return audit;
 }
 async function r389RunConfirmedAfter13Backfill(state,env){
-  const audit=r389ApplyConfirmedAfter13Finals(state);
-  state.r389AfternoonAudit=audit;
-  if(audit.settled){markState(state);await saveState(state,env,true);}
+  const audit=r389ApplyConfirmedAfter13Finals(state),prior=state.r389AfternoonAudit||{};
+  // Persist the last successful audit so a subsequent GET does not report
+  // zero historical settlements after all eligible games have been closed.
+  if(audit.settled){
+    state.r389AfternoonAudit={
+      ...audit,totalSettled:Number(prior.totalSettled||0)+audit.settled};
+    markState(state);await saveState(state,env,true);
+  }else if(prior.id===audit.id&&Number(prior.totalSettled||0)>0){
+    state.r389AfternoonAudit={...prior,latestCheckedAt:audit.at,
+      pendingAfter:audit.pendingAfter};
+  }else state.r389AfternoonAudit={...audit,totalSettled:0};
   return audit;
 }
 
@@ -7321,6 +7329,10 @@ function settlementHealth(state){
       overdueDetails:(cf.pendingDetails||[]).filter(x=>Number(x.ageMinutes)>=240).slice(0,20),
       error:cf.error||null},
     settlementSourcePriority:["ZENTOTO","SPOGOD_VERIFIED_FINAL","ESPN_VERIFIED_MLS_FALLBACK","WISETOTO_OPTIONAL_LICENSED","BETMAN_LAST"],
+    afternoonRecovery:{at:state?.r389AfternoonAudit?.at||null,
+      verifiedFixtures:Number(state?.r389AfternoonAudit?.verifiedFixtures||0),
+      settledTotal:Number(state?.r389AfternoonAudit?.totalSettled||0),
+      pendingAfter:Number(state?.r389AfternoonAudit?.pendingAfter||0)},
     mlsDirectBackup:{status:state?.r385MlsFinalAudit?.status||"NOT_RUN",
       at:state?.r385MlsFinalAudit?.at||null,
       events:Number(state?.r385MlsFinalAudit?.events||0),
