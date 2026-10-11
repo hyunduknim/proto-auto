@@ -3924,6 +3924,7 @@ function r373ApplySoccerDrawInterests(state){
   for(const x of chosen){
     const {base,m,q}=x;
     if(started(base)||started(m)||base.resultFinal||m.resultFinal)continue;
+    const prior={no:base.no,family:base.marketFamily,pick:base.finalPick,odds:base.finalOdds};
     const same=base===m&&String(base.finalPick)==="무";
     if(!same){
       if(base!==m)clearRepresentative([base]);
@@ -3938,7 +3939,7 @@ function r373ApplySoccerDrawInterests(state){
     rows.push({no:m.no,date:m.date,time:m.time,game:m.game,
       family:m.marketFamily,pick:"무",odds:Number(q.odds),
       estimatedProbability:r3(q.calibratedP),estimatedEV:r3(x.ev),edge:r3(x.edge),
-      fromNo:base.no,fromFamily:base.marketFamily,fromPick:base.finalPick,
+      fromNo:prior.no,fromFamily:prior.family,fromPick:prior.pick,fromOdds:prior.odds,
       strict:!!x.strict});
   }
   return {id:R373_DRAW_INTEREST_ID,at:nowIso(),round:state.round,gmTs:state.gmTs,
