@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R375-CHRONOLOGICAL-0830";
-const BUILD_ID = "proto-r375-chronological-api-and-ui-sorting-redeploy";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R376-MYSCOREBOT-OPTIONAL-BRIDGE";
+const BUILD_ID = "proto-r376-myscorebot-authorized-feed-pregame-only";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -380,7 +380,8 @@ const AXIS_FEED_META=Object.freeze({
   pickschool:Object.freeze({urlKeys:["PICKSCHOOL_PUBLIC_FEED_URL","PICKSCHOOL_FEED_URL"],bearerKeys:["PICKSCHOOL_FEED_BEARER_TOKEN"],apiKeyKeys:["PICKSCHOOL_FEED_API_KEY"],source:"PICKSCHOOL_AUTHORIZED_FEED"}),
   sportsnote:Object.freeze({urlKeys:["SPORTSNOTE_PUBLIC_FEED_URL","SPORTSNOTE_FEED_URL"],bearerKeys:["SPORTSNOTE_FEED_BEARER_TOKEN"],apiKeyKeys:["SPORTSNOTE_FEED_API_KEY"],source:"SPORTSNOTE_AUTHORIZED_FEED"}),
   protoodds:Object.freeze({urlKeys:["PROTO_ODDS_ANALYSIS_PUBLIC_FEED_URL","PROTO_ODDS_PUBLIC_FEED_URL","PROTOODDS_PUBLIC_FEED_URL"],bearerKeys:["PROTO_ODDS_ANALYSIS_FEED_BEARER_TOKEN","PROTOODDS_FEED_BEARER_TOKEN"],apiKeyKeys:["PROTO_ODDS_ANALYSIS_FEED_API_KEY","PROTOODDS_FEED_API_KEY"],source:"PROTO_ODDS_ANALYSIS_AUTHORIZED_FEED"}),
-  jeongbaedang:Object.freeze({urlKeys:["JEONGBAEDANG_PUBLIC_FEED_URL","JEONGBAEDANG_FEED_URL"],bearerKeys:["JEONGBAEDANG_FEED_BEARER_TOKEN"],apiKeyKeys:["JEONGBAEDANG_FEED_API_KEY"],source:"JEONGBAEDANG_AUX_AUTHORIZED_FEED"})
+  jeongbaedang:Object.freeze({urlKeys:["JEONGBAEDANG_PUBLIC_FEED_URL","JEONGBAEDANG_FEED_URL"],bearerKeys:["JEONGBAEDANG_FEED_BEARER_TOKEN"],apiKeyKeys:["JEONGBAEDANG_FEED_API_KEY"],source:"JEONGBAEDANG_AUX_AUTHORIZED_FEED"}),
+  myscorebot:Object.freeze({urlKeys:["MYSCOREBOT_FEED_URL"],bearerKeys:["MYSCOREBOT_FEED_BEARER_TOKEN"],apiKeyKeys:[],source:"MYSCOREBOT_AUTHORIZED_PREGAME_ONLY"})
 });
 function firstEnv(env,keys){for(const k of keys||[]){const v=String(env?.[k]||"").trim();if(v)return v;}return "";}
 function allowedAxisFeedUrl(env,axis){
@@ -388,6 +389,8 @@ function allowedAxisFeedUrl(env,axis){
   try{const u=new URL(raw);if(u.protocol!=="https:")return null;const h=u.hostname.toLowerCase();
     const protectedHosts=["escore.co.kr","chocspo.com","wisetoto.com","withwingsoft.com","sportsnote.kr","xn--ok1bt8o80j.com"];
     if(protectedHosts.some(x=>h===x||h.endsWith("."+x)))return null;
+    if(axis==="myscorebot"&&(u.username||u.password||u.hash||
+      /^(localhost|127\.|0\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/i.test(h)))return null;
     return u.toString();
   }catch{return null;}
 }
@@ -410,7 +413,72 @@ function axisLayerPayload(g,axis){
   const copy={...g};for(const k of ["date","time","home","away","sport","league","updatedAt","fetchedAt","source","status","homeScore","awayScore","features"])delete copy[k];
   return copy;
 }
+
+/* R376: optional, owner-authorized MyScoreBot JSON snapshot adapter.
+   The ChatGPT-only connector is NOT a public API. Never ingest scores or
+   completed-game stats as settlement evidence, predictions, or extra votes. */
+function myScoreBotRecentForm(games){
+  if(!Array.isArray(games)||games.length<4||games.length>12)return null;
+  const codes=games.map(x=>String(x||"").trim().toUpperCase());
+  if(codes.some(x=>!["W","D","L"].includes(x)))return null;
+  return (codes.filter(x=>x==="W").length+
+    .5*codes.filter(x=>x==="D").length)/codes.length;
+}
+function normalizeMyScoreBotGames(data){
+  const entries=feedRows(data),out=[],seen=new Set(),ambiguous=new Set();
+  for(const raw of entries){
+    const g=raw?.structuredContent||raw?.details||raw;
+    if(!g||typeof g!=="object")continue;
+    const date=String(raw?.date||data?.date||g?.date||"");
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||
+      !Number.isFinite(Date.parse(date+"T00:00:00Z")))continue;
+    const stamp=String(raw?.updatedAt||data?.updatedAt||"");
+    const ms=isoMs(stamp);
+    if(ms==null||ms>Date.now()+60000||Date.now()-ms>CFG.auxMaxAgeMs)continue;
+    const status=String(g.status||raw.status||"").trim().toLowerCase();
+    if(!["예정","scheduled","not started","not_started","ns","pregame","pre-game"].includes(status))continue;
+    const home=String(g.homeTeam?.name||raw.home||g.home||"").trim(),
+      away=String(g.awayTeam?.name||raw.away||g.away||"").trim();
+    if(!home||!away||norm(home)===norm(away))continue;
+    const homeRecent=myScoreBotRecentForm(g.homeTeam?.recentGames);
+    const awayRecent=myScoreBotRecentForm(g.awayTeam?.recentGames);
+    const hh=g.headToHead||{},total=Number(hh.totalGames),
+      h=Number(hh.homeWins),a=Number(hh.awayWins),d=Number(hh.draws);
+    const validH2H=Number.isInteger(total)&&total>=8&&total<=100&&
+      [h,a,d].every(x=>Number.isInteger(x)&&x>=0)&&h+a+d===total;
+    if((homeRecent==null||awayRecent==null)&&!validH2H)continue;
+    const features={source:"MYSCOREBOT_AUTHORIZED_PREGAME_ONLY",updatedAt:stamp};
+    if(homeRecent!=null&&awayRecent!=null){
+      // Shrink short or partial recent form toward a neutral 50%.
+      const n=Math.min(g.homeTeam.recentGames.length,g.awayTeam.recentGames.length);
+      const shrink=Math.min(.70,n/10);
+      features.homeRecent=clamp(.5+(homeRecent-.5)*shrink);
+      features.awayRecent=clamp(.5+(awayRecent-.5)*shrink);
+      features.recentSamples=n;
+    }
+    if(validH2H){
+      // H2H is a weak secondary observation, NOT a guaranteed draw signal.
+      features.homeH2H=clamp((h+.5*d)/total);
+      features.awayH2H=clamp((a+.5*d)/total);
+      features.h2hSamples=total;
+    }
+    const sportType=String(g.sportType||raw.sport||"").toLowerCase();
+    const sport=({baseball:"야구",soccer:"축구",basketball:"농구",volleyball:"배구"})[sportType]||String(raw.sport||"");
+    if(!["야구","축구","농구","배구"].includes(sport))continue;
+    const rec={date,home,away,sport,time:String(g.time||raw.time||""),
+      updatedAt:stamp,source:"MYSCOREBOT_AUTHORIZED_PREGAME_ONLY",
+      status:"PREGAME",features:stampAxisFeatures({myscorebot:features},stamp),
+      homeScore:null,awayScore:null};
+    const key=auxGameKey(rec);
+    // Multiple same-day meetings must not inherit each other's evidence.
+    if(seen.has(key)){ambiguous.add(key);continue;}
+    seen.add(key);out.push(rec);
+  }
+  return out.filter(x=>!ambiguous.has(auxGameKey(x)));
+}
+
 function normalizeDedicatedAxisGames(data,axis,sourceName=null){
+  if(axis==="myscorebot")return normalizeMyScoreBotGames(data);
   const rows=feedRows(data),out=[];for(const g of rows){if(!g||!g.date||!g.home||!g.away)continue;
     const base=g.features&&typeof g.features==="object"&&!Array.isArray(g.features)?{...g.features}:{},layer=axisLayerPayload(g,axis);
     if(!Object.keys(layer).some(k=>!["updatedAt","source","status"].includes(k)))continue;
@@ -466,8 +534,8 @@ function combineAuxFeedResults(legacy,axisResults){
   return {enabled:anyEnabled,ok:anyOk,games:[...map.values()],connectors,at:nowIso(),reason:anyEnabled&&!anyOk?"ALL_CONFIGURED_FEEDS_FAILED":null};
 }
 async function fetchFourAxisAuxGames(env,force=false){
-  const [legacy,scorecenter,pickschool,sportsnote,protoodds,jeongbaedang]=await Promise.all([fetchPublicAuxGames(env,force),fetchDedicatedAxisFeed(env,"scorecenter",force),fetchDedicatedAxisFeed(env,"pickschool",force),fetchDedicatedAxisFeed(env,"sportsnote",force),fetchDedicatedAxisFeed(env,"protoodds",force),fetchDedicatedAxisFeed(env,"jeongbaedang",force)]);
-  return combineAuxFeedResults(legacy,[scorecenter,pickschool,sportsnote,protoodds,jeongbaedang]);
+  const [legacy,scorecenter,pickschool,sportsnote,protoodds,jeongbaedang,myscorebot]=await Promise.all([fetchPublicAuxGames(env,force),fetchDedicatedAxisFeed(env,"scorecenter",force),fetchDedicatedAxisFeed(env,"pickschool",force),fetchDedicatedAxisFeed(env,"sportsnote",force),fetchDedicatedAxisFeed(env,"protoodds",force),fetchDedicatedAxisFeed(env,"jeongbaedang",force),fetchDedicatedAxisFeed(env,"myscorebot",force)]);
+  return combineAuxFeedResults(legacy,[scorecenter,pickschool,sportsnote,protoodds,jeongbaedang,myscorebot]);
 }
 function feedIntegrationStatus(state,env){
   // Read-only readiness. A configured URL or HTTP 200 never proves that data
@@ -491,13 +559,21 @@ function feedIntegrationStatus(state,env){
       lastFetchOk:prior.ok===true,
       lastError:prior.reason||null};
   }
+  const myMeta=AXIS_FEED_META.myscorebot,myPrior=connectors.myscorebot||{},
+    myRequested=!!firstEnv(env,myMeta.urlKeys),myConfigured=!!allowedAxisFeedUrl(env,"myscorebot"),
+    myStatus=!myRequested?"NOT_CONFIGURED":!myConfigured?"URL_REJECTED":
+      !myPrior.enabled?"NOT_POLLED":!myPrior.ok?"NO_VALID_PREGAME_ROWS_OR_FETCH_FAILED":
+      "VALID_PREGAME_ROWS_RECEIVED_MATCH_NOT_PROVEN";
+  const myScoreBot={requested:myRequested,configured:myConfigured,status:myStatus,
+    validatedFeedRows:Number(myPrior.games||0),lastFetchOk:myPrior.ok===true,
+    lastError:myPrior.reason||null,role:"SC_AUX_ONLY_NO_SETTLEMENT_NO_FIFTH_VOTE"};
   const active=Object.values(axes).filter(x=>x.receivedMatches>0).length;
   return {version:APP_VERSION,at:state?.auxAudit?.at||null,round:state?.round||null,
     originalAppApiAuthorized:false,originalAppApiLiveVerified:false,
     externalAuthorizedFeedsActive:active,
     overall:active===4?"FOUR_AUTHORIZED_JSON_FEEDS_ACTIVE":
       active?"PARTIAL_AUTHORIZED_JSON_FEEDS":"ORIGINAL_APK_FEEDS_NOT_CONNECTED",
-    axes,source:"CLOUDFLARE_SERVER_SIDE_CONFIG_AND_REPRESENTATIVE_AUDIT",
+    axes,myScoreBot,source:"CLOUDFLARE_SERVER_SIDE_CONFIG_AND_REPRESENTATIVE_AUDIT",
     note:"APK 구조 기반 자체 분석과 공급자의 원본 서버 데이터는 다릅니다. 사용 허가된 피드 URL/인증·데이터가 없으면 원본 연동 완료로 표시하지 않습니다."};
 }
 async function fetchThreeAxisAuxGames(env,force=false){return fetchFourAxisAuxGames(env,force);} // backward-compatible alias
@@ -630,12 +706,12 @@ function explicitAuxChoiceProbability(m,c){
   return null;
 }
 function scorecenterFeatureBag(m){
-  const f=flatAuxFeatureBag(m),sc=layerContainer(m,"scorecenter"),ma=firstObject(sc.matchAnalysis,sc.MatchAnalysis),sp=firstObject(sc.startingPitcher,sc.StartingPitcher),lu=firstObject(sc.lineup,sc.Lineup);
+  const f=flatAuxFeatureBag(m),sc=layerContainer(m,"scorecenter"),mb=layerContainer(m,"myscorebot"),ma=firstObject(sc.matchAnalysis,sc.MatchAnalysis),sp=firstObject(sc.startingPitcher,sc.StartingPitcher),lu=firstObject(sc.lineup,sc.Lineup);
   return {...f,...sc,...ma,
     homePower:firstFinite(sc.homePower,ma.homePower,ma.homeTeamPower,f.homePower),awayPower:firstFinite(sc.awayPower,ma.awayPower,ma.awayTeamPower,f.awayPower),
     homeForm:firstFinite(sc.homeForm,ma.homeForm,ma.homeRecentForm,f.homeForm),awayForm:firstFinite(sc.awayForm,ma.awayForm,ma.awayRecentForm,f.awayForm),
-    homeRecent:firstFinite(sc.homeRecent,ma.homeRecent,f.homeRecent),awayRecent:firstFinite(sc.awayRecent,ma.awayRecent,f.awayRecent),
-    homeH2H:firstFinite(sc.homeH2H,ma.homeH2H,f.homeH2H),awayH2H:firstFinite(sc.awayH2H,ma.awayH2H,f.awayH2H),
+    homeRecent:firstFinite(sc.homeRecent,ma.homeRecent,f.homeRecent,mb.homeRecent),awayRecent:firstFinite(sc.awayRecent,ma.awayRecent,f.awayRecent,mb.awayRecent),
+    homeH2H:firstFinite(sc.homeH2H,ma.homeH2H,f.homeH2H,mb.homeH2H),awayH2H:firstFinite(sc.awayH2H,ma.awayH2H,f.awayH2H,mb.awayH2H),
     homeStarter:firstFinite(sc.homeStarter,sp.homeScore,sp.homeStarterScore,f.homeStarter),awayStarter:firstFinite(sc.awayStarter,sp.awayScore,sp.awayStarterScore,f.awayStarter),
     homeStarterEra:firstFinite(sc.homeStarterEra,sc.homeStartEraAvg,sc.homeNStartEraAvg,sp.homeEra,sp.homeStarterEra,f.homeStarterEra),
     awayStarterEra:firstFinite(sc.awayStarterEra,sc.awayStartEraAvg,sc.awayNStartEraAvg,sp.awayEra,sp.awayStarterEra,f.awayStarterEra),
