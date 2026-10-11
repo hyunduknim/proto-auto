@@ -186,7 +186,11 @@ jobs:
               String(m.home||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").normalize("NFC").toLowerCase().replace(/[^a-z0-9가-힣]/g,""),
               String(m.away||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").normalize("NFC").toLowerCase().replace(/[^a-z0-9가-힣]/g,"")].join("|");
             const primaryZen=zen.filter(m=>wanted.has(String(m.gmTs)+":"+String(m.no)));
-            const wantedFixtures=new Set(primaryZen.map(fixtureKey));
+            // A uniquely verified same-fixture MONEYLINE full-time score may
+            // settle a selected handicap/total even when Zen omits that selected
+            // market row. Require exact round, date, kickoff and both teams.
+            const wantedFixtures=new Set([...nos,...started,...scoreBackfill]
+              .filter(m=>m&&m.date&&m.time&&m.home&&m.away).map(fixtureKey));
             const verifiedZen=zen.filter(m=>wanted.has(String(m.gmTs)+":"+String(m.no))||
               (m.marketFamily==="MONEYLINE"&&wantedFixtures.has(fixtureKey(m))));
             console.log("ZENTOTO_SOURCE="+JSON.stringify({
@@ -256,6 +260,7 @@ jobs:
                   flashscoreSettlement:data.flashscoreSettlement||null,
                   aiscoreSettlement:data.aiscoreSettlement||null,
                   zentotoSettlement:data.zentotoSettlement||null,
+                  zentotoFixtureFallback:data.zentotoFixtureFallback||data.zentotoSettlement?.fixtureFallback||null,
                   espnSettlement:data.espnSettlement||null,
                   officialOddsRelay:data.officialOddsRelay||null
                 }));
@@ -279,6 +284,10 @@ jobs:
                 error:final.sourceAudit?.error||final.sourceAudit?.reason||null,
                 lastSuccessAt:final.sourceAudit?.lastSuccessAt},
               zentotoSettlementAudit:final.zentotoSettlementAudit||null,
+              overduePendingGames:(final.markingGames||[]).filter(m=>m.pick&&!m.resultFinal&&
+                m.gameStarted&&Number.isFinite(Date.parse(String(m.date)+"T"+String(m.time).slice(0,5)+":00+09:00"))&&
+                Date.now()-Date.parse(String(m.date)+"T"+String(m.time).slice(0,5)+":00+09:00")>=4*3600000)
+                .map(m=>({no:m.no,date:m.date,time:m.time,game:m.game,market:m.marketFamily})).slice(0,25),
               espnSettlementAudit:final.espnSettlementAudit||null,
               officialOddsRelayAudit:final.officialOddsRelayAudit||null,
               hour14:(final.markingGames||[]).filter(m=>
