@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R387-FAST-ONCE-SETTLEMENT";
-const BUILD_ID = "proto-r387-avoid-manual-duplicate-source-timeouts";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R388-IMMEDIATE-VERIFIED-MORNING-FINALS";
+const BUILD_ID = "proto-r388-verified-mls-backfill-before-network-and-on-state-read";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -4925,6 +4925,9 @@ async function loadState(env){
     await r368MigrateRequestedVoid(MEM.state,env);
     await r372MigratePersistedGrades(MEM.state,env);
     await r373MigratePersistedDraws(MEM.state,env);
+    // R388: rescue already verified final scores synchronously on state reads
+    // even when the Cloudflare DO alarm / external page fetches are stalled.
+    await r386RunEmergencyBackfill(MEM.state,env);
     return MEM.state;
   }
   let loadedPurgeRemoved=0,loadedNeedsPersist=false;
@@ -4947,6 +4950,7 @@ async function loadState(env){
   await r368MigrateRequestedVoid(MEM.state,env);
   await r372MigratePersistedGrades(MEM.state,env);
   await r373MigratePersistedDraws(MEM.state,env);
+  await r386RunEmergencyBackfill(MEM.state,env);
   return MEM.state;
 }
 
@@ -6849,7 +6853,10 @@ function r386ApplyVerifiedMlsRecovery(state){
     checked:0,settled:0,matched:0,rejected:0,reasons:{},items:[],
     scope:"EXACT_OCT11_KST_ROUND120_STARTED_UNSETTLED_MLS_ONLY",
     notContinuousFeed:true};
-  if(String(state?.gmTs)!=="260120"||Number(state?.round)!==120)return audit;
+  // Saved round-120 picks remain eligible after the active round changes.
+  // Every candidate is STILL constrained by r385MlsFixtureSpec(m) to exact
+  // 2026-10-11 + gmTs 260120 + audited home and away teams.
+  if(!Array.isArray(state?.markets))return audit;
   const scores=new Map(R386_PUBLISHED_FINALS.map(x=>[norm(x[0])+"|"+norm(x[1]),x[2]]));
   const pending=pendingSettlementMarkets(state).filter(m=>
     r385MlsFixtureSpec(m)&&m.date==="2026-10-11"&&
@@ -7415,6 +7422,8 @@ function serializedOperation(fn){const task=OPERATION_QUEUE.then(fn,fn);OPERATIO
 async function runTick(env){return serializedOperation(()=>runTickInternal(env));}
 async function runTickInternal(env){
   const s=await loadState(env);let cur=MEM.state||s;
+  // R388: saved final-score recovery has no network. It is already performed
+  // by loadState() before any remote source can block this tick.
   // R384: Zen first, Spogod verified full-time second, optional licensed Wise, Betman last.
   // A failure in one source never blocks the next source and cannot alter
   // already settled scores, picks, prices or historical records.
@@ -7427,9 +7436,7 @@ async function runTickInternal(env){
   try{await r385RefreshMlsFinals(cur,env,false);}
   catch(e){MEM.lastAlarmError="R385_ESPN_MLS:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
-  try{await r386RunEmergencyBackfill(cur,env);}
-  catch(e){MEM.lastAlarmError="R386_EMERGENCY:"+String(e?.message||e).slice(0,150);}
-  cur=MEM.state||cur;
+  // R388 backfill ran in loadState; never repeat per slow tick.
   try{await r383RefreshWisetotoResults(cur,env,false);}
   catch(e){MEM.lastAlarmError="R383_WISE:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
@@ -7488,6 +7495,7 @@ async function handleAppInternal(req,env,ctx){
       // R384 manual "결과 확인" obeys exactly the same source precedence as the
       // automatic Cloudflare cron instead of going straight to slow Betman.
       let s=await bootstrapState(env);
+      // R388: already verified MLS finals were settled in bootstrapState/loadState.
       try{await r381RefreshCloudflareZentoto(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_ZEN:"+String(e?.message||e).slice(0,140);}
       s=MEM.state||s;
       try{await r384RefreshSpogodResults(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_SPOGOD:"+String(e?.message||e).slice(0,140);}
@@ -7496,8 +7504,7 @@ async function handleAppInternal(req,env,ctx){
       s=MEM.state||s;
       try{await r383RefreshWisetotoResults(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_WISE_OPTIONAL:"+String(e?.message||e).slice(0,140);}
       s=MEM.state||s;
-      try{await r386RunEmergencyBackfill(s,env);}catch(e){MEM.lastAlarmError="MANUAL_MLS_DUAL_FINAL:"+String(e?.message||e).slice(0,140);}
-      s=MEM.state||s;
+      // Exact finished MLS rescue already attempted at state load.
       if(hasLivePending(s))await refreshBetmanResults(s,env,true);
       return json({ok:true,state:publicState(MEM.state||s)});
     }
