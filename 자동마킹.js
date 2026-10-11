@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R390-ZENTOTO-SPOGOD-FAIR-SETTLEMENT";
-const BUILD_ID = "proto-r390-zen-first-spogod-roundrobin";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R391-NO-HIDDEN-SETTLEMENT-GAPS";
+const BUILD_ID = "proto-r391-preserve-locked-marks-and-older-pending";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -1479,9 +1479,23 @@ function parseBetmanMarkets(data,gmTs){
   return dedupeMarkets(out);
 }
 function marketIdentity(m){ return [m.gmTs??"",m.no,m.date,m.time,m.market,m.line??"",m.home,m.away].join("|"); }
+// Never discard marked or settled history for a duplicate with more prices.
+function r391FrozenPriority(m){
+  if(m?.resultFinal&&m?.marked&&m?.representativeSelected)return 5;
+  if(m?.marked&&m?.representativeSelected&&started(m))return 4;
+  if(m?.marked&&m?.representativeSelected)return 3;
+  if(m?.resultFinal)return 2;
+  if(m?.marked||m?.representativeSelected)return 1;
+  return 0;
+}
 function dedupeMarkets(rows){
   const map=new Map();
-  for(const m of rows||[]){ const k=marketIdentity(m),old=map.get(k); if(!old||validChoices(m).length>validChoices(old).length)map.set(k,m); }
+  for(const m of rows||[]){
+    const k=marketIdentity(m),old=map.get(k);
+    if(!old){map.set(k,m);continue;}
+    const a=r391FrozenPriority(old),b=r391FrozenPriority(m);
+    if(b>a||(a===b&&validChoices(m).length>validChoices(old).length))map.set(k,m);
+  }
   return [...map.values()].sort(marketSort);
 }
 function validChoices(m){ return (m?.choices||[]).filter(c=>Number.isFinite(num(c.odds))&&num(c.odds)>1); }
@@ -3201,9 +3215,9 @@ function upsertSettledCard(state,m){
   return true;
 }
 function mergeCurrentPastCards(state,liveRows){
-  const h=ensureSettledCards(state),map=new Map(),gm=String(state?.gmTs||'');
-  for(const x of h.rows||[])if(settlementAllowed(x)&&(!gm||String(x.gmTs||'')===gm))map.set(settledCardKey(x),x);
-  for(const x of Array.isArray(state?.settlementLedger)?state.settlementLedger:[]){if(!settlementAllowed(x)||(gm&&String(x?.gmTs||'')!==gm))continue;const card=legacySettlementCard(x);map.set(settledCardKey(card),card);}
+  const h=ensureSettledCards(state),map=new Map();
+  for(const x of h.rows||[])if(settlementAllowed(x))map.set(settledCardKey(x),x);
+  for(const x of Array.isArray(state?.settlementLedger)?state.settlementLedger:[]){if(!settlementAllowed(x))continue;const card=legacySettlementCard(x);map.set(settledCardKey(card),card);}
   for(const x of liveRows||[])if(settlementAllowed(x))map.set(settledCardKey(x),x);
   // R379: settled past history is newest-first; auto-marking stays oldest-first.
   return [...map.values()].sort((a,b)=>marketSort(b,a));
@@ -5448,7 +5462,14 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames).sort((a,b)=>marketSort(b,a)),pastPendingGames=activeGames.filter(g=>g.pick&&g.gameStarted&&!g.resultFinal).sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+  // R391: old-round unfinished picks remain visible in past screen.
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort),
+    savedSettled=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&m.resultFinal&&settlementAllowed(m))
+      .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean),
+    pastGames=mergeCurrentPastCards(state,savedSettled).sort((a,b)=>marketSort(b,a)),
+    pastPendingGames=pendingSettlementMarkets(state)
+      .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
+      .sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -7637,7 +7658,7 @@ async function handleAppInternal(req,env,ctx){
         cf=s.cloudflareSettlementAudit||{};
       return json({version:APP_VERSION,round:s.round,gmTs:s.gmTs,
         checkedAt:cf.at||null,sourceStatus:cf.status||"NOT_RUN",
-        sourceError:cf.error||null,pending:q.length,
+        sourceError:cf.error||null,pending:q.length,olderRoundPending:q.filter(m=>!currentRoundMarket(m,s)).length,
         pendingByKickoff:q.map(m=>({no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,
           sport:m.sport,game:m.game||m.home+" vs "+m.away,pick:m.finalPick,
           ageMinutes:gameTimeMs(m)==null?null:Math.max(0,Math.floor((Date.now()-gameTimeMs(m))/60000)),
@@ -7645,7 +7666,7 @@ async function handleAppInternal(req,env,ctx){
             Number(x.no)===Number(m.no))?.reason||"NOT_YET_SCANNED"}))
           .sort((a,b)=>String(a.date).localeCompare(String(b.date))||
             String(a.time).localeCompare(String(b.time))||Number(a.no)-Number(b.no))
-          .slice(0,60)});
+          .slice(0,500)});
     }
     if(u.pathname==="/api/diagnostics"){
       const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,wisetotoSettlementAudit:s.wisetotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
