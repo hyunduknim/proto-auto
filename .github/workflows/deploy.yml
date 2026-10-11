@@ -37,6 +37,8 @@ jobs:
         run: node tests/r357-feed-readiness.cjs
       - name: Verify R376 MyScoreBot pregame-only bridge, no settlement or fifth vote
         run: node tests/r376-myscorebot-bridge.cjs
+      - name: Verify R376 GitHub Copilot MyScoreBot agent skill contract
+        run: node tests/r376-agent-skill.cjs
       - name: Verify R359 live-hour ordering preserves all marking cards
         run: node tests/r359-live-hour-display.cjs
       - name: Simulate R360 future-only ratios and anomaly-resistant odds
