@@ -6,7 +6,7 @@ const snapshot=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
 const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
-const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,representativeMarketEligible,r360OddsAnomalyReason,r360FutureEligible,gradeScore,relativeChoiceValue,getTeamProfile,r343DrawCandidate,soccerDrawEvidenceQualified};")(structuredClone,URL);
+const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,representativeMarketEligible,r360OddsAnomalyReason,r360FutureEligible,gradeScore,relativeChoiceValue,getTeamProfile,r343DrawCandidate,soccerDrawEvidenceQualified,publicState};")(structuredClone,URL);
 const S=model.createState();
 S.round=snapshot.round.round;S.gmTs=snapshot.round.gmTs;S.updatedAt=snapshot.round.updatedAt;
 S.markets=structuredClone(snapshot.currentRound.markets);
@@ -27,6 +27,28 @@ const baseline={
   grades:Object.fromEntries(["가장추천","추천","일반"].map(g=>[g,selected(S.markets).filter(m=>m.displayGrade===g).length])),
 };
 model.markState(S);
+
+const snapshot0830=(snapshot.currentRound?.markets||[]).filter(m=>
+ String(m.date)==="2026-10-11"&&String(m.time||"").startsWith("08:30"));
+const uiBefore=model.publicState(S);
+const live0830=(uiBefore.markingGames||[]).filter(m=>
+ String(m.date)==="2026-10-11"&&String(m.time||"").startsWith("08:30"));
+const past0830=(uiBefore.pastGames||[]).filter(m=>
+ String(m.date)==="2026-10-11"&&String(m.time||"").startsWith("08:30"));
+const groups0830=Object.values(Object.groupBy(snapshot0830,m=>
+ [m.gmTs,m.date,m.time,m.home,m.away].join("|"))).map(ms=>({
+ game:ms[0].game||ms[0].home+" vs "+ms[0].away,
+ markets:ms.map(m=>({no:m.no,family:m.marketFamily,priced:(m.choices||[]).some(c=>Number(c.odds)>1.0)})),
+ representative:ms.filter(m=>m.marked&&m.representativeSelected).map(m=>({
+  no:m.no,pick:m.finalPick,odds:m.finalOdds,resultFinal:m.resultFinal,settlement:m.settlementStatus})),
+ settled:ms.some(m=>m.resultFinal)
+}));
+console.log("R375_LIVE_0830="+JSON.stringify({
+ round:S.round,sourceRows:snapshot0830.length,groups:groups0830,
+ current:live0830.map(m=>({no:m.no,game:m.game,pick:m.pick,gameStarted:m.gameStarted,resultFinal:m.resultFinal})),
+ archived:past0830.map(m=>({no:m.no,game:m.game,pick:m.pick,settlement:m.settlementStatus}))
+}));
+
 
 // R373: inspect only future pregame draw markets, without changing production.
 const drawCandidates=[];
