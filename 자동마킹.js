@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R381-CLOUDFLARE-NATIVE-SETTLEMENT";
-const BUILD_ID = "proto-r381-cloudflare-do-cron-public-final-without-actions";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R382-NATIVE-SETTLEMENT-FIRST";
+const BUILD_ID = "proto-r382-prioritize-native-final-and-pending-coverage";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6530,6 +6530,36 @@ function r381ParseZentoto(html){
   return results;
 }
 
+// R382: Explain *why* each long-pending selection is still not settled.
+// This is diagnostics only; no score/outcome or settlement status is inferred.
+function r382PendingSourceCoverage(pending,rows){
+  const countByRound=new Map(),byNo=new Map(),byFixture=new Map();
+  const fixtureKey=r=>[String(r.gmTs||""),String(r.date||""),String(r.time||"").slice(0,5),
+    norm(r.home),norm(r.away)].join("|");
+  for(const r of rows||[]){
+    countByRound.set(String(r.gmTs),(countByRound.get(String(r.gmTs))||0)+1);
+    const nk=String(r.gmTs)+":"+String(r.no),by=byNo.get(nk)||[];by.push(r);byNo.set(nk,by);
+    const fk=fixtureKey(r),arr=byFixture.get(fk)||[];arr.push(r);byFixture.set(fk,arr);
+  }
+  return (pending||[]).filter(m=>m?.marked&&m?.representativeSelected&&!m?.resultFinal)
+    .slice(0,40).map(m=>{
+      const start=gameTimeMs(m),ageMinutes=start==null?null:Math.max(0,Math.floor((Date.now()-start)/60000));
+      const nr=byNo.get(String(m.gmTs)+":"+String(m.no))||[],
+        fr=byFixture.get(fixtureKey(m))||[],
+        sameMarket=nr.filter(r=>String(r.marketFamily)===String(m.marketFamily)),
+        sameFixtureML=fr.filter(r=>r.marketFamily==="MONEYLINE");
+      const reason=!countByRound.has(String(m.gmTs))?"ROUND_NOT_IN_FINISHED_SOURCE":
+        !nr.length&&!sameFixtureML.length?"NO_MATCHING_FINISHED_GAME":
+        sameMarket.length===1?"EXACT_ROW_SEEN_PENDING_RESULT_CHECK":
+        sameMarket.length>1?"AMBIGUOUS_MULTIPLE_MARKET_ROWS":
+        sameFixtureML.length===1?"SAME_FIXTURE_FULLTIME_SEEN_PENDING_RESULT_CHECK":
+        sameFixtureML.length>1?"AMBIGUOUS_MULTIPLE_FIXTURE_SCORES":
+        "FINISHED_PROTO_MARKET_MISMATCH";
+      return {no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,game:m.game||m.home+" vs "+m.away,
+        sport:m.sport,marketFamily:m.marketFamily,line:m.line,pick:m.finalPick,
+        ageMinutes,reason,sourceRowsForRound:countByRound.get(String(m.gmTs))||0};
+    });
+}
 function r381ZenRoundCandidates(rows,pending){
   const selectedNos=new Set(pending.map(m=>Number(m.no)));
   const fixtures=new Set(pending.filter(m=>m.date&&m.time&&m.home&&m.away).map(m=>
@@ -6582,12 +6612,15 @@ async function r381RefreshCloudflareZentoto(state,env,force=false){
         reasons:exact.reasons,ambiguous:fixture.skippedAmbiguous,
         unresolvedPush:fixture.skippedPush});
     }
-    audit.pendingAfter=pendingSettlementMarkets(state).length;
+    const remaining=pendingSettlementMarkets(state);
+    audit.pendingAfter=remaining.length;
+    audit.pendingDetails=r382PendingSourceCoverage(remaining,rows);
     audit.status=rows.length?"FINISHED_ROWS_CHECKED":"NO_VERIFIABLE_FINISHED_ROWS";
     if(audit.settled||audit.scoresUpdated)markState(state);
   }catch(error){
     audit.status="SOURCE_UNAVAILABLE";
     audit.error=String(error?.message||error).slice(0,160);
+    audit.pendingDetails=r382PendingSourceCoverage(pendingSettlementMarkets(state),[]);
   }finally{clearTimeout(timer);}
   state.cloudflareSettlementAudit=audit;
   // Record source outages as diagnostics, but never overwrite stored outcomes.
@@ -6760,6 +6793,7 @@ function settlementHealth(state){
     cloudflareNative:{status:cf.status||"NOT_RUN",at:cf.at||null,
       sourceFresh:cloudflareFresh,matchingRows:Number(cf.candidates||0),
       settledLastCheck:Number(cf.settled||0),pendingAfter:Number(cf.pendingAfter??pending),
+      overdueDetails:(cf.pendingDetails||[]).filter(x=>Number(x.ageMinutes)>=240).slice(0,20),
       error:cf.error||null},
     officialVerifiedRows,officialDataPending,overdueForResult,
     relaySourceStatus:relay.sourceStatus||null,
@@ -6922,11 +6956,13 @@ function serializedOperation(fn){const task=OPERATION_QUEUE.then(fn,fn);OPERATIO
 async function runTick(env){return serializedOperation(()=>runTickInternal(env));}
 async function runTickInternal(env){
   const s=await loadState(env);let cur=MEM.state||s;
-  if(hasLivePending(cur))await refreshBetmanResults(cur,env,false);
+  // R382: Cloudflare native settlement MUST run before potentially slow
+  // Betman requests (up to eight rounds × two 7-second HTTP timeouts).
+  // An official-source timeout must never starve the independent backup.
+  try{await r381RefreshCloudflareZentoto(cur,env,false);}
+  catch(e){MEM.lastAlarmError="R382_NATIVE_SETTLEMENT:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
-  // GitHub Actions quota may be exhausted; Cloudflare cron/DO polls an
-  // independent public final-result source with strict settlement guards.
-  await r381RefreshCloudflareZentoto(cur,env,false);
+  if(hasLivePending(cur))await refreshBetmanResults(cur,env,false);
   cur=MEM.state||cur;await refreshBetmanSource(cur,env,false);
   // Next DO alarm handles the next official result check; no duplicate long remote call in one tick.
   return MEM.state||cur;
@@ -6997,6 +7033,21 @@ async function handleAppInternal(req,env,ctx){
     }
     if(u.pathname==="/api/feed-status"){
       const s=await loadState(env);return json(feedIntegrationStatus(s,env));
+    }
+    if(u.pathname==="/api/settlement-queue"&&req.method==="GET"){
+      const s=await loadState(env),q=pendingSettlementMarkets(s),
+        cf=s.cloudflareSettlementAudit||{};
+      return json({version:APP_VERSION,round:s.round,gmTs:s.gmTs,
+        checkedAt:cf.at||null,sourceStatus:cf.status||"NOT_RUN",
+        sourceError:cf.error||null,pending:q.length,
+        pendingByKickoff:q.map(m=>({no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,
+          sport:m.sport,game:m.game||m.home+" vs "+m.away,pick:m.finalPick,
+          ageMinutes:gameTimeMs(m)==null?null:Math.max(0,Math.floor((Date.now()-gameTimeMs(m))/60000)),
+          sourceReason:(cf.pendingDetails||[]).find(x=>String(x.gmTs)===String(m.gmTs)&&
+            Number(x.no)===Number(m.no))?.reason||"NOT_YET_SCANNED"}))
+          .sort((a,b)=>String(a.date).localeCompare(String(b.date))||
+            String(a.time).localeCompare(String(b.time))||Number(a.no)-Number(b.no))
+          .slice(0,60)});
     }
     if(u.pathname==="/api/diagnostics"){
       const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
