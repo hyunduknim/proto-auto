@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R385-MLS-SETTLEMENT-RECOVERY";
-const BUILD_ID = "proto-r385-espon-direct-verified-mls-after-zen-spogod";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R386-DUAL-SOURCE-MLS-FINALS";
+const BUILD_ID = "proto-r386-emergency-final-backfill";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5442,7 +5442,7 @@ function publicState(state){
   const removed=purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
   const cur=currentRoundStateView(state);
-  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames).sort((a,b)=>marketSort(b,a)),pastPendingGames=activeGames.filter(g=>g.pick&&g.gameStarted&&!g.resultFinal).sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+  const activeGames=representativeGames(cur).filter(g=>!g.resultFinal).sort(marketSort),livePastGames=representativeGames(cur).filter(g=>g.resultFinal),pastGames=mergeCurrentPastCards(state,livePastGames).sort((a,b)=>marketSort(b,a)),pastPendingGames=activeGames.filter(g=>g.pick&&g.gameStarted&&!g.resultFinal).sort((a,b)=>marketSort(b,a));const value={version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(state),performanceSummary:state.performanceSummary||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(state),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -6826,6 +6826,74 @@ async function r385RefreshMlsFinals(state,env,force=false){
   return audit;
 }
 
+
+const R386_PUBLISHED_FINALS=Object.freeze([
+ ["애틀랜타 유나이티드FC","FC신시내티","1:3"],
+ ["샬럿FC","FC댈러스","3:2"],
+ ["인터 마이애미CF","DC유나이티드","4:0"],
+ ["뉴잉글랜드 레벌루션","시애틀 사운더스FC","0:3"],
+ ["뉴욕 레드불스","샌디에이고FC","4:1"],
+ ["올랜도 시티SC","콜럼버스 크루","3:2"],
+ ["필라델피아 유니언","레알 솔트레이크","2:1"],
+ ["오스틴FC","내슈빌SC","1:4"],
+ ["스포팅 캔자스시티","포틀랜드 팀버스","3:3"],
+ ["미네소타 유나이티드FC","휴스턴 다이너모FC","2:2"],
+ ["콜로라도 래피즈","새너제이 어스퀘이크스","1:1"],
+ ["LAFC","밴쿠버 화이트캡스FC","1:1"]
+]);
+function r386ApplyVerifiedMlsRecovery(state){
+  const audit={at:nowIso(),id:"R386_DUAL_PUBLISHED_FINALS_ROUND120",
+    source:"FOXSPORTS_PLUS_PLAINTEXTSPORTS_FINISHED_OCT10_2026",
+    references:["https://www.foxsports.com/soccer/mls/scores?date=2026-10-10",
+       "https://plaintextsports.com/mls/2026/schedule"],
+    checked:0,settled:0,matched:0,rejected:0,reasons:{},items:[],
+    scope:"EXACT_OCT11_KST_ROUND120_STARTED_UNSETTLED_MLS_ONLY",
+    notContinuousFeed:true};
+  if(String(state?.gmTs)!=="260120"||Number(state?.round)!==120)return audit;
+  const scores=new Map(R386_PUBLISHED_FINALS.map(x=>[norm(x[0])+"|"+norm(x[1]),x[2]]));
+  const pending=pendingSettlementMarkets(state).filter(m=>
+    r385MlsFixtureSpec(m)&&m.date==="2026-10-11"&&
+    String(m.gmTs)==="260120"&&m.sport==="축구");
+  for(const m of pending){
+    audit.checked++;
+    const fail=reason=>{audit.rejected++;audit.reasons[reason]=(audit.reasons[reason]||0)+1;};
+    const at=gameTimeMs(m);
+    if(at==null||Date.now()-at<3*3600000){fail("NOT_ENDED_LONG_ENOUGH");continue;}
+    if(!["07:30","08:30","09:30","10:30","11:30","12:30"].includes(m.time)){
+      fail("KICKOFF_NOT_APPROVED");continue;
+    }
+    const score=scores.get(norm(m.home)+"|"+norm(m.away));
+    if(!score){fail("MISSING_CROSS_CONFIRMED_SCORE");continue;}
+    const duplicate=(state.markets||[]).filter(x=>x.marked&&x.representativeSelected&&
+      x.gmTs===m.gmTs&&x.date===m.date&&x.time===m.time&&
+      norm(x.home)===norm(m.home)&&norm(x.away)===norm(m.away));
+    if(duplicate.length!==1){fail("AMBIGUOUS_SELECTION");continue;}
+    const raw={gmTs:"260120",no:Number(m.no),date:m.date,time:m.time,
+      home:m.home,away:m.away,family:"MONEYLINE",score,
+      terminal:true,partial:false,specialStatus:null};
+    const sc=resultScorePairText(score),resolved=sc&&!scoreUnitMismatch(m,sc)?
+      resolveOfficialOutcome(raw,m):null;
+    if(!resolved?.outcome||resolved.void||
+      !validChoices(m).some(c=>c.label===resolved.outcome)){
+      fail("PUSH_OR_UNSUPPORTED_MARKET");continue;
+    }
+    audit.matched++;
+    const n=applyResults({markets:[m]},[raw],"R386_DUAL_PUBLIC_CONFIRMED_FINAL_RESULT");
+    audit.settled+=n;
+    if(audit.items.length<20)audit.items.push({
+      no:m.no,game:m.game||m.home+" vs "+m.away,score,
+      outcome:resolved.outcome,pick:m.finalPick,settled:n===1});
+  }
+  return audit;
+}
+async function r386RunEmergencyBackfill(state,env){
+  const audit=r386ApplyVerifiedMlsRecovery(state);
+  audit.remaining=pendingSettlementMarkets(state).filter(r385MlsFixtureSpec).length;
+  state.r386MorningAudit=audit;
+  if(audit.settled){markState(state);await saveState(state,env,true);}
+  return audit;
+}
+
 // R383: The priority is ZENTOTO -> an explicitly authorized WiseToto
 // finished-results JSON feed -> Betman. A visible WiseToto website is NOT an
 // API contract. No hidden endpoint, login bypass or scraped provisional data.
@@ -7359,6 +7427,9 @@ async function runTickInternal(env){
   try{await r385RefreshMlsFinals(cur,env,false);}
   catch(e){MEM.lastAlarmError="R385_ESPN_MLS:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
+  try{await r386RunEmergencyBackfill(cur,env);}
+  catch(e){MEM.lastAlarmError="R386_EMERGENCY:"+String(e?.message||e).slice(0,150);}
+  cur=MEM.state||cur;
   try{await r383RefreshWisetotoResults(cur,env,false);}
   catch(e){MEM.lastAlarmError="R383_WISE:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
@@ -7425,7 +7496,7 @@ async function handleAppInternal(req,env,ctx){
       s=MEM.state||s;
       try{await r383RefreshWisetotoResults(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_WISE_OPTIONAL:"+String(e?.message||e).slice(0,140);}
       s=MEM.state||s;
-      if(hasLivePending(s))await refreshBetmanResults(s,env,true);
+      if(hasLivePending(s))await r381RefreshCloudflareZentoto(s,env,true);await r384RefreshSpogodResults(s,env,true);await r385RefreshMlsFinals(s,env,true);await r386RunEmergencyBackfill(s,env);await refreshBetmanResults(s,env,true);
       return json({ok:true,state:publicState(MEM.state||s)});
     }
     if(u.pathname==="/api/reanalyze"&&req.method==="POST"){
