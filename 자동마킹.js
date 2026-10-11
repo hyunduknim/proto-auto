@@ -7292,7 +7292,17 @@ async function handleAppInternal(req,env,ctx){
     if(u.pathname==="/")return html(INDEX);
     if(req.method==="POST"&&u.pathname.startsWith("/api/")&&!adminAuthorized(req,env))return json({error:"unauthorized"},401);
     if(u.pathname==="/api/results-refresh"&&req.method==="POST"){
-      const s=await bootstrapState(env);await refreshBetmanResults(s,env,true);return json({ok:true,state:publicState(MEM.state||s)});
+      // R384 manual "결과 확인" obeys exactly the same source precedence as the
+      // automatic Cloudflare cron instead of going straight to slow Betman.
+      let s=await bootstrapState(env);
+      try{await r381RefreshCloudflareZentoto(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_ZEN:"+String(e?.message||e).slice(0,140);}
+      s=MEM.state||s;
+      try{await r384RefreshSpogodResults(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_SPOGOD:"+String(e?.message||e).slice(0,140);}
+      s=MEM.state||s;
+      try{await r383RefreshWisetotoResults(s,env,true);}catch(e){MEM.lastAlarmError="MANUAL_WISE_OPTIONAL:"+String(e?.message||e).slice(0,140);}
+      s=MEM.state||s;
+      if(hasLivePending(s))await refreshBetmanResults(s,env,true);
+      return json({ok:true,state:publicState(MEM.state||s)});
     }
     if(u.pathname==="/api/reanalyze"&&req.method==="POST"){
       const s=await bootstrapState(env);markState(s);await saveState(s,env,true);return json({ok:true,state:publicState(MEM.state||s)});
