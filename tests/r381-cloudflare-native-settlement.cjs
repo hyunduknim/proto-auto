@@ -24,7 +24,7 @@ const htmlRow=(no,home,away,score,tag="",ended=true,at="20:00")=>
  '<p class="away">'+away+'</p>'+
  '<p class="fav btn btn-ic" round="260120" wdl="W">승</p></div>';
 const finishedHtml='<html>'+htmlRow(9001,"A","B","2 : 1")+
- htmlRow(9202,"C","D","3"," <span class="underover">(U/O2.5)</span>")+
+ htmlRow(9202,"C","D","3",' <span class="underover">(U/O2.5)</span>')+
  htmlRow(9003,"E","F","1:1", "",false)+
  htmlRow(9004,"G","H","2:1","",true,"21:00")+
  ' '.repeat(11000)+'</html>';
