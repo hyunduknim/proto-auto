@@ -35,8 +35,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R382-NATIVE-SETTLEMENT-FIRST";
-const BUILD_ID = "proto-r382-prioritize-native-final-and-pending-coverage";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.11-R383-ZEN-WISE-BETMAN-PRIORITY";
+const BUILD_ID = "proto-r383-zen-licensed-wise-betman-order-safe";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6560,6 +6560,112 @@ function r382PendingSourceCoverage(pending,rows){
         ageMinutes,reason,sourceRowsForRound:countByRound.get(String(m.gmTs))||0};
     });
 }
+// R383: The priority is ZENTOTO -> an explicitly authorized WiseToto
+// finished-results JSON feed -> Betman. A visible WiseToto website is NOT an
+// API contract. No hidden endpoint, login bypass or scraped provisional data.
+function r383WiseFeedUrl(env){
+  const raw=String(env?.WISETOTO_SETTLEMENT_FEED_URL||"").trim();if(!raw)return null;
+  try{
+    const u=new URL(raw),host=u.hostname.toLowerCase();
+    if(u.protocol!=="https:"||u.username||u.password||u.hash||u.port||
+      /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.|::1$)/i.test(host)||
+      !host.includes(".")||host.endsWith(".local")||host.endsWith(".internal"))return null;
+    return u.toString();
+  }catch{return null;}
+}
+function r383ApplyVerifiedWiseResults(state,rows){
+  const audit={source:"WISETOTO_AUTHORIZED_FULLTIME",at:nowIso(),checked:0,
+    matched:0,settled:0,rejected:0,reasons:{}};
+  const reject=reason=>{audit.rejected++;audit.reasons[reason]=(audit.reasons[reason]||0)+1;};
+  if(!Array.isArray(rows)||rows.length>300){reject("MALFORMED_FEED_BATCH");return audit;}
+  const candidates=new Map();
+  const fixtureKey=m=>[String(m.gmTs||""),String(m.date||""),String(m.time||"").slice(0,5),norm(m.home),norm(m.away)].join("|");
+  for(const r of rows){
+    audit.checked++;
+    if(!r||r.source!=="WISETOTO_VERIFIED_FULLTIME"||r.status!=="FT"||
+      r.terminal!==true||r.fullTime!==true||r.scoreType!=="RAW_FINAL"||
+      !/^\d{6}$/.test(String(r.gmTs||""))||
+      !Number.isSafeInteger(Number(r.no))||Number(r.no)<=0||
+      !/^\d{4}-\d\d-\d\d$/.test(String(r.date||""))||
+      !/^\d\d:\d\d$/.test(String(r.time||""))||!r.home||!r.away||
+      !["MONEYLINE","HANDICAP","TOTAL"].includes(String(r.marketFamily||""))||
+      !/^\d{1,3}:\d{1,3}$/.test(String(r.score||""))){
+      reject("NOT_VERIFIED_RAW_FULLTIME");continue;
+    }
+    const k=fixtureKey(r),a=candidates.get(k)||[];a.push(r);candidates.set(k,a);
+  }
+  const pending=pendingSettlementMarkets(state);
+  for(const m of pending){
+    const a=candidates.get(fixtureKey(m))||[];
+    // Do not resolve conflicting copies of one result. One final raw score
+    // can support one of the explicit Proto market choices only.
+    if(!a.length)continue;
+    if(a.some(r=>String(r.score)!==String(a[0].score))){
+      reject("CONFLICTING_FINAL_SCORES");continue;
+    }
+    const exact=a.filter(r=>Number(r.no)===Number(m.no)&&r.marketFamily===m.marketFamily&&
+      (m.marketFamily==="MONEYLINE"||
+       Number.isFinite(Number(r.line))&&Math.abs(Number(r.line)-Number(m.line))<.001));
+    const ml=a.filter(r=>r.marketFamily==="MONEYLINE");
+    // Prefer unique exact Proto market. If omitted, accept only one original
+    // raw moneyline final for this exact fixture, date and KST kickoff.
+    const eligible=exact.length===1?exact:exact.length===0&&ml.length===1?ml:[];
+    if(!eligible.length){reject("NO_UNAMBIGUOUS_MATCHING_MARKET");continue;}
+    const raw=eligible[0],rr={gmTs:String(m.gmTs),no:Number(raw.no),
+      date:m.date,time:m.time,home:m.home,away:m.away,family:raw.marketFamily,
+      score:raw.score,terminal:true,partial:false,specialStatus:null};
+    const pair=resultScorePairText(raw.score),r=pair&&!scoreUnitMismatch(m,pair)?
+      resolveOfficialOutcome(rr,m):null;
+    if(!r?.outcome||r.void||!validChoices(m).some(c=>c.label===r.outcome)){
+      reject("UNRESOLVED_OR_PUSH");continue;
+    }
+    audit.matched++;
+    audit.settled+=applyResults({markets:[m]},[rr],"WISETOTO_AUTHORIZED_RAW_FULLTIME");
+  }
+  return audit;
+}
+async function r383RefreshWisetotoResults(state,env,force=false){
+  const pending=pendingSettlementMarkets(state),url=r383WiseFeedUrl(env);
+  if(!pending.length)return {source:"WISETOTO_AUTHORIZED_FULLTIME",
+    status:"NO_STARTED_PENDING",settled:0};
+  if(!url){
+    // Avoid saying the backup is available before an authorized API exists.
+    const audit={source:"WISETOTO_AUTHORIZED_FULLTIME",at:nowIso(),
+      status:"NOT_CONFIGURED",settled:0,pendingAfter:pending.length};
+    state.wisetotoSettlementAudit=audit;return audit;
+  }
+  const old=state.wisetotoSettlementAudit||{},last=Date.parse(old.at||"");
+  if(!force&&Number.isFinite(last)&&Date.now()-last<5*60000)
+    return {source:"WISETOTO_AUTHORIZED_FULLTIME",status:"THROTTLED",settled:0};
+  const audit={source:"WISETOTO_AUTHORIZED_FULLTIME",at:nowIso(),status:"CHECKING",
+    pendingBefore:pending.length,pendingAfter:pending.length,checked:0,
+    matched:0,settled:0,rejected:0,reasons:{},error:null};
+  const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),7000);
+  try{
+    const headers={accept:"application/json"};
+    const token=String(env?.WISETOTO_SETTLEMENT_FEED_BEARER_TOKEN||"");
+    if(token)headers.authorization="Bearer "+token;
+    const response=await fetch(url,{headers,redirect:"error",signal:ac.signal});
+    if(!response.ok)throw Error("WISE_HTTP_"+response.status);
+    const contentType=String(response.headers?.get("content-type")||"");
+    if(contentType&&!/application\/json/i.test(contentType))throw Error("WISE_NOT_JSON");
+    const text=await response.text();
+    if(text.length>350000)throw Error("WISE_FEED_TOO_LARGE");
+    const data=JSON.parse(text);
+    const rows=Array.isArray(data?.results)?data.results:[],
+      result=r383ApplyVerifiedWiseResults(state,rows);
+    Object.assign(audit,result);
+    audit.status=rows.length?"FINISHED_ROWS_CHECKED":"NO_VERIFIED_FINAL_ROWS";
+    audit.pendingAfter=pendingSettlementMarkets(state).length;
+    if(audit.settled)markState(state);
+  }catch(e){
+    audit.status="SOURCE_UNAVAILABLE";
+    audit.error=String(e?.message||e).slice(0,140);
+  }finally{clearTimeout(timer);}
+  state.wisetotoSettlementAudit=audit;
+  await saveState(state,env,audit.settled>0);
+  return audit;
+}
 function r381ZenRoundCandidates(rows,pending){
   const selectedNos=new Set(pending.map(m=>Number(m.no)));
   const fixtures=new Set(pending.filter(m=>m.date&&m.time&&m.home&&m.away).map(m=>
@@ -6795,6 +6901,11 @@ function settlementHealth(state){
       settledLastCheck:Number(cf.settled||0),pendingAfter:Number(cf.pendingAfter??pending),
       overdueDetails:(cf.pendingDetails||[]).filter(x=>Number(x.ageMinutes)>=240).slice(0,20),
       error:cf.error||null},
+    settlementSourcePriority:["ZENTOTO","WISETOTO_AUTHORIZED_IF_CONFIGURED","BETMAN_LAST"],
+    wisetotoNative:{status:state?.wisetotoSettlementAudit?.status||"NOT_CONFIGURED",
+      at:state?.wisetotoSettlementAudit?.at||null,
+      settledLastCheck:Number(state?.wisetotoSettlementAudit?.settled||0),
+      error:state?.wisetotoSettlementAudit?.error||null},
     officialVerifiedRows,officialDataPending,overdueForResult,
     relaySourceStatus:relay.sourceStatus||null,
     resultApiFailed:relayFresh?relay.sourceStatus?.resultApi==="rejected":null,
@@ -6956,11 +7067,14 @@ function serializedOperation(fn){const task=OPERATION_QUEUE.then(fn,fn);OPERATIO
 async function runTick(env){return serializedOperation(()=>runTickInternal(env));}
 async function runTickInternal(env){
   const s=await loadState(env);let cur=MEM.state||s;
-  // R382: Cloudflare native settlement MUST run before potentially slow
-  // Betman requests (up to eight rounds × two 7-second HTTP timeouts).
-  // An official-source timeout must never starve the independent backup.
+  // R383 priority: Zen primary, authorized Wise second, Betman last.
+  // A failure in one source never blocks the next source and cannot alter
+  // already settled scores, picks, prices or historical records.
   try{await r381RefreshCloudflareZentoto(cur,env,false);}
-  catch(e){MEM.lastAlarmError="R382_NATIVE_SETTLEMENT:"+String(e?.message||e).slice(0,160);}
+  catch(e){MEM.lastAlarmError="R383_ZEN:"+String(e?.message||e).slice(0,160);}
+  cur=MEM.state||cur;
+  try{await r383RefreshWisetotoResults(cur,env,false);}
+  catch(e){MEM.lastAlarmError="R383_WISE:"+String(e?.message||e).slice(0,160);}
   cur=MEM.state||cur;
   if(hasLivePending(cur))await refreshBetmanResults(cur,env,false);
   cur=MEM.state||cur;await refreshBetmanSource(cur,env,false);
@@ -7050,7 +7164,7 @@ async function handleAppInternal(req,env,ctx){
           .slice(0,60)});
     }
     if(u.pathname==="/api/diagnostics"){
-      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
+      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,wisetotoSettlementAudit:s.wisetotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
     }
     if(u.pathname==="/api/self-test"){if(!adminAuthorized(req,env))return json({error:"unauthorized"},401);const report=selfTest();return json(report,report.ok?200:500);}
     return json({error:"not found"},404);
