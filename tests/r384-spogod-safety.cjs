@@ -3,7 +3,7 @@ const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("n
 const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
-let fetches=0,saves=0;
+let fetches=0;
 const day='<html><a href="/match/1851/">08:30 미국 메이저리그사커 애틀랜타 유나이티드FC vs FC신시내티 1:3 원정 승 승2.14 무3.65 패2.45</a>'+
  '<a href="/match/1852/">08:30 MLS 샬럿FC vs FC댈러스 3:2 홈 승 승2.09 무3.40 패2.65</a>'+
  '<a href="/match/1853/">08:30 MLS 뉴욕 레드불스 vs 샌디에이고FC 베트맨 구매 17:65:18</a>'+
@@ -21,7 +21,7 @@ const fetcher=async(url)=>{
    text:async()=>body};
 };
 const api=new Function("structuredClone","URL","fetch","AbortController","setTimeout","clearTimeout",source+
- "\nsaveState=async()=>{onSave();};markState=()=>{};return "+
+ "\nsaveState=async()=>{};markState=()=>{};return "+
  "{r384SpogodIndexCards,r384SpogodDetailFinal,r384RefreshSpogodResults,CFG};");
 const mk=(no,home,away,pick)=>({no,gmTs:"260120",date:"2026-10-11",time:"08:30",
  home,away,game:home+" vs "+away,marketFamily:"MONEYLINE",sport:"축구",
