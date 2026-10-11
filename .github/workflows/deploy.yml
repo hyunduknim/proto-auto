@@ -144,6 +144,29 @@ jobs:
             }
             assert.ok(found,"Worker version not propagated within 4 minutes; last="+lastSeen+", expected="+expected);
             const d=found,g=d.gradeAudit||{},counts=g.counts||{},health=d.settlementHealth||{};
+            if(expected.includes("R373-EVIDENCE-DRAW-INTEREST")){
+              const a=d.r373DrawInterestAudit||{};
+              assert.equal(a.id,"R373_FUTURE_SOCCER_MONEYLINE_HANDICAP_DRAW_INTEREST",
+                "R373 interest audit missing: persisted draw picks were not applied");
+              const cards=(d.markingGames||[]).filter(m=>m.selectionMode==="R373_DRAW_INTEREST"&&
+                !m.resultFinal&&!m.gameStarted);
+              assert.ok(cards.length>=1&&cards.length<=2,
+                "At least one real pregame soccer draw must appear in production cards");
+              assert.ok(cards.every(m=>m.sport==="축구"&&m.pick==="무"&&
+                Number(m.odds)>=1.31&&
+                ["MONEYLINE","HANDICAP"].includes(m.marketFamily)),
+                "Unverified or non-draw production marking detected");
+              assert.equal(new Set(cards.map(m=>m.game)).size,cards.length,
+                "One game cannot be selected twice");
+              console.log("R373_PRODUCTION_DRAW_AUDIT="+JSON.stringify({
+                version:d.version,round:d.round,changed:a.changed,
+                cards:cards.map(m=>({no:m.no,date:m.date,time:m.time,
+                  game:m.game,family:m.marketFamily,pick:m.pick,
+                  odds:m.odds,grade:m.displayGrade})),
+                gapGames:d.fullMarkAudit?.gapGames,
+                settled:d.summary?.settled,pending:d.settlementHealth?.pending
+              }));
+            }
             if(expected.includes("R347-URGENT-ODDS-RECOVERY")){
               const currentDate=new Intl.DateTimeFormat("en-CA",{
                 timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"

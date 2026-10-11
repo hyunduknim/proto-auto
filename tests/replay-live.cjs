@@ -6,7 +6,7 @@ const snapshot=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
 const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
-const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,representativeMarketEligible,r360OddsAnomalyReason,r360FutureEligible,gradeScore,relativeChoiceValue,getTeamProfile};")(structuredClone,URL);
+const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,representativeMarketEligible,r360OddsAnomalyReason,r360FutureEligible,gradeScore,relativeChoiceValue,getTeamProfile,r343DrawCandidate,soccerDrawEvidenceQualified};")(structuredClone,URL);
 const S=model.createState();
 S.round=snapshot.round.round;S.gmTs=snapshot.round.gmTs;S.updatedAt=snapshot.round.updatedAt;
 S.markets=structuredClone(snapshot.currentRound.markets);
@@ -27,6 +27,48 @@ const baseline={
   grades:Object.fromEntries(["가장추천","추천","일반"].map(g=>[g,selected(S.markets).filter(m=>m.displayGrade===g).length])),
 };
 model.markState(S);
+
+// R373: inspect only future pregame draw markets, without changing production.
+const drawCandidates=[];
+for(const [key,all] of model.groupMarkets(S.markets)){
+ const group=all.filter(m=>model.currentRoundMarket(m,S));
+ const old=group.find(m=>m.marked&&m.representativeSelected);
+ if(!old||old.sport!=="축구"||model.started(old)||old.resultFinal)continue;
+ for(const m of group.filter(m=>["MONEYLINE","HANDICAP"].includes(m.marketFamily)&&model.representativeMarketEligible(m))){
+  const q=model.analyzeChoiceRows(m).find(q=>q.pick==="무");
+  if(!q||Number(q.odds)<1.31||Number(q.odds)>6.5)continue;
+  const kj=model.r343DrawCandidate(m),ev=Number(q.calibratedP)*Number(q.odds)-1;
+  drawCandidates.push({key,date:m.date,time:m.time,league:m.league,game:m.game,no:m.no,family:m.marketFamily,
+   odds:q.odds,p:Number(q.calibratedP.toFixed(3)),marketP:Number(q.marketP.toFixed(3)),
+   safe:Number(q.conservativeP.toFixed(3)),edge:Number(q.edge.toFixed(3)),ev:Number(ev.toFixed(3)),
+   score:Number(q.score.toFixed(3)),quality:Number(q.quality.toFixed(3)),reliability:Number(q.reliability.toFixed(3)),
+   integrity:Number(q.dataIntegrity.toFixed(3)),groups:q.independentGroupCount,opposition:q.gradeAxisOppositionCount,
+   kjEligible:!!kj,strict:model.soccerDrawEvidenceQualified(m,q),
+   oldNo:old.no,oldFamily:old.marketFamily,oldPick:old.finalPick,oldOdds:old.finalOdds});
+ }
+}
+drawCandidates.sort((a,b)=>b.ev-a.ev||b.edge-a.edge||a.no-b.no);
+console.log("R373_DRAW_DISCOVERY="+JSON.stringify({total:drawCandidates.length,
+  strict:drawCandidates.filter(x=>x.strict).length,
+  kjEligible:drawCandidates.filter(x=>x.kjEligible).length,
+  marketDraws:drawCandidates.filter(x=>x.family==="MONEYLINE").length,
+  handicapDraws:drawCandidates.filter(x=>x.family==="HANDICAP").length,
+  oldDraws:selected(S.markets).filter(m=>m.sport==="축구"&&m.finalPick==="무").length,
+  top:drawCandidates.slice(0,18)}));
+
+const auditR373=S.r373DrawInterestAudit||{},interest=(S.markets||[]).filter(m=>
+ m.marked&&m.representativeSelected&&m.selectionMode==="R373_DRAW_INTEREST"&&!locked(m));
+console.log("R373_DRAW_REPLAY="+JSON.stringify({
+  chosen:auditR373.chosen,changed:auditR373.changed,examined:auditR373.examined,
+  rows:auditR373.rows,actual:interest.map(m=>({no:m.no,game:m.game,
+    family:m.marketFamily,pick:m.finalPick,odds:m.finalOdds,
+    grade:m.displayGrade,selectionMode:m.selectionMode}))}));
+assert.ok(interest.length<=2,"Maximum two future relative-interest draw picks");
+assert.ok(interest.every(m=>m.sport==="축구"&&m.finalPick==="무"&&
+ ["MONEYLINE","HANDICAP"].includes(m.marketFamily)&&Number(m.finalOdds)>=1.31),
+ "Draw interests must be priced, genuine soccer regular/handicap markets");
+assert.equal(new Set(interest.map(m=>[m.date,m.time,m.home,m.away].join("|"))).size,
+ interest.length,"Draw interest fixtures must never duplicate");
 const after=selected(S.markets),future=after.filter(m=>!locked(m));
 for(const x of before){
  const cur=S.markets.find(m=>id(m)===id(x));
