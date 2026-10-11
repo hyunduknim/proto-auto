@@ -57,8 +57,21 @@ const b=metric(base),n=metric(next);
 assert.equal(n.count,b.count,"All-games coverage must remain the same");
 const expectedMarket={MONEYLINE:Math.round(n.count*.20),HANDICAP:Math.round(n.count*.20)};
 expectedMarket.TOTAL=n.count-expectedMarket.MONEYLINE-expectedMarket.HANDICAP;
-assert.deepEqual(n.market,expectedMarket,
-  "R370 must honor 20/20/60 rounded target where all markets have options");
+// R373 permits at most one pregame relative-interest draw per soccer family.
+// The base optimizer still targets exact 20/20/60; account only for the
+// explicitly audited same-fixture family changes, never silent mix drift.
+const drawAudit=next.r373DrawInterestAudit||{},drawRows=drawAudit.rows||[],
+  expectedWithDraw={...expectedMarket};
+for(const d of drawRows){
+  if(d.fromFamily===d.family)continue;
+  assert.ok(["MONEYLINE","HANDICAP","TOTAL"].includes(d.fromFamily)&&
+    ["MONEYLINE","HANDICAP"].includes(d.family),"Draw family must be a genuine market");
+  expectedWithDraw[d.fromFamily]--;expectedWithDraw[d.family]++;
+}
+assert.ok(drawRows.length<=2,"No more than one upcoming draw interest in each family");
+assert.equal(new Set(drawRows.map(x=>x.game)).size,drawRows.length,"Same draw fixture counted twice");
+assert.deepEqual(n.market,expectedWithDraw,
+  "Market mix can move only by the explicitly audited R373 draw-interest choices");
 const mapB=new Map(b.rows.map(x=>[x.key,x]));
 const changed=n.rows.filter(x=>{const old=mapB.get(x.key);return old&&(old.no!==x.no||old.pick!==x.pick);});
 console.log("R370_PRODUCTION_AB="+JSON.stringify({round:snapshot.round.round,
