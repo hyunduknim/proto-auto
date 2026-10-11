@@ -22,8 +22,8 @@ const finished=[mk(7702,"2026-10-11","08:30"),mk(7501,"2026-10-10","23:00"),
  mk(7701,"2026-10-11","08:30"),mk(7800,"2026-10-11","09:30")];
 const snap=JSON.stringify(finished);
 const merged=api.mergeCurrentPastCards(st,finished);
-assert.deepEqual(merged.map(x=>x.no),[7501,7701,7702,7800],
- "Server past history must be date/time/proto ascending");
+assert.deepEqual(merged.map(x=>x.no),[7800,7702,7701,7501],
+ "Server past history must be date/time/proto descending");
 assert.equal(JSON.stringify(finished),snap,
  "Server list presentation cannot change completed results");
 st.markets=[mk(7579,"2026-10-11","00:30",false),
@@ -33,16 +33,17 @@ st.markets=[mk(7579,"2026-10-11","00:30",false),
  ...finished.slice(0,2)];
 const before=st.markets.map(x=>({no:x.no,final:x.resultFinal,hit:x.hit,score:x.resultScoreText}));
 const publicRows=api.publicState(st);
-assert.deepEqual(publicRows.pastPendingGames.map(x=>x.no),[7578,7579,7580],
+assert.deepEqual(publicRows.pastPendingGames.map(x=>x.no),[7580,7579,7578],
  "Only started unsettled marked picks should appear in past pending");
-assert.deepEqual(publicRows.pastGames.map(x=>x.no),[7501,7702],
- "Only settled games should appear in the past settled feed, sorted ascending");
+assert.deepEqual(publicRows.pastGames.map(x=>x.no),[7702,7501],
+ "Only settled games should appear in the past settled feed, sorted descending");
 assert.ok(publicRows.markingGames.some(x=>x.no===7578),
  "Started unsettled games remain on the marking screen too");
 assert.equal(JSON.stringify(st.markets.map(x=>({no:x.no,final:x.resultFinal,hit:x.hit,score:x.resultScoreText}))),
  JSON.stringify(before),"Past presentation must not change saved settlement or markings");
 const html=api.INDEX;
-assert.ok(html.includes('pastChronology.map(m=>m.resultFinal?pastResultHtml(m):pastPendingHtml(m))'),
+assert.ok(html.includes('const pastChronology=orderPastRows([...pastRows,...pastPending])')&&
+ html.includes('pastChronology.map(m=>m.resultFinal?pastResultHtml(m):pastPendingHtml(m))'),
  "Browser must merge settled and pending into one chronological list");
 assert.ok(html.includes('⏳ 정산대기')&&html.includes('최종결과')&&
  html.includes("e(pastPending.length)"),
@@ -54,5 +55,5 @@ assert.equal(api.CFG.marketTarget.MONEYLINE,.20);
 assert.equal(api.CFG.marketTarget.HANDICAP,.20);
 assert.equal(api.CFG.marketTarget.TOTAL,.60);
 console.log("R378_PAST_PENDING_OK="+JSON.stringify({
- pastChronological:true,startedPendingVisible:true,lockedSettlementsUntouched:true,
+ pastNewestFirst:true,startedPendingVisible:true,lockedSettlementsUntouched:true,
  markedGamesPreserved:true,noInventedResult:true}));
