@@ -43,7 +43,7 @@ assert.equal(lib.r383WiseFeedUrl(e),e.WISETOTO_SETTLEMENT_FEED_URL);
 const state={markets:[
  mk(9101,"A","B","TOTAL",2.5,"언더"),
  mk(9102,"C","D","HANDICAP",-1.5,"승"),
- mk(9103,"E","F","TOTAL",2.5,"오버"),
+ mk(9103,"E","F","TOTAL",2.5,"언더"),
  mk(9104,"G","H","TOTAL",2.5,"언더"),
  mk(9105,"I","J","TOTAL",2.5,"언더"),
  mk(9106,"K","L","MONEYLINE",null,"승"),
