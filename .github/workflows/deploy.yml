@@ -71,6 +71,8 @@ jobs:
         run: node tests/r384-spogod-safety.cjs
       - name: Verify R385 independently verified completed MLS fallback does not alter frozen games
         run: node tests/r385-mls-morning-recovery.cjs
+      - name: Verify R388 instant completed morning MLS settlement survives round rollover
+        run: node tests/r388-immediate-morning-recovery.cjs
       - name: Verify R368 owner-requested void is narrow and clearly non-official
         run: node tests/r368-requested-void.cjs
       - name: Verify R369 invariant and signed final-score source adapters
