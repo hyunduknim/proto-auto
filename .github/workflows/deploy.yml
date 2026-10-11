@@ -37,6 +37,8 @@ jobs:
         run: node tests/r357-feed-readiness.cjs
       - name: Verify R376 MyScoreBot pregame-only bridge, no settlement or fifth vote
         run: node tests/r376-myscorebot-bridge.cjs
+      - name: Verify R377 actual pregame marking response to verified team form
+        run: node tests/r377-performance-confirmation.cjs
       - name: Verify R376 GitHub Copilot MyScoreBot agent skill contract
         run: node tests/r376-agent-skill.cjs
       - name: Verify R359 live-hour ordering preserves all marking cards
