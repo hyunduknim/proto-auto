@@ -4,10 +4,10 @@ const raw=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 let persisted=0;
-const api=new Function("structuredClone","URL",raw+
- "\nsaveState=async(s,env,force)=>{persisted++;MEM.state=s;return s;};"+
+const api=new Function("structuredClone","URL","recordPersist",raw+
+ "\nsaveState=async(s,env,force)=>{recordPersist();MEM.state=s;return s;};"+
  "\nmarkState=s=>s;return {r388RecoverCompletedMorningMlsOnRead,r386ApplyVerifiedMlsRecovery};")
- (structuredClone,URL);
+ (structuredClone,URL,()=>{persisted++;});
 const match=(no,h,a,score,opts={})=>({
   gmTs:"260120",no,date:"2026-10-11",time:"08:30",
   home:h,away:a,game:h+" vs "+a,sport:"축구",marketFamily:"TOTAL",
