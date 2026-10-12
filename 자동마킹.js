@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R466-PRICE-FLOW";
-const BUILD_ID = "proto-r466-20261013-price-flow";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R467-ODDS-TRACK";
+const BUILD_ID = "proto-r467-20261013-odds-track";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -4258,7 +4258,16 @@ function mergeLastKnownOfficialMarkets(oldMarkets,newMarkets){
     m.lastFetchAt=at;m.lastGoodOddsAt=kept?(old?.lastGoodOddsAt||old?.domesticOddsFetchedAt||null):(input.domesticOddsFetchedAt||at);
     m.lastGoodOdds=Object.fromEntries(validChoices(m).map(c=>[c.label,Number(c.odds)]));m.domesticOddsValid=validChoices(m).length>=2;
     m.oddsClosedOrMissing=kept>0||explicitMarketClosed(m);m.oddsSnapshotStatus=explicitMarketClosed(m)?"CLOSED":kept?"LAST_KNOWN":received?"OPEN":"MISSING";m.oddsSource=kept?"BETMAN_LAST_KNOWN_OFFICIAL":"BETMAN_OFFICIAL_CURRENT";
-    m.oddsLastSeenAt=received?at:old?.oddsLastSeenAt||null;fresh.push(m);
+    m.oddsLastSeenAt=received?at:old?.oddsLastSeenAt||null;
+    if(old){
+      if((!Array.isArray(old.publicOddsHistory)||!old.publicOddsHistory.length)&&old.oddsSnapshotStatus==='OPEN'&&
+          Number.isFinite(Date.parse(old.domesticOddsFetchedAt||''))&&validChoices(old).length>=2)
+          r419RecordQuote(old,Date.parse(old.domesticOddsFetchedAt));
+      m.publicOddsHistory=Array.isArray(old.publicOddsHistory)?old.publicOddsHistory.slice(-24):[];
+    }
+    if(!started(m)&&m.oddsSnapshotStatus==='OPEN'&&kept===0&&received>=2)
+      r419RecordQuote(m,Date.parse(input.domesticOddsFetchedAt||at));
+    fresh.push(m);
   }
   for(const old of oldMarkets||[]){if(seen.has(officialOddsIdentity(old))||!isAfterCutoff(old)||validChoices(old).length<2)continue;if(started(old)&&!old.marked&&!old.representativeSelected&&!old.resultFinal)continue;
     fresh.push({...old,choices:(old.choices||[]).map(c=>({...c})),lastFetchAt:at,oddsClosedOrMissing:true,oddsSnapshotStatus:explicitMarketClosed(old)?"CLOSED":"LAST_KNOWN",oddsSource:"BETMAN_LAST_KNOWN_OFFICIAL"});preserved++;
@@ -5239,7 +5248,15 @@ async function refreshBetmanSource(state,env,force=false){
      const supplemental=adjacent.rows.filter(m=>String(m.gmTs||"")!==String(r.gmTs));
      for(const m of supplemental){
        const old=(state.markets||[]).find(x=>officialOddsIdentity(x)===officialOddsIdentity(m));
-       if(old)preserveSettlement([old],[m]);
+       if(old){
+          preserveSettlement([old],[m]);
+          if((!Array.isArray(old.publicOddsHistory)||!old.publicOddsHistory.length)&&old.oddsSnapshotStatus==='OPEN'&&
+              Number.isFinite(Date.parse(old.domesticOddsFetchedAt||''))&&validChoices(old).length>=2)
+              r419RecordQuote(old,Date.parse(old.domesticOddsFetchedAt));
+          m.publicOddsHistory=Array.isArray(old.publicOddsHistory)?old.publicOddsHistory.slice(-24):[];
+        }
+        if(!started(m)&&validChoices(m).length>=2)
+          r419RecordQuote(m,Date.parse(m.domesticOddsFetchedAt||''));
      }
     state.round=r.round;state.gmTs=r.gmTs;state.markets=dedupeMarkets([...markets,...otherRounds,...supplemental]);
     r404Reconcile14Snapshot(state);state.auxAudit={at:nowIso(),enabled:!!aux.enabled,ok:!!aux.ok,reason:aux.reason||null,urlHost:aux.urlHost||null,connectors:aux.connectors||{},...auxMerge,privateAppApiUsed:false,connectorMode:"SC_PS_SN_PROTOODDS_FOUR_MAIN_AXES_PLUS_JEONGBAEDANG_AUX"};const statusSettled=applyOfficialMarketStatusSettlement(state);
@@ -8430,13 +8447,16 @@ function r419SameOddsEvidence(block,choices,no,now){
 }
 function r419QuoteSignature(prices){return (prices||[]).map(c=>String(c.label)+'='+Number(c.odds).toFixed(4)).join('|')}
 function r419RecordQuote(m,now){
- if(!Number.isFinite(now))return;
- const prices=validChoices(m).map(c=>({label:c.label,odds:Number(c.odds)}));
- if(prices.length<2)return;
- const history=Array.isArray(m.publicOddsHistory)?m.publicOddsHistory:[];
- if(history.length&&r419QuoteSignature(history[history.length-1].prices)===r419QuoteSignature(prices))return;
- const row={at:new Date(now).toISOString(),source:m.domesticOddsSource||m.source,prices};
- m.publicOddsHistory=history.length<24?[...history,row]:[history[0],...history.slice(-22),row];
+ if(!Number.isFinite(now)||now>Date.now()+60000)return;
+ const name=String(m.domesticOddsSource||m.source||''),provider=/betman/i.test(name)?'BETMAN_OFFICIAL':/zentoto/i.test(name)?'ZENTOTO_PUBLIC':null;
+ if(!provider)return;
+ const prices=validChoices(m).map(x=>({label:x.label,odds:Number(x.odds)}));
+ if(prices.length<2||prices.length>3)return;
+ const hist=Array.isArray(m.publicOddsHistory)?m.publicOddsHistory:[],last=hist[hist.length-1];
+ const oldSource=/betman/i.test(String(last?.source||''))?'BETMAN_OFFICIAL':/zentoto/i.test(String(last?.source||''))?'ZENTOTO_PUBLIC':null;
+ if(last&&oldSource===provider&&r419QuoteSignature(last.prices)===r419QuoteSignature(prices))return;
+ const entry={at:new Date(now).toISOString(),source:provider,prices};
+ m.publicOddsHistory=hist.length<24?[...hist,entry]:[hist[0],...hist.slice(-22),entry];
 }
 function r419Wilson(k,n){
  if(!Number.isSafeInteger(n)||n<=0||!Number.isSafeInteger(k)||k<0||k>n)return null;
@@ -8475,7 +8495,7 @@ function r419OddsReport(m,now=Date.now()){
  return {version:'R419_OBSERVED_ODDS_EVIDENCE',source:m.domesticOddsSource||m.source||null,observedAt:m.domesticOddsFetchedAt||null,ageSec,
   period:publicOnly?'출처 미확인':m.period||'출처 미확인',line:m.line??null,valid,margin:valid?sum-1:null,payout:valid?1/sum:null,
   sampleSource:freshPattern?pattern.source:null,sampleObservedAt:freshPattern?pattern.observedAt:null,sampleNote:freshPattern?pattern.samplingNote:null,
-  historyCount:history.length,firstObservedAt:first?.at||null,lastChangedAt:last?.at||null,history:history.slice(-8),
+  historyCount:history.length,firstObservedAt:first?.at||null,lastChangedAt:last?.at||null,history:history.slice(-24),
   choices:rows,flags,missing:['해외 동시각·동일라인 배당','실제 픽스쿨 원자료','검증된 독립 경기력 확률','전체/부분구간 규칙',...(!prices.every(c=>Number(c.openingOdds)>1)?['원천의 실제 개장배당']:[])],
   autoEvaluation:m.r420Evaluation||null,lastSelectionChange:m.r420LastChange||null,explanation:(m.r420LastChange?'정밀배당 표본 규칙을 충족해 시작 전 동일 시장 안에서 픽을 변경했습니다. 과거 표본의 95% 구간은 미래 승률이나 독립 EV가 아닙니다. ':'')+'시장 마진을 제거한 가격의 상대순위 및 20/20/60 시장 배분으로 기존 픽을 선정했습니다. 동일배당 성적·해외배당·픽스쿨을 사용한 가치 검증은 별도이며, 과거빈도를 검증된 승률로 대입하지 않습니다.'};
 }
