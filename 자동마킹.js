@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R445-KIA-FINAL-GUARD";
-const BUILD_ID = "proto-r445-20261012-kia-final-guard";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R446-MANUAL-SETTLEMENT";
+const BUILD_ID = "proto-r446-20261012-manual-settlement";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5871,36 +5871,74 @@ function r444AppliedSummary(state,original,past,pending,active){
 }
 
 /* R430: distinguish original historical wager and current applied user selection. */
+// R446 final-score-first settlement: use the selected market's own line and period.
+// Keep the pregame/settlement ledger intact; a manual choice affects the effective UI.
+function r446VerifiedRank(m){
+ const src=String(m?.resultSource||'');
+ if(/^R44[345]_/i.test(src)&&/VERIFIED|YONHAP|CHOSUNBIZ|NEWS/i.test(src))return 9;
+ if(/^(NPB_OFFICIAL|KBO_OFFICIAL|FLASHSCORE_VERIFIED|AISCORE_VERIFIED|SPGOD_VERIFIED|ZENTOTO_VERIFIED)/i.test(src))return 7;
+ if(/^BETMAN_OFFICIAL/i.test(src))return 6;
+ if(/^(ZENTOTO_|SPOGOD_|ESPN_)/i.test(src)&&/FINAL|RESULT|VERIFIED/i.test(src))return 5;
+ return 0;
+}
+function r446RawFinal(m,chosen){
+ if(!m?.resultFinal||!r446VerifiedRank(m)||m.marketFamily==='HANDICAP')return null;
+ if(m.period&&chosen.period&&String(m.period)!==String(chosen.period))return null;
+ if(/전반|후반|쿼터|이닝|[1-9]회|half|quarter|inning/i.test([chosen.market,chosen.marketLabel,chosen.segment,chosen.period].join(' ')))return null;
+ const pair=resultScorePairText(m.resultScoreText||m.score);
+ const home=pair?.home,away=pair?.away;
+ if(!Number.isInteger(home)||!Number.isInteger(away)||home<0||away<0||
+  scoreUnitMismatch(chosen,{home,away}))return null;
+ if(home===0&&away===0&&(chosen.sport==='농구'||/KBL|NBA|WKBL/i.test(String(chosen.league||''))))return null;
+ return {score:home+':'+away,rank:r446VerifiedRank(m),source:m.resultSource};
+}
 function r430ManualSettlement(state,card,review){
  if(!review)return null;
  const fixture=(state.markets||[]).filter(m=>String(m.gmTs)===String(review.gmTs)&&gameSeed(m)===gameSeed(card));
- const chosen=fixture.find(m=>Number(m.no)===Number(review.no));
- if(!chosen)return {status:'결과확인필요',hit:null,reason:'선택한 시장 원본 자료를 확인할 수 없음',source:'NO_MARKET'};
- if((fixture.some(m=>m.resultFinal))&&(fixture.some(m=>m.settlementStatus==='적특'&&/취소|연기|CANCEL|POSTPON/i.test(String(m.result||m.resultStatus||''))))){
-  return {status:'적특',hit:null,reason:'경기 취소·연기 확인',source:'GAME_CANCEL'};
+ const chosen=fixture.filter(m=>Number(m.no)===Number(review.no));
+ if(chosen.length!==1)return {status:'결과확인필요',hit:null,reason:'수동 선택 시장 원본 식별 불가',source:'NO_EXACT_MARKET'};
+ const target=chosen[0];
+ if(review.marketId&&review.marketId!==marketIdentity(target))
+  return {status:'결과확인필요',hit:null,reason:'수동변경한 시장 식별정보 불일치',source:'MARKET_CHANGED'};
+ if(!validChoices(target).some(x=>String(x.label)===String(review.pick)))
+  return {status:'결과확인필요',hit:null,reason:'수동 선택지가 해당 프로토 시장에 없음',source:'PICK_NOT_AVAILABLE'};
+ if(fixture.some(m=>m.resultFinal&&m.settlementStatus==='적특'&&
+   /취소|연기|CANCEL|POSTPON/i.test(String(m.result||m.resultStatus||''))))
+  return {status:'적특',hit:null,outcome:'적특',source:'VERIFIED_CANCELLED'};
+ const scored=fixture.map(m=>r446RawFinal(m,target)).filter(Boolean)
+  .sort((a,b)=>b.rank-a.rank);
+ let outcome=null,source=null,score=null,reason=null;
+ if(scored.length){
+  const leaders=scored.filter(x=>x.rank===scored[0].rank);
+  if(new Set(leaders.map(x=>x.score)).size!==1)
+   return {status:'결과확인필요',hit:null,reason:'최종점수 자료 충돌',source:'SCORE_CONFLICT'};
+  score=scored[0].score;source=scored[0].source;
+  const resolved=resolveOfficialOutcome({score,family:'MONEYLINE'},target);
+  if(resolved.void)
+   return {status:'결과확인필요',hit:null,score,reason:'기준점 동점 · 공식 규정 확인 필요',source};
+  outcome=resolved.outcome;reason='검증된 최종점수와 수동픽 기준점으로 재정산';
  }
- const direct=fixture.find(m=>Number(m.no)===Number(review.no)&&m.resultFinal&&
-   ['승','무','패','오버','언더','적특'].includes(String(m.result||''))&&m.resultSource);
- const sameLine=direct||fixture.find(m=>m.resultFinal&&m.marketFamily===chosen.marketFamily&&
-   String(m.line??'')===String(chosen.line??'')&&
-   ['승','무','패','오버','언더','적특'].includes(String(m.result||''))&&m.resultSource);
- let outcome=sameLine?.result||null,source=sameLine?.resultSource||null;
  if(!outcome){
-  const official=fixture.find(m=>m.resultFinal&&m.resultSource&&
-    /BETMAN_OFFICIAL|VERIFIED_FULLTIME|NPB_OFFICIAL|KBO_OFFICIAL|SPGOD_VERIFIED/i.test(String(m.resultSource))&&
-    resultScorePairText(m.resultScoreText||m.score));
-  if(official&&(!chosen.period||!official.period||String(chosen.period)===String(official.period))){
-   const rr={score:official.resultScoreText||official.score,family:chosen.marketFamily};
-   const derived=resolveOfficialOutcome(rr,chosen);
-   outcome=derived?.outcome||null;source=official.resultSource;
+  // Result-code fallback only for a FINAL of the exact family + line + period.
+  const allowed=target.marketFamily==='TOTAL'?['언더','오버']:['승','무','패'];
+  const same=fixture.filter(m=>m.resultFinal&&r446VerifiedRank(m)&&
+    m.marketFamily===target.marketFamily&&String(m.line??'')===String(target.line??'')&&
+    (!target.period||!m.period||String(target.period)===String(m.period))&&allowed.includes(m.result))
+   .sort((a,b)=>r446VerifiedRank(b)-r446VerifiedRank(a)||Number(b.no===target.no)-Number(a.no===target.no));
+  if(same.length){
+   if(new Set(same.filter(m=>r446VerifiedRank(m)===r446VerifiedRank(same[0])).map(m=>m.result)).size!==1)
+    return {status:'결과확인필요',hit:null,reason:'동일 시장 결과코드 상충',source:'CODE_CONFLICT'};
+   const row=same[0],pair=resultScorePairText(row.resultScoreText||row.score);
+   if(pair&&pair.home===0&&pair.away===0&&(target.sport==='농구'||/KBL|NBA|WKBL/i.test(String(target.league||''))))
+    return {status:'결과확인필요',hit:null,reason:'농구 최종점수 0:0 오류 의심',source:'INVALID_SCORE'};
+   outcome=row.result;source=row.resultSource;score=pair?row.resultScoreText||row.score:null;
+   reason='검증된 동일 시장·기준점의 공식 결과코드로 재정산';
   }
  }
- if(!outcome||!['승','무','패','언더','오버','적특'].includes(String(outcome))){
-  return {status:'정산대기',hit:null,reason:'선택한 시장에 적용 가능한 검증된 최종결과 대기',source:null};
- }
- if(outcome==='적특')return {status:'적특',hit:null,outcome,source};
- const hit=String(outcome)===String(review.pick);
- return {status:hit?'적중':'낙첨',hit,outcome,source,score:sameLine?.resultScoreText||sameLine?.score||null,reason:'최종결과 기준 수동 변경픽 정산'};
+ if(!outcome)return {status:'정산대기',hit:null,reason:'해당 시장 공식 최종결과 확인 중',source:null};
+ const hit=outcome===review.pick;
+ return {status:hit?'적중':'낙첨',hit,outcome,source,score,
+  marketNo:target.no,line:target.line,reason};
 }
 function r430AttachReview(state,card){
  const review=state.manualReviewSelections?.[String(card.gmTs||'')+'|'+gameSeed(card)]||null;
@@ -5938,13 +5976,23 @@ function publicState(state){
   const cur={...currentRoundStateView(state),markets:r404Display.markets.filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs)>=260121&&r401Scope(m)&&settlementAllowed(m)&&(!r403PlaceholderIdentity(m)||m.marked||m.resultFinal)),
     settlementLedger:(state.settlementLedger||[]).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs)>=260121&&r401Scope(m))};
   // R391: old-round unfinished picks remain visible in past screen.
-  const activeGames=representativeGames(cur).filter(g=>r401Scope(g)&&!g.resultFinal).sort(marketSort).map(g=>r443ShowAppliedManual(state,g)),
+  const originalActive=representativeGames(cur).filter(g=>r401Scope(g)&&!g.resultFinal).sort(marketSort),
     savedSettled=(state.markets||[]).filter(m=>Number(m.gmTs)>=260121&&m.marked&&m.representativeSelected&&m.resultFinal&&settlementAllowed(m))
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean),
-    pastGames=mergeCurrentPastCards(state,savedSettled).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m)).sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m)),
-    pastPendingGames=pendingSettlementMarkets(state).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m))
-      .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m));const originalSummary=summary(cur),appliedSummary=r444AppliedSummary(state,originalSummary,pastGames,pastPendingGames,activeGames);const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:appliedSummary,overallSummary:appliedSummary,originalAutoSummary:originalSummary,performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r444CorrectionAudit:state.r444CorrectionAudit||null,r445KiaLgSettlementAudit:state.r445KiaLgSettlementAudit||null,r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+    originalPast=mergeCurrentPastCards(state,savedSettled).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m)),
+    originalPending=pendingSettlementMarkets(state).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m))
+      .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean),
+    joined=new Map();
+  for(const card of [...originalActive,...originalPending,...originalPast]){
+    const applied=r443ShowAppliedManual(state,card),id=String(applied.gmTs)+'|'+gameSeed(applied),old=joined.get(id);
+    if(!old||(!old.resultFinal&&applied.resultFinal)||(!old.manualReview&&applied.manualReview))joined.set(id,applied);
+  }
+  const all=[...joined.values()],
+    activeGames=all.filter(m=>!m.resultFinal&&!m.gameStarted).sort(marketSort),
+    pastGames=all.filter(m=>m.resultFinal).sort((a,b)=>marketSort(b,a)),
+    pastPendingGames=all.filter(m=>!m.resultFinal&&m.gameStarted).sort((a,b)=>marketSort(b,a));
+  const originalSummary=summary(cur),
+    appliedSummary=r444AppliedSummary(state,originalSummary,pastGames,pastPendingGames,activeGames);const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:appliedSummary,overallSummary:appliedSummary,originalAutoSummary:originalSummary,performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r444CorrectionAudit:state.r444CorrectionAudit||null,r445KiaLgSettlementAudit:state.r445KiaLgSettlementAudit||null,r446ManualSettlementAudit:{manual:all.filter(m=>m.manualReview).length,settled:all.filter(m=>m.manualReview&&m.resultFinal).length,pending:all.filter(m=>m.manualReview&&!m.resultFinal).map(m=>({no:m.manualReview.no,reason:m.manualReview.settlement?.reason||'경기종료 검증 대기'}))},r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
