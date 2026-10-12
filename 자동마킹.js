@@ -6779,6 +6779,7 @@ function toggleSettleSort(){settleSortAsc=!settleSortAsc;renderPastSettlementPan
 
 /* R400 read-only experiment: no source fetch, state mutation or settlement write */
 let expSelectedKey=null,expQuery='',expFilter='all';
+let expRenderedListSignature=null,expRenderedSelectedKey=null,expRenderedReportSignature=null,expReportLastRefreshAt=0;
 function expKey(m){return [m.gmTs,m.date,m.time,m.home,m.away].join('|')}
 function expFmt(v,d=1){return v!==null&&v!==undefined&&Number.isFinite(Number(v))?Number(v).toFixed(d):'자료 없음'}
 function expPct(v){return v!==null&&v!==undefined&&Number.isFinite(Number(v))?(Number(v)*100).toFixed(1)+'%':'자료 없음'}
@@ -7035,12 +7036,90 @@ function expBody(m){
 
 /* R426 manual price layer. Deliberately NOT fed into auto selection or settlement. */
 function manualOddsPriceHtml(gmTs,no,c){const odds=Number(c.odds);return '<em>'+e(Number.isFinite(odds)&&odds>1?odds.toFixed(2)+'배':'-')+'</em>';}
+/* R438: Avoid rebuilding the whole analysis view every 3 seconds.
+ * Expand the selected fixture lazily. Replacing all cards on every poll collapses
+ * nested <details>, jumps scroll position, and stresses mobile WebViews. */
+function expDataSignature(m){
+ const markets=Array.isArray(m?.marketRows)?m.marketRows:[];
+ return JSON.stringify([m?.pick,m?.odds,m?.displayGrade,m?.manualReview?.pick,
+  m?.manualReview?.settlement?.status,
+  markets.map(r=>[r.no,r.finalPick,r.finalOdds,r.selectionStatus,
+   Array.isArray(r.choices)?r.choices.map(c=>[c.label,c.odds]):[],
+   r.precision?.historyCount,r.precision?.lastChangedAt,r.precision?.sampleObservedAt,
+   Array.isArray(r.precision?.choices)?r.precision.choices.map(c=>[c.label,c.sampleSamples,c.sampleHits]):[]])]);
+}
+function expSafeBody(m){
+ try{return expBody(m)}
+ catch(err){
+  return '<div class="expBody edReport"><div class="edWarning">이 경기의 일부 배당 자료를 표시하지 못했습니다. 다른 경기는 정상 조회할 수 있습니다. · '+e(String(err?.message||'자료형식 확인 필요'))+'</div></div>';
+ }
+}
 function renderExperiment(){
-  if(!state||activeView!=='experiment')return;
-  const all=orderCurrentRows(state.markingGames||[]).filter(m=>Number(m.gmTs)>=260121),q=expQuery.toLowerCase().trim();
-  const rows=all.filter(m=>(expFilter==='all'||String(m.sport||'')===expFilter)&&(!q||[m.game,m.home,m.away,m.league,m.no,...(m.marketRows||[]).map(r=>r.no)].join(' ').toLowerCase().includes(q)));
-  $('expMeta').textContent='전체 '+all.length+'경기 · 표시 '+rows.length+'경기 · 저장 데이터 기준';
-  $('expList').innerHTML=rows.length?rows.map(m=>{const open=expSelectedKey===expKey(m);return '<article class="expCard"><button type="button" class="expHead" data-expkey="'+e(expKey(m))+'" aria-expanded="'+(open?'true':'false')+'"><strong>'+e(String(m.game||m.home+' vs '+m.away))+'</strong><small>'+e(String(m.league||m.sport||''))+' · '+e(String(m.date||''))+' '+e(String(m.time||''))+' · '+e(String(m.no||'-'))+' · '+e(m.gameStarted?'경기 시작':'경기전')+'</small></button>'+(open?expBody(m):'')+'</article>'}).join(''):'<div class="expEmpty">조건에 맞는 경기가 없습니다.</div>';
+ if(!state||activeView!=='experiment')return;
+ const all=orderCurrentRows(state.markingGames||[]).filter(m=>Number(m.gmTs)>=260121),
+ q=expQuery.toLowerCase().trim();
+ const rows=all.filter(m=>(expFilter==='all'||String(m.sport||'')===expFilter)&&
+  (!q||[m.game,m.home,m.away,m.league,m.no,...(Array.isArray(m.marketRows)?m.marketRows:[]).map(r=>r.no)].join(' ').toLowerCase().includes(q)));
+ $('expMeta').textContent='전체 '+all.length+'경기 · 표시 '+rows.length+'경기 · 펼친 분석은 자동갱신 중에도 유지';
+ const list=$('expList');
+ if(!list)return;
+ const keys=rows.map(expKey);
+ const listSig=JSON.stringify([expFilter,q,rows.map(m=>[expKey(m),m.game,m.league,m.time,m.no,m.gameStarted])]);
+ if(expRenderedListSignature!==listSig){
+  // Only redraw when fixtures/search filters change, not on every odds refresh.
+  list.innerHTML=rows.length?rows.map(m=>'<article class="expCard"><button type="button" class="expHead" data-expkey="'+e(expKey(m))+'" aria-expanded="false"><strong>'+
+    e(String(m.game||m.home+' vs '+m.away))+'</strong><small>'+
+    e(String(m.league||m.sport||''))+' · '+e(String(m.date||''))+' '+e(String(m.time||''))+
+    ' · '+e(String(m.no||'-'))+' · '+e(m.gameStarted?'경기 시작':'경기전')+
+    '</small></button></article>').join(''):'<div class="expEmpty">조건에 맞는 경기가 없습니다.</div>';
+  expRenderedListSignature=listSig;
+  expRenderedSelectedKey=null;
+  expRenderedReportSignature=null;
+ }
+ if(expSelectedKey&&!keys.includes(expSelectedKey))expSelectedKey=null;
+ const oldKey=expRenderedSelectedKey;
+ if(oldKey!==expSelectedKey){
+  for(const card of list.querySelectorAll('.expCard')){
+   const head=card.querySelector('.expHead');
+   const match=head?.dataset.expkey===expSelectedKey;
+   const report=card.querySelector('.expBody');
+   if(report&&!match)report.remove();
+   if(head)head.setAttribute('aria-expanded',String(!!match));
+  }
+  expRenderedSelectedKey=expSelectedKey;
+  expRenderedReportSignature=null;
+ }
+ if(!expSelectedKey)return;
+ const index=keys.indexOf(expSelectedKey);
+ const card=list.children[index];
+ const model=rows[index];
+ if(!card||!model)return;
+ const stamp=expDataSignature(model);
+ const report=card.querySelector('.expBody');
+ if(report&&expRenderedReportSignature===stamp)return;
+ // Newly selected: always render; while expanded update only on actual content changes.
+ const now=Date.now();
+ if(report&&now-expReportLastRefreshAt<15000)return;
+ const openSummaries=report?[...report.querySelectorAll('details[open]')].map(d=>d.querySelector('summary')?.textContent||''):[];
+ const prevTop=report?.getBoundingClientRect()?.top;
+ const previousScroll=window.scrollY;
+ const html=expSafeBody(model);
+ if(report)report.remove();
+ card.insertAdjacentHTML('beforeend',html);
+ const updated=card.querySelector('.expBody');
+ if(updated&&openSummaries.length){
+  for(const d of updated.querySelectorAll('details')){
+   const label=d.querySelector('summary')?.textContent||'';
+   if(openSummaries.includes(label))d.open=true;
+  }
+  // Keep the visible report anchored if its height changes during polling.
+  if(prevTop!=null&&prevTop<0){
+   const offset=updated.getBoundingClientRect().top-prevTop;
+   if(Math.abs(offset)>2&&Math.abs(offset)<1500)window.scrollTo(0,previousScroll+offset);
+  }
+ }
+ expRenderedReportSignature=stamp;
+ expReportLastRefreshAt=now;
 }
 function applyView(){const marking=activeView==='marking',past=activeView==='past',experiment=activeView==='experiment';$('list').style.display=marking?'':'none';$('hourlyBar').style.display=marking?'flex':'none';$('markMenu').style.display=marking?'grid':'none';$('pastPanel').classList.toggle('on',past);$('expPanel').classList.toggle('on',experiment);$('tabMarking')?.classList.toggle('on',marking);$('tabPast')?.classList.toggle('on',past);$('tabExperiment')?.classList.toggle('on',experiment);if(experiment)renderExperiment()}
 function setView(v){activeView=['marking','past','experiment'].includes(v)?v:'marking';applyView()}function applyMarkMenu(){if(!state)return;let rows=orderCurrentRows(state.markingGames||[]),title='날짜 → 시간 → 프로토번호 오름차순 · 전체 경기 보존';if(markMenuMode==='marked'){rows=rows.filter(m=>!!m.pick);title='마킹 완료';}else if(markMenuMode==='best'){rows=rows.filter(m=>m.displayGrade==='가장추천');title='가장추천';}else if(markMenuMode==='rec'){rows=rows.filter(m=>m.displayGrade==='추천');title='추천';}else if(markMenuMode==='normal'){rows=rows.filter(m=>m.displayGrade==='일반');title='일반';}else if(markMenuMode==='time')title='경기 시간순 · 날짜→시간→프로토번호';else if(markMenuMode==='now')title='전체 시간순 · 날짜→시간→프로토번호 (전체 '+rows.length+'경기)';else title='날짜순 자동마킹 · 날짜→시간→프로토번호';document.querySelectorAll('#markMenu button').forEach(b=>b.classList.toggle('on',b.dataset.mode===markMenuMode));const h=document.querySelector('.sectionTitle span');if(h)h.textContent=title;$('list').innerHTML=rows.length?rows.map(gameCardHtml).join(''):'<div class="empty">해당 조건의 경기가 없습니다.</div>';}function setMarkMenu(mode){markMenuMode=['now','date','time','marked','best','rec','normal'].includes(mode)?mode:'now';setView('marking');applyMarkMenu()}function render(s){state=s;renderLayerOverview(s);renderHourly(s);const q=s.summary||{},rows=s.markingGames||[],pastRows=s.pastGames||[],pastPending=s.pastPendingGames||[],waiting=(s.sourceAudit&&s.sourceAudit.waitingMarkets)||0,roundHits=Number(q.hits||0),roundMisses=Number(q.misses||0),roundVoids=Number(q.voids||0),roundAccuracy=roundHits+roundMisses?Math.round((roundHits/(roundHits+roundMisses)*100)*1000)/1000:null;const mm=s.marketMixAudit||{},mc=mm.counts||{},ga=s.gradeAudit||{},gc=ga.counts||{};const cells=[['회차',s.round||'-',''],['전체경기',q.games||0,''],['대표픽',q.representatives||0,''],['일반승',mc.MONEYLINE||0,''],['핸디',mc.HANDICAP||0,''],['U/O',mc.TOTAL||0,''],['가장추천',gc['가장추천']||0,''],['추천',gc['추천']||0,''],['일반',gc['일반']||0,''],['121회차 배당마킹',rows.filter(m=>m.pick&&Number(m.odds)>=1.31).length,''],['⭕ 적중',roundHits,'hit'],['❌ 낙첨',roundMisses,'miss'],['⚪ 적특',roundVoids,''],['적중률',roundAccuracy==null?'대기':roundAccuracy+'%','acc'],['배당대기',waiting,'']];$('scoreGrid').innerHTML=cells.map(x=>'<div class="score '+x[2]+'"><b>'+e(x[1])+'</b><span>'+e(x[0])+'</span></div>').join('');const sa=s.sourceAudit||{};const ra=s.resultAudit||{},sh=s.settlementHealth||{};$('notice').className='notice '+(sh.stalled?'err':(sa.ok||sh.relayFresh||sh.directOk)?'ok':'err');const za=s.r410PregameAudit||{},zenFresh=Number(za.updated)>0&&Number.isFinite(Date.parse(za.at||''))&&Date.now()-Date.parse(za.at)<90*60000&&rows.length>0;const oddsMsg=sa.ok?('공식배당 정상 · '+(sa.games||0)+'경기 · 배당대기 '+(sa.waitingMarkets||0)):zenFresh?('젠토토 공개배당 수신 · '+rows.length+'경기 · 공식배당 수집 지연'):('배당 수집 지연 · '+(sa.error||sa.reason||'재시도 중'));const officialMsg=sh.stalled?('공식 정산 중계 지연'+(sh.staleMinutes==null?'':' · 마지막 확인 '+sh.staleMinutes+'분 전')):
@@ -7062,7 +7141,7 @@ function chooseManualPick(btn){
 function cancelManualPick(){manualPending=null;$('manualPanel').hidden=true;}
 async function applyManualPick(){if(!manualPending||busy)return;const payload={...manualPending};const ok=await act('/api/manual-pick',$('manualApply'),payload);if(ok)cancelManualPick();}
 
-function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('refresh','/api/round-refresh');bindActionButton('results','/api/results-refresh');bindActionButton('reanalyze','/api/reanalyze');bindActionButton('exportJson','EXPORT');$('manualMode')?.addEventListener('click',toggleManualMode);$('manualApply')?.addEventListener('click',applyManualPick);$('manualCancel')?.addEventListener('click',cancelManualPick);$('list')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-manual-no]');if(b)chooseManualPick(b)});$('pastList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-pastedit]');if(b)showPastManualEditor(b.dataset.pastedit)});$('pastManualPanel')?.addEventListener('click',ev=>{const close=ev.target.closest('[data-pastclose]');if(close){pastManualKey=null;$('pastManualPanel').hidden=true;return;}const pick=ev.target.closest('[data-pastpick]');if(pick)choosePastManualPick(pick)});const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>{markMenuMode='now';setView('marking');applyMarkMenu()});$('tabPast')?.addEventListener('click',()=>setView('past'));$('tabExperiment')?.addEventListener('click',()=>setView('experiment'));$('expSearch')?.addEventListener('input',ev=>{expQuery=ev.target.value||'';expSelectedKey=null;renderExperiment()});$('expSport')?.addEventListener('change',ev=>{expFilter=ev.target.value||'all';expSelectedKey=null;renderExperiment()});$('expList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-expkey]');if(!b)return;expSelectedKey=expSelectedKey===b.dataset.expkey?null:b.dataset.expkey;renderExperiment()});document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
+function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('refresh','/api/round-refresh');bindActionButton('results','/api/results-refresh');bindActionButton('reanalyze','/api/reanalyze');bindActionButton('exportJson','EXPORT');$('manualMode')?.addEventListener('click',toggleManualMode);$('manualApply')?.addEventListener('click',applyManualPick);$('manualCancel')?.addEventListener('click',cancelManualPick);$('list')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-manual-no]');if(b)chooseManualPick(b)});$('pastList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-pastedit]');if(b)showPastManualEditor(b.dataset.pastedit)});$('pastManualPanel')?.addEventListener('click',ev=>{const close=ev.target.closest('[data-pastclose]');if(close){pastManualKey=null;$('pastManualPanel').hidden=true;return;}const pick=ev.target.closest('[data-pastpick]');if(pick)choosePastManualPick(pick)});const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>{markMenuMode='now';setView('marking');applyMarkMenu()});$('tabPast')?.addEventListener('click',()=>setView('past'));$('tabExperiment')?.addEventListener('click',()=>setView('experiment'));$('expSearch')?.addEventListener('input',ev=>{expQuery=ev.target.value||'';expSelectedKey=null;renderExperiment()});$('expSport')?.addEventListener('change',ev=>{expFilter=ev.target.value||'all';expSelectedKey=null;renderExperiment()});$('expList')?.addEventListener('click',ev=>{const b=ev.target.closest('button.expHead[data-expkey]');if(!b)return;ev.preventDefault();expSelectedKey=expSelectedKey===b.dataset.expkey?null:b.dataset.expkey;renderExperiment()});document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
 </script></body></html>`;
 
 async function bootstrapState(env){
