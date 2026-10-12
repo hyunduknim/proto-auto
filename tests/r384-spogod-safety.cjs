@@ -61,10 +61,10 @@ const selectedBefore=[a,b,c].map(m=>[m.no,m.finalPick,m.finalOdds,m.displayGrade
  const throttle=await lib.r384RefreshSpogodResults(state,{},false);
  assert.equal(throttle.status,"THROTTLED");
  assert.equal(fetches,n);
- const zen=source.indexOf("await r381RefreshCloudflareZentoto(cur,env,fiveMinuteDue)"),
-   spogod=source.indexOf("await r384RefreshSpogodResults(cur,env,fiveMinuteDue)"),
-   wise=source.indexOf("await r383RefreshWisetotoResults(cur,env,false)"),
-   betman=source.indexOf("await refreshBetmanResults(cur,env,fiveMinuteDue)");
+ const zen=source.indexOf('await settlementCheck("ZENTOTO",'),
+   spogod=source.indexOf('await settlementCheck("SPOGOD",'),
+   wise=source.indexOf('await settlementCheck("WISETOTO_OPTIONAL",'),
+   betman=source.indexOf('await settlementCheck("BETMAN_RESULTS",');
  assert.ok(zen>=0&&spogod>zen&&wise>spogod&&betman>wise,
    "Settlement order must be Zen -> Spogod -> optional Wise -> Betman");
  console.log("R384_SPOGOD_PASS="+JSON.stringify({
@@ -72,3 +72,4 @@ const selectedBefore=[a,b,c].map(m=>[m.no,m.finalPick,m.finalOdds,m.displayGrade
   wrongScoreRejected:true,wrongKickoffRejected:true,
   settled:1,preservedSelections:true,pollsThrottled:true}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
+

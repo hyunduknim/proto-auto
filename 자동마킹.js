@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R455-SINGLE-MARKET-REPORT";
-const BUILD_ID = "proto-r455-20261013-single-market-report";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R456-SETTLEMENT-RETRY-GUARD";
+const BUILD_ID = "proto-r456-20261013-settlement-retry-guard";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -8990,7 +8990,8 @@ function premiumOfficialSettlementReadiness(state,officialResult,gmTs){
 }
 function r450SettlementCadenceMs(state){return pendingSettlementMarkets(state).length?30000:120000;}
 function r450LiveOddsRetryAllowed(state,urgent=false){
- if(urgent||!hasLivePending(state)||state.sourceAudit?.ok!==false)return true;
+ // A pregame request must not bypass failed-odds backoff while results are pending.
+ if(!hasLivePending(state)||state.sourceAudit?.ok!==false)return true;
  const attempted=Date.parse(state.sourceAudit?.lastAt||''),age=Date.now()-attempted;
  return !Number.isFinite(attempted)||age<0||age>=180000;
 }
