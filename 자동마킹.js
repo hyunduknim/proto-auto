@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R404-ROUND120-14KST-REPAIR";
-const BUILD_ID = "proto-r404-20261012-round120-14k-schedule-repair";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R405-PREGAME-MARKING-REPAIR";
+const BUILD_ID = "proto-r405-20261012-round-aware-odds-marking";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -1340,8 +1340,7 @@ function extractActiveProtoGames(root){
 // R262: 두 회차가 동시에 판매될 때 목록 순서에 따라 회차가 오가지 않도록, 진행 중인 회차를 우선 유지한다.
 function pickActiveGmTs(list,currentGmTs){
   const xs=[...new Set((list||[]).map(String))].filter(x=>/^\d+$/.test(x)).sort((a,b)=>Number(a)-Number(b));if(!xs.length)return null;
-  const cur=String(currentGmTs||"");if(cur&&xs.includes(cur))return cur;
-  if(cur){const next=xs.find(x=>Number(x)>Number(cur));if(next)return next;}
+  const cur=String(currentGmTs||"");if(cur){const next=xs.find(x=>Number(x)>Number(cur));if(next)return next;if(xs.includes(cur))return cur;}
   return xs[xs.length-1];
 }
 async function fetchActiveRound(currentGmTs=null){
@@ -1468,10 +1467,19 @@ function voteMap(data){
   const out=new Map(); for(const v of findDeepArray(data,"voteStatus",5)){const n=Number(v?.GM_SEQ??v?.matchSeq); if(Number.isFinite(n))out.set(n,v);} return out;
 }
 function compScheduleObjects(data){
-  const root=findScheduleContainer(data),s=root?.compSchedules||{};
-  const keys=Array.isArray(s?.keys)?s.keys:[];
-  const rows=Array.isArray(s?.datas)?s.datas:[];
-  return rows.map(r=>Array.isArray(r)?Object.fromEntries(keys.map((k,i)=>[k,r?.[i]])):{...(r||{})});
+  const out=[],seen=new Set();
+  for(const root of nestedObjects(data,6)){
+    const v=root?.compSchedules;
+    if(!v||!Array.isArray(v.datas))continue;
+    const keys=Array.isArray(v.keys)?v.keys:[];
+    for(const row of v.datas){
+      const m=Array.isArray(row)?Object.fromEntries(keys.map((k,i)=>[k,row?.[i]])):{...(row||{})};
+      if(!Number(m.matchSeq??m.GM_SEQ))continue;
+      const id=[m.matchSeq??m.GM_SEQ,m.gameDate,m.betNm,m.betTypNm].join('|');
+      if(seen.has(id))continue;seen.add(id);out.push(m);
+    }
+  }
+  return out;
 }
 
 // R403: exact official team names, no guessed fixture identities.
@@ -1493,7 +1501,7 @@ function parseBetmanMarkets(data,gmTs){
     const no=Number(s.matchSeq); if(!Number.isFinite(no)||no<=0)continue;
     const date=kstDateFromMs(s.gameDate),time=kstTimeFromMs(s.gameDate); if(!date||date<CUTOFF_DATE||isPurgedMidnightMarket({date,time}))continue;
     const league=String(s.leagueShortName||s.leagueName||"").trim(),sport=sportFromItem(s.itemCode,league);
-    const home=r403OfficialName(s,"home"),away=r403OfficialName(s,"away"); if(!home||!away)continue;
+    const home=r403OfficialName(s,"home"),away=r403OfficialName(s,"away"); if(r403UnknownName(home)||r403UnknownName(away))continue;
     const line=parseLine(s),choices=choiceListFromSchedule(s,family,tips.get(no)||[]),vote=votes.get(no)||{};
     const cnt={W:Number(vote.W_BET_CNT||0),D:Number(vote.D_BET_CNT||0),L:Number(vote.L_BET_CNT||0)}; const total=cnt.W+cnt.D+cnt.L;
     for(const c of choices)c.betShare=total?clamp(cnt[c.voteKey]/total,0,1):null;
@@ -4201,6 +4209,13 @@ function preserveSettlement(oldMarkets,newMarkets){
     }else if(old.marked&&old.representativeSelected){
       // 경기 전에는 재분석하되 작은 변동만으로 픽이 흔들리지 않도록 이전 선택을 히스테리시스 기준으로 전달한다.
       m.previousRepresentativeSelected=true;m.previousFinalPick=old.finalPick;m.previousFinalOdds=old.finalOdds;m.previousMarketSelectionScore=old.marketSelectionScore??old.analysisSelectionScore??0;m.previousDisplayGrade=old.displayGrade||"일반";
+      // R405: an actual verified pregame quote creates a stable selection.
+      // Source refreshes may update visible choices, but must not erase the pick.
+      if(['R401_ODDS_ONLY','R405_ODDS_ONLY'].includes(String(old.selectionMode))&&
+         Number(old.finalOdds)>=1.31&&!old.r404ReferenceOnly){
+        for(const k of ['marked','representativeSelected','officialMarked','finalPick','finalOdds','displayGrade','selectionMode','analysisEngine','analysisReason','selectionStatus','r401OddsAnalysis','r405AutoMarkedAt'])
+          if(old[k]!==undefined)m[k]=old[k];
+      }
     }
   }
 }
@@ -5558,7 +5573,7 @@ function publicState(state){
     pastGames=mergeCurrentPastCards(state,savedSettled).filter(r401Scope).sort((a,b)=>marketSort(b,a)),
     pastPendingGames=pendingSettlementMarkets(state).filter(r401Scope)
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -8701,31 +8716,55 @@ function r401OddsCandidate(m,c,now=Date.now()){
  const rank=marketP*.82-Math.max(0,margin)*.26-(odds>3.2?.025:0)+clamp(move*.12,-.02,.02);
  return {pick:c.label,odds,marketP,margin,rank,source:String(m.domesticOddsSource||m.oddsSource||m.source||'BETMAN_SAVED_ODDS'),opening:Number.isFinite(opening)&&opening>1?opening:null};
 }
+// R405: fixture identity MUST include the official protocol round.
+function r405RoundFixtures(rows){
+ const map=new Map();
+ for(const m of rows||[]){const id=String(m.gmTs||'')+'|'+gameSeed(m);
+  if(!map.has(id))map.set(id,[]);map.get(id).push(m);}
+ return map;
+}
+function r405PendingOddsReason(ms){
+ if(ms.every(m=>m.r404ReferenceOnly))return '캡처 참고배당 · 공식배당 미확인';
+ if(ms.every(m=>r403PlaceholderIdentity(m)))return '공식 팀명 검증 대기';
+ if(ms.every(m=>validChoices(m).length<2))return '유효배당 수신대기';
+ if(ms.every(m=>explicitMarketClosed(m)))return '공식 발매마감 · 신규마킹 불가';
+ if(ms.every(m=>!oddsFresh(m)))return '배당 갱신대기';
+ return '배당 안전필터 검증 대기';
+}
 function r401MarkState(s,now=Date.now()){
- const audit={policy:'R401_DOMESTIC_ODDS_ONLY',from:'2026-10-12T14:00:00+09:00',at:new Date(now).toISOString(),
-   selected:0,held:0,locked:0,byFamily:{MONEYLINE:0,HANDICAP:0,TOTAL:0},grades:{'가장추천':0,'추천':0,'일반':0},noUnverifiedEV:true};
- for(const [,all] of groupMarkets((s.markets||[]).filter(m=>r401Scope(m)&&settlementAllowed(m)))){
+ const audit={policy:'R405_ROUND_AWARE_DOMESTIC_ODDS_ONLY',from:'2026-10-12T14:00:00+09:00',at:new Date(now).toISOString(),
+   selected:0,held:0,locked:0,retainedPregame:0,referenceOnly:0,reasons:{},byFamily:{MONEYLINE:0,HANDICAP:0,TOTAL:0},grades:{'가장추천':0,'추천':0,'일반':0},noUnverifiedEV:true};
+ for(const [,all] of r405RoundFixtures((s.markets||[]).filter(m=>r401Scope(m)&&settlementAllowed(m)))){
   if(!all.length||!all.some(r401Scope))continue;
   if(all.some(m=>!r401Pregame(m,now))||all.some(m=>m.manualOverride&&m.marked&&m.representativeSelected)){audit.locked++;continue;}
+  // A pick first made before kickoff must survive later odds/source refreshes.
+  if(all.some(m=>m.marked&&m.representativeSelected&&m.finalPick&&Number(m.finalOdds)>=1.31&&
+       ['R401_ODDS_ONLY','R405_ODDS_ONLY'].includes(String(m.selectionMode)))){
+    audit.retainedPregame++;continue;
+  }
   const options=[];
   for(const m of all)for(const c of validChoices(m)){const q=r401OddsCandidate(m,c,now);if(q)options.push({m,q});}
   options.sort((a,b)=>b.q.rank-a.q.rank||b.q.marketP-a.q.marketP||a.q.odds-b.q.odds);
   const top=options[0],old=all.find(m=>m.marked&&m.representativeSelected);
   if(old&&(!top||old!==top.m||old.finalPick!==top.q.pick))r398PreserveSelection(s,old,'R401_ODDS_REPRICE',now);
-  for(const m of all){r400ClearFuture(m);m.r400Evidence=null;m.r400Source=null;}
-  if(!top){for(const m of all){m.selectionStatus='배당확인중';m.analysisReason='14시 이후 유효 국내배당 수신대기';}audit.held++;continue;}
+  for(const m of all){if(m.r404ReferenceOnly)continue;r400ClearFuture(m);m.r400Evidence=null;m.r400Source=null;}
+  if(!top){const reason=r405PendingOddsReason(all);
+    audit.reasons[reason]=(audit.reasons[reason]||0)+1;
+    if(all.every(m=>m.r404ReferenceOnly))audit.referenceOnly++;
+    for(const m of all)if(!m.marked){m.selectionStatus=reason;m.analysisReason=reason;}
+    audit.held++;continue;}
   const {m,q}=top;
   m.marked=true;m.representativeSelected=true;m.officialMarked=true;m.finalPick=q.pick;m.finalOdds=q.odds;
   m.marketProbability=r3(q.marketP);m.modelProbability=null;m.hitProbability=null;m.safeHitProbability=null;
   m.calibratedProbability=null;m.conservativeProbability=null;m.EV=null;m.modelEdge=null;m.modelEdgeAvailable=false;
   m.displayGrade='일반';m.gradeEvidenceQualified=false;m.gradeEvidenceTier='ODDS_ONLY_NO_INDEPENDENT_VALIDATION';
-  m.selectionStatus='대표픽';m.selectionMode='R401_ODDS_ONLY';m.analysisEngine='R401_ODDS_ONLY';
+  m.selectionStatus='대표픽';m.selectionMode='R405_ODDS_ONLY';m.analysisEngine='R405_ODDS_ONLY';m.r405AutoMarkedAt=new Date(now).toISOString();
   m.predictionModelVersion='R401_ODDS_ONLY';m.r401OddsAnalysis={currentOdds:q.odds,
    noVigMarketShare:r3(q.marketP),marketMargin:r3(q.margin),openingOdds:q.opening,source:q.source,ev:null,performanceUsed:false};
   m.analysisReason='배당전용 · '+q.odds.toFixed(2)+'배 · 마진제거 시장비중 '+(q.marketP*100).toFixed(1)+'% · 독립확률/EV 검증 없음';
   audit.selected++;audit.byFamily[m.marketFamily]=(audit.byFamily[m.marketFamily]||0)+1;audit.grades['일반']++;
  }
- s.r401OddsAudit=audit;s.r400Audit={mode:'SUPERSEDED_BY_R401_ODDS_ONLY',newPicks:audit.selected,
+ s.r401OddsAudit=audit;s.r405MarkingAudit=audit;s.r400Audit={mode:'SUPERSEDED_BY_R401_ODDS_ONLY',newPicks:audit.selected,
   abstainedFixtures:audit.held,retainedLocked:audit.locked};
  s.gradeAudit={mode:'R401_PREMIUM_UNVERIFIED',counts:audit.grades,target:{best:15,recommend:25,normal:60},exact:false,at:audit.at};
  s.marketMixAudit={mode:'R401_NO_FORCED_MARKET_QUOTA',counts:audit.byFamily,target:{MONEYLINE:20,HANDICAP:20,TOTAL:60},forced:false,at:audit.at};
