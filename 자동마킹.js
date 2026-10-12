@@ -5684,7 +5684,6 @@ function buildHourlyMarking(state){
 }
 
 /* R426: user-entered quotation overrides only. They do NOT rewrite official or historical odds. */
-function r426ManualOddsKey(gmTs,no,pick){return String(gmTs)+'|'+String(no)+'|'+String(pick)}
 function r434ManualPickCatalog(state){
  const groups=groupMarkets((state.markets||[]).filter(m=>isAfterCutoff(m)&&Number(m.gmTs)>=260120)),out=[];
  for(const ms of groups.values()){
@@ -6561,22 +6560,6 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .expShortNote{font-size:10px;color:#9eb4c9;line-height:1.5;margin:10px 0 0}
 
 /* R426: manual odds override panel below existing manual pick control; read-only for settlement */
-.manualOddsPanel{margin:9px 12px 12px;padding:12px;border:1px solid #6ea9c9;border-radius:12px;background:#0d2135;color:#e7f5ff}
-.manualOddsPanel[hidden]{display:none!important}.manualOddsTitle{font-size:14px;font-weight:900;color:#ffe181}
-.manualOddsInfo{font-size:11px;color:#afc7db;line-height:1.5;margin:7px 0}
-#manualOddsSearch{width:100%;padding:11px;border-radius:8px;border:1px solid #4b6b81;background:#061b30;color:#fff;font-size:13px}
-.manualOddsGame{margin:9px 0;border:1px solid #355975;border-radius:8px;overflow:hidden}
-.manualOddsGame summary{cursor:pointer;padding:10px 9px;background:#162b43;font-size:12px;font-weight:800;line-height:1.6}
-.manualOddsGame summary small{display:block;font-size:11px;color:#b5ccde}
-.manualOddsInner{padding:8px}.manualOddsMarket{margin:8px 0;background:#091a2b;border:1px solid #294764;border-radius:8px;padding:9px}
-.manualOddsMarket b{font-size:12px;color:#95eaff}
-.manualOddsRow{display:grid;grid-template-columns:minmax(0,1fr)74px auto auto;gap:6px;align-items:center;padding:8px 0;border-top:1px solid #263b51}
-.manualOddsRow:first-of-type{margin-top:5px}.manualOddsRow label{font-size:11px;color:#dceafb;overflow-wrap:anywhere}
-.manualOddsRow input{min-width:0;width:100%;border:1px solid #66889c;border-radius:7px;padding:9px 4px;background:#0d2d43;color:white;font-size:13px;text-align:center}
-.manualOddsRow button{border:1px solid #d8af62;border-radius:7px;background:#383014;color:#fff1bd;padding:9px 8px;font-size:11px;font-weight:900}
-.manualOddsRow button[data-clear-odds]{border-color:#516d82;background:#1c3044;color:#d4e2f2}
-.manualOddsChanged{color:#ffe18d;font-size:11px;font-weight:800}
-.manualOddsNote{font-size:11px;color:#aec6d9;line-height:1.5}
 .choice.manualPriceChoice{outline:1px solid #d5a846}.choice.manualPriceChoice em{font-size:10px;line-height:1.35;color:#ffdf86}
 @media(max-width:370px){.manualOddsRow{grid-template-columns:minmax(0,1fr)65px auto auto;gap:3px}.manualOddsRow button{padding:9px 5px;font-size:10px}}
 .postStartReview{display:inline-block;padding:4px 7px;margin:0 0 5px;border:1px solid #e3b96a;border-radius:6px;background:#332609;color:#ffe49b;font-size:11px}.manualChoice:not(:disabled){cursor:pointer;border-color:#65b7d3;color:#fff}.manualChoice:not(:disabled) em{color:#f5dd8b}
@@ -6709,11 +6692,11 @@ function manualPastLabel(m){
  return review?'<div class="pastReviewBadge">현재 수동픽: #'+e(review.no)+' '+e(review.pick)+' '+e(Number(review.odds).toFixed(2))+'배 · 수동정산 '+e(String(settled?.status||'정산대기'))+(settled?.outcome?' (검증결과 '+e(String(settled.outcome))+')':'')+'<small style="display:block;color:#bdd2e4">원래 자동픽과 공식 정산통계는 별도로 보존 · 시작 후 변경</small></div>':'';
 }
 function manualPastEditButton(m){
- return (state?.manualOddsCatalog||[]).some(g=>expKey(g)===expKey(m))?
+ return (state?.manualPickCatalog||[]).some(g=>expKey(g)===expKey(m))?
  '<button type="button" class="pastManualEdit" data-pastedit="'+e(expKey(m))+'">수동 변경</button>':'';
 }
 function showPastManualEditor(gameKey){
- const game=(state?.manualOddsCatalog||[]).find(g=>expKey(g)===gameKey);
+ const game=(state?.manualPickCatalog||[]).find(g=>expKey(g)===gameKey);
  if(!game){$('notice').className='notice err';$('notice').textContent='이 경기는 선택지 데이터가 저장되어 있지 않습니다.';return;}
  pastManualKey=gameKey;
  const current=[...(state.pastGames||[]),...(state.pastPendingGames||[])].find(g=>expKey(g)===gameKey);
@@ -8937,8 +8920,6 @@ let R428_MANUAL_OVERLAY=null;
 function r428RebaseManualOverlay(state){
  const o=R428_MANUAL_OVERLAY;if(!o||!state)return state;
  if(o.manualReviewSelections)state.manualReviewSelections={...(state.manualReviewSelections||{}),...o.manualReviewSelections};
- if(o.manualOddsOverrides)state.manualOddsOverrides={...(state.manualOddsOverrides||{}),...o.manualOddsOverrides};
- if(o.manualOddsRemoved?.length)for(const key of o.manualOddsRemoved)delete state.manualOddsOverrides?.[key];
  if(o.manualPickAudit)state.manualPickAudit=o.manualPickAudit;
  if(o.manualPickHistory)state.manualPickHistory=o.manualPickHistory;
  if(o.manualOddsHistory)state.manualOddsHistory=o.manualOddsHistory;
@@ -8963,20 +8944,10 @@ function r428CaptureManualOverlay(before,after,result,type,input){
    patchMap.set(id,{id,values:Object.fromEntries(keys.filter(k=>Object.hasOwn(m,k)).map(k=>[k,m[k]])),resultFinalAtWrite:!!m.resultFinal});
   }
  }
- const removed=old.manualOddsRemoved||[];
- if(type==='odds'&&result.manualOddsChange){
-  const key=r426ManualOddsKey(input.gmTs,input.no,input.pick);
-  const ix=removed.indexOf(key);
-  if(ix>=0)removed.splice(ix,1);
-  if(result.manualOddsChange.to==null)removed.push(key);
- }
  return {
    manualReviewSelections:{...(old.manualReviewSelections||{}),...(after.manualReviewSelections||{})},
-   manualOddsOverrides:{...(old.manualOddsOverrides||{}),...(after.manualOddsOverrides||{})},
-   manualOddsRemoved:removed.slice(-150),
    manualPickAudit:after.manualPickAudit||old.manualPickAudit,
    manualPickHistory:after.manualPickHistory||old.manualPickHistory,
-   manualOddsHistory:after.manualOddsHistory||old.manualOddsHistory,
    patches:[...patchMap.values()].slice(-120)
  };
 }
