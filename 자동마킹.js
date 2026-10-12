@@ -8712,11 +8712,12 @@ function r428HandleManualFast(req,env){
   if(!adminAuthorized(req,env))return json({error:'unauthorized'},401);
   let input;try{input=await req.json()}catch{return json({error:'INVALID_JSON'},400)}
   const type=new URL(req.url).pathname==='/api/manual-odds'?'odds':'pick';
-  const original=await loadState(env),updated=r398Clone(original);
+  const original=await loadState(env),updated=r428RebaseManualOverlay(r398Clone(original));
   try{
    const result=type==='odds'?r426ApplyManualOdds(updated,input):r422ApplyManualPick(updated,input);
+   // Overlay first, then apply user input. Otherwise a previous manual edit could overwrite the newest click.
    // Do not rerun the full odds-marking allocation; only the user-selected row changed.
-   const merged=r428RebaseManualOverlay(updated);
+   const merged=updated;
    const overlay=r428CaptureManualOverlay(original,merged,result,type,input);
    const prior=MEM.state,priorOverlay=R428_MANUAL_OVERLAY;
    R428_MANUAL_OVERLAY=overlay;
