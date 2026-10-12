@@ -4356,7 +4356,7 @@ function r414ApplyOwnerRound121(state,now=Date.now()){
  state.updatedAt=new Date(now).toISOString();
  return {changed:true,removed:beforeMarkets-state.markets.length};
 }
-, 지난 회차의 정산 완료 경기는 무거운 분석 스냅샷을 덜어내고 최대 개수를 제한한다.
+// 지난 회차의 정산 완료 경기는 무거운 분석 스냅샷을 덜어내고 최대 개수를 제한한다.
 // 자가보정 학습에 필요한 필드(확률·등급·축별 확률·결과)는 남긴다.
 function compactLayers(L){if(!L||typeof L!=="object")return L;const out={};for(const [k,v] of Object.entries(L)){if(!v||typeof v!=="object"){out[k]=v;continue;}out[k]={available:v.available,external:v.external,provenance:v.provenance??null,probability:v.probability??null,coverage:v.coverage??null,source:v.source??null};}return out;}
 function compactHistory(s){
