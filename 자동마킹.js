@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R456-SETTLEMENT-RETRY-GUARD";
-const BUILD_ID = "proto-r456-20261013-settlement-retry-guard";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R457-VERIFIED-ATALANTA-FINAL";
+const BUILD_ID = "proto-r457-20261013-verified-atalanta-final";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5712,6 +5712,22 @@ function r434ManualPickCatalog(state){
 // R443 exact-event, independently reported KBL final: 12 Oct Hyundai Mobis 99-89 DB.
 // Cross-check: Yonhap 202610122103390454, News1 202610122123342338,
 // 121th Proto market TOTAL 174.5 via scorebase.kr. Never guess another fixture.
+// R457: owner requested this exact correction; public ZenToto row #7851
+// was verified 경기종료 3:1 at 2026-10-13 03:23 KST. Preserve pregame selection.
+function r457RepairAtalanta(state){
+ if(Date.now()<Date.parse('2026-10-13T03:23:00+09:00'))return {changed:false,reason:'BEFORE_VERIFIED_FINAL'};
+ const rows=(state.markets||[]).filter(m=>String(m.gmTs)==='260121'&&Number(m.no)===7851&&m.date==='2026-10-13'&&String(m.time||'').slice(0,5)==='01:30'&&m.marketFamily==='MONEYLINE'&&norm(m.home)===norm('아탈란타BC')&&norm(m.away)===norm('베네치아'));
+ if(rows.length!==1)return {changed:false,reason:'MISSING_OR_DUPLICATE_EXACT_MARKET'};
+ const m=rows[0];if(!m.marked||!m.representativeSelected||!['승','무','패'].includes(m.finalPick))return {changed:false,reason:'NO_ORIGINAL_MARK'};
+ const hit=m.finalPick==='승',status=hit?'적중':'낙첨';
+ if(m.resultFinal&&m.result==='승'&&m.resultScoreText==='3:1'&&m.hit===hit&&m.settlementStatus===status)return {changed:false,reason:'ALREADY_CORRECT'};
+ if(m.settlementStatus==='적특'&&/취소|연기/.test(String(m.result||'')))return {changed:false,reason:'OFFICIAL_VOID_CONFLICT'};
+ const before={score:m.resultScoreText,result:m.result,hit:m.hit,status:m.settlementStatus,source:m.resultSource};
+ Object.assign(m,{resultFinal:true,result:'승',hit,settlementStatus:status,settlementType:'NORMAL',resultSpecialStatus:null,resultScoreText:'3:1',homeScore:3,awayScore:1,resultStatus:'경기종료',resultVerifiedAt:nowIso(),resultSource:'R457_OWNER_CONFIRMED_ZENTOTO_FULLTIME',resultResolutionSource:'VERIFIED_EXACT_3_1_SCORE_CORRECTION',resultDerivedFromScore:true,resultCodeOutcome:null,resultScoreOutcome:'승',resultCodeScoreMismatch:false});
+ recordSettlementLedger(state,m);upsertSettledCard(state,m);
+ state.r457AtalantaAudit={at:nowIso(),no:7851,gmTs:'260121',before,score:'3:1',originalPick:m.finalPick,source:'https://v1.zentoto.com/proto/game',sourceStatus:'경기종료',ownerConfirmed:true};state.updatedAt=nowIso();return {changed:true,before};
+}
+
 function r443Is7804(m){
  return String(m?.gmTs)==='260121'&&Number(m.no)===7804&&
   m.date==='2026-10-12'&&String(m.time||'').slice(0,5)==='19:00'&&
@@ -11056,6 +11072,14 @@ async function r398LoadState(env){
     else if(!stored.state)MEM.state=restored;
   }
   if(r431ApplyOwner7780Over(MEM.state)){await persistState(env,true);}
+  const next457=r398Clone(MEM.state),fixed457=r457RepairAtalanta(next457);
+  if(fixed457.changed){
+    if(stored.state&&ds&&typeof ds.transaction==='function')
+      await r398AtomicCommit(ds,MEM.state,next457,'BEFORE_R457_VERIFIED_ATALANTA_CORRECTION',
+        {type:'R457_VERIFIED_ATALANTA_FINAL',no:7851,before:fixed457.before,after:'3:1'});
+    else if(!stored.state)MEM.state=next457;
+    else MEM.state.r457AtalantaAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
+  }
   const candidate443=r398Clone(MEM.state),fixed443=r443Repair7804(candidate443);
   if(fixed443.changed){
     if(stored.state&&ds&&typeof ds.transaction==='function')
