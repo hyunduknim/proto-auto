@@ -6613,9 +6613,32 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:stretch}
 .actions #manualMode{grid-column:1/-1!important;justify-self:center!important;width:min(100%,480px)!important;min-height:64px!important;font-size:18px!important;font-weight:1000!important;color:#fff7ca!important;text-align:center!important;background:linear-gradient(145deg,#63400d,#ae7c18,#63400d)!important;border:2px solid #ffea94!important;box-shadow:0 0 14px #edbd4a66!important}
 .actions #manualOddsMode{grid-column:1/-1!important;justify-self:center!important;width:min(100%,480px)!important;min-height:44px!important}
-</style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="refresh">회차·배당 갱신</button><button type="button" id="results">결과 확인</button><button type="button" id="reanalyze">자동마킹 재분석</button><button type="button" id="manualMode">✏️ 수동 재마킹 · 픽 변경</button><button type="button" id="manualOddsMode">수동 배당변경</button><button type="button" id="exportJson">분석 JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><section id="manualOddsPanel" class="manualOddsPanel" hidden><div class="manualOddsTitle">수동 배당변경 · 경기 시작 후에도 입력 가능</div><p class="manualOddsInfo">표시용 수동 배당을 수정합니다. 원본 공식 배당, 마킹 당시 배당, 적중·낙첨 정산은 변경되지 않습니다.</p><input id="manualOddsSearch" type="search" placeholder="팀명·번호 검색" aria-label="배당 수정할 경기 검색"><div id="manualOddsRows"></div></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">지난경기</button><button id="tabExperiment" type="button">배당 핵심분석</button></div>
+
+.edReport{padding:10px 11px}.edSummary{background:#122e46;border:1px solid #6587a4;border-radius:10px;padding:12px;color:#ffe2a3}
+.edSummary b{display:block;font-size:15px}.edSummary small{display:block;margin-top:6px;font-size:11px;line-height:1.5;color:#d4e5f1}
+.edFamily{font-weight:900;color:#80dfff;font-size:14px;padding:10px 0 7px;border-bottom:1px solid #3a617c;margin:15px 0 7px}
+.edMarket{padding:10px;margin:8px 0;border:1px solid #43617a;background:#0a1d2d;border-radius:10px}.edMarket.edMarked{border-color:#e5c15b}
+.edMarketTitle{font-size:13px;font-weight:900;color:white}.edMarketTitle span{font-size:10px;color:#ffe391}
+.edHeadline{font-size:12px;color:#ffdf88;line-height:1.5;font-weight:900;margin:9px 0}
+.edKPIs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.edKPIs div{background:#102c43;border:1px solid #304f66;padding:8px;border-radius:7px}.edKPIs small{display:block;font-size:10px;color:#b1c8d9}.edKPIs b{display:block;font-size:13px;color:#e5faff;margin-top:3px}
+.edSectionTitle{font-size:12px;color:#9beaff;font-weight:900;margin:15px 0 7px;border-left:3px solid #45a6d1;padding-left:8px}
+.edTableWrap{max-width:100%;overflow:auto}.edTable{min-width:310px;width:100%;border-collapse:collapse;table-layout:fixed}
+.edTable th,.edTable td{text-align:center;padding:7px 3px;font-size:10px;border-bottom:1px solid #294b67;overflow-wrap:anywhere}
+.edTable th{color:#bbd6e8}.edTable td{color:white}.edTable td:first-child{font-weight:900}.edTable tr.edSelected{background:#43341f}
+.edNote{display:block;font-size:10px;color:#98bacb;line-height:1.6;margin:7px 0}
+.edEvidence{font-size:11px;color:#d9e6ee;line-height:1.6;background:#11283b;margin:5px 0;padding:8px;border-radius:6px;border-left:2px solid #477f9a}
+.edEvidence b{color:#ffdf94}.edEvidence small{display:block;color:#aecad8;font-size:10px;margin-top:3px}
+.edHistory{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.edHistoryItem{font-size:11px;color:#cce1ea;line-height:1.6;padding:7px;border-radius:6px;background:#0f2a3c}
+.edHistoryItem small{color:#85bbda;display:block;font-size:10px}
+.edWarning{font-size:11px;color:#ffdaa6;line-height:1.6;border:1px solid #6f4b2c;background:#382719;padding:8px;margin:5px 0;border-radius:6px}
+.edMissing{font-size:11px;line-height:1.6;color:#ffbe99;margin:9px 0}
+.edDisclaimer{color:#a8c0d1;font-size:10px;line-height:1.7;border-top:1px solid #354f65;padding-top:8px;margin-top:14px}
+@media(max-width:375px){.edHistory{grid-template-columns:1fr}.edTable th,.edTable td{font-size:9px;padding:7px 2px}}
+</style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="refresh">회차·배당 갱신</button><button type="button" id="results">결과 확인</button><button type="button" id="reanalyze">자동마킹 재분석</button><button type="button" id="manualMode">✏️ 수동 재마킹 · 픽 변경</button><button type="button" id="manualOddsMode">수동 배당변경</button><button type="button" id="exportJson">분석 JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><section id="manualOddsPanel" class="manualOddsPanel" hidden><div class="manualOddsTitle">수동 배당변경 · 경기 시작 후에도 입력 가능</div><p class="manualOddsInfo">표시용 수동 배당을 수정합니다. 원본 공식 배당, 마킹 당시 배당, 적중·낙첨 정산은 변경되지 않습니다.</p><input id="manualOddsSearch" type="search" placeholder="팀명·번호 검색" aria-label="배당 수정할 경기 검색"><div id="manualOddsRows"></div></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">지난경기</button><button id="tabExperiment" type="button">배당 전문분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
-<div class="expIntro"><b>배당 핵심요약</b> · 어느 쪽 배당이 우세한지와 현재 자동마킹 근거만 표시합니다. 상세 계산과 정산 기록은 그대로 유지합니다.</div>
+<div class="expIntro"><b>배당 전문분석 · PickSchool APK 분석 구조 참고</b> · 국내배당 확률표, 배당마진·환급률, 개장/관측 변동, 동일배당 빈도 및 신뢰구간, 자동마킹 방향과 자료검증을 시장별로 상세 표시합니다. <b>픽스쿨 실시간 서버·해외배당·표본 원자료는 연결되지 않았으면 미연결로 표시합니다.</b></div>
 <div class="expControls"><input id="expSearch" type="search" placeholder="팀명 / 리그 / 프로토번호 검색" aria-label="경기 검색"><select id="expSport" aria-label="종목 선택"><option value="all">전체</option><option value="축구">축구</option><option value="야구">야구</option><option value="농구">농구</option><option value="배구">배구</option></select></div>
 <div id="expMeta" class="expInfo">경기 자료 로딩</div><div id="expList"></div></section><div id="markMenu" class="markMenu"><button type="button" data-mode="now">전체 시간순</button><button type="button" data-mode="date">날짜</button><button type="button" data-mode="time">시간</button><button type="button" data-mode="marked">마킹</button><button type="button" data-mode="best">가장추천</button><button type="button" data-mode="rec">추천</button><button type="button" data-mode="normal">일반</button></div><div id="hourlyBar" class="hourlyBar"></div><section id="pastPanel" class="pastPanel"><div class="pastTitle"><span>📂 121회차 지난경기</span><small id="pastMeta">정산 0경기</small></div><div id="settleFilters" class="settleFilters">
 <button type="button" data-mode="all" class="on" onclick="setSettleFilter('all')">전체</button>
@@ -6792,24 +6815,83 @@ function expShortOdds(m,r){
  }
  return '<div class="expShortMarket'+(selected?' expShortSelected':'')+'"><div class="expShortHeader"><strong>#'+e(String(r.no||'-'))+' · '+e(marketLabel)+'</strong>'+(selected?'<span>선택 시장</span>':'')+'</div><div class="expShortSide">'+e(advantage)+'</div>'+markText+'</div>';
 }
+
+/* R432: detailed PickSchool-inspired evidence audit, not PickSchool's live proprietary data. */
+function expDVal(x,d=2){return x!=null&&Number.isFinite(Number(x))?Number(x).toFixed(d):'-'}
+function expDPct(x,d=1){return x!=null&&Number.isFinite(Number(x))?(100*Number(x)).toFixed(d)+'%':'자료 없음'}
+function expDSignPct(x){return x!=null&&Number.isFinite(Number(x))?(Number(x)>=0?'+':'')+(100*Number(x)).toFixed(2)+'%':'변동기록 없음'}
+function expDOdds(x){return x!=null&&Number.isFinite(Number(x))&&Number(x)>1?Number(x).toFixed(2)+'배':'자료 없음'}
+function expDCI(ci){return Array.isArray(ci)&&ci.length===2?expDPct(ci[0])+' ~ '+expDPct(ci[1]):'자료 없음'}
+function expDS(m,r){
+ const p=r.precision||{},cs=Array.isArray(r.choices)?r.choices.filter(c=>Number.isFinite(Number(c.odds))&&Number(c.odds)>1):[];
+ const rs=Array.isArray(p.choices)?p.choices:[],sum=cs.reduce((n,c)=>n+1/Number(c.odds),0);
+ const valid=cs.length>=2&&sum>=.85&&sum<=1.30&&p.valid!==false;
+ const age=p.ageSec==null?null:Number(p.ageSec),fresh=valid&&age!=null&&age<=5400&&!['LAST_KNOWN','SCREENSHOT_REFERENCE'].includes(r.oddsSnapshotStatus);
+ const top=cs.slice().sort((a,b)=>Number(a.odds)-Number(b.odds))[0]||null;
+ const topModel=top?rs.find(x=>String(x.label)===String(top.label)):null;
+ const psource=p.source||r.oddsSource||'출처 미확인';
+ const lines=cs.map(c=>{
+  const a=rs.find(x=>String(x.label)===String(c.label))||{},v=Number(c.odds),selected=!!r.marked&&String(r.finalPick)===String(c.label);
+  return '<tr'+(selected?' class="edSelected"':'')+'><td>'+e(String(c.label))+(selected?' ★':'')+'</td><td>'+e(v.toFixed(2))+'</td><td>'+e(expDPct(1/v))+'</td><td>'+e(valid?expDPct((1/v)/sum):'보류')+'</td><td>'+e(valid?expDOdds(v*sum):'보류')+'</td></tr>';
+ }).join('');
+ const moves=cs.map(c=>{
+  const a=rs.find(x=>String(x.label)===String(c.label))||{},at=a.openingOdds??a.firstObservedOdds,
+   diff=a.openingChange??a.observedChange,entered=manualOddsInfo(m.gmTs,r.no,c.label);
+  return '<div class="edEvidence"><b>'+e(String(c.label))+'</b> · 원천개장/최초관측 '+e(expDOdds(at))+
+   ' → 현재 '+e(expDOdds(c.odds))+' · 변동 '+e(expDSignPct(diff))+
+   (entered?' · <b>사용자 입력 '+e(expDOdds(entered.odds))+'</b> (원본시장과 분리)':'')+'</div>';
+ }).join('');
+ const samples=cs.map(c=>{
+  const a=rs.find(x=>String(x.label)===String(c.label))||{},n=a.sampleSamples==null?null:Number(a.sampleSamples),k=a.sampleHits==null?null:Number(a.sampleHits);
+  return '<div class="edEvidence"><b>'+e(String(c.label))+'</b> · '+
+    (n!=null&&n>0&&k!=null?'동일배당 집계 '+e(k)+' / '+e(n)+'건 · 과거 빈도 '+e(expDPct(a.sampleRate))+' · Wilson 95% '+e(expDCI(a.sampleCI95))+
+     ' · 손익분기 대비 '+e(expDSignPct(a.sampleBreakEvenGap)):'선택지·가격 일치가 확인된 과거 표본 없음')+
+    '<small>과거 빈도는 독립 검증 승률이 아니며, 표본기간·중복 조건이 없으면 기대값 판정에 사용하지 않습니다.</small></div>';
+ }).join('');
+ const hist=Array.isArray(p.history)?p.history:[],history=hist.length?
+    hist.slice(-8).map(h=>'<div class="edHistoryItem"><small>'+e(expKst(h.at))+'</small>'+e((h.prices||[]).map(x=>String(x.label)+' '+expDOdds(x.odds)).join(' / '))+'</div>').join(''):
+    '<div class="edEvidence">관측 시점 배당이 2회 이상 저장되지 않았습니다.</div>';
+ const selected=r.marked?rs.find(x=>String(x.label)===String(r.finalPick)):null;
+ const checks=[...(Array.isArray(p.flags)?p.flags:[])];
+ if(!fresh)checks.push('최신성 기준 미충족 또는 배당 재검증 필요 · 현재 우위 판정 보류');
+ if(top&&r.marked&&String(r.finalPick)!==String(top.label))checks.push('자동마킹 방향이 최저 배당 선택과 다름 · 독립 분석근거 점검 필요');
+ if(r.marketFamily==='HANDICAP'&&m.sport==='야구'&&Math.abs(Number(r.line))!==2.5)checks.push('야구 2.5 핸디캡 정책 대상 밖');
+ const winner=fresh&&top?'시장가격상 상대우세: '+top.label+' '+expDOdds(top.odds)+' · 마진제거 시장비중 '+expDPct(topModel?.marketShare):'최신 배당 기준의 우세방향 판단보류';
+ const last=p.lastSelectionChange,auto=p.autoEvaluation;
+ return '<section class="edMarket'+(r.marked?' edMarked':'')+'"><div class="edMarketTitle">#'+e(r.no)+' · '+e(String(r.market||r.marketFamily))+(r.line==null?'':' · '+e(String(r.line)))+(r.marked?' <span>대표픽</span>':'')+'</div>'+
+ '<div class="edHeadline">'+e(winner)+'</div>'+
+ '<div class="edKPIs"><div><small>마진 (오버라운드)</small><b>'+e(valid?expDPct(sum-1):'검증보류')+'</b></div>'+
+ '<div><small>환급률 추정</small><b>'+e(valid?expDPct(1/sum):'검증보류')+'</b></div>'+
+ '<div><small>배당 마지막 수신</small><b>'+e(age==null?'기록 없음':Math.floor(age/60)+'분 전')+'</b></div>'+
+ '<div><small>관측된 배당 수</small><b>'+e(String(p.historyCount??0))+'회</b></div></div>'+
+ '<div class="edSectionTitle">① 배당별 확률·가격 검증</div>'+
+ '<div class="edTableWrap"><table class="edTable"><thead><tr><th>선택</th><th>현재배당</th><th>손익분기</th><th>마진제거 비중</th><th>공정배당*</th></tr></thead><tbody>'+lines+'</tbody></table></div>'+
+ '<small class="edNote">* 공정배당 = 현재 배당 × 역배당합 (마진 제거 가격). 통계적으로 검증된 승률/예측은 아닙니다.</small>'+
+ '<div class="edSectionTitle">② 개장·관측 배당변동 (픽스쿨 해외배당 흐름 구조 참고)</div>'+moves+
+ '<div class="edEvidence">실제 배당출처: '+e(String(psource))+' · 최초 수신 '+e(expKst(p.firstObservedAt))+' · 마지막 변동 '+e(expKst(p.lastChangedAt))+
+ ' · 실시간 해외배당 비교: <b>원자료 미연결</b> · 업체별 해외배당 차이: <b>자료 없음</b></div>'+
+ '<div class="edSectionTitle">③ 동일배당 통계 · 구간 불확실성 (동일배당 분석 구조 참고)</div>'+samples+
+ '<div class="edSectionTitle">④ 수신 배당 변동 이력</div><div class="edHistory">'+history+'</div>'+
+ '<div class="edSectionTitle">⑤ 자동마킹·재마킹 근거 점검</div>'+
+ '<div class="edEvidence"><b>저장된 자동마킹: '+e(r.marked?String(r.finalPick)+' '+expDOdds(r.finalOdds):'없음')+'</b> · 선택 기준: '+e(String(r.selectionStatus||m.selectionStatus||'확인중'))+
+ (selected?' · 현재 선택지 시장비중 '+e(expDPct(selected.marketShare)):'')+'</div>'+
+ (last?'<div class="edEvidence">이전 픽 '+e(String(last.from?.pick||'없음'))+' → 변경 '+e(String(last.to?.pick||'없음'))+' · 저장된 선택변경 근거 별도 검토</div>':'')+
+ (auto?.reason?'<div class="edEvidence">자동 정밀 재검사 상태: '+e(String(auto.reason))+' · 기록상 변경여부 '+e(String(auto.status||'미확인'))+'</div>':'')+
+ '<div class="edSectionTitle">⑥ 데이터 품질 · 위험 경고</div>'+
+ (checks.length?checks.map(x=>'<div class="edWarning">'+e(String(x))+'</div>').join(''):'<div class="edEvidence">공개된 데이터 범위 내 특별 경고 없음. 독립 경기력 우위는 별도 검증 필요.</div>')+
+ '<div class="edMissing">원본 픽스쿨 해외 동일배당/팀별 확률: 미연결 · 검증된 독립 팀 경기력 예측: 자료 없음 · 배당만으로 적중률 및 플러스 기대값 확정 불가</div></section>';
+}
 function expBody(m){
- const rows=Array.isArray(m.marketRows)?m.marketRows:[];
- const families=[['MONEYLINE','일반승·승무패'],['HANDICAP','핸디캡'],['TOTAL','언더오버']];
- const summaries=families.map(([key,title])=>{
-   const group=rows.filter(r=>r.marketFamily===key);
-   if(!group.length)return null;
-   const focus=group.find(r=>r.marked&&r.finalPick)||
-     group.find(r=>Array.isArray(r.choices)&&r.choices.filter(c=>expNum(c.odds)!=null&&Number(c.odds)>1).length>=2&&r.precision?.valid!==false)||
-     group[0];
-   return '<div class="expShortFamily"><div class="expShortFamilyTitle">'+e(title)+'</div>'+expShortOdds(m,focus)+'</div>';
- }).filter(Boolean);
- const markedRow=rows.find(r=>r.marked&&r.finalPick),grade=markedRow?String(m.displayGrade||'일반'):'미선정';
- const odds=expNum(m.odds),pick=markedRow?String(m.pick||markedRow.finalPick):'마킹 없음';
- const sourceStatus=markedRow&&['LAST_KNOWN','SCREENSHOT_REFERENCE'].includes(markedRow.oddsSnapshotStatus)?' · 배당 재확인 필요':'';
- return '<div class="expBody expShortBody"><div class="expShortTop"><strong>현재 자동마킹: '+e(pick)+'</strong><span>'+(odds!=null?e(odds.toFixed(2))+'배 · ':'')+e(grade)+'</span></div>'+
- '<div class="expShortStatus">'+e(String(m.selectionStatus||'분석 상태 확인중'))+e(sourceStatus)+'</div>'+
- (summaries.length?summaries.join(''):'<div class="expEmpty">현재 확인 가능한 경기별 국내배당이 없습니다.</div>')+
- '<p class="expShortNote">시장비중은 배당 마진을 제거한 상대가격 지표입니다. 실제 적중확률·양(+) 기대값을 보장하지 않습니다.</p></div>';
+ const rows=Array.isArray(m.marketRows)?m.marketRows:[],families=[['MONEYLINE','일반승 · 승무패'],['HANDICAP','핸디캡'],['TOTAL','언더오버']];
+ const pick=rows.find(r=>r.marked&&r.finalPick),manual=m.manualReview;
+ const top='<div class="edSummary"><b>자동마킹: '+e(pick?String(pick.finalPick)+' '+expDOdds(pick.finalOdds):'미선정')+' · '+e(m.displayGrade||'일반')+'</b><small>경기 '+e(m.gameStarted?'진행/시작':'시작 전')+' · 분석 시장 '+rows.length+'개 · 데이터 수신기록 기반</small>'+
+ (manual?'<small>수동 변경픽: '+e(manual.pick)+' · 수동 정산 '+e(manual.settlement?.status||'대기')+' (공식 정산과 별도)</small>':'')+'</div>';
+ const markets=families.map(([family,title])=>{
+   const items=rows.filter(r=>r.marketFamily===family);
+   return items.length?'<div class="edFamily">'+e(title)+' · '+items.length+'개 시장</div>'+items.map(r=>expDS(m,r)).join(''):'';
+ }).join('');
+ return '<div class="expBody edReport">'+top+(markets||'<div class="expEmpty">검증할 배당 자료가 없습니다.</div>')+
+ '<div class="edDisclaimer">자료범위: 현재 저장된 국내시장 배당·관측변동·제한된 동일배당 통계. PickSchool APK에서 확인한 분석항목을 참고한 독립 구현입니다. PickSchool 앱 서버 원자료를 제공받았다는 의미가 아니며, 실시간 배당 정보·손익 또는 적중을 보장하지 않습니다.</div></div>';
 }
 
 /* R426 manual price layer. Deliberately NOT fed into auto selection or settlement. */
