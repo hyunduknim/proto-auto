@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R408-OFFICIAL-FIRST-AUTOMARK";
-const BUILD_ID = "proto-r408-20261012-official-first";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R409-PRIORITY-PREGAME-MARKING";
+const BUILD_ID = "proto-r409-20261012-priority-pregame-marking";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5178,7 +5178,7 @@ async function refreshBetmanSource(state,env,force=false){
     // R408: official current odds must be selected BEFORE optional source polls.
     markState(state);
     const priced=markets.filter(m=>validChoices(m).length>=2).length,waiting=markets.length-priced,freshPriced=freshMarkets.filter(m=>validChoices(m).length>=2).length;
-    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,r408Recovery:r408Recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
+    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,r408Recovery:r408Recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r409PriorityAudit:state.r409PriorityAudit||null,cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
     MEM.lastSourceSuccess=Date.now();await saveState(state,env);
     if(optionalDue){
       try{
@@ -5620,7 +5620,7 @@ function publicState(state){
     pastGames=mergeCurrentPastCards(state,savedSettled).filter(r401Scope).sort((a,b)=>marketSort(b,a)),
     pastPendingGames=pendingSettlementMarkets(state).filter(r401Scope)
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -7927,6 +7927,25 @@ async function runTickInternal(env){
       return null;
     }
   }
+  // R409: upcoming unmarked fixtures must not wait behind several network
+  // settlement providers. The 14:00+ pregame odds poll runs FIRST when kickoff
+  // is within three hours, while final settlements still run every cron tick.
+  // Do not backfill selections after kickoff or treat screenshot quotes as live.
+  const urgentPregame=(cur.markets||[]).some(m=>{
+    const kickoff=gameTimeMs(m);
+    return r401Scope(m)&&kickoff!=null&&kickoff>Date.now()&&
+      kickoff-Date.now()<=3*3600000&&!m.resultFinal&&
+      (!m.marked||!m.representativeSelected);
+  });
+  if(urgentPregame){
+    const begun=Date.now();
+    await settlementCheck("BETMAN_ODDS_PRIORITY",()=>refreshBetmanSource(cur,env,false));
+    cur=MEM.state||cur;
+    cur.r409PriorityAudit={at:nowIso(),reason:"UNMARKED_FIXTURE_WITHIN_THREE_HOURS",
+      durationMs:Date.now()-begun,sourceOk:cur.sourceAudit?.ok===true,
+      sourceReason:cur.sourceAudit?.error||cur.sourceAudit?.reason||null,
+      early:r407EarlyMarkingDiagnostics(cur)};
+  }
   // R388: saved final-score recovery has no network. It is already performed
   // by loadState() before any remote source can block this tick.
   // R384: Zen first, Spogod verified full-time second, optional licensed Wise, Betman last.
@@ -7942,7 +7961,7 @@ async function runTickInternal(env){
   cur=MEM.state||cur;
   if(hasLivePending(cur))await settlementCheck("BETMAN_RESULTS",()=>refreshBetmanResults(cur,env,fiveMinuteDue));
   cur=MEM.state||cur;
-  await settlementCheck("BETMAN_ODDS",()=>refreshBetmanSource(cur,env,false));
+  if(!urgentPregame)await settlementCheck("BETMAN_ODDS",()=>refreshBetmanSource(cur,env,false));
   cur=MEM.state||cur;
   const pendingAfter=pendingSettlementMarkets(cur);
   const oldestPendingMinutes=pendingAfter.length?Math.max(...pendingAfter.map(m=>{
