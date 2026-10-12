@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R424-NPB-OFFICIAL-SETTLEMENT";
-const BUILD_ID = "proto-r424-20261012-official-npb-final-backup";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R425-EDGE-SETTLEMENT-FIRST";
+const BUILD_ID = "proto-r425-20261012-edge-fetch-settlement-first";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -7011,7 +7011,7 @@ async function r424RefreshNpbFinals(state,env,force=false){
  const pending=r424NpbPending(state);if(!pending.length)return {status:'NO_NPB_PENDING',settled:0};
  const previous=Date.parse(state.npbSettlementAudit?.at||'');if(!force&&Number.isFinite(previous)&&Date.now()-previous<60000)return {status:'THROTTLED',settled:0};
  const audit={source:'NPB_OFFICIAL_FULLTIME',at:nowIso(),status:'CHECKING',pendingBefore:pending.length,pendingAfter:pending.length,checked:0,matched:0,settled:0,evidence:[],error:null};
- const get=async url=>{const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),7000);try{const r=await fetch(url,{headers:{accept:'text/html'},signal:ac.signal,redirect:'error'});if(!r.ok)throw Error('NPB_HTTP_'+r.status);const b=await r.text();if(b.length>1500000)throw Error('NPB_BODY_LIMIT');return b;}finally{clearTimeout(tm);}};
+ const get=async url=>{const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),7000);try{const r=await fetch(url,{headers:{accept:'text/html'},signal:ac.signal,redirect:'manual'});if(!r.ok)throw Error('NPB_HTTP_'+r.status);const b=await r.text();if(b.length>1500000)throw Error('NPB_BODY_LIMIT');return b;}finally{clearTimeout(tm);}};
  try{
   const index=await get('https://npb.jp/'),paths=[...new Set([...index.matchAll(/href=["'](\/scores\/\d{4}\/\d{4}\/[a-z]-[a-z]-\d{2}\/)["']/g)].map(x=>x[1]))].filter(path=>pending.some(m=>path.startsWith('/scores/'+String(m.date).slice(0,4)+'/'+String(m.date).slice(5).replace('-','')+'/'))).slice(0,6);
   for(const path of paths){const url='https://npb.jp'+path,final=r424ParseNpbFinal(await get(url),url);audit.checked++;if(!final)continue;
@@ -8415,7 +8415,8 @@ async function runTickInternal(env){
   // detection so the public pregame quote adapter can actually run.
   if(Number(cur.round||0)<121)r414ApplyOwnerRound121(cur);
   const fiveMinuteDue=r394FiveMinuteDue(cur,Date.now());
-  const pendingBefore=fiveMinuteDue?pendingSettlementMarkets(cur).length:0;
+  const pendingBefore=pendingSettlementMarkets(cur).length;
+  const settlementFirst=pendingBefore>0;
   // R400: result-provider failures do not block later providers or watchdog writes.
   const settlementChecks={};
   async function settlementCheck(name,fn){
@@ -8441,7 +8442,7 @@ async function runTickInternal(env){
       kickoff-Date.now()<=6*3600000&&!m.resultFinal&&
       (!m.marked||!m.representativeSelected);
   });
-  if(urgentPregame){
+  if(urgentPregame&&!settlementFirst){
     await settlementCheck('ZENTOTO_PUBLIC_PREGAME_ODDS',()=>r410RefreshZenPregame(cur,env));
     cur=MEM.state||cur;
     const begun=Date.now();
@@ -8453,7 +8454,7 @@ async function runTickInternal(env){
       early:r407EarlyMarkingDiagnostics(cur)};
   }
   // R419: refresh descriptive pregame evidence even after all picks are present.
-  if(!urgentPregame&&Number(cur.gmTs)===260121){
+  if(!urgentPregame&&!settlementFirst&&Number(cur.gmTs)===260121){
     await settlementCheck("ZENTOTO_PREGAME_PRECISION",()=>r410RefreshZenPregame(cur,env));
     cur=MEM.state||cur;
   }
@@ -8474,7 +8475,10 @@ async function runTickInternal(env){
   cur=MEM.state||cur;
   if(hasLivePending(cur))await settlementCheck("BETMAN_RESULTS",()=>refreshBetmanResults(cur,env,fiveMinuteDue));
   cur=MEM.state||cur;
-  if(!urgentPregame)await settlementCheck("BETMAN_ODDS",()=>refreshBetmanSource(cur,env,false));
+  if(!urgentPregame||settlementFirst){
+    if(settlementFirst){await settlementCheck("PREGAME_EVIDENCE_AFTER_SETTLEMENT",()=>r410RefreshZenPregame(cur,env));cur=MEM.state||cur;}
+    await settlementCheck("BETMAN_ODDS",()=>refreshBetmanSource(cur,env,false));
+  }
   cur=MEM.state||cur;
   const pendingAfter=pendingSettlementMarkets(cur);
   const oldestPendingMinutes=pendingAfter.length?Math.max(...pendingAfter.map(m=>{
