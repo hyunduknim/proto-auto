@@ -14,6 +14,7 @@ const noHistory={...row,precision:{...row.precision,choices:[]}};assert.match(fn
 const stale={...row,oddsSnapshotStatus:'LAST_KNOWN'};assert.match(fn('expDS')(game,stale),/마감|지난 배당/);
 console.log('PASS R451: accurate chart shares, plain words everywhere, past counts, contrary pick explained, missing/closed prices, immutable picks/results');
 const flowRow={...row,precision:{...row.precision,observedAt:'2026-10-13T00:50:00+09:00',history:[{at:'2026-10-13T00:10:00+09:00',prices:[{label:'오버',odds:1.7}]},{at:'2026-10-13T00:30:00+09:00',prices:[{label:'오버',odds:1.6}]}]}};
-const flow=fn('expEasyFlow')({sport:'축구'},flowRow);assert.match(flow,/배당 흐름/);assert.match(flow,/<svg/);assert.match(flow,/내려감/);assert.match(flow,/1\.70배.*1\.49배/);assert.equal((flow.match(/<circle/g)||[]).length,3);
+const flow=fn('expEasyFlow')({sport:'축구'},flowRow);assert.match(flow,/배당 History/);assert.match(flow,/동일배당 전적 보기/);assert.doesNotMatch(flow,/<svg|배당 흐름/);
 assert.doesNotMatch(fn('expEasyFlow')({sport:'축구'},row),/<svg/,'do not invent a line chart without observed prices');assert.doesNotMatch(flow,forbidden);
-console.log('PASS FLOW: three actual timed prices, falling line, no invented history');
+console.log('PASS HISTORY: replaced flow chart with same-odds history entry, no invented records');
+

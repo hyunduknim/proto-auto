@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R461-SETTLEMENT-INTEGRITY";
-const BUILD_ID = "proto-r461-20261013-settlement-integrity";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R462-ODDS-HISTORY";
+const BUILD_ID = "proto-r462-20261013-odds-history";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -7038,6 +7038,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 
 .edDirection{padding:11px 12px;margin:10px 0;border:1px solid #607b98;border-left:4px solid #ffd77d;border-radius:9px;background:linear-gradient(135deg,#133243,#182b42);font-size:12px;line-height:1.6}.edDirection>b{color:#ffe1a1}.edDirection.agree{border-left-color:#6adbb8}.edDirection.agree>b{color:#94f0cb}.edDirection.different{border-left-color:#ffa282}.edDirection.different>b{color:#ffbfaa}.edDirection p{margin:6px 0;color:#d4e1ef}.edObserved{font-size:10px;color:#aac1d8;border-top:1px solid #395671;padding-top:6px;margin-top:7px}
 .edTimeline{padding:12px;border:1px solid #52779c;background:linear-gradient(130deg,#152d44,#222b46);border-radius:10px;margin:8px 0 12px}.edTimeline>b{font-size:13px;color:#bceaff}.edTimeline table{width:100%;border-collapse:collapse;min-width:330px;font-size:11px}.edTimeline th{background:#0c1c30;text-align:left;padding:9px;color:#ceeaff}.edTimeline th.edTone0,.edTimeline th.edTone1,.edTimeline th.edTone2{color:var(--odds-color)}.edTimeline td{padding:9px;border-bottom:1px solid #36516d;vertical-align:top;color:#cdddeb}.edTimeline td b{color:var(--odds-color)}.edTimeline td small{display:block;margin-top:4px;font-size:10px;color:#b8c8dc}.edTimeline small.down{color:#ffb6a0}.edTimeline small.up{color:#8fdbff}.edTimeline p{color:#b9cde0;font-size:10px;line-height:1.6;margin-bottom:0}
+.edHistory{margin-top:14px;padding:14px;border:1px solid #355270;border-radius:12px;background:#101f30;min-width:0}.edHistory button,.edHistory select{background:#233e57;color:#e5faff;border:1px solid #55718a;border-radius:7px;padding:9px;font-size:12px}.edHistoryStage{display:flex;align-items:center;gap:10px;margin:12px 0}.edHistoryPrices{display:flex;gap:8px;margin:14px 0}.edHistoryPrices>span{flex:1;text-align:center;padding:10px 4px;background:#20364b;border-radius:8px}.edHistoryPrices small,.edHistoryPrices strong{display:block}.edHistoryPrices strong{font-size:23px;color:#ffe08e}.edHistoryBar{display:flex;height:22px;border-radius:5px;overflow:hidden;margin:12px 0}.edHistoryCounts{display:flex;justify-content:space-around;gap:8px;text-align:center;margin-bottom:14px}.edHistoryCounts b,.edHistoryCounts strong{display:block}.edHistoryCounts strong{font-size:12px;margin-top:5px}.edHistoryChips{display:flex;gap:3px;overflow-x:auto;margin:14px 0}.edHistoryChips span{flex-shrink:0;padding:5px;color:#071421;font-weight:800;font-size:12px}.edHistory table{width:100%;min-width:420px;border-collapse:collapse;margin-top:10px;font-size:12px}.edHistory td,.edHistory th{padding:9px 6px;border-bottom:1px solid #355270;text-align:center}.edHistory td small{display:block;color:#b8cbdc;margin-top:4px}.edHistoryNote,.edHistoryStatus,.edHistory p{font-size:12px;line-height:1.7;color:#b8cbdc}.edHistoryStatus{margin-top:8px}.edHistory .edFlowTitle{gap:8px}.edHistory .edCompareScroll{max-height:460px;overflow:auto}
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>쉽게 보는 배당 분석</b> · 어느 쪽을 더 높게 보는지 차트와 짧은 이유로 확인하세요. <small>일반승·핸디캡·언더오버 모두 비교 · 현재 마킹 시장 먼저 · 지난 결과는 펼쳐서 보기</small></div>
@@ -7278,18 +7279,37 @@ function expEasyPrices(m,r){
  return '<div class="edPrices"><div class="edDomVizHead">선택지별 배당 비교</div><div class="edPriceGrid">'+cards+'</div><div class="edPriceExplain">'+e(explain)+'<br>낮은 배당은 더 자주 나올 것으로 보는 쪽이며, 맞혔을 때 받는 금액은 작습니다.</div></div>';
 }
 
+const expHistoryCache=new Map();
+function expHistoryKey(m,r){return [m.gmTs||'',r.no,JSON.stringify((r.choices||[]).map(c=>[c.label,c.odds]))].join('|');}
+function expHistoryReport(d){
+ const color=l=>l==='승'||l==='언더'?'#299bd0':l==='패'||l==='오버'?'#e36b68':'#97a6b5';
+ const labels=['승','무','패','언더','오버','미확인'].filter(l=>l in d.counts&&(l!=='미확인'||d.counts[l]>0)),pct=l=>d.total?(100*d.counts[l]/d.total).toFixed(2):'0.00';
+ const stages=Array.from({length:d.latestChange+1},(_,i)=>'<option value="'+i+'"'+(i===d.changeNo?' selected':'')+'>'+(i===0?'초기배당':i+'차 변경')+'</option>').join('');
+ const prices=d.prices.map(p=>'<span><small>'+e(p.label)+'</small><strong>'+Number(p.odds).toFixed(2)+'</strong></span>').join('');
+ const rows=d.rows.slice(0,100).map(r=>'<tr><td>'+e(r.year)+'<small>'+e(r.league)+'</small></td><td>'+e(r.home)+'<small>vs '+e(r.away)+'</small></td>'+r.prices.map(p=>'<td style="'+(p.label===r.result?'background:'+color(r.result)+';color:#071421;font-weight:800':'')+'">'+Number(p.odds).toFixed(2)+'</td>').join('')+'<td>'+e(r.score)+'<small style="color:'+color(r.result)+'">'+e(r.result)+'</small></td></tr>').join('');
+ return '<label class="edHistoryStage">배당 선택 <select data-history-stage aria-label="배당 변경 이력">'+stages+'</select></label><div class="edHistoryPrices">'+prices+'</div><b>동일배당 전적 · '+d.total+'건</b><div class="edHistoryBar">'+labels.map(l=>'<i style="width:'+pct(l)+'%;background:'+color(l)+'"></i>').join('')+'</div><div class="edHistoryCounts">'+labels.map(l=>'<span style="color:'+color(l)+'"><b>'+e(l)+'</b><strong>'+d.counts[l]+'건 · '+pct(l)+'%</strong></span>').join('')+'</div>'+
+ (d.total?'<div class="edHistoryChips" aria-label="조회 순서의 경기 결과">'+d.rows.slice(0,20).map(r=>'<span style="background:'+color(r.result)+'">'+e(r.result)+'</span>').join('')+'</div><b>과거 경기</b><div class="edCompareScroll"><table><thead><tr><th>연도 / 리그</th><th>홈 / 원정</th>'+d.prices.map(p=>'<th>'+e(p.label)+'</th>').join('')+'<th>'+(d.family==='TOTAL'?'합계':d.family==='HANDICAP'?'핸디 적용 점수':'점수')+'</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p>이 배당과 모두 일치하는 과거 경기 기록이 없습니다.</p>')+
+ '<p class="edHistoryNote">출처: 젠토토 공개자료 · 모든 선택지의 배당이 같은 기록만 집계합니다. 리그 전체 · 조회 순서 표시'+(d.rows.length>100?' · 목록은 앞 100건':'')+'.<br>유사배당 '+d.excludedSimilar+'건, 동일 표시 중복 '+d.duplicateRowsExcluded+'건 제외. 경기별 날짜와 당시 기준값이 없어 개별 경기를 완전히 구분하거나 같은 기준값 여부를 확인할 수 없습니다. 지난 전적은 이번 경기의 예상 확률이 아닙니다.</p>';
+}
 function expEasyFlow(m,r){
- const d=expEasyData(m,r),target=d.selected||d.leader,p=r.precision||{},points=new Map();
- if(!target)return '<div class="edFlowEmpty">배당 흐름 기록이 없습니다.</div>';
- for(const h of Array.isArray(p.history)?p.history:[]){const at=Date.parse(h.at||''),c=(Array.isArray(h.prices)?h.prices:[]).find(x=>String(x.label)===String(target.label)),odds=Number(c?.odds);if(Number.isFinite(at)&&at<=Date.now()&&Number.isFinite(odds)&&odds>1)points.set(at,{at,odds});}
- const lastAt=Date.parse(p.observedAt||'');if(points.size&&Number.isFinite(lastAt)&&lastAt<=Date.now()&&lastAt>=Math.max(...points.keys()))points.set(lastAt,{at:lastAt,odds:Number(target.odds)});
- const rows=[...points.values()].sort((a,b)=>a.at-b.at).slice(-8);
- if(rows.length<2)return '<div class="edFlowEmpty">'+e(target.label)+' 배당 흐름 · 비교할 이전 기록이 아직 없습니다.</div>';
- const first=rows[0],last=rows[rows.length-1],delta=last.odds-first.odds,low=Math.min(...rows.map(x=>x.odds)),high=Math.max(...rows.map(x=>x.odds)),range=high-low;
- const plot=rows.map(x=>({x:12+256*(x.at-first.at)/(last.at-first.at),y:range<.005?40:65-50*(x.odds-low)/range,odds:x.odds}));
- const direction=Math.abs(delta)<.005?'변화 없음':delta<0?'내려감':'올라감',clock=at=>new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(at));
- return '<div class="edFlow '+(delta<-.005?'falling':delta>.005?'rising':'flat')+'"><div class="edFlowTitle"><b>'+e(target.label)+' 배당 흐름</b><span>'+e(direction)+'</span></div><div class="edFlowPrices">'+e(expDOdds(first.odds))+' → '+e(expDOdds(last.odds))+'</div>'+
- '<svg viewBox="0 0 280 80" role="img" aria-label="'+e(target.label+' 배당 '+first.odds+'에서 '+last.odds+'로 '+direction)+'"><line x1="10" y1="72" x2="270" y2="72" stroke="#355270"/><polyline fill="none" stroke="'+(delta<-.005?'#ffb6a0':delta>.005?'#8fdbff':'#ffe08e')+'" stroke-width="3" points="'+plot.map(x=>x.x.toFixed(1)+','+x.y.toFixed(1)).join(' ')+'"/>'+plot.map(x=>'<circle cx="'+x.x.toFixed(1)+'" cy="'+x.y.toFixed(1)+'" r="3.5" fill="#ffe08e"><title>'+e(expDOdds(x.odds))+'</title></circle>').join('')+'<text x="12" y="'+Math.max(10,plot[0].y-10).toFixed(1)+'" text-anchor="start" fill="#e5faff" font-size="10">'+first.odds.toFixed(2)+'</text><text x="268" y="'+Math.max(10,plot[plot.length-1].y-10).toFixed(1)+'" text-anchor="end" fill="#ffe8a3" font-size="10">'+last.odds.toFixed(2)+'</text></svg><div class="edFlowTimes"><span>'+e(clock(first.at))+'</span><span>'+e(clock(last.at))+'</span></div><small>확인된 '+rows.length+'번의 배당 기록입니다.</small></div>';
+ const key=expHistoryKey(m,r),saved=expHistoryCache.get(key),content=saved?.data?expHistoryReport(saved.data):'<div class="edHistoryPrices">'+(r.choices||[]).map(p=>'<span><small>'+e(p.label)+'</small><strong>'+e(expDOdds(p.odds))+'</strong></span>').join('')+'</div><p>같은 배당이 나온 과거 경기와 전적을 확인하세요.</p>';
+ return '<div class="edHistory" data-history-key="'+e(key)+'" data-history-round="'+e(m.gmTs||'')+'" data-history-no="'+e(r.no)+'"><div class="edFlowTitle"><b>배당 History</b><button type="button" data-history-load>'+(saved?.data?'새로 조회':'동일배당 전적 보기')+'</button></div><div class="edHistoryContent">'+content+'</div><div class="edHistoryStatus" role="status">'+e(saved?.loading?'기록을 조회하고 있습니다.':saved?.error||'')+'</div></div>';
+}
+async function expLoadHistory(panel,change){
+ const key=panel.dataset.historyKey,previous=expHistoryCache.get(key),token={data:previous?.data,loading:true};
+ if(previous?.loading)return;
+ if(expHistoryCache.size>=100)expHistoryCache.delete(expHistoryCache.keys().next().value);
+ expHistoryCache.set(key,token);
+ const update=()=>document.querySelectorAll('.edHistory').forEach(p=>{if(p.dataset.historyKey!==key)return;const saved=expHistoryCache.get(key);p.querySelector('.edHistoryStatus').textContent=saved.loading?'기록을 조회하고 있습니다.':saved.error||'';p.querySelectorAll('button,select').forEach(b=>b.disabled=!!saved.loading);if(saved.data&&!saved.loading)p.querySelector('.edHistoryContent').innerHTML=expHistoryReport(saved.data);});
+ update();
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
+ try{
+  const url='/api/odds-history?gmTs='+encodeURIComponent(panel.dataset.historyRound)+'&no='+encodeURIComponent(panel.dataset.historyNo)+(change==null?'':'&change='+encodeURIComponent(change));
+  const res=await fetch(url,{signal:controller.signal}),data=await res.json();
+  if(!res.ok)throw Error(data.error||'HISTORY_UNAVAILABLE');
+  expHistoryCache.set(key,{data,loading:false});
+ }catch(err){expHistoryCache.set(key,{data:previous?.data,loading:false,error:String(err.message).includes('PRICE')?'배당이 변경되었습니다. 최신 화면에서 다시 조회해 주세요.':'동일배당 자료를 확인하지 못했습니다. 잠시 후 다시 조회해 주세요.'});}
+ finally{clearTimeout(timer);update();}
 }
 
 function expEasyBars(r,data,past=false){
@@ -7590,7 +7610,7 @@ function chooseManualPick(btn){
 function cancelManualPick(){manualPending=null;$('manualPanel').hidden=true;}
 async function applyManualPick(){if(!manualPending||busy)return;const payload={...manualPending};const ok=await act('/api/manual-pick',$('manualApply'),payload);if(ok)cancelManualPick();}
 
-function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('exportJson','EXPORT');$('manualMode')?.addEventListener('click',toggleManualMode);$('manualApply')?.addEventListener('click',applyManualPick);$('manualCancel')?.addEventListener('click',cancelManualPick);$('list')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-manual-no]');if(b)chooseManualPick(b);const edit=ev.target.closest('[data-pastedit]');if(edit)showPastManualEditor(edit.dataset.pastedit)});$('pastList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-pastedit]');if(b)showPastManualEditor(b.dataset.pastedit)});$('pastManualPanel')?.addEventListener('click',ev=>{const close=ev.target.closest('[data-pastclose]');if(close){pastManualKey=null;$('pastManualPanel').hidden=true;return;}const pick=ev.target.closest('[data-pastpick]');if(pick)choosePastManualPick(pick)});const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>setMarkMenu('now'));$('tabPast')?.addEventListener('click',()=>setView('past'));$('tabExperiment')?.addEventListener('click',()=>setView('experiment'));$('expSearch')?.addEventListener('input',ev=>{expQuery=ev.target.value||'';expSelectedKey=null;renderExperiment()});$('expSport')?.addEventListener('change',ev=>{expFilter=ev.target.value||'all';expSelectedKey=null;renderExperiment()});$('expList')?.addEventListener('click',ev=>{const summary=ev.target.closest('details.edBriefDetails > summary');if(summary){const d=summary.parentElement;if(d.dataset.expMarket&&!d.open){const key=d.closest('.expCard')?.querySelector('[data-expkey]')?.dataset.expkey,game=(state?.markingGames||[]).find(g=>expKey(g)===key);expMarketLazy(d,game);}return;}const b=ev.target.closest('button.expHead[data-expkey]');if(!b)return;ev.preventDefault();expSelectedKey=expSelectedKey===b.dataset.expkey?null:b.dataset.expkey;renderExperiment()});$('hourlyBar')?.addEventListener('click',ev=>{const b=ev.target.closest('button[data-hour]');if(b)setHourFilter(b.dataset.date,b.dataset.hour)});document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
+function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('exportJson','EXPORT');$('manualMode')?.addEventListener('click',toggleManualMode);$('manualApply')?.addEventListener('click',applyManualPick);$('manualCancel')?.addEventListener('click',cancelManualPick);$('list')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-manual-no]');if(b)chooseManualPick(b);const edit=ev.target.closest('[data-pastedit]');if(edit)showPastManualEditor(edit.dataset.pastedit)});$('pastList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-pastedit]');if(b)showPastManualEditor(b.dataset.pastedit)});$('pastManualPanel')?.addEventListener('click',ev=>{const close=ev.target.closest('[data-pastclose]');if(close){pastManualKey=null;$('pastManualPanel').hidden=true;return;}const pick=ev.target.closest('[data-pastpick]');if(pick)choosePastManualPick(pick)});const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>setMarkMenu('now'));$('tabPast')?.addEventListener('click',()=>setView('past'));$('tabExperiment')?.addEventListener('click',()=>setView('experiment'));$('expSearch')?.addEventListener('input',ev=>{expQuery=ev.target.value||'';expSelectedKey=null;renderExperiment()});$('expSport')?.addEventListener('change',ev=>{expFilter=ev.target.value||'all';expSelectedKey=null;renderExperiment()});$('expList')?.addEventListener('change',ev=>{if(ev.target.matches('[data-history-stage]'))expLoadHistory(ev.target.closest('.edHistory'),ev.target.value)});$('expList')?.addEventListener('click',ev=>{const history=ev.target.closest('[data-history-load]');if(history){expLoadHistory(history.closest('.edHistory'));return;}const summary=ev.target.closest('details.edBriefDetails > summary');if(summary){const d=summary.parentElement;if(d.dataset.expMarket&&!d.open){const key=d.closest('.expCard')?.querySelector('[data-expkey]')?.dataset.expkey,game=(state?.markingGames||[]).find(g=>expKey(g)===key);expMarketLazy(d,game);}return;}const b=ev.target.closest('button.expHead[data-expkey]');if(!b)return;ev.preventDefault();expSelectedKey=expSelectedKey===b.dataset.expkey?null:b.dataset.expkey;renderExperiment()});$('hourlyBar')?.addEventListener('click',ev=>{const b=ev.target.closest('button[data-hour]');if(b)setHourFilter(b.dataset.date,b.dataset.hour)});document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
 </script></body></html>`;
 
 async function bootstrapState(env){
@@ -9631,9 +9651,99 @@ function r428HandleManualFast(req,env){
  return task;
 }
 
+// R462: public same-odds history is read-only and outside the settlement queue.
+const r462HistoryCache=new Map(),r462HistoryPending=new Map();
+let r462IndexCache=null,r462IndexPending=null;
+function r462HistoryLink(html,m){
+ const blocks=String(html).split(/<div class="game row col-xs-12">/).slice(1);
+ for(const b of blocks){
+  if(Number(r381ZenStrip(b.match(/<p[^>]*class="proto_uid"[^>]*>([\s\S]*?)<\/p>/)?.[1]))!==Number(m.no))continue;
+  const link=b.match(/proto_round=(\d{6})&(?:amp;)?proto_uid=(\d+)&(?:amp;)?change_no=(\d+)/);
+  const home=r381ZenStrip((b.match(/<p[^>]*class="home"[^>]*>([\s\S]*?)<\/p>/)?.[1]||'').replace(/<span\b[^>]*>[\s\S]*?<\/span>/gi,''));
+  const away=r381ZenStrip(b.match(/<p[^>]*class="away"[^>]*>([\s\S]*?)<\/p>/)?.[1]);
+  const date=b.match(/(20\d{2}-\d{2}-\d{2})\([^)]*\)\s*(\d{2}:\d{2})/);
+  if(!link||link[1]!==String(m.gmTs)||!date||date[1]!==m.date||date[2]!==String(m.time).slice(0,5)||norm(home)!==norm(m.home)||norm(away)!==norm(m.away))throw Error('HISTORY_IDENTITY_MISMATCH');
+  return {latestChange:Number(link[3])};
+ }
+ throw Error('HISTORY_FIXTURE_UNAVAILABLE');
+}
+function r462ParseHistory(html,m,{changeNo,latestChange}){
+ const links=[...String(html).matchAll(/<button\b([^>]*)>/gi)].map(x=>({attrs:x[1],match:x[1].match(/proto_round=(\d{6})&(?:amp;)?proto_uid=(\d+)&(?:amp;)?change_no=(\d+)/)})).filter(x=>x.match);
+ if(links.some(x=>x.match[1]!==String(m.gmTs)||Number(x.match[2])!==Number(m.no)))throw Error('HISTORY_IDENTITY_MISMATCH');
+ const selected=links.filter(x=>/\bbtn-dark\b/.test(x.attrs));
+ if(selected.length&&(selected.length!==1||Number(selected[0].match[3])!==changeNo))throw Error('HISTORY_STAGE_MISMATCH');
+ const tables=String(html).match(/<table\b[^>]*>[\s\S]*?<\/table>/gi)||[];
+ const table=tables.find(t=>/<th\b[^>]*>\s*연도\s*<\/th>/i.test(t));
+ if(!table)throw Error('HISTORY_TABLE_UNAVAILABLE');
+ const labels=[...table.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map(x=>r381ZenStrip(x[1])).slice(3,-1);
+ const trs=[...table.matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/gi)];
+ const cells=tr=>[...tr.matchAll(/<td\b([^>]*)>([\s\S]*?)<\/td>/gi)].map(x=>({attrs:x[1],html:x[2],text:r381ZenStrip(x[2])}));
+ const header=trs.find(x=>/\bbg-info\b/.test(x[1])),hc=cells(header?.[2]||'');
+ const family=m.marketFamily,lineText=hc[2]?.text||'',lineMatch=lineText.match(/(?:H|U\/O)\s*([+-]?\d+(?:\.\d+)?)/i);
+ const wanted=validChoices(m).map(c=>String(c.label));
+ if(labels.length<2||labels.length>3||labels.join('|')!==wanted.join('|')||hc.length!==labels.length+4||
+   (family==='MONEYLINE'?lineText!=='-':!lineMatch||!Number.isFinite(Number(m.line))||Math.abs(Number(lineMatch[1])-Number(m.line))>.001||
+    (family==='TOTAL'?!/^U\/O/i.test(lineText):family==='HANDICAP'?!/^H/i.test(lineText):true)))throw Error('HISTORY_MARKET_MISMATCH');
+ const prices=labels.map((label,i)=>({label,odds:Number(hc[i+3].text)}));
+ if(prices.some(c=>!Number.isFinite(c.odds)||c.odds<=1))throw Error('HISTORY_PRICE_INVALID');
+ const same=(a,b)=>a.length===b.length&&a.every((p,i)=>p.label===b[i].label&&Math.round(Number(p.odds)*100)===Math.round(Number(b[i].odds)*100));
+ if(changeNo===latestChange&&!same(prices,validChoices(m)))throw Error('HISTORY_PRICE_CHANGED');
+ const rows=[],seen=new Set();let excludedSimilar=0,duplicateRowsExcluded=0;
+ for(const tr of trs){
+  if(/\bbg-info\b/.test(tr[1]))continue;
+  const cs=cells(tr[2]);if(cs.length!==labels.length+4||!/^20\d{2}$/.test(cs[0].text))continue;
+  const rp=labels.map((label,i)=>({label,odds:Number(cs[i+3].text)}));
+  if(!same(prices,rp)){excludedSimilar++;continue;}
+  const teams=[...cs[2].html.matchAll(/<span\b[^>]*>([\s\S]*?)<\/span>/gi)].map(x=>r381ZenStrip(x[1]));
+  if(teams.length!==3||teams[1].toLowerCase()!=='vs'||!teams[0]||!teams[2])continue;
+  const marks=labels.filter((_,i)=>/\bmarking\b/.test(cs[i+3].attrs));
+  let result=marks.length===1?marks[0]:'미확인';
+  const score=cs[cs.length-1].text,tie=score.match(/^(-?\d+(?:\.\d+)?)\s*:\s*(-?\d+(?:\.\d+)?)$/);
+  if(!marks.length&&family==='MONEYLINE'&&tie&&Number(tie[1])===Number(tie[2]))result='무';
+  const row={year:cs[0].text,league:cs[1].text,home:teams[0],away:teams[2],prices:rp,score,result};
+  const key=JSON.stringify(row);if(seen.has(key)){duplicateRowsExcluded++;continue;}seen.add(key);rows.push(row);
+ }
+ const counts=Object.fromEntries([...new Set([...labels,...(family==='MONEYLINE'?['무']:[]),'미확인'])].map(l=>[l,0]));
+ for(const row of rows)counts[row.result]++;
+ return {gmTs:String(m.gmTs),no:Number(m.no),family,line:m.line??null,changeNo,latestChange,prices,total:rows.length,counts,rows,excludedSimilar,duplicateRowsExcluded,source:'젠토토 공개자료',fetchedAt:new Date().toISOString()};
+}
+async function r462FetchHtml(url){
+ const c=new AbortController(),timer=setTimeout(()=>c.abort(),10000);
+ try{const r=await fetch(url,{signal:c.signal,headers:{'user-agent':'Mozilla/5.0'}});if(!r.ok)throw Error('HISTORY_SOURCE_UNAVAILABLE');const text=await r.text();if(text.length>4000000)throw Error('HISTORY_SOURCE_TOO_LARGE');return text;}finally{clearTimeout(timer);}
+}
+async function r462HandleHistory(req,env){
+ const u=new URL(req.url),round=u.searchParams.get('gmTs'),no=u.searchParams.get('no'),stage=u.searchParams.get('change');
+ if(!/^\d{6}$/.test(round||'')||!/^\d{1,6}$/.test(no||'')||(stage!==null&&!/^\d{1,3}$/.test(stage)))return json({error:'INVALID_HISTORY_QUERY'},400);
+ const s=await loadState(env),stored=(s?.markets||[]).find(m=>String(m.gmTs||s.gmTs)===round&&Number(m.no)===Number(no));
+ if(!stored)return json({error:'HISTORY_MARKET_NOT_FOUND'},404);
+ const m={...stored,gmTs:round},key=JSON.stringify([round,no,stage,m.date,m.time,m.home,m.away,m.marketFamily,m.line,validChoices(m)]),cached=r462HistoryCache.get(key);
+ if(cached&&Date.now()-cached.at<120000)return json(cached.data);
+ try{
+  if(!r462HistoryPending.has(key)){
+   if(r462HistoryPending.size>=12)return json({error:'HISTORY_BUSY'},429);
+   const pending=(async()=>{
+    if(!r462IndexCache||Date.now()-r462IndexCache.at>60000){
+     if(!r462IndexPending)r462IndexPending=r462FetchHtml('https://v1.zentoto.com/proto/game').then(html=>(r462IndexCache={html,at:Date.now()})).finally(()=>{r462IndexPending=null;});
+     await r462IndexPending;
+    }
+    const {latestChange}=r462HistoryLink(r462IndexCache.html,m),changeNo=stage===null?latestChange:Number(stage);
+    if(changeNo>latestChange)throw Error('INVALID_HISTORY_STAGE');
+    const sourceUrl='https://v1.zentoto.com/proto/game/solist?proto_round='+round+'&proto_uid='+no+'&change_no='+changeNo;
+    const data={...r462ParseHistory(await r462FetchHtml(sourceUrl),m,{changeNo,latestChange}),sourceUrl};
+    if(r462HistoryCache.size>=100)r462HistoryCache.delete(r462HistoryCache.keys().next().value);
+    r462HistoryCache.set(key,{at:Date.now(),data});return data;
+   })();
+   r462HistoryPending.set(key,pending);
+   pending.finally(()=>r462HistoryPending.delete(key)).catch(()=>{});
+  }
+  return json(await r462HistoryPending.get(key));
+ }catch(e){return json({error:String(e.message||'HISTORY_UNAVAILABLE')},e.message==='INVALID_HISTORY_STAGE'?400:502);}
+}
+
 async function handleApp(req,env,ctx){
   const u=new URL(req.url);
   if(u.pathname==="/")return html(INDEX);
+  if(u.pathname==='/api/odds-history'&&req.method==='GET')return r462HandleHistory(req,env);
   if(u.pathname==='/api/manual-odds')return json({error:'MANUAL_ODDS_FEATURE_REMOVED'},410);
   if(req.method==='POST'&&u.pathname==='/api/manual-pick')return r428HandleManualFast(req,env);
   // 화면 읽기는 네트워크 갱신 대기열 밖에서 마지막 저장 상태를 즉시 반환한다.
