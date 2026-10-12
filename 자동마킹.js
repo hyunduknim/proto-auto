@@ -1609,6 +1609,7 @@ function r360OddsAnomalyReason(m){
   return null;
 }
 function candidateEligible(m){
+  if(m?.r404ReferenceOnly)return false;
   if(!m||explicitMarketClosed(m)||validChoices(m).length<2||started(m)||m.resultFinal||r360OddsAnomalyReason(m))return false;
   if(!oddsFresh(m))return false;
   if(m.marketFamily==="HANDICAP"&&m.sport==="야구"){
@@ -1617,6 +1618,7 @@ function candidateEligible(m){
   return ["MONEYLINE","HANDICAP","TOTAL"].includes(m.marketFamily);
 }
 function representativeMarketEligible(m){
+  if(m?.r404ReferenceOnly)return false;
   // R288 올마킹: 미시작 + 정상 선택지 2개 이상이면 보존된 Betman Last Known Odds도 일반등급 대표마킹 후보로 허용한다.
   // STRICT는 candidateEligible의 freshness/마감 조건을 그대로 쓰고, stale/closed 보존배당은 DEEP_REVIEW에서만 사용한다.
   if(!m||validChoices(m).length<2||started(m)||m.resultFinal||r360OddsAnomalyReason(m))return false;
@@ -5545,7 +5547,9 @@ function buildHourlyMarking(state){
 function publicState(state){
   const removed=state.r398Protocol?.enforce?0:purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
-  const cur={...currentRoundStateView(state),markets:(state.markets||[]).filter(m=>r401Scope(m)&&settlementAllowed(m)&&(!r403PlaceholderIdentity(m)||m.marked||m.resultFinal)),
+  // Reference fixture is visible without waiting for a background cron refresh.
+  const r404Display={markets:[...(state.markets||[])]};r404Reconcile14Snapshot(r404Display);
+  const cur={...currentRoundStateView(state),markets:r404Display.markets.filter(m=>r401Scope(m)&&settlementAllowed(m)&&(!r403PlaceholderIdentity(m)||m.marked||m.resultFinal)),
     settlementLedger:(state.settlementLedger||[]).filter(r401Scope)};
   // R391: old-round unfinished picks remain visible in past screen.
   const activeGames=representativeGames(cur).filter(g=>r401Scope(g)&&!g.resultFinal).sort(marketSort),
@@ -5554,7 +5558,7 @@ function publicState(state){
     pastGames=mergeCurrentPastCards(state,savedSettled).filter(r401Scope).sort((a,b)=>marketSort(b,a)),
     pastPendingGames=pendingSettlementMarkets(state).filter(r401Scope)
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -8329,6 +8333,7 @@ function r398ApplyDomesticOdds(state,feeds={},options={}){
       return out;
     });
     m.domesticOddsSnapshot={source:chosen.source,observedAt:chosen.observedAt,fetchedAt:chosen.fetchedAt,oddsType:'CURRENT',jurisdiction:'DOMESTIC',period:String(chosen.period).toUpperCase().replace(/^FULL$/,'FULLTIME'),lineBasis:chosen.lineBasis||null,openingKind:chosen.openingKind||null,choices:chosen.choices.map(c=>({label:String(c.label),odds:Number(c.odds),...(Number(c.openingOdds)>1?{openingOdds:Number(c.openingOdds)}:{})}))};
+    if(m.r404ReferenceOnly){m.r404ReferenceOnly=false;m.source=chosen.source+'_VERIFIED_EXACT_FIXTURE';m.selectionStatus='배당공개';}
     m.oddsSource=chosen.source+'_AUTHORIZED_NORMALIZED_ODDS';m.domesticOddsObservedAt=chosen.observedAt;m.domesticOddsFetchedAt=chosen.fetchedAt;m.lastGoodOddsAt=chosen.observedAt;m.lastGoodOdds=prices;m.domesticOddsValid=true;m.oddsClosedOrMissing=false;m.oddsSnapshotStatus='OPEN';m.oddsFetchStatus='VERIFIED_CURRENT';audit.updated++;
     add(audit.markets,{gmTs:m.gmTs,no:m.no,status:'OPEN',source:chosen.source,observedAt:chosen.observedAt,fetchedAt:chosen.fetchedAt});
   }
