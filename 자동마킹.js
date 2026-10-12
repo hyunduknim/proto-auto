@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R457-VERIFIED-ATALANTA-FINAL";
-const BUILD_ID = "proto-r457-20261013-verified-atalanta-final";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R459-7845-OVER";
+const BUILD_ID = "proto-r459-20261013-7845-over";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5712,6 +5712,28 @@ function r434ManualPickCatalog(state){
 // R443 exact-event, independently reported KBL final: 12 Oct Hyundai Mobis 99-89 DB.
 // Cross-check: Yonhap 202610122103390454, News1 202610122123342338,
 // 121th Proto market TOTAL 174.5 via scorebase.kr. Never guess another fixture.
+// R459 exact market/verified match correction; never replace an original selection.
+function r459Repair7845(state,now=Date.now()){
+ if(now<Date.parse('2026-10-13T03:30:00+09:00'))return {changed:false,reason:'TOO_EARLY'};
+ const matching=(state.markets||[]).filter(m=>String(m.gmTs)==='260121'&&Number(m.no)===7845);
+ if(matching.length!==1)return {changed:false,reason:'NOT_UNIQUE'};
+ const m=matching[0],home=norm(m.home),away=norm(m.away);
+ const homes=['알와슬','알와슬fc','알와슬sc','alwasl','alwaslfc'];
+ const aways=['알아흘리','알아흘리sc','알아흘리sfc','알아흘리사우디','알아흘리제다','alahli','alahli sc','alahli sfc','alahli saudi','alahli jeddah'].map(norm);
+ if(m.date!=='2026-10-13'||String(m.time||'').slice(0,5)!=='01:00'||m.sport!=='축구'||m.marketFamily!=='TOTAL'||Number(m.line)!==2.5||!homes.includes(home)||!aways.includes(away))return {changed:false,reason:'IDENTITY_MISMATCH'};
+ if(!m.marked||!m.representativeSelected||m.finalPick!=='오버'||Number(m.finalOdds)<1.31)return {changed:false,reason:'ORIGINAL_OVER_MISSING'};
+ if(m.settlementStatus==='적특'&&/취소|연기/.test(String(m.resultSpecialStatus||m.result||'')))return {changed:false,reason:'VOID_CONFLICT'};
+ const ledger=(state.settlementLedger||[]).find(x=>String(x.gmTs)==='260121'&&Number(x.no)===7845);
+ const card=(state.settledCards?.rows||[]).find(x=>String(x.gmTs)==='260121'&&Number(x.no)===7845);
+ const ok=x=>!!x&&x.resultFinal===true&&x.result==='오버'&&x.hit===true&&x.settlementStatus==='적중'&&String(x.score??x.resultScoreText??'')==='1:3';
+ if(ok(m)&&ok(ledger)&&ok(card))return {changed:false,reason:'ALREADY_CORRECT'};
+ const before={result:m.result,hit:m.hit,status:m.settlementStatus,score:m.resultScoreText,source:m.resultSource};
+ Object.assign(m,{resultFinal:true,result:'오버',hit:true,settlementStatus:'적중',settlementType:'NORMAL',resultSpecialStatus:null,resultScoreText:'1:3',homeScore:1,awayScore:3,resultStatus:'경기종료',resultVerifiedAt:new Date(now).toISOString(),resultSource:'R459_AS_VERIFIED_FULLTIME',resultResolutionSource:'1_3_TOTAL4_OVER2_5',resultDerivedFromScore:true,resultCodeOutcome:null,resultScoreOutcome:'오버',resultCodeScoreMismatch:false});
+ recordSettlementLedger(state,m);upsertSettledCard(state,m);
+ state.r4597845Audit={at:new Date(now).toISOString(),gmTs:'260121',no:7845,before,score:'1:3',total:4,line:2.5,originalPick:m.finalPick,originalOdds:m.finalOdds,source:'https://as.com/futbol/internacional/trincao-salva-el-papelon-f202610-n/',aggregateReviewRequired:!!m.aggregateRecorded};
+ state.updatedAt=new Date(now).toISOString();return {changed:true,before};
+}
+
 // R457: owner requested this exact correction; public ZenToto row #7851
 // was verified 경기종료 3:1 at 2026-10-13 03:23 KST. Preserve pregame selection.
 function r457RepairAtalanta(state){
@@ -9642,7 +9664,7 @@ async function handleAppInternal(req,env,ctx){
           .slice(0,500)});
     }
     if(u.pathname==="/api/diagnostics"){
-      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,fiveMinuteSettlementAudit:s.fiveMinuteSettlementAudit||null,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,wisetotoSettlementAudit:s.wisetotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),r400SettlementContinuity:s.r400SettlementContinuity||null,sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
+      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,fiveMinuteSettlementAudit:s.fiveMinuteSettlementAudit||null,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,wisetotoSettlementAudit:s.wisetotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),r400SettlementContinuity:s.r400SettlementContinuity||null,r4597845Audit:s.r4597845Audit||null,sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
     }
     if(u.pathname==="/api/protocol-status"&&req.method==="GET"){const s=await loadState(env);return json({protocol:r398ProtocolStatus(s),sources:r398SourceStatus(s),odds:s.domesticOddsAudit||null,operations:r398OperationalMetrics(s)});}
     if(u.pathname==="/api/model-validation"&&req.method==="GET"){const s=await loadState(env);return json(r398EvaluateShadowBacktest(s));}
@@ -11088,6 +11110,15 @@ async function r398LoadState(env){
     else if(!stored.state)MEM.state=restored;
   }
   if(r431ApplyOwner7780Over(MEM.state)){await persistState(env,true);}
+  // R459: immutable pre-change backup + atomic correction on DO cold state load.
+  const next459=r398Clone(MEM.state),correction459=r459Repair7845(next459);
+  if(correction459.changed){
+    if(stored.state&&ds&&typeof ds.transaction==='function')
+      await r398AtomicCommit(ds,MEM.state,next459,'BEFORE_R459_7845_OVER_CORRECTION',
+       {type:'R459_7845_FINAL_1_3',before:correction459.before,after:'1:3'});
+    else if(!stored.state)MEM.state=next459;
+    else MEM.state.r4597845Audit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
+  }
   const next457=r398Clone(MEM.state),fixed457=r457RepairAtalanta(next457);
   if(fixed457.changed){
     if(stored.state&&ds&&typeof ds.transaction==='function')
