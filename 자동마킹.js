@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R444-MANUAL-STATS";
-const BUILD_ID = "proto-r444-20261012-manual-stats";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R445-KIA-FINAL-GUARD";
+const BUILD_ID = "proto-r445-20261012-kia-final-guard";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5792,6 +5792,60 @@ function r444RepairDoosanLotte(state){
   policy:'EVIDENCE_BACKED_EXACT_FIXTURE_ORIGINAL_PICKS_FROZEN'};
  state.updatedAt=nowIso();return {changed:true,before:repairs};
 }
+// R445: 12-Oct KIA 4:2 LG, final total six runs.
+// Yonhap (2026-10-12 21:05): https://www.yna.co.kr/amp/view/AKR20261012177000007
+// Xportsnews: https://www.xportsnews.com/article/2206783
+// Specific 121 markets: #7796 total 9.5 (UNDER), #7800 total 5.5 (OVER).
+// The Proto vendor's #7800 displayed "3" conflicts with the game's official six;
+// never promote a source-specific market mistake into an invented 6/6 success.
+function r445KiaLgMarket(m){
+ if(String(m?.gmTs)!=='260121'||m.date!=='2026-10-12'||
+  String(m.time||'').slice(0,5)!=='18:30'||m.marketFamily!=='TOTAL'||
+  !(m.sport==='야구'||/KBO/i.test(String(m.league||'')))||
+  !norm(m.home).startsWith('kia')||!norm(m.away).startsWith('lg'))return false;
+ return (Number(m.no)===7796&&Number(m.line)===9.5)||
+  (Number(m.no)===7800&&Number(m.line)===5.5);
+}
+function r445CorrectKiaLgFinal(state){
+ const rows=(state?.markets||[]).filter(r445KiaLgMarket);
+ if(!rows.length)return {changed:false,reason:'NO_MATCHING_VERIFIED_KIA_MARKET'};
+ if(new Set(rows.map(m=>Number(m.no))).size!==rows.length)
+  return {changed:false,reason:'DUPLICATE_KIA_MARKET_REQUIRES_REVIEW'};
+ if(rows.some(m=>m.settlementStatus==='적특'&&
+   /취소|연기|CANCEL|POSTPON/i.test(String(m.result||m.resultStatus||''))))
+  return {changed:false,reason:'CONFLICTING_VOID_REQUIRES_REVIEW'};
+ const corrections=[];
+ for(const m of rows){
+  const outcome=6<Number(m.line)?'언더':'오버';
+  const selected=!!(m.marked&&m.representativeSelected&&
+    ['오버','언더'].includes(String(m.finalPick||'')));
+  const hit=selected?m.finalPick===outcome:null;
+  const status=selected?(hit?'적중':'낙첨'):null;
+  if(m.resultFinal&&m.result===outcome&&m.resultScoreText==='4:2'&&
+    (!selected||(m.hit===hit&&m.settlementStatus===status)))continue;
+  const prior={no:m.no,line:m.line,score:m.resultScoreText??null,
+   outcome:m.result??null,hit:m.hit??null,settlementStatus:m.settlementStatus??null,
+   resultSource:m.resultSource??null};
+  Object.assign(m,{resultFinal:true,result:outcome,resultScoreText:'4:2',
+   homeScore:4,awayScore:2,resultStatus:'경기종료',resultVerifiedAt:nowIso(),
+   resultSource:'R445_YONHAP_XPORTSNEWS_KBO_FINAL',
+   resultResolutionSource:'VERIFIED_KIA4_LG2_TOTAL6',resultDerivedFromScore:true,
+   ...(selected?{hit,settlementStatus:status,settlementType:'NORMAL',
+    resultSpecialStatus:null}:{})});
+  if(selected){recordSettlementLedger(state,m);upsertSettledCard(state,m);}
+  corrections.push(prior);
+ }
+ if(!corrections.length)return {changed:false,reason:'ALREADY_CORRECT'};
+ state.r445KiaLgSettlementAudit={at:nowIso(),gmTs:'260121',
+  fixture:'2026-10-12 18:30 KIA-LG',score:'4:2',total:6,
+  markets:rows.map(m=>({no:m.no,line:m.line,outcome:m.result})),
+  before:corrections,policy:'FINAL_SCORE_FIRST_REQUIRE_EXACT_MARKET_LINE_AND_IDENT',
+  references:['https://www.yna.co.kr/amp/view/AKR20261012177000007',
+   'https://www.xportsnews.com/article/2206783']};
+ state.updatedAt=nowIso();
+ return {changed:true,corrections};
+}
+
 // Show effective manual selections in the current user-facing accuracy,
 // preserving immutable original auto-pick records for historical statistics.
 function r444AppliedSummary(state,original,past,pending,active){
@@ -5890,7 +5944,7 @@ function publicState(state){
     pastGames=mergeCurrentPastCards(state,savedSettled).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m)).sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m)),
     pastPendingGames=pendingSettlementMarkets(state).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m))
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m));const originalSummary=summary(cur),appliedSummary=r444AppliedSummary(state,originalSummary,pastGames,pastPendingGames,activeGames);const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:appliedSummary,overallSummary:appliedSummary,originalAutoSummary:originalSummary,performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r444CorrectionAudit:state.r444CorrectionAudit||null,r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      .sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m));const originalSummary=summary(cur),appliedSummary=r444AppliedSummary(state,originalSummary,pastGames,pastPendingGames,activeGames);const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:appliedSummary,overallSummary:appliedSummary,originalAutoSummary:originalSummary,performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r444CorrectionAudit:state.r444CorrectionAudit||null,r445KiaLgSettlementAudit:state.r445KiaLgSettlementAudit||null,r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -10806,6 +10860,15 @@ async function r398LoadState(env){
         {type:'R444_KBO_FINAL_CORRECTION',before:r444.before,after:'4:7'});
     else if(!stored.state)MEM.state=next444;
     else MEM.state.r444CorrectionAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
+  }
+  // R445 immutable pre-mutation backup; repeat-safe exact identity KIA/LG correction.
+  const next445=r398Clone(MEM.state),r445=r445CorrectKiaLgFinal(next445);
+  if(r445.changed){
+    if(stored.state&&ds&&typeof ds.transaction==='function')
+      await r398AtomicCommit(ds,MEM.state,next445,'BEFORE_R445_VERIFIED_KIA_LG_MARKET_CORRECTION',
+        {type:'R445_VERIFIED_KIA_LG_FINAL',before:r445.corrections,final:'4:2'});
+    else if(!stored.state)MEM.state=next445;
+    else MEM.state.r445KiaLgSettlementAudit={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
   }
   MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();return MEM.state;
 }
