@@ -8919,3 +8919,4 @@ export default {
     if(ctx?.waitUntil)ctx.waitUntil(work);else await work;
   }
 };
+// R401 Cloudflare automatic redeploy trigger: 2026-10-12 KST; no application logic or persisted data changed.
