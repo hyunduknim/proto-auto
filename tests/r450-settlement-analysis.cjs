@@ -16,7 +16,7 @@ const analysis=fn('expDS')({sport:'축구'},row);assert.match(analysis,/배당�
 const detailed=fn('expDSFull')({sport:'축구'},row);assert.match(detailed,/100경기 중 오버 60회/);assert.match(detailed,/60\.0%/);assert.match(detailed,/배당이 어떻게/);assert.doesNotMatch(detailed,/플러스 기대값 확정|적중확률 62\.5/);
 const frozen={...row,precision:{...row.precision,observedAt:'2026-10-12T00:00:00Z',ageSec:0}};assert.equal(fn('expDQuality')(frozen).fresh,false,'elapsed freshness is derived from actual timestamp, not frozen ageSec');
 assert.equal(fn('expDQuality')({...row,choices:[{label:'승',odds:3},{label:'패',odds:3}]}).valid,false,'underround domestic quotes require recheck');
-const body=fn('expBody')({no:1,pick:'오버',odds:1.6,sport:'축구',marketRows:[{...row,no:2,marked:false},row]});assert.ok(body.indexOf('#1')<body.indexOf('#2'));assert.match(body,/다른 배당/);
+const body=fn('expBody')({no:1,pick:'오버',odds:1.6,sport:'축구',marketRows:[{...row,no:2,marked:false},row]});assert.ok(body.indexOf('#1')<body.indexOf('#2'));assert.match(body,/전체 배당 비교/);
 console.log('PASS R450 health: fresh empty checks, stale detection, round scope, 30 sec cadence, live odds backoff. Analysis: break-even, margin, samples, freshness, selected-first, no state mutation.');
 
 worker.liveFixture={markets:[m],resultAudit:{ok:false,errors:['timeout']}};
