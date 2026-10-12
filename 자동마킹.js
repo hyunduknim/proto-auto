@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R454-ODDS-TIMELINE-DETAIL";
-const BUILD_ID = "proto-r454-20261013-odds-timeline-detail";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R454C-ODDS-TIMELINE-DETAIL";
+const BUILD_ID = "proto-r454c-20261013-odds-timeline-detail";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -7166,7 +7166,7 @@ function expEasyData(m,r){
   if(selected&&selected.label!==leader.label)title='현재 마킹은 '+selected.label+' · 배당은 '+leader.label+' 쪽';
   else if(gap<.02)title='양쪽 차이가 작아 쉽게 고르기 어렵습니다';
   else title='배당은 '+leader.label+' 쪽을 더 높게 봅니다';
-  reasons.push(String(leader.label)+' '+expDOdds(leader.odds)+'가 '+ranked.slice(1).map(c=>String(c.label)+' '+expDOdds(c.odds)).join(' / ')+'보다 낮게 책정됐습니다.');
+  reasons.push(gap<.02?'앞선 두 선택의 배당 차이가 작아, 한쪽이 더 좋다고 보기 어렵습니다.':String(leader.label)+' '+expDOdds(leader.odds)+'가 '+ranked.slice(1).map(c=>String(c.label)+' '+expDOdds(c.odds)).join(' / ')+'보다 낮게 책정됐습니다.');
   const target=selected||leader,a=(r.precision?.choices||[]).find(x=>String(x.label)===String(target.label))||{},first=Number(a.openingOdds)>1?Number(a.openingOdds):Number(a.firstObservedOdds);
   if(Number.isFinite(first)&&first>1&&Math.abs(first-Number(target.odds))>.005)reasons.push(String(target.label)+' 배당이 '+expDOdds(first)+' → '+expDOdds(target.odds)+(Number(target.odds)<first?'로 내려왔습니다.':'로 올라왔습니다.'));
   if(pastLeader){
@@ -7183,7 +7183,7 @@ function expEasyPrices(m,r){
  if(!d.cs.length)return '<div class="edFlowEmpty">비교할 배당이 없습니다.</div>';
  const cards=d.cs.map((c,i)=>{const a=(p.choices||[]).find(x=>String(x.label)===String(c.label))||{},opening=Number(a.openingOdds),first=opening>1?opening:Number(a.firstObservedOdds),current=Number(c.odds),delta=first>1?current-first:null,down=delta!==null&&delta<-.005,up=delta!==null&&delta>.005,picked=r.marked&&String(c.label)===String(r.finalPick),share=d.q.valid?(100/current/d.q.sum).toFixed(1)+'%':'비교 보류';
  const change=delta===null?'이전 기록 없음':Math.abs(delta)<.005?'변화 없음':Math.abs(delta).toFixed(2)+'배 '+(down?'내려감':'올라감');
- return '<div class="edPriceCard edTone'+i+(picked?' picked':'')+'"><div class="edPriceLabel"><b>'+e(c.label)+'</b><span>'+e(picked?'현재 마킹':d.leader?.label===c.label?'배당상 앞섬':'비교 선택')+'</span></div><strong class="edPriceBig">'+e(expDOdds(current))+'</strong><div class="edPriceShare">배당으로 본 가능성 <b>'+e(share)+'</b></div><div class="edPriceMove '+(down?'down':up?'up':'flat')+'">'+(down?'↘ ':up?'↗ ':'→ ')+e(change)+'</div><small>'+e(first>1?(opening>1?'시작 배당 ':'처음 확인 ')+expDOdds(first):'이전 배당이 없어 변화 비교는 보류합니다.')+'</small></div>';
+ return '<div class="edPriceCard edTone'+i+(picked?' picked':'')+'"><div class="edPriceLabel"><b>'+e(c.label)+'</b><span>'+e(picked?'현재 마킹':d.leader?.label===c.label?(d.gap<.02?'차이 작음':'배당상 앞섬'):'비교 선택')+'</span></div><strong class="edPriceBig">'+e(expDOdds(current))+'</strong><div class="edPriceShare">배당으로 본 가능성 <b>'+e(share)+'</b></div><div class="edPriceMove '+(down?'down':up?'up':'flat')+'">'+(down?'↘ ':up?'↗ ':'→ ')+e(change)+'</div><small>'+e(first>1?(opening>1?'시작 배당 ':'처음 확인 ')+expDOdds(first):'이전 배당이 없어 변화 비교는 보류합니다.')+'</small></div>';
  }).join('');
  const gap=d.q.valid&&d.ranked.length>1?Math.abs(100/Number(d.ranked[0].odds)/d.q.sum-100/Number(d.ranked[1].odds)/d.q.sum):null;
  const explain=gap===null?'배당 자료가 맞는지 확인 후 비교합니다.':gap<2?'앞선 두 선택의 차이가 작습니다. 배당만으로 방향을 고르기 어렵습니다.':String(d.leader.label)+' 쪽이 앞섭니다. 100칸 막대로 보면 다음 선택과 약 '+gap.toFixed(1)+'칸 차이입니다.';
@@ -7219,7 +7219,7 @@ function expEasyCheck(m,r){
  let title='배당 비교 확인 보류',tone='wait',lines=[];
  if(valid){
   if(d.selected){title=d.gap<.02?'마킹과 배당 방향 · 선택 간 차이가 작음':d.selected.label===d.leader.label?'마킹과 배당 방향 · 같은 쪽':'마킹과 배당 방향 · 다른 쪽';tone=d.gap<.02?'wait':d.selected.label===d.leader.label?'agree':'different';lines.push('현재 '+d.selected.label+' '+expDOdds(d.selected.odds)+' 선택 · 배당이 앞서는 쪽은 '+d.leader.label+' '+expDOdds(d.leader.odds)+'입니다.');}
-  else{title='배당 방향 확인 · '+d.leader.label;tone=d.gap<.02?'wait':'agree';lines.push('이 시장에는 현재 마킹이 없습니다. 배당으로는 '+d.leader.label+' 쪽이 앞섭니다.');}
+  else{title=d.gap<.02?'배당 방향 확인 · 선택 간 차이가 작음':'배당 방향 확인 · '+d.leader.label;tone=d.gap<.02?'wait':'agree';lines.push(d.gap<.02?'이 시장에는 현재 마킹이 없습니다. 앞선 두 선택의 배당이 비슷해 어느 한쪽이 낫다고 보기 어렵습니다.':'이 시장에는 현재 마킹이 없습니다. 배당으로는 '+d.leader.label+' 쪽이 앞섭니다.');}
   if(d.comparable&&target){const past=d.records.find(x=>x.c.label===target.label)?.sample;if(past)lines.push('비슷한 배당의 지난 '+past.n+'경기 중 '+target.label+' '+past.k+'회 ('+(past.rate*100).toFixed(1)+'%)였습니다. 지난 기록이며 이번 경기의 승률은 아닙니다.');}
   else lines.push('비교할 지난 경기 기록이 부족합니다. 배당 방향만 확인했습니다.');
  }

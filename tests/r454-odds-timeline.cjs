@@ -22,3 +22,5 @@ const one=fn('expEasyTimeline')(game,{...row,precision:{observedAt:now}});assert
 const none=fn('expEasyTimeline')(game,{...row,precision:{history:[{at:'bad',prices:[]},{at:'2099-01-01',prices:[{label:'오버',odds:1.8}]}]}});assert.match(none,/확인 시각이 있는 배당 기록이 없습니다/);
 assert.equal(JSON.stringify(game),before);
 console.log('PASS R454: same/opposite/missing marking evidence, actual timestamps, precise per-choice moves, no fabricated history');
+
+const tied={...row,marked:false,choices:[{label:'승',odds:1.8},{label:'패',odds:1.8}]};assert.match(fn('expEasyCheck')(game,tied),/차이가 작음/);assert.doesNotMatch(fn('expEasyCheck')(game,tied),/앞섭니다/);assert.doesNotMatch(fn('expEasyData')(game,tied).reasons.join(' '),/보다 낮게/);
