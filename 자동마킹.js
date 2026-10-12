@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R468-ODDS-WINRATE-RED";
-const BUILD_ID = "proto-r468-20261013-odds-winrate-red";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R469-MANUAL-RESULT-FIX";
+const BUILD_ID = "proto-r469-20261013-manual-result-fix";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5999,6 +5999,19 @@ function r446RawFinal(m,chosen){
  if(home===0&&away===0&&(chosen.sport==='농구'||/KBL|NBA|WKBL/i.test(String(chosen.league||''))))return null;
  return {score:home+':'+away,rank:r446VerifiedRank(m),source:m.resultSource};
 }
+/* R469: verified, exact-fixture stored finals are valid read-only evidence for
+ * post-start manual reviews even after the original settled market was archived.
+ * This NEVER changes the original bet, stored outcome, or settlement ledger.
+ */
+function r469ManualFinalEvidence(state,card,review){
+ const same=m=>String(m?.gmTs||'')===String(review.gmTs)&&
+  String(m.date||'')===String(card.date||'')&&
+  String(m.time||'').slice(0,5)===String(card.time||'').slice(0,5)&&
+  norm(m.home)===norm(card.home)&&norm(m.away)===norm(card.away);
+ return [...(state.settlementLedger||[]),...(state.settledCards?.rows||[])]
+  .filter(m=>m&&m.resultFinal===true&&same(m)&&
+   typeof m.resultSource==='string'&&m.resultSource.length>0);
+}
 function r430ManualSettlement(state,card,review){
  if(!review)return null;
  const fixture=(state.markets||[]).filter(m=>String(m.gmTs)===String(review.gmTs)&&gameSeed(m)===gameSeed(card));
@@ -6009,10 +6022,11 @@ function r430ManualSettlement(state,card,review){
   return {status:'결과확인필요',hit:null,reason:'수동변경한 시장 식별정보 불일치',source:'MARKET_CHANGED'};
  if(!validChoices(target).some(x=>String(x.label)===String(review.pick)))
   return {status:'결과확인필요',hit:null,reason:'수동 선택지가 해당 프로토 시장에 없음',source:'PICK_NOT_AVAILABLE'};
- if(fixture.some(m=>m.resultFinal&&m.settlementStatus==='적특'&&
+ const evidence=[...fixture,...r469ManualFinalEvidence(state,card,review)];
+ if(evidence.some(m=>m.resultFinal&&m.settlementStatus==='적특'&&
    /취소|연기|CANCEL|POSTPON/i.test(String(m.result||m.resultStatus||''))))
   return {status:'적특',hit:null,outcome:'적특',source:'VERIFIED_CANCELLED'};
- const scored=fixture.map(m=>r446RawFinal(m,target)).filter(Boolean)
+ const scored=evidence.map(m=>r446RawFinal(m,target)).filter(Boolean)
   .sort((a,b)=>b.rank-a.rank);
  let outcome=null,source=null,score=null,reason=null;
  if(scored.length){
@@ -6028,7 +6042,7 @@ function r430ManualSettlement(state,card,review){
  if(!outcome){
   // Result-code fallback only for a FINAL of the exact family + line + period.
   const allowed=target.marketFamily==='TOTAL'?['언더','오버']:['승','무','패'];
-  const same=fixture.filter(m=>m.resultFinal&&r446VerifiedRank(m)&&
+  const same=evidence.filter(m=>m.resultFinal&&r446VerifiedRank(m)&&
     m.marketFamily===target.marketFamily&&String(m.line??'')===String(target.line??'')&&
     (!target.period||!m.period||String(target.period)===String(m.period))&&allowed.includes(m.result))
    .sort((a,b)=>r446VerifiedRank(b)-r446VerifiedRank(a)||Number(b.no===target.no)-Number(a.no===target.no));
@@ -6042,7 +6056,7 @@ function r430ManualSettlement(state,card,review){
    reason='검증된 동일 시장·기준점의 공식 결과코드로 재정산';
   }
  }
- if(!outcome)return {status:'정산대기',hit:null,reason:'해당 시장 공식 최종결과 확인 중',source:null};
+ if(!outcome)return {status:'정산대기',hit:null,reason:'검증된 최종점수 또는 동일시장 최종결과 미수신',source:null};
  const hit=outcome===review.pick;
  return {status:hit?'적중':'낙첨',hit,outcome,source,score,
   marketNo:target.no,line:target.line,reason};

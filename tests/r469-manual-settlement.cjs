@@ -1,0 +1,21 @@
+"use strict";
+const fs=require("node:fs"),assert=require("node:assert/strict");
+const w=fs.readFileSync("자동마킹.js","utf8");
+const core=w.replace("export class ProtoStateDO","class ProtoStateDO").replace(/export default \{[\s\S]*$/,"");
+const api=new Function("URL","structuredClone",core+"\nreturn {r430ManualSettlement,marketIdentity,pendingSettlementMarkets,INDEX};")(undefined,structuredClone);
+new Function(api.INDEX.split("<script>")[1].split("</script>")[0]);
+const common={gmTs:"260121",date:"2026-10-13",time:"01:00",sport:"축구",league:"ACLE",home:"홈",away:"원정",game:"홈 vs 원정",period:"FULL"};
+const target={...common,no:7901,market:"언더오버",marketFamily:"TOTAL",line:2.5,choices:[{label:"언더",odds:1.9},{label:"오버",odds:1.9}]};
+const result={...common,no:7900,market:"일반승",marketFamily:"MONEYLINE",resultFinal:true,result:"패",hit:true,settlementStatus:"적중",score:"1:3",resultSource:"BETMAN_OFFICIAL_RESULT",resultVerifiedAt:"2026-10-13T02:00:00Z"};
+const review={gmTs:"260121",no:7901,pick:"오버",marketId:api.marketIdentity(target)};
+function test(extra,expected){assert.equal(api.r430ManualSettlement({markets:[target],...extra},target,review).status,expected);}
+test({settlementLedger:[result]},"적중");
+test({settledCards:{rows:[result]}},"적중");
+test({settlementLedger:[{...result,gmTs:"260122"}]},"정산대기");
+test({settlementLedger:[{...result,home:"다른팀"}]},"정산대기");
+test({settlementLedger:[{...result,resultSource:"UNKNOWN"}]},"정산대기");
+test({settlementLedger:[{...result,score:null}]},"정산대기");
+test({settlementLedger:[{...result,score:"0:1"}]},"낙첨");
+test({settlementLedger:[result],settledCards:{rows:[{...result,score:"2:0"}]}},"결과확인필요");
+assert.equal(api.pendingSettlementMarkets({markets:[{...target,date:"2025-10-13",marked:true,representativeSelected:true,finalPick:"오버"}]}).length,1);
+console.log("R469 PASS: archived manual score settlement, no unverified/cross-fixture inference, conflict detection, normal poll");
