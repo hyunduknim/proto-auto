@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R440-0110KST-EVIDENCE";
-const BUILD_ID = "proto-r440-20261012-0130kst-independent-team-model";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R440-0100KST-EVIDENCE";
+const BUILD_ID = "proto-r440-20261012-0100kst-independent-team-model";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
