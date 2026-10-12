@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R460-7845-VERIFIED-ALL-VIEWS";
-const BUILD_ID = "proto-r460-20261013-7845-verified-all-views";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R461-SETTLEMENT-INTEGRITY";
+const BUILD_ID = "proto-r461-20261013-settlement-integrity";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5471,16 +5471,18 @@ function resultMatchesMarket(rr,m){
     if(rr.no&&Number(m.no)===Number(rr.no))return true;
     return sameOfficialGame(rr,m);
   }
-  const fractionalHandicapScore=rr.family==="HANDICAP"&&scoreHasFraction(rr.score);
+  // Only an unadjusted moneyline pair can cross a market boundary. Integer
+  // handicap scores are adjusted too (e.g. 0:0 with H-1 becomes -1:0).
+  const rawCrossMarketScore=rr.family==="MONEYLINE"&&!!resultScorePairText(rr.score)&&!scoreHasFraction(rr.score);
   // R251/R283: 같은 프로토번호라도 핸디가 이미 반영된 소수점 결과점수는 다른 시장으로 재사용하지 않는다.
   if(rr.no&&Number(m.no)===Number(rr.no)){
     if(rr.family===m.marketFamily||rr.family==="OTHER")return true;
-    if(rr.score&&!fractionalHandicapScore)return true;
+    if(rawCrossMarketScore)return true;
   }
   const sameGame=sameOfficialGame(rr,m);if(!sameGame)return false;
   if(rr.family==="OTHER"||rr.family===m.marketFamily)return true;
   // 일반승 결과행의 원점수는 같은 경기의 풀게임 핸디/언오버에 재사용 가능하지만, 소수점 핸디 결과점수는 교차시장 재사용 금지.
-  return !!rr.score&&!fractionalHandicapScore;
+  return rawCrossMarketScore;
 }
 function scoreFallbackDelayMs(m){
   const s=String(m?.sport||"");
@@ -7679,7 +7681,7 @@ function r366BackfillZentotoScores(state,rows,gmTs){
       if(full){const [h,a]=full.split(":").map(Number);if(h+a===Number(r.score))return full;}
       return "합계 "+r.score+"점";
     }
-    if(r.marketFamily==="HANDICAP"&&/^\d{1,3}(?:\.\d+)?:\d{1,3}(?:\.\d+)?$/.test(String(r.score||""))){
+    if(r.marketFamily==="HANDICAP"&&/^-?\d{1,3}(?:\.\d+)?:-?\d{1,3}(?:\.\d+)?$/.test(String(r.score||""))){
       if(full&&Number.isFinite(Number(r.line))){
         const [h,a]=full.split(":").map(Number),[ah,aa]=String(r.score).split(":").map(Number);
         if(Math.abs(h+Number(r.line)-ah)<.001&&Math.abs(a-aa)<.001)return full;
@@ -7695,6 +7697,7 @@ function r366BackfillZentotoScores(state,rows,gmTs){
   ];
   let changed=0;
   for(const r of valid){
+    if(r461ZentotoFixtureConflict(valid,r,gmTs))continue;
     const next=finalScore(r);if(!next)continue;
     for(const list of lists)for(const m of list.data){
       if(!m?.resultFinal||String(m.gmTs||"")!==String(gmTs)||
@@ -7720,6 +7723,27 @@ function r366BackfillZentotoScores(state,rows,gmTs){
 // R365: Zentoto public full-time settlement is checked before slower official
 // outcome records. Never use a live/half-time score, a renamed fixture, or a
 // different market's adjusted score to settle a stored Proto selection.
+function r461ZentotoFixtureConflict(rows,m,gmTs){
+  const same=rows.filter(r=>r&&r.source==='ZENTOTO_LEGACY_FULLTIME'&&r.terminal===true&&r.fullTime===true&&
+    String(r.gmTs)===String(gmTs)&&r.date===m.date&&String(r.time).slice(0,5)===String(m.time).slice(0,5)&&
+    norm(r.home)===norm(m.home)&&norm(r.away)===norm(m.away));
+  const raw=same.filter(r=>r.marketFamily==='MONEYLINE'&&/^\d{1,3}:\d{1,3}$/.test(String(r.score||'')));
+  if(new Set(raw.map(r=>r.score)).size>1)return true;
+  const exact=same.filter(r=>Number(r.no)===Number(m.no)&&r.marketFamily===m.marketFamily);
+  if(new Set(exact.map(r=>String(r.score)+'|'+String(r.line))).size>1)return true;
+  if(!raw.length)return false;
+  const [h,a]=raw[0].score.split(':').map(Number);
+  // A volleyball set score and a points total measure different units.
+  if(scoreUnitMismatch(m,{home:h,away:a}))return false;
+  return exact.some(r=>{
+    if(r.marketFamily==='TOTAL'&&/^\d{1,3}$/.test(String(r.score||'')))return h+a!==Number(r.score);
+    if(r.marketFamily==='HANDICAP'&&r.line!=null&&r.line!==''&&Number.isFinite(Number(r.line))){
+      const pair=String(r.score||'').match(/^(-?\d{1,3}(?:\.\d+)?)\s*:\s*(-?\d{1,3}(?:\.\d+)?)$/);
+      return !!pair&&(Math.abs(h+Number(r.line)-Number(pair[1]))>.001||a!==Number(pair[2]));
+    }
+    return false;
+  });
+}
 function r365ApplyZentotoResults(state,rows,gmTs){
   const audit={source:"ZENTOTO_LEGACY_FULLTIME",at:nowIso(),gmTs,
     checked:Array.isArray(rows)?rows.length:0,matched:0,settled:0,
@@ -7728,7 +7752,7 @@ function r365ApplyZentotoResults(state,rows,gmTs){
   if(!Array.isArray(rows)||rows.length>1000){rejects("MALFORMED_SOURCE_BATCH");return audit;}
   const byNo=new Map();
   for(const r of rows){
-    if(!r||r.source!=="ZENTOTO_LEGACY_FULLTIME"||!r.terminal||!r.fullTime||
+    if(!r||r.source!=="ZENTOTO_LEGACY_FULLTIME"||r.terminal!==true||r.fullTime!==true||
       !/^\d{6}$/.test(String(r.gmTs||""))||String(r.gmTs)!==String(gmTs)||
       !Number.isInteger(Number(r.no))||Number(r.no)<=0){rejects("INVALID_SOURCE_OR_ROUND");continue;}
     if(byNo.has(Number(r.no))){byNo.set(Number(r.no),null);rejects("DUPLICATE_PROTO_NUMBER");continue;}
@@ -7745,9 +7769,10 @@ function r365ApplyZentotoResults(state,rows,gmTs){
       rejects("TEAM_IDENTITY_MISMATCH");continue;
     }
     if(["TOTAL","HANDICAP"].includes(m.marketFamily)&&
-      (!Number.isFinite(Number(m.line))||Math.abs(Number(m.line)-Number(r.line))>.001)){
+      (num(m.line)==null||num(r.line)==null||Math.abs(Number(m.line)-Number(r.line))>.001)){
       rejects("BET_LINE_MISMATCH");continue;
     }
+    if(r461ZentotoFixtureConflict(rows,m,gmTs)){rejects("CONFLICTING_FIXTURE_FINAL");continue;}
     let outcome=null,score=null;
     if(m.marketFamily==="TOTAL"){
       if(!/^\d{1,3}$/.test(String(r.score||""))){rejects("NO_FULLTIME_TOTAL");continue;}
@@ -7755,11 +7780,11 @@ function r365ApplyZentotoResults(state,rows,gmTs){
       if(z===0){rejects("TOTAL_PUSH_NEEDS_RULE_VERIFICATION");continue;}
       outcome=z>0?"오버":"언더";
     }else{
-      const matches=String(r.score||"").match(/^(\d{1,3}(?:\.\d+)?)\s*:\s*(\d{1,3}(?:\.\d+)?)$/);
+      const matches=String(r.score||"").match(/^(-?\d{1,3}(?:\.\d+)?)\s*:\s*(-?\d{1,3}(?:\.\d+)?)$/);
       if(!matches){rejects("NO_FULLTIME_SCORE");continue;}
       const h=Number(matches[1]),away=Number(matches[2]);
       if(m.marketFamily==="MONEYLINE"){
-        if(!Number.isInteger(h)||!Number.isInteger(away)){rejects("NONINTEGER_FULLTIME_SCORE");continue;}
+        if(!Number.isInteger(h)||!Number.isInteger(away)||h<0||away<0){rejects("NONINTEGER_FULLTIME_SCORE");continue;}
         score=h+":"+away;
       }else{
         // Zentoto's H± market rows already display the adjusted score.
@@ -7814,6 +7839,7 @@ function r380ApplyZentotoFixtureFinals(state,rows,gmTs){
     m.marked&&m.representativeSelected&&!m.resultFinal&&started(m)&&settlementAllowed(m)&&
     ["TOTAL","HANDICAP"].includes(m.marketFamily));
   for(const m of selected){
+    if(r461ZentotoFixtureConflict(rows,m,gmTs)){audit.skippedAmbiguous++;continue;}
     const candidates=byFixture.get(key(m))||[];
     // Require exactly one original market score; duplicates are ambiguous.
     if(candidates.length!==1){if(candidates.length>1)audit.skippedAmbiguous++;continue;}
@@ -7850,12 +7876,11 @@ const r381ZenStrip = x => String(x||"").replace(/<script\b[^>]*>[\s\S]*?<\/scrip
 function r381ParseZentoto(html){
   if(typeof html!=="string"||html.length<100)return [];
   const blocks=html.split(/<div class="game row col-xs-12">/);
-  const results=[],seen=new Set();
+  const results=[];
   for(const block of blocks.slice(1)){
     const noMatch=block.match(/<p class="proto_uid">\s*(\d{3,6})\s*<\/p>/);
     if(!noMatch)continue;
     const no=Number(noMatch[1]);
-    if(seen.has(no))continue;
     const status=block.match(/<p class="game_state([^"]*)"[^>]*>\s*([^<]*)<\/p>/);
     if(!status||!/\bstate_finish\b/.test(status[1])||r381ZenStrip(status[2])!=="경기종료")continue;
     const round=block.match(/(?:game_round|round)=["']?(\d{6})/i)||
@@ -7875,9 +7900,9 @@ function r381ParseZentoto(html){
     const family=total?"TOTAL":handicap?"HANDICAP":"MONEYLINE",line=total?Number(total[1]):handicap?Number(handicap[1]):null;
     // Explicit market identity, FULLTIME outcome, no totals guessed from handicap-adjusted scores.
     if(family==="TOTAL"&&!/^\d{1,3}$/.test(score))continue;
-    if(family!=="TOTAL"&&!/^\d{1,3}(?:\.\d)?\s*:\s*\d{1,3}(?:\.\d)?$/.test(score))continue;
+    if(family==="MONEYLINE"&&!/^\d{1,3}\s*:\s*\d{1,3}$/.test(score))continue;
+    if(family==="HANDICAP"&&!/^-?\d{1,3}(?:\.\d+)?\s*:\s*-?\d{1,3}(?:\.\d+)?$/.test(score))continue;
     if(family==="MONEYLINE"&&!/\bwdl=["']W["']/.test(block)&&!/\bwdl=["']D["']/.test(block))continue;
-    seen.add(no);
     results.push({source:"ZENTOTO_LEGACY_FULLTIME",gmTs:round[1],no,
       date:datetime[1],time:datetime[2],home,away,marketFamily:family,line,
       score:score.replace(/\s+/g,""),terminal:true,fullTime:true});
@@ -11335,6 +11360,7 @@ export default {
   }
 };
 // R401 Cloudflare automatic redeploy trigger: 2026-10-12 KST; no application logic or persisted data changed.
+
 
 
 

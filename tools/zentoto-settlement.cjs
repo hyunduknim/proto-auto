@@ -8,12 +8,11 @@ const strip = x => String(x||"").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,"
 function parseZentoto(html){
   if(typeof html!=="string"||html.length<100)return [];
   const blocks=html.split(/<div class="game row col-xs-12">/);
-  const results=[],seen=new Set();
+  const results=[];
   for(const block of blocks.slice(1)){
     const noMatch=block.match(/<p class="proto_uid">\s*(\d{3,6})\s*<\/p>/);
     if(!noMatch)continue;
     const no=Number(noMatch[1]);
-    if(seen.has(no))continue;
     const status=block.match(/<p class="game_state([^"]*)"[^>]*>\s*([^<]*)<\/p>/);
     if(!status||!/\bstate_finish\b/.test(status[1])||strip(status[2])!=="경기종료")continue;
     const round=block.match(/(?:game_round|round)=["']?(\d{6})/i)||
@@ -33,9 +32,9 @@ function parseZentoto(html){
     const family=total?"TOTAL":handicap?"HANDICAP":"MONEYLINE",line=total?Number(total[1]):handicap?Number(handicap[1]):null;
     // Explicit market identity, FULLTIME outcome, no totals guessed from handicap-adjusted scores.
     if(family==="TOTAL"&&!/^\d{1,3}$/.test(score))continue;
-    if(family!=="TOTAL"&&!/^\d{1,3}(?:\.\d)?\s*:\s*\d{1,3}(?:\.\d)?$/.test(score))continue;
+    if(family==="MONEYLINE"&&!/^\d{1,3}\s*:\s*\d{1,3}$/.test(score))continue;
+    if(family==="HANDICAP"&&!/^-?\d{1,3}(?:\.\d+)?\s*:\s*-?\d{1,3}(?:\.\d+)?$/.test(score))continue;
     if(family==="MONEYLINE"&&!/\bwdl=["']W["']/.test(block)&&!/\bwdl=["']D["']/.test(block))continue;
-    seen.add(no);
     results.push({source:"ZENTOTO_LEGACY_FULLTIME",gmTs:round[1],no,
       date:datetime[1],time:datetime[2],home,away,marketFamily:family,line,
       score:score.replace(/\s+/g,""),terminal:true,fullTime:true});
@@ -43,3 +42,4 @@ function parseZentoto(html){
   return results;
 }
 module.exports={parseZentoto};
+
