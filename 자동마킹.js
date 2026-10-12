@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R443-MANUAL-RESULT";
-const BUILD_ID = "proto-r443-20261012-manual-result";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R444-MANUAL-STATS";
+const BUILD_ID = "proto-r444-20261012-manual-stats";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5745,6 +5745,77 @@ function r443Repair7804(state){
  state.updatedAt=nowIso();return {changed:true,before};
 }
 
+// R444: exact-fixture corroborated KBO final 12 Oct, LOTTE 7 : DOOSAN 4.
+// https://biz.chosun.com/sports/baseball/2026/10/12/GI2GENTCGY4TMMZUHBSDIOJVGQ/
+// Never change a historical selection, quote or evaluation without source proof.
+function r444IsDoosanLotte(m){
+ return String(m?.gmTs)==='260121'&&m.date==='2026-10-12'&&
+  String(m.time||'').slice(0,5)==='18:30'&&
+  (m.sport==='야구'||/KBO/i.test(String(m.league||'')))&&
+  m.marketFamily==='TOTAL'&&norm(m.home).includes('두산')&&
+  norm(m.away).includes('롯데')&&
+  Number.isFinite(Number(m.line))&&Number(m.line)>0&&
+  !/(전반|후반|이닝|\b[1-9]회|first|half)/i.test([m.marketLabel,m.market,m.segment].join(' '));
+}
+function r444RepairDoosanLotte(state){
+ const candidates=(state.markets||[]).filter(m=>[7780,7784].includes(Number(m.no))&&r444IsDoosanLotte(m));
+ if(!candidates.some(m=>Number(m.no)===7780&&Number(m.line)===7.5))
+  return {changed:false,reason:'VERIFIED_7780_7_5_NOT_IN_CURRENT_STATE'};
+ if(new Set(candidates.map(m=>String(m.no))).size!==candidates.length)
+  return {changed:false,reason:'DUPLICATE_MARKET_ID'};
+ if(candidates.some(m=>m.settlementStatus==='적특'&&/취소|연기/.test(String(m.result||''))))
+  return {changed:false,reason:'VOID_CONFLICT_REQUIRES_REVIEW'};
+ let repairs=[];
+ for(const m of candidates){
+  // Tied totals without market push rules must not be guessed.
+  if(Number(m.line)===11)continue;
+  const result=11>Number(m.line)?'오버':'언더';
+  const selected=!!(m.marked&&m.representativeSelected&&['오버','언더'].includes(m.finalPick));
+  const hit=selected?m.finalPick===result:null;
+  const status=selected?(hit?'적중':'낙첨'):null;
+  if(m.resultFinal&&m.result===result&&m.resultScoreText==='4:7'&&
+     (!selected||(m.hit===hit&&m.settlementStatus===status)))continue;
+  const before={no:m.no,score:m.resultScoreText??null,result:m.result??null,
+   hit:m.hit??null,status:m.settlementStatus??null,source:m.resultSource??null};
+  Object.assign(m,{resultFinal:true,result,resultScoreText:'4:7',homeScore:4,awayScore:7,
+   resultStatus:'경기종료',resultVerifiedAt:nowIso(),resultDerivedFromScore:true,
+   resultSource:'R444_CHOSUNBIZ_VERIFIED_KBO_FINAL',
+   resultResolutionSource:'DOOSAN4_LOTTE7_TOTAL11',
+   ...(selected?{hit,settlementStatus:status,settlementType:'NORMAL',
+     resultSpecialStatus:null}:{})});
+  if(selected){recordSettlementLedger(state,m);upsertSettledCard(state,m);}
+  repairs.push(before);
+ }
+ if(!repairs.length)return {changed:false,reason:'ALREADY_CORRECT'};
+ state.r444CorrectionAudit={at:nowIso(),gmTs:'260121',score:'4:7',
+  total:11,previous:repairs,source:'https://biz.chosun.com/sports/baseball/2026/10/12/GI2GENTCGY4TMMZUHBSDIOJVGQ/',
+  policy:'EVIDENCE_BACKED_EXACT_FIXTURE_ORIGINAL_PICKS_FROZEN'};
+ state.updatedAt=nowIso();return {changed:true,before:repairs};
+}
+// Show effective manual selections in the current user-facing accuracy,
+// preserving immutable original auto-pick records for historical statistics.
+function r444AppliedSummary(state,original,past,pending,active){
+ const gmTs=String(state.gmTs||''),byFixture=new Map();
+ for(const c of [...(active||[]),...(pending||[]),...(past||[])]){
+  if(!c||String(c.gmTs||'')!==gmTs||!c.pick)continue;
+  const key=[gmTs,c.date,c.time,norm(c.home),norm(c.away)].join('|');
+  const previous=byFixture.get(key);
+  if(!previous||(!previous.resultFinal&&c.resultFinal)||!!c.manualReview&&!previous.manualReview)
+    byFixture.set(key,c);
+ }
+ // A missing/empty view must never zero out archived statistics.
+ if(!byFixture.size)return {...original,mode:'ORIGINAL_NO_APPLIED_CARDS_AVAILABLE'};
+ const cards=[...byFixture.values()],done=cards.filter(c=>c.resultFinal&&
+  (typeof c.hit==='boolean'||c.settlementStatus==='적특'));
+ const hits=done.filter(c=>c.hit===true&&c.settlementStatus!=='적특').length,
+  misses=done.filter(c=>c.hit===false&&c.settlementStatus!=='적특').length,
+  voids=done.filter(c=>c.settlementStatus==='적특').length;
+ return {...original,representatives:cards.length,settled:done.length,
+  hits,misses,voids,accuracy:hits+misses?r3(hits/(hits+misses)*100):null,
+  mode:'LATEST_APPLIED_MANUAL_PER_FIXTURE',manualApplied:cards.filter(c=>c.manualReview).length,
+  manualSettled:done.filter(c=>c.manualReview).length};
+}
+
 /* R430: distinguish original historical wager and current applied user selection. */
 function r430ManualSettlement(state,card,review){
  if(!review)return null;
@@ -5819,7 +5890,7 @@ function publicState(state){
     pastGames=mergeCurrentPastCards(state,savedSettled).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m)).sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m)),
     pastPendingGames=pendingSettlementMarkets(state).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m))
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      .sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m));const originalSummary=summary(cur),appliedSummary=r444AppliedSummary(state,originalSummary,pastGames,pastPendingGames,activeGames);const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:appliedSummary,overallSummary:appliedSummary,originalAutoSummary:originalSummary,performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r444CorrectionAudit:state.r444CorrectionAudit||null,r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -10726,6 +10797,15 @@ async function r398LoadState(env){
         {type:'R443_SCORE_CORRECTION',no:7804,before:fixed443.before,after:'99:89'});
     else if(!stored.state)MEM.state=candidate443;
     else MEM.state.r443CorrectionAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
+  }
+  // R444 independently verified KBO final, backed up and committed once.
+  const next444=r398Clone(MEM.state),r444=r444RepairDoosanLotte(next444);
+  if(r444.changed){
+    if(stored.state&&ds&&typeof ds.transaction==='function')
+      await r398AtomicCommit(ds,MEM.state,next444,'BEFORE_R444_KBO_7780_7784_CORRECTION',
+        {type:'R444_KBO_FINAL_CORRECTION',before:r444.before,after:'4:7'});
+    else if(!stored.state)MEM.state=next444;
+    else MEM.state.r444CorrectionAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
   }
   MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();return MEM.state;
 }
