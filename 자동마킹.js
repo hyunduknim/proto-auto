@@ -1513,6 +1513,11 @@ async function r402CollectListedRoundSchedules(round,state){
  const current=String(round?.gmTs||'');
  const listed=[...new Set(round?.listed||[])].filter(x=>/^\d{6}$/.test(String(x))&&String(x)!==current);
  const candidates=listed.sort((a,b)=>Math.abs(Number(a)-Number(current))-Math.abs(Number(b)-Number(current))).slice(0,2);
+ // During the 2026-10-12 round-120 closing window, G101 may omit a still-scheduled fixture.
+ // Query this one known official round directly, not an invented neighboring 121 round.
+ if(current!=='260120'&&Date.now()>=Date.parse('2026-10-12T00:00:00+09:00')&&
+    Date.now()<Date.parse('2026-10-13T18:00:00+09:00')&&!candidates.includes('260120'))
+    candidates.unshift('260120');
  const results=await Promise.all(candidates.map(async gmTs=>{
    try{
      const raw=await fetchGameInfo(gmTs,5500),all=parseBetmanMarkets(raw,gmTs);
