@@ -1,9 +1,8 @@
 name: R364 compare ZenToto and WiseToto settlement freshness
+# FREE MODE: only manual GitHub Actions. Git push still deploys through independent Cloudflare Workers Builds.
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/r364-site-result-feasibility.yml']
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

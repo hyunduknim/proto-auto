@@ -1,8 +1,7 @@
 name: R323 JS single-file package
 
+# FREE MODE: only manual GitHub Actions. Git push still deploys through independent Cloudflare Workers Builds.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

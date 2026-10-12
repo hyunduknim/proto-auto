@@ -1,10 +1,7 @@
 name: Proto realtime settlement verification and deployment
 
+# FREE MODE: only manual GitHub Actions. Git push still deploys through independent Cloudflare Workers Builds.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

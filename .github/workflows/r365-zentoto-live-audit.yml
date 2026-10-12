@@ -1,10 +1,9 @@
 name: R365 Zentoto original HTML settlement parser check
+# FREE MODE: only manual GitHub Actions. Git push still deploys through independent Cloudflare Workers Builds.
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - '자동마킹.js'
-      - 'tools/zentoto-settlement.cjs'
+  workflow_dispatch:
+
+zentoto-settlement.cjs'
       - '.github/workflows/official-settlement-relay.yml'
       - '.github/workflows/r365-zentoto-live-audit.yml'
   workflow_dispatch:

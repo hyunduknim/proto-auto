@@ -1,9 +1,8 @@
 name: Inspect live marking schedule
+# FREE MODE: only manual GitHub Actions. Git push still deploys through independent Cloudflare Workers Builds.
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/inspect-marking-schedule.yml']
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:

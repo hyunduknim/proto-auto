@@ -1,10 +1,8 @@
 name: R323 official settlement audit - read only
+# FREE MODE: only manual GitHub Actions. Git push still deploys through independent Cloudflare Workers Builds.
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - '.github/workflows/r323-settlement-audit.yml'
-      - '자동마킹.js'
+  workflow_dispatch:
+
 permissions:
   contents: read
 jobs:
