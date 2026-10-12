@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R462-ODDS-HISTORY";
-const BUILD_ID = "proto-r462-20261013-odds-history";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R463-DATA-HISTORY-PRO";
+const BUILD_ID = "proto-r463-20261013-data-history-pro";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -7039,6 +7039,95 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .edDirection{padding:11px 12px;margin:10px 0;border:1px solid #607b98;border-left:4px solid #ffd77d;border-radius:9px;background:linear-gradient(135deg,#133243,#182b42);font-size:12px;line-height:1.6}.edDirection>b{color:#ffe1a1}.edDirection.agree{border-left-color:#6adbb8}.edDirection.agree>b{color:#94f0cb}.edDirection.different{border-left-color:#ffa282}.edDirection.different>b{color:#ffbfaa}.edDirection p{margin:6px 0;color:#d4e1ef}.edObserved{font-size:10px;color:#aac1d8;border-top:1px solid #395671;padding-top:6px;margin-top:7px}
 .edTimeline{padding:12px;border:1px solid #52779c;background:linear-gradient(130deg,#152d44,#222b46);border-radius:10px;margin:8px 0 12px}.edTimeline>b{font-size:13px;color:#bceaff}.edTimeline table{width:100%;border-collapse:collapse;min-width:330px;font-size:11px}.edTimeline th{background:#0c1c30;text-align:left;padding:9px;color:#ceeaff}.edTimeline th.edTone0,.edTimeline th.edTone1,.edTimeline th.edTone2{color:var(--odds-color)}.edTimeline td{padding:9px;border-bottom:1px solid #36516d;vertical-align:top;color:#cdddeb}.edTimeline td b{color:var(--odds-color)}.edTimeline td small{display:block;margin-top:4px;font-size:10px;color:#b8c8dc}.edTimeline small.down{color:#ffb6a0}.edTimeline small.up{color:#8fdbff}.edTimeline p{color:#b9cde0;font-size:10px;line-height:1.6;margin-bottom:0}
 .edHistory[data-history-key]{display:block}.edHistory{margin-top:14px;padding:14px;border:1px solid #355270;border-radius:12px;background:#101f30;min-width:0}.edHistory button,.edHistory select{background:#233e57;color:#e5faff;border:1px solid #55718a;border-radius:7px;padding:9px;font-size:12px}.edHistoryStage{display:flex;align-items:center;gap:10px;margin:12px 0}.edHistoryPrices{display:flex;gap:8px;margin:14px 0}.edHistoryPrices>span{flex:1;text-align:center;padding:10px 4px;background:#20364b;border-radius:8px}.edHistoryPrices small,.edHistoryPrices strong{display:block}.edHistoryPrices strong{font-size:23px;color:#ffe08e}.edHistoryBar{display:flex;height:22px;border-radius:5px;overflow:hidden;margin:12px 0}.edHistoryCounts{display:flex;justify-content:space-around;gap:8px;text-align:center;margin-bottom:14px}.edHistoryCounts b,.edHistoryCounts strong{display:block}.edHistoryCounts strong{font-size:12px;margin-top:5px}.edHistoryChips{display:flex;gap:3px;overflow-x:auto;margin:14px 0}.edHistoryChips span{flex-shrink:0;padding:5px;color:#071421;font-weight:800;font-size:12px}.edHistory table{width:100%;min-width:420px;border-collapse:collapse;margin-top:10px;font-size:12px}.edHistory td,.edHistory th{padding:9px 6px;border-bottom:1px solid #355270;text-align:center}.edHistory td small{display:block;color:#b8cbdc;margin-top:4px}.edHistoryNote,.edHistoryStatus,.edHistory p{font-size:12px;line-height:1.7;color:#b8cbdc}.edHistoryStatus{margin-top:8px}.edHistory .edFlowTitle{gap:8px}.edHistory .edCompareScroll{max-height:460px;overflow:auto}
+
+/* R463: Data-backed professional history module, 320px mobile -> 1250px desktop */
+.edHistory[data-history-key]{display:block!important;grid-template-columns:none!important;max-width:100%;min-width:0;padding:clamp(11px,2.2vw,22px);margin:15px 0;background:linear-gradient(135deg,#0c2942,#081a2d);border:1px solid #47718d;border-radius:16px;overflow:hidden!important;box-shadow:0 12px 28px #0005}
+.edHistory *{min-width:0;box-sizing:border-box}
+.edHistory .edFlowTitle{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid #35556b}
+.edHistory .edFlowTitle>b{font-size:16px;color:#ffdf93}
+.edHistory .edFlowTitle button{min-height:40px;border:1px solid #57a6ce;border-radius:10px;background:#125072;color:#eefbff;font-weight:900;padding:8px 13px}
+.edHistory :is(button,input,select):focus-visible{outline:3px solid #ffda8b;outline-offset:2px}
+.edHistory button:disabled{opacity:.45}
+.hhTitle{display:flex;align-items:start;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.hhTitle>div>small{color:#80d7fe;font-size:9px;letter-spacing:1px;font-weight:900}
+.hhTitle h4{margin:4px 0;color:#fff;font-size:clamp(18px,2vw,23px)}
+.hhTitle p{margin:4px 0;color:#adcbe1;font-size:11px}
+.hhTitle>span{border:1px solid #23816e;background:#0b4038;color:#a4ffd7;border-radius:999px;font-size:10px;padding:7px 10px;font-weight:900}
+.hhStage{margin:15px 0;display:flex;flex-wrap:wrap;gap:12px;align-items:end;padding:11px;background:#09253a;border:1px solid #416786;border-radius:12px}
+.hhStage .hhField{flex:1 1 160px}.hhStage>p{flex:1 1 155px;margin:0}
+.hhStage>p b,.hhStage>p small{display:block}.hhStage>p b{font-size:13px;color:#ffe29a}
+.hhStage>p small{font-size:10px;color:#aac9dd;margin-top:5px}
+.hhField{display:flex;flex-direction:column;gap:5px}
+.hhField span{font-size:11px;color:#abc9e0;font-weight:850}
+.edHistory .hhField select,.edHistory .hhField input{width:100%;max-width:100%;height:41px;font-size:13px;border-radius:8px;background:#142e46;border:1px solid #557a96;color:#fff;padding:7px 10px}
+.hhOddsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
+.hhOdds{background:#13334c;border:1px solid #456884;border-radius:12px;padding:12px 8px;text-align:center}
+.hhOdds small,.hhOdds span{font-size:11px;color:#b2d0e3;display:block}
+.hhOdds strong{color:#ffe3a1;display:block;font-size:clamp(21px,3vw,29px);font-variant-numeric:tabular-nums;margin:5px 0}
+.hhOdds strong em{font-style:normal;font-size:11px;margin-left:3px}
+.hhKpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0 17px}
+.hhKpi>div{background:#0a2033;border:1px solid #3c6180;border-radius:11px;padding:11px 9px}
+.hhKpi small,.hhKpi span{display:block;color:#b3cee0;font-size:10px;line-height:1.5}
+.hhKpi strong{display:block;font-size:clamp(15px,2.2vw,22px);color:#fff;font-variant-numeric:tabular-nums;margin:3px 0;overflow-wrap:anywhere}
+.hhStatistics{border:1px solid #45677f;border-radius:13px;padding:13px;background:#092033;margin:13px 0 20px}
+.hhStatistics>header,.hhSub{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.hhStatistics header b,.hhSub>b{color:#ffe3ad;font-size:15px}
+.hhStatistics header small,.hhSub small{color:#acc6d9;font-size:11px}
+.hhStack{display:flex;gap:2px;overflow:hidden;height:17px;border-radius:10px;background:#385167}
+.hhStack i{display:block;flex-shrink:0;min-width:0}
+.hhRateGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.hhRate>div:first-child{display:flex;justify-content:space-between;gap:6px;align-items:center}
+.hhRate b{color:var(--c);font-size:12px}
+.hhRate span{font-size:11px;color:#e6f1f8;font-variant-numeric:tabular-nums}
+.hhTrack{height:6px;background:#2c4053;border-radius:9px;overflow:hidden;margin:7px 0}
+.hhTrack i{height:100%;display:block;background:var(--c)}
+.hhRate small{font-size:10px;color:#a6bdcd;line-height:1.4}
+.hhFilters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:12px}
+.hhSearch{grid-column:span 2}
+.hhPager{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid #365773;border-bottom:1px solid #365773;padding:10px 0;margin:11px 0}
+.hhPager span{font-size:11px;color:#d7eaf9;font-variant-numeric:tabular-nums}
+.hhPager>div{display:flex;gap:8px}
+.edHistory .hhPager button{min-height:39px;padding:8px 11px;border:1px solid #527d9a;border-radius:8px;background:#19445e;color:#e8f8ff;font-size:11px;font-weight:800}
+.hhMobile{display:none}
+.hhDesktop{max-height:490px;overflow:auto;border-radius:11px;border:1px solid #345777;overscroll-behavior:contain}
+.edHistory .hhDesktop table{width:100%;min-width:560px;margin:0;border-collapse:separate;border-spacing:0;font-size:12px}
+.edHistory .hhDesktop th{position:sticky;top:0;background:#18364e;color:#cfeaff;white-space:nowrap;font-size:11px;z-index:1}
+.edHistory .hhDesktop td{font-variant-numeric:tabular-nums;color:#f2f8ff}
+.hhDesktop tr:nth-child(even){background:#10283d}
+.hhDesktop tr:hover{background:#1c3b50}
+.hhDesktop .hhNames{min-width:150px}
+.hhDesktop .hhWinner{background:#294f42;color:#ffe9a2;font-weight:900}
+.hhBadge{font-size:10px;font-weight:900;color:var(--c);border:1px solid var(--c);padding:3px 8px;border-radius:999px;display:inline-flex}
+.hhEmpty{text-align:center;padding:28px 10px;border:1px dashed #517790;border-radius:11px;color:#c5dced;font-size:12px}
+.hhFoot{background:#30261e;border:1px solid #8d6745;border-left:4px solid #ffce87;border-radius:10px;padding:13px;margin:15px 0 0}
+.hhFoot>b{color:#ffdeb3;font-size:13px}
+.hhFoot p{font-size:11px;line-height:1.7;color:#dccfbb;margin:7px 0 0;overflow-wrap:anywhere}
+.hhFoot a{color:#99d6ff}
+@media(min-width:1150px){.app{width:min(1250px,100%)}}
+@media(max-width:720px){
+.edHistory[data-history-key]{padding:11px;margin:10px 0}
+.hhKpi{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hhFilters{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hhSearch{grid-column:1/-1;grid-row:1}
+.hhDesktop{display:none}
+.hhMobile{display:grid;grid-template-columns:1fr;gap:10px}
+.hhGame{border:1px solid #426985;border-radius:13px;background:#0c293f;padding:12px;overflow:hidden}
+.hhGameTop,.hhGameBottom{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.hhGameTop>b{font-size:11px;color:#b7d3e8}
+.hhTeams{margin:13px 0;font-size:15px;font-weight:900;color:#fff;overflow-wrap:anywhere}
+.hhTeams small{font-size:11px;color:#a9c0d3;padding:0 4px}
+.hhGameOdds{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:6px}
+.hhGameOdds>div{border:1px solid #405e77;border-radius:8px;background:#132a41;padding:9px 5px;text-align:center}
+.hhGameOdds small,.hhGameOdds strong{display:block}
+.hhGameOdds small{font-size:10px;color:#b8cfdf}
+.hhGameOdds strong{font-size:16px;font-variant-numeric:tabular-nums;color:#ffe1aa;margin-top:4px}
+.hhGameOdds .hhWinner{border-color:#5cb39b;background:#1e413a}
+.hhGameOdds .hhWinner strong{color:#b1ffda}
+.hhGameBottom{margin-top:12px;padding-top:9px;border-top:1px solid #365872;color:#bbcee2;font-size:11px}
+.hhGameBottom b{color:#fff;font-size:12px}
+}
+@media(max-width:375px){.hhOddsGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.hhRateGrid{grid-template-columns:1fr}.hhPager>span{width:100%}}
+
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>쉽게 보는 배당 분석</b> · 어느 쪽을 더 높게 보는지 차트와 짧은 이유로 확인하세요. <small>일반승·핸디캡·언더오버 모두 비교 · 현재 마킹 시장 먼저 · 지난 결과는 펼쳐서 보기</small></div>
@@ -7281,18 +7370,99 @@ function expEasyPrices(m,r){
 
 const expHistoryCache=new Map();
 function expHistoryKey(m,r){return [m.gmTs||'',r.no,JSON.stringify((r.choices||[]).map(c=>[c.label,c.odds]))].join('|');}
-function expHistoryReport(d){
- const color=l=>l==='승'||l==='언더'?'#299bd0':l==='패'||l==='오버'?'#e36b68':'#97a6b5';
- const labels=['승','무','패','언더','오버','미확인'].filter(l=>l in d.counts&&(l!=='미확인'||d.counts[l]>0)),pct=l=>d.total?(100*d.counts[l]/d.total).toFixed(2):'0.00';
- const stages=Array.from({length:d.latestChange+1},(_,i)=>'<option value="'+i+'"'+(i===d.changeNo?' selected':'')+'>'+(i===0?'초기배당':i+'차 변경')+'</option>').join('');
- const prices=d.prices.map(p=>'<span><small>'+e(p.label)+'</small><strong>'+Number(p.odds).toFixed(2)+'</strong></span>').join('');
- const rows=d.rows.slice(0,100).map(r=>'<tr><td>'+e(r.year)+'<small>'+e(r.league)+'</small></td><td>'+e(r.home)+'<small>vs '+e(r.away)+'</small></td>'+r.prices.map(p=>'<td style="'+(p.label===r.result?'background:'+color(r.result)+';color:#071421;font-weight:800':'')+'">'+Number(p.odds).toFixed(2)+'</td>').join('')+'<td>'+e(r.score)+'<small style="color:'+color(r.result)+'">'+e(r.result)+'</small></td></tr>').join('');
- return '<label class="edHistoryStage">배당 선택 <select data-history-stage aria-label="배당 변경 이력">'+stages+'</select></label><div class="edHistoryPrices">'+prices+'</div><b>동일배당 전적 · '+d.total+'건</b><div class="edHistoryBar">'+labels.map(l=>'<i style="width:'+pct(l)+'%;background:'+color(l)+'"></i>').join('')+'</div><div class="edHistoryCounts">'+labels.map(l=>'<span style="color:'+color(l)+'"><b>'+e(l)+'</b><strong>'+d.counts[l]+'건 · '+pct(l)+'%</strong></span>').join('')+'</div>'+
- (d.total?'<div class="edHistoryChips" aria-label="조회 순서의 경기 결과">'+d.rows.slice(0,20).map(r=>'<span style="background:'+color(r.result)+'">'+e(r.result)+'</span>').join('')+'</div><b>과거 경기</b><div class="edCompareScroll"><table><thead><tr><th>연도 / 리그</th><th>홈 / 원정</th>'+d.prices.map(p=>'<th>'+e(p.label)+'</th>').join('')+'<th>'+(d.family==='TOTAL'?'합계':d.family==='HANDICAP'?'핸디 적용 점수':'점수')+'</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p>이 배당과 모두 일치하는 과거 경기 기록이 없습니다.</p>')+
- '<p class="edHistoryNote">출처: 젠토토 공개자료 · 모든 선택지의 배당이 같은 기록만 집계합니다. 리그 전체 · 조회 순서 표시'+(d.rows.length>100?' · 목록은 앞 100건':'')+'.<br>유사배당 '+d.excludedSimilar+'건, 동일 표시 중복 '+d.duplicateRowsExcluded+'건 제외. 경기별 날짜와 당시 기준값이 없어 개별 경기를 완전히 구분하거나 같은 기준값 여부를 확인할 수 없습니다. 지난 전적은 이번 경기의 예상 확률이 아닙니다.</p>';
+/* R463: source-backed, accessible odds history. Excludes unresolved outcomes from rates. */
+const hViews=new Map();
+function hView(key){
+ if(!hViews.has(key)){if(hViews.size>=90)hViews.delete(hViews.keys().next().value);
+  hViews.set(key,{search:'',result:'all',league:'all',year:'all',sort:'source',limit:12,page:0});}
+ return hViews.get(key);
+}
+function hColor(l){return l==='언더'||l==='승'?'#75d5ff':l==='오버'||l==='패'?'#ff9cab':l==='무'?'#f6d481':'#c4d1dd';}
+function hPct(n,d){return d?(100*n/d).toFixed(1):'0.0';}
+function hWilson(k,n){
+ if(!n)return null;
+ const p=k/n,z=1.95996398454,den=1+z*z/n,center=(p+z*z/(2*n))/den;
+ const rad=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/den;
+ return [(100*Math.max(0,center-rad)).toFixed(1),(100*Math.min(1,center+rad)).toFixed(1)];
+}
+function expHistoryReport(d,key){
+ const id=key||String(d.gmTs)+'|'+String(d.no),v=hView(id),all=Array.isArray(d.rows)?d.rows:[],
+  prices=Array.isArray(d.prices)?d.prices:[],counts=d.counts||{},
+  labels=[...new Set(prices.map(p=>String(p.label)).concat(Object.keys(counts).filter(l=>Number(counts[l])>0)))],
+  settled=labels.filter(l=>l!=='미확인'),
+  n=settled.reduce((sum,l)=>sum+Number(counts[l]||0),0),
+  unresolved=Number(counts['미확인']||0),
+  years=[...new Set(all.map(r=>String(r.year||'')).filter(Boolean))].sort().reverse(),
+  leagues=[...new Set(all.map(r=>String(r.league||'')).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'ko')),
+  num=x=>Number(x).toLocaleString('ko-KR'),
+  options=(rows,val)=>rows.map(x=>'<option value="'+e(x[0])+'"'+(String(val)===String(x[0])?' selected':'')+'>'+e(x[1])+'</option>').join(''),
+  select=(name,label,optionsArray,value)=>'<label class="hhField"><span>'+label+'</span><select data-history-filter="'+name+'">'+options(optionsArray,value)+'</select></label>';
+ const stages=Array.from({length:Math.min(101,Math.max(1,Number(d.latestChange||0)+1))},(_,i)=>[i,i===0?'초기배당':i+'차 변경']),
+  priceBoxes=prices.map(p=>'<div class="hhOdds"><small>'+e(p.label)+'</small><strong>'+Number(p.odds).toFixed(2)+'<em>배</em></strong><span>손익분기 '+hPct(1,Number(p.odds))+'%</span></div>').join(''),
+  chart=settled.map(l=>'<i style="width:'+hPct(Number(counts[l]||0),n)+'%;background:'+hColor(l)+'"></i>').join(''),
+  rates=settled.map(l=>{const count=Number(counts[l]||0),pct=hPct(count,n),ci=n>=10?hWilson(count,n):null;
+   return '<div class="hhRate" style="--c:'+hColor(l)+'"><div><b>'+e(l)+'</b><span>'+num(count)+'건 / '+pct+'%</span></div><div class="hhTrack"><i style="width:'+pct+'%"></i></div><small>'+
+    (ci?'단순 95% 표본 구간 '+ci[0]+'–'+ci[1]+'%':'표본 구간 미표시 (확인 '+num(n)+'건)')+'</small></div>';
+  }).join(''),
+  search=String(v.search||'').trim().toLocaleLowerCase('ko-KR');
+ const filtered=all.filter(r=>(v.result==='all'||r.result===v.result)&&(v.year==='all'||String(r.year)===v.year)&&
+  (v.league==='all'||r.league===v.league)&&(!search||[r.home,r.away,r.league,r.year,r.score,r.result].join(' ').toLocaleLowerCase('ko-KR').includes(search)));
+ if(v.sort==='recent'||v.sort==='old')filtered.sort((a,b)=>(Number(b.year)-Number(a.year))*(v.sort==='recent'?1:-1));
+ if(v.sort==='league')filtered.sort((a,b)=>String(a.league).localeCompare(String(b.league),'ko'));
+ const limit=[12,24,48].includes(Number(v.limit))?Number(v.limit):12,pages=Math.max(1,Math.ceil(filtered.length/limit));
+ v.page=Math.min(Math.max(0,Number(v.page)||0),pages-1);
+ const start=v.page*limit,visible=filtered.slice(start,start+limit),
+  outcome=r=>'<b class="hhBadge" style="--c:'+hColor(r.result)+'">'+e(r.result||'미확인')+'</b>',
+  priceCell=(r,p)=>{const x=(r.prices||[]).find(z=>z.label===p.label),n=Number(x?.odds);
+   return Number.isFinite(n)&&n>1?n.toFixed(2):'–';
+  },
+  mobile=visible.map((r,i)=>'<article class="hhGame"><div class="hhGameTop"><b>'+e(r.year)+' · '+e(r.league)+'</b>'+outcome(r)+'</div>'+
+   '<div class="hhTeams">'+e(r.home)+' <small>vs</small> '+e(r.away)+'</div>'+
+   '<div class="hhGameOdds">'+prices.map(p=>'<div class="'+(r.result===p.label?'hhWinner':'')+'"><small>'+e(p.label)+'</small><strong>'+priceCell(r,p)+'</strong></div>').join('')+'</div>'+
+   '<div class="hhGameBottom"><span>#'+(start+i+1)+'</span><b>경기결과 '+e(r.score||'미제공')+'</b></div></article>').join(''),
+  desktop=visible.map((r,i)=>'<tr><td>'+(start+i+1)+'</td><td>'+e(r.year)+'<small>'+e(r.league)+'</small></td>'+
+   '<td class="hhNames">'+e(r.home)+'<small>vs '+e(r.away)+'</small></td>'+
+   prices.map(p=>'<td class="'+(r.result===p.label?'hhWinner':'')+'">'+priceCell(r,p)+'</td>').join('')+
+   '<td>'+e(r.score||'-')+'<small>'+outcome(r)+'</small></td></tr>').join(''),
+  pager='<div class="hhPager"><span>검색 '+num(filtered.length)+'건 · '+(visible.length?start+1:0)+'–'+(start+visible.length)+' · '+(v.page+1)+' / '+pages+'페이지</span>'+
+   '<div><button type="button" data-history-page="-1"'+(v.page===0?' disabled':'')+'>← 이전</button>'+
+   '<button type="button" data-history-page="1"'+(v.page===pages-1?' disabled':'')+'>다음 →</button></div></div>';
+ const controls='<div class="hhFilters"><label class="hhField hhSearch"><span>팀 · 리그 · 점수 검색</span><input data-history-search type="search" placeholder="팀명 / 리그 / 스코어" value="'+e(v.search)+'" autocomplete="off"></label>'+
+  select('result','결과',[['all','전체 결과'],...labels.map(x=>[x,x])],v.result)+
+  select('league','리그',[['all','전체 리그'],...leagues.map(x=>[x,x])],v.league)+
+  select('year','연도',[['all','전체 연도'],...years.map(x=>[x,x])],v.year)+
+  select('sort','정렬',[['source','원본 순서'],['recent','최신 연도'],['old','과거 연도'],['league','리그명']],v.sort)+
+  select('limit','페이지당 표시',[[12,'12경기'],[24,'24경기'],[48,'48경기']],limit)+'</div>';
+ const source=String(d.sourceUrl||'').startsWith('https://v1.zentoto.com/proto/game/solist?')?
+  '<a href="'+e(d.sourceUrl)+'" target="_blank" rel="noopener noreferrer">원자료 확인 ↗</a>':'';
+ return '<div class="hhTitle"><div><small>ODDS HISTORY / DATA INTELLIGENCE</small><h4>배당 History 분석</h4><p>같은 배당을 가진 과거 경기만 비교합니다.</p></div><span>젠토토 공개자료</span></div>'+
+  '<div class="hhStage"><label class="hhField"><span>배당 변경 단계</span><select data-history-stage aria-label="배당 변경 단계">'+options(stages,Number(d.changeNo))+'</select></label>'+
+  '<p><b>'+(Number(d.changeNo)===0?'최초 배당':e(d.changeNo)+'차 변경')+'</b><small>변경 시각은 제공되지 않습니다.</small></p></div>'+
+  '<div class="hhOddsGrid">'+priceBoxes+'</div><div class="hhKpi">'+
+  '<div><small>일치 경기</small><strong>'+num(all.length)+'</strong><span>모든 선택지 배당 일치</span></div>'+
+  '<div><small>결과 확인</small><strong>'+num(n)+'</strong><span>미확인 '+num(unresolved)+'건 분리</span></div>'+
+  '<div><small>표본 리그</small><strong>'+num(leagues.length)+'</strong><span>전체 표시 범위</span></div>'+
+  '<div><small>자료 연도</small><strong>'+(years.length?e(years.length===1?years[0]:years[years.length-1]+'–'+years[0]):'–')+'</strong><span>개별 경기 날짜 미제공</span></div></div>'+
+  '<section class="hhStatistics"><header><b>과거 결과 분포</b><small>결과 확인 '+num(n)+'건 기준</small></header>'+
+  '<div class="hhStack" role="img" aria-label="'+e(settled.map(l=>l+' '+hPct(Number(counts[l]||0),n)+'%').join(', '))+'">'+chart+'</div><div class="hhRateGrid">'+rates+'</div></section>'+
+  '<div class="hhSub"><b>동일배당 과거 경기 상세</b><small>반응형 표 / 카드</small></div>'+controls+pager+
+  (visible.length?'<div class="hhMobile">'+mobile+'</div><div class="hhDesktop" tabindex="0" role="region" aria-label="과거 배당 비교표"><table><thead><tr>'+
+    '<th>번호</th><th>연도/리그</th><th>경기</th>'+prices.map(p=>'<th>'+e(p.label)+'</th>').join('')+'<th>점수/결과</th></tr></thead><tbody>'+desktop+'</tbody></table></div>':
+   '<div class="hhEmpty">조건에 맞는 과거 경기 기록이 없습니다.</div>')+pager+
+  '<div class="hhFoot"><b>자료 품질 및 통계 해석</b><p>모든 선택지의 표시 배당이 정확히 같은 경기만 포함했습니다. 유사배당 '+num(d.excludedSimilar||0)+'건 및 중복 '+num(d.duplicateRowsExcluded||0)+'건은 제외했습니다.</p>'+
+  '<p>개별 경기 날짜, 동일한 핸디캡/언더오버 기준점 및 집계 기간은 공개 데이터만으로 검증할 수 없습니다. 결과 미확인 건은 결과 비율의 분모에서 제외했습니다. 단순 Wilson 95% 구간은 독립 동일분포 표본을 가정하며 표본 편향을 보정하지 않습니다. <strong>과거 빈도는 이번 경기 적중 예측 또는 기대수익이 아닙니다.</strong></p><p>손익분기율 = 1 ÷ 배당 · '+source+' · 조회 '+e(expKst(d.fetchedAt))+'</p></div>';
+}
+function hUpdate(panel,field,value,delta){
+ if(!panel)return;
+ const key=panel.dataset.historyKey,saved=expHistoryCache.get(key);if(!saved?.data)return;
+ const v=hView(key);
+ if(field==='page')v.page=Math.max(0,v.page+delta);
+ else if(field==='search'){v.search=String(value||'').slice(0,150);v.page=0;}
+ else if(['result','league','year','sort','limit'].includes(field)){v[field]=String(value);v.page=0;}
+ const target=panel.querySelector('.edHistoryContent');if(target)target.innerHTML=expHistoryReport(saved.data,key);
 }
 function expEasyFlow(m,r){
- const key=expHistoryKey(m,r),saved=expHistoryCache.get(key),content=saved?.data?expHistoryReport(saved.data):'<div class="edHistoryPrices">'+(r.choices||[]).map(p=>'<span><small>'+e(p.label)+'</small><strong>'+e(expDOdds(p.odds))+'</strong></span>').join('')+'</div><p>같은 배당이 나온 과거 경기와 전적을 확인하세요.</p>';
+ const key=expHistoryKey(m,r),saved=expHistoryCache.get(key),content=saved?.data?expHistoryReport(saved.data,key):'<div class="edHistoryPrices">'+(r.choices||[]).map(p=>'<span><small>'+e(p.label)+'</small><strong>'+e(expDOdds(p.odds))+'</strong></span>').join('')+'</div><p>같은 배당이 나온 과거 경기와 전적을 확인하세요.</p>';
  return '<div class="edHistory" data-history-key="'+e(key)+'" data-history-round="'+e(m.gmTs||'')+'" data-history-no="'+e(r.no)+'"><div class="edFlowTitle"><b>배당 History</b><button type="button" data-history-load>'+(saved?.data?'새로 조회':'동일배당 전적 보기')+'</button></div><div class="edHistoryContent">'+content+'</div><div class="edHistoryStatus" role="status">'+e(saved?.loading?'기록을 조회하고 있습니다.':saved?.error||'')+'</div></div>';
 }
 async function expLoadHistory(panel,change){
@@ -7300,7 +7470,7 @@ async function expLoadHistory(panel,change){
  if(previous?.loading)return;
  if(expHistoryCache.size>=100)expHistoryCache.delete(expHistoryCache.keys().next().value);
  expHistoryCache.set(key,token);
- const update=()=>document.querySelectorAll('.edHistory').forEach(p=>{if(p.dataset.historyKey!==key)return;const saved=expHistoryCache.get(key);p.querySelector('.edHistoryStatus').textContent=saved.loading?'기록을 조회하고 있습니다.':saved.error||'';p.querySelectorAll('button,select').forEach(b=>b.disabled=!!saved.loading);if(saved.data&&!saved.loading)p.querySelector('.edHistoryContent').innerHTML=expHistoryReport(saved.data);});
+ const update=()=>document.querySelectorAll('.edHistory').forEach(p=>{if(p.dataset.historyKey!==key)return;const saved=expHistoryCache.get(key);p.querySelector('.edHistoryStatus').textContent=saved.loading?'기록을 조회하고 있습니다.':saved.error||'';p.querySelectorAll('button,select').forEach(b=>b.disabled=!!saved.loading);if(saved.data&&!saved.loading)p.querySelector('.edHistoryContent').innerHTML=expHistoryReport(saved.data,key);});
  update();
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
  try{
@@ -7610,7 +7780,7 @@ function chooseManualPick(btn){
 function cancelManualPick(){manualPending=null;$('manualPanel').hidden=true;}
 async function applyManualPick(){if(!manualPending||busy)return;const payload={...manualPending};const ok=await act('/api/manual-pick',$('manualApply'),payload);if(ok)cancelManualPick();}
 
-function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('exportJson','EXPORT');$('manualMode')?.addEventListener('click',toggleManualMode);$('manualApply')?.addEventListener('click',applyManualPick);$('manualCancel')?.addEventListener('click',cancelManualPick);$('list')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-manual-no]');if(b)chooseManualPick(b);const edit=ev.target.closest('[data-pastedit]');if(edit)showPastManualEditor(edit.dataset.pastedit)});$('pastList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-pastedit]');if(b)showPastManualEditor(b.dataset.pastedit)});$('pastManualPanel')?.addEventListener('click',ev=>{const close=ev.target.closest('[data-pastclose]');if(close){pastManualKey=null;$('pastManualPanel').hidden=true;return;}const pick=ev.target.closest('[data-pastpick]');if(pick)choosePastManualPick(pick)});const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>setMarkMenu('now'));$('tabPast')?.addEventListener('click',()=>setView('past'));$('tabExperiment')?.addEventListener('click',()=>setView('experiment'));$('expSearch')?.addEventListener('input',ev=>{expQuery=ev.target.value||'';expSelectedKey=null;renderExperiment()});$('expSport')?.addEventListener('change',ev=>{expFilter=ev.target.value||'all';expSelectedKey=null;renderExperiment()});$('expList')?.addEventListener('change',ev=>{if(ev.target.matches('[data-history-stage]'))expLoadHistory(ev.target.closest('.edHistory'),ev.target.value)});$('expList')?.addEventListener('click',ev=>{const history=ev.target.closest('[data-history-load]');if(history){expLoadHistory(history.closest('.edHistory'));return;}const summary=ev.target.closest('details.edBriefDetails > summary');if(summary){const d=summary.parentElement;if(d.dataset.expMarket&&!d.open){const key=d.closest('.expCard')?.querySelector('[data-expkey]')?.dataset.expkey,game=(state?.markingGames||[]).find(g=>expKey(g)===key);expMarketLazy(d,game);}return;}const b=ev.target.closest('button.expHead[data-expkey]');if(!b)return;ev.preventDefault();expSelectedKey=expSelectedKey===b.dataset.expkey?null:b.dataset.expkey;renderExperiment()});$('hourlyBar')?.addEventListener('click',ev=>{const b=ev.target.closest('button[data-hour]');if(b)setHourFilter(b.dataset.date,b.dataset.hour)});document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
+function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('exportJson','EXPORT');$('manualMode')?.addEventListener('click',toggleManualMode);$('manualApply')?.addEventListener('click',applyManualPick);$('manualCancel')?.addEventListener('click',cancelManualPick);$('list')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-manual-no]');if(b)chooseManualPick(b);const edit=ev.target.closest('[data-pastedit]');if(edit)showPastManualEditor(edit.dataset.pastedit)});$('pastList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-pastedit]');if(b)showPastManualEditor(b.dataset.pastedit)});$('pastManualPanel')?.addEventListener('click',ev=>{const close=ev.target.closest('[data-pastclose]');if(close){pastManualKey=null;$('pastManualPanel').hidden=true;return;}const pick=ev.target.closest('[data-pastpick]');if(pick)choosePastManualPick(pick)});const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>setMarkMenu('now'));$('tabPast')?.addEventListener('click',()=>setView('past'));$('tabExperiment')?.addEventListener('click',()=>setView('experiment'));$('expSearch')?.addEventListener('input',ev=>{expQuery=ev.target.value||'';expSelectedKey=null;renderExperiment()});$('expSport')?.addEventListener('change',ev=>{expFilter=ev.target.value||'all';expSelectedKey=null;renderExperiment()});$('expList')?.addEventListener('change',ev=>{if(ev.target.matches('[data-history-stage]')){expLoadHistory(ev.target.closest('.edHistory'),ev.target.value);return;}const x=ev.target.closest('[data-history-filter]');if(x)hUpdate(x.closest('.edHistory'),x.dataset.historyFilter,x.value,0)});$('expList')?.addEventListener('input',ev=>{const x=ev.target.closest('[data-history-search]');if(!x)return;const p=x.closest('.edHistory'),a=x.selectionStart,b=x.selectionEnd;hUpdate(p,'search',x.value,0);const replacement=p?.querySelector('[data-history-search]');if(replacement){replacement.focus({preventScroll:true});try{replacement.setSelectionRange(a,b)}catch(_){}}});$('expList')?.addEventListener('click',ev=>{const pg=ev.target.closest('[data-history-page]');if(pg){hUpdate(pg.closest('.edHistory'),'page',null,Number(pg.dataset.historyPage));return;}const history=ev.target.closest('[data-history-load]');if(history){expLoadHistory(history.closest('.edHistory'));return;}const summary=ev.target.closest('details.edBriefDetails > summary');if(summary){const d=summary.parentElement;if(d.dataset.expMarket&&!d.open){const key=d.closest('.expCard')?.querySelector('[data-expkey]')?.dataset.expkey,game=(state?.markingGames||[]).find(g=>expKey(g)===key);expMarketLazy(d,game);}return;}const b=ev.target.closest('button.expHead[data-expkey]');if(!b)return;ev.preventDefault();expSelectedKey=expSelectedKey===b.dataset.expkey?null:b.dataset.expkey;renderExperiment()});$('hourlyBar')?.addEventListener('click',ev=>{const b=ev.target.closest('button[data-hour]');if(b)setHourFilter(b.dataset.date,b.dataset.hour)});document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
 </script></body></html>`;
 
 async function bootstrapState(env){
