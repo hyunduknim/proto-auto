@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R415-ROUND121-DEEP-ODDS";
-const BUILD_ID = "proto-r415-20261012-purge120-precision-odds";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R416-ZEN-121-BOOTSTRAP";
+const BUILD_ID = "proto-r416-20261012-nonempty-public-pregame";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6648,7 +6648,12 @@ function setView(v){activeView=['marking','past','experiment'].includes(v)?v:'ma
 </script></body></html>`;
 
 async function bootstrapState(env){
-  const s=await loadState(env); if(!s.markets.length){await refreshBetmanSource(s,env,true);} return MEM.state||s;
+  const s=await loadState(env);
+  if(!s.markets.length){
+    if(Number(s.gmTs)===260121)await r410RefreshZenPregame(s,env);
+    if(!(MEM.state||s).markets.length)await refreshBetmanSource(MEM.state||s,env,true);
+  }
+  return MEM.state||s;
 }
 
 // R260: ADMIN_TOKEN 환경변수가 설정되어 있으면 POST 작업에 x-admin-token 헤더를 요구한다. 미설정 시 기존처럼 열려 있다.
@@ -6930,14 +6935,18 @@ function r410ZenTeamSame(a,b){
 }
 function r410ZenApplyHtml(state,html,now=Date.now()){
  const audit={at:new Date(now).toISOString(),source:'ZENTOTO_PUBLIC_PREGAME_HTML',
-   http:200,blocks:0,verified:0,updated:0,markedNow:0,reason:null,samples:[],
+   http:200,blocks:0,verified:0,updated:0,seeded:0,markedNow:0,reason:null,samples:[],
    quoteClass:'PUBLIC_SITE_OBSERVED_NOT_BETMAN_OFFICIAL',previousSettlementsPreserved:true};
  const before=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&r401Scope(m)).length;
  if(typeof html!=='string'||html.length<10000||html.length>4500000){
   audit.reason='INVALID_HTML_LENGTH';state.r410PregameAudit=audit;return audit;
  }
- // Match the already established ZenToto public game-card structure.
+ // Use the source title, not the round-select menu, to verify round provenance.
+ const title=r381ZenStrip(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]||'');
+ const pageIs121=/260121\s*회차/.test(title);
+ audit.pageTitle=title.slice(0,100);audit.roundVerified=pageIs121;
  const blocks=html.split(/<div\s+class=["']game row col-xs-12["']\s*>/i);
+ const newlySeen=new Set();
  audit.blocks=blocks.length-1;
  for(const block of blocks.slice(1)){
   const noTag=block.match(/<p\s+class=["']proto_uid["'][^>]*>\s*(\d{3,6})\s*<\/p>/i),
@@ -6969,14 +6978,33 @@ function r410ZenApplyHtml(state,html,now=Date.now()){
   if(choices.length<2||choices.length>3)continue;
   const implied=choices.reduce((acc,c)=>acc+1/c.odds,0);
   if(implied<.85||implied>1.30)continue;
-  // When public block has no round ID, it must match a known state market,
-  // not any invented protocol round. Both team names are cross-checked.
+  // R416: the prior adapter needed a matching state market, so a 120 purge
+  // left no way to import 121 odds. Seed ONLY from verified 121 public page.
+  if(round&&round[1]!=='260121')continue;
   const matches=(state.markets||[]).filter(m=>Number(m.no)===no&&m.date===date&&m.time===time&&
-   (!round||String(m.gmTs)===round[1])&&m.marketFamily===family&&
+   String(m.gmTs)==='260121'&&m.marketFamily===family&&
    (line===null?m.line==null:Math.abs(Number(m.line)-line)<.001)&&
    r410ZenTeamSame(m.home,home)&&r410ZenTeamSame(m.away,away));
-  if(matches.length!==1)continue;
-  const m=matches[0];if(m.marked&&m.representativeSelected||m.resultFinal||gameTimeMs(m)<=now)continue;
+  if(matches.length>1)continue;
+  let m=matches[0];
+  if(!m){
+   if(!pageIs121||newlySeen.has(no)||Number(state.gmTs||0)>260121)continue;
+   const leagueMatch=block.match(/\b(KBO|NPB|MLB|KBL|WKBL|KOVO|ACLE|ACL2|UCL|EPL|J1|J2|NBA)\b/i);
+   const league=leagueMatch?leagueMatch[1].toUpperCase():'미확인';
+   const sport=/(KBO|NPB|MLB)/i.test(block)?'야구':
+     /(KBL|WKBL|NBA)/i.test(block)?'농구':/(KOVO|VOLLEY)/i.test(block)?'배구':
+     /(ACLE|ACL2|UCL|EPL|J1|J2|축구|SOCCER)/i.test(block)?'축구':'기타';
+   m={gmTs:'260121',sourceRound:121,no,date,time,sport,league,home,away,
+     game:home+' vs '+away,market:family==='TOTAL'?'언더오버':
+       family==='HANDICAP'?(Number(line)>=0?'플러스 핸디캡':'마이너스 핸디캡'):
+       nums[1]!==null?'승무패':'일반승',
+     marketFamily:family,line,period:'FULL',choices:[],
+     marked:false,representativeSelected:false,finalPick:null,finalOdds:null,
+     displayGrade:'일반',resultFinal:false,hit:null,status:'경기전',
+     selectionStatus:'121회차 공개배당 수집'};
+   state.markets.push(m);newlySeen.add(no);audit.seeded++;
+  }
+  if(m.marked&&m.representativeSelected||m.resultFinal||gameTimeMs(m)<=now)continue;
   // Fresh official odds have priority over the public backup.
   if(!m.r404ReferenceOnly&&m.domesticOddsValid&&m.oddsSnapshotStatus==='OPEN'&&
    oddsFresh(m)&&/BETMAN_OFFICIAL/.test(String(m.source||m.oddsSource||'')))continue;
@@ -6999,15 +7027,17 @@ function r410ZenApplyHtml(state,html,now=Date.now()){
  }
  const after=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&r401Scope(m)).length;
  audit.markedNow=Math.max(0,after-before);
- audit.reason=audit.updated?'OBSERVED_QUOTES_APPLIED':'NO_EXACT_KNOWN_PREGAME_QUOTES';
+ audit.reason=audit.updated?'PUBLIC_ROUND121_ODDS_IMPORTED_AND_MARKED':
+   pageIs121?'NO_MATCHING_VALID_PREGAME_ODDS':'ROUND121_PAGE_TITLE_NOT_VERIFIED';
  state.r410PregameAudit=audit;return audit;
 }
 async function r410RefreshZenPregame(state,env){
  const now=Date.now(),last=Date.parse(state.r410PregameAudit?.at||'');
  if(Number.isFinite(last)&&now-last<60000)return {status:'THROTTLED',settled:0};
- const relevant=(state.markets||[]).some(m=>r401Scope(m)&&!m.resultFinal&&
+ const relevant=(state.markets||[]).some(m=>Number(m.gmTs)>=260121&&r401Scope(m)&&!m.resultFinal&&
   gameTimeMs(m)>now&&gameTimeMs(m)-now<=6*3600000&&(!m.marked||!m.representativeSelected));
- if(!relevant)return {status:'NO_UPCOMING_UNMARKED',settled:0};
+ const emptyCurrent=!(state.markets||[]).some(m=>Number(m.gmTs)>=260121);
+ if(!emptyCurrent&&!relevant)return {status:'NO_UPCOMING_UNMARKED',settled:0};
  const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),9000);
  try{
   const response=await fetch('https://v1.zentoto.com/proto/game',{
@@ -8133,7 +8163,7 @@ async function runTickInternal(env){
   // settlement providers. The 14:00+ pregame odds poll runs FIRST when kickoff
   // is within three hours, while final settlements still run every cron tick.
   // Do not backfill selections after kickoff or treat screenshot quotes as live.
-  const urgentPregame=(cur.markets||[]).some(m=>{
+  const urgentPregame=(Number(cur.gmTs)===260121&&!(cur.markets||[]).some(m=>Number(m.gmTs)>=260121))||(cur.markets||[]).some(m=>{
     const kickoff=gameTimeMs(m);
     return r401Scope(m)&&kickoff!=null&&kickoff>Date.now()&&
       kickoff-Date.now()<=6*3600000&&!m.resultFinal&&
@@ -8220,8 +8250,11 @@ async function handleApp(req,env,ctx){
     return serializedOperation(()=>ingestOfficialRelay(req,env));
   }
   if(u.pathname==="/api/state"&&req.method==="GET"){
-    const s=await loadState(env);queueStateMaintenance(env,ctx);
-    return json({...publicState(s),refreshRequest:SOURCE_REQUEST?{...SOURCE_REQUEST}:null});
+    const s=await loadState(env);
+    if(Number(s.gmTs)===260121&&!(s.markets||[]).some(m=>m.gmTs==='260121'))
+      await r410RefreshZenPregame(s,env);
+    queueStateMaintenance(env,ctx);
+    return json({...publicState(MEM.state||s),refreshRequest:SOURCE_REQUEST?{...SOURCE_REQUEST}:null});
   }
   if(u.pathname==="/api/round-refresh"&&req.method==="POST"){
     if(!adminAuthorized(req,env))return json({error:"unauthorized"},401);
