@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R442-MENU-AUDIT";
-const BUILD_ID = "proto-r442-20261012-menu-action-audit";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R443-MANUAL-RESULT";
+const BUILD_ID = "proto-r443-20261012-manual-result";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5709,7 +5709,43 @@ function r434ManualPickCatalog(state){
  }
  return out.sort(marketSort).slice(-220);
 }
-/* R430 user-mark settlement: what-if/user-changed selection only, separate from original immutable statistics. */
+// R443 exact-event, independently reported KBL final: 12 Oct Hyundai Mobis 99-89 DB.
+// Cross-check: Yonhap 202610122103390454, News1 202610122123342338,
+// 121th Proto market TOTAL 174.5 via scorebase.kr. Never guess another fixture.
+function r443Is7804(m){
+ return String(m?.gmTs)==='260121'&&Number(m.no)===7804&&
+  m.date==='2026-10-12'&&String(m.time||'').slice(0,5)==='19:00'&&
+  (m.sport==='농구'||/KBL/i.test(String(m.league||'')))&&
+  m.marketFamily==='TOTAL'&&Number(m.line)===174.5&&
+  norm(m.home).includes('울산현대모비스')&&norm(m.away).includes('원주db');
+}
+function r443Repair7804(state){
+ const rows=(state.markets||[]).filter(r443Is7804);
+ if(rows.length!==1)return {changed:false,reason:'MISSING_OR_DUPLICATE_EXACT_MARKET'};
+ const m=rows[0];
+ if(!['언더','오버'].includes(m.finalPick)||Number(m.finalOdds)<1.31)
+  return {changed:false,reason:'INVALID_ORIGINAL_MARK'};
+ const hit=m.finalPick==='오버',status=hit?'적중':'낙첨';
+ if(m.resultFinal&&m.result==='오버'&&m.resultScoreText==='99:89'&&m.hit===hit&&m.settlementStatus===status)
+  return {changed:false,reason:'ALREADY_CORRECT'};
+ if(m.settlementStatus==='적특'&&/취소|연기/.test(String(m.result||'')))
+  return {changed:false,reason:'OFFICIAL_VOID_CONFLICT'};
+ const before={score:m.resultScoreText,result:m.result,hit:m.hit,status:m.settlementStatus,source:m.resultSource};
+ Object.assign(m,{resultFinal:true,result:'오버',hit,settlementStatus:status,
+  settlementType:'NORMAL',resultSpecialStatus:null,resultScoreText:'99:89',
+  homeScore:99,awayScore:89,resultStatus:'경기종료',resultVerifiedAt:nowIso(),
+  resultSource:'R443_INDEPENDENT_NEWS_VERIFIED_FINAL',
+  resultResolutionSource:'99_89_TOTAL188_OVER174_5',resultDerivedFromScore:true});
+ recordSettlementLedger(state,m);upsertSettledCard(state,m);
+ state.r443CorrectionAudit={at:nowIso(),gmTs:'260121',no:7804,score:'99:89',
+  total:188,line:174.5,before,originalPick:m.finalPick,originalHit:m.hit,
+  sources:['https://www.fnnews.com/news/202610122103390454',
+   'https://www.fnnews.com/news/202610122123342338',
+   'https://www.scorebase.kr/odds?round=260121&sport=betman']};
+ state.updatedAt=nowIso();return {changed:true,before};
+}
+
+/* R430: distinguish original historical wager and current applied user selection. */
 function r430ManualSettlement(state,card,review){
  if(!review)return null;
  const fixture=(state.markets||[]).filter(m=>String(m.gmTs)===String(review.gmTs)&&gameSeed(m)===gameSeed(card));
@@ -5739,7 +5775,7 @@ function r430ManualSettlement(state,card,review){
  }
  if(outcome==='적특')return {status:'적특',hit:null,outcome,source};
  const hit=String(outcome)===String(review.pick);
- return {status:hit?'적중':'낙첨',hit,outcome,source,reason:'최종결과 기준 수동 변경픽 정산'};
+ return {status:hit?'적중':'낙첨',hit,outcome,source,score:sameLine?.resultScoreText||sameLine?.score||null,reason:'최종결과 기준 수동 변경픽 정산'};
 }
 function r430AttachReview(state,card){
  const review=state.manualReviewSelections?.[String(card.gmTs||'')+'|'+gameSeed(card)]||null;
@@ -5749,6 +5785,26 @@ function r429ReviewForCard(state,card){
  const review=state.manualReviewSelections?.[String(card.gmTs||'')+'|'+gameSeed(card)]||null;
  return review?{...review,settlement:r430ManualSettlement(state,card,review)}:null;
 }
+// R443: effective UI uses latest user selection, archival statistics stay original.
+function r443ShowAppliedManual(state,card){
+ const review=r429ReviewForCard(state,card);
+ if(!review)return {...card,manualReview:null};
+ const chosen=(state.markets||[]).find(m=>String(m.gmTs)===String(review.gmTs)&&
+  Number(m.no)===Number(review.no)&&gameSeed(m)===gameSeed(card));
+ if(!chosen)return {...card,manualReview:review};
+ const r=review.settlement||{},terminal=['적중','낙첨','적특'].includes(r.status);
+ return {...card,manualReview:review,currentSelectionMode:'MANUAL_APPLIED',
+  originalAuto:{no:card.no,pick:card.pick,odds:card.odds,result:card.result,
+   hit:card.hit,settlementStatus:card.settlementStatus},
+  no:chosen.no,market:chosen.market,marketFamily:chosen.marketFamily,line:chosen.line,
+  pick:review.pick,odds:review.odds,
+  handicapEffectiveLine:chosen.marketFamily==='HANDICAP'?
+   handicapEffectiveLine(chosen,review.pick):null,
+  resultFinal:terminal,hit:typeof r.hit==='boolean'?r.hit:null,
+  settlementStatus:terminal?r.status:null,result:r.outcome||null,
+  score:r.score||card.score||null,resultSource:r.source||card.resultSource||null};
+}
+
 function publicState(state){
   const removed=state.r398Protocol?.enforce?0:purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
@@ -5757,13 +5813,13 @@ function publicState(state){
   const cur={...currentRoundStateView(state),markets:r404Display.markets.filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs)>=260121&&r401Scope(m)&&settlementAllowed(m)&&(!r403PlaceholderIdentity(m)||m.marked||m.resultFinal)),
     settlementLedger:(state.settlementLedger||[]).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs)>=260121&&r401Scope(m))};
   // R391: old-round unfinished picks remain visible in past screen.
-  const activeGames=representativeGames(cur).filter(g=>r401Scope(g)&&!g.resultFinal).sort(marketSort).map(g=>r430AttachReview(state,g)),
+  const activeGames=representativeGames(cur).filter(g=>r401Scope(g)&&!g.resultFinal).sort(marketSort).map(g=>r443ShowAppliedManual(state,g)),
     savedSettled=(state.markets||[]).filter(m=>Number(m.gmTs)>=260121&&m.marked&&m.representativeSelected&&m.resultFinal&&settlementAllowed(m))
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean),
-    pastGames=mergeCurrentPastCards(state,savedSettled).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m)).sort((a,b)=>marketSort(b,a)).map(m=>({...m,manualReview:r429ReviewForCard(state,m)})),
+    pastGames=mergeCurrentPastCards(state,savedSettled).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m)).sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m)),
     pastPendingGames=pendingSettlementMarkets(state).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m))
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a)).map(m=>({...m,manualReview:r429ReviewForCard(state,m)}));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      .sort((a,b)=>marketSort(b,a)).map(m=>r443ShowAppliedManual(state,m));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -6726,7 +6782,7 @@ const $=id=>document.getElementById(id);let state=null,timer=null,busy=false,pen
 /* R429: Retrospective choices must remain distinct from settlement and pregame picks. */
 function manualPastLabel(m){
  const review=m.manualReview,settled=review?.settlement;
- return review?'<div class="pastReviewBadge">현재 수동픽: #'+e(review.no)+' '+e(review.pick)+' '+e(Number(review.odds).toFixed(2))+'배 · 수동정산 '+e(String(settled?.status||'정산대기'))+(settled?.outcome?' (검증결과 '+e(String(settled.outcome))+')':'')+'<small style="display:block;color:#bdd2e4">원래 자동픽과 공식 정산통계는 별도로 보존 · 시작 후 변경</small></div>':'';
+ return review?'<div class="pastReviewBadge">현재 수동픽: #'+e(review.no)+' '+e(review.pick)+' '+e(Number(review.odds).toFixed(2))+'배 · 수동정산 '+e(String(settled?.status||'정산대기'))+(settled?.outcome?' (검증결과 '+e(String(settled.outcome))+')':'')+'<small style="display:block;color:#bdd2e4">화면은 수동 최종픽 기준 · 최초 자동픽과 정산통계는 별도 보존</small></div>':'';
 }
 function manualPastEditButton(m){
  return (state?.manualPickCatalog||[]).some(g=>expKey(g)===expKey(m))?
@@ -6747,7 +6803,7 @@ function showPastManualEditor(gameKey){
   return '<div class="pastManualMarket"><b>#'+e(r.no)+' · '+e(r.market)+(r.line==null?'':' · '+e(r.line))+'</b><div class="pastManualChoices">'+buttons+'</div></div>';
  }).join('');
  $('pastManualPanel').innerHTML='<div class="pastManualTitle">'+e(game.game||game.home+' vs '+game.away)+'</div>'+
- '<div class="pastManualHint">시작 후 변경 내역으로 표시하며, 최초 자동마킹과 적중·낙첨은 수정하지 않습니다.</div>'+choices+
+ '<div class="pastManualHint">최종 표시픽은 수동변경 선택입니다. 최초 자동픽과 원래 정산기록은 별도 보존합니다.</div>'+choices+
  '<button type="button" class="pastManualClose" data-pastclose="1">닫기</button>';
  $('pastManualPanel').hidden=false;
  $('pastManualPanel').scrollIntoView({behavior:'smooth',block:'center'});
@@ -6763,7 +6819,7 @@ function choosePastManualPick(button){
  $('manualPreview').textContent=market.g.game+' · #'+no+' '+pick+' '+Number(choice.odds).toFixed(2)+'배 · 사후 수동 변경 · 기존 정산 유지';
  $('manualPanel').hidden=false;$('manualPanel').scrollIntoView({behavior:'smooth',block:'center'});
 }
-function pastResultHtml(m){const isVoid=m.settlementStatus==='적특',isHit=m.hit===true&&!isVoid,status=isVoid?(m.settlementType==='USER_REQUESTED_VOID'?'사용자 적특⚪':'적특⚪'):isHit?'적중⭕':'낙첨❌',cl=isVoid?'void':isHit?'hit':'miss',mk=pastResultPickLabel(m),od=Number(m.odds)>1?Number(m.odds).toFixed(2)+'배':'-',score=m.score?(/^(합계 |핸디적용 )/.test(String(m.score))?String(m.score):'최종점수 '+m.score):'점수 확인중',official=pastOfficialResultLabel(m)+' · '+score;return '<div class="pastResult '+cl+'"><div class="pastStatus">'+status+'</div><div class="pastGame"><b>#'+e(m.no)+' · '+e(m.game||((m.home||'')+' vs '+(m.away||'')))+'</b><small>'+e((m.date||'').slice(5))+' '+e(m.time||'')+' KST · '+e(m.league||m.sport||'')+'<br>'+e(mk)+' · 원래 자동픽 '+e(m.pick||'-')+' · '+e(od)+'</small>'+manualPastLabel(m)+manualPastEditButton(m)+'</div><div class="pastOutcome">공식결과 <strong>'+e(official)+'</strong></div></div>'}function pastPendingHtml(m){const mk=pastResultPickLabel(m),od=Number(m.odds)>1?Number(m.odds).toFixed(2)+'배':'-',when=e((m.date||'').slice(5))+' '+e(m.time||'')+' KST';return '<div class="pastResult wait"><div class="pastStatus">⏳ 정산대기</div><div class="pastGame"><b>#'+e(m.no)+' · '+e(m.game||((m.home||'')+' vs '+(m.away||'')))+'</b><small>'+when+' · '+e(m.league||m.sport||'')+'<br>'+e(mk)+' · 원래 자동픽 '+e(m.pick||'-')+' · '+e(od)+'</small>'+manualPastLabel(m)+manualPastEditButton(m)+'</div><div class="pastOutcome">최종결과 <strong>미확인 · 검증된 종료결과 수신 시 자동정산</strong></div></div>'}function gameCardHtml(m){const st=settle(m);const board=(m.marketRows||[]).map(r=>{const ch=(r.choices||[]);return '<div class="marketRow"><div class="marketName">#'+e(r.no)+' · '+e(marketLabel(r))+'</div><div class="choices">'+(ch.length?ch.map(c=>{const reviewed=!!m.manualReview&&String(m.manualReview.no)===String(r.no)&&String(m.manualReview.pick)===String(c.label),on=m.manualReview?reviewed:(r.marked&&String(c.label)===String(r.finalPick)),cl=r.marketFamily==='HANDICAP'?handicapChoiceText(r,c.label):c.label,manualPrice=false;const canManual=manualMode&&Number(c.odds)>=1.31&&r.marketId&&!(r.marketFamily==='HANDICAP'&&m.sport==='야구'&&Math.abs(Number(r.line))!==2.5);return manualMode?'<button type="button" class="choice manualChoice '+(on?pcls(m.displayGrade):'')+(manualPrice?' manualPriceChoice':'')+'" '+(canManual?'':'disabled')+' data-manual-no="'+e(r.no)+'" data-manual-round="'+e(m.gmTs)+'" data-manual-pick="'+e(c.label)+'" aria-label="#'+e(r.no)+' '+e(cl)+' '+e(c.odds)+'배 수동 선택"><b>'+e(cl)+'</b>'+manualOddsPriceHtml(m.gmTs,r.no,c)+'</button>':'<div class="choice '+(on?pcls(m.displayGrade):'')+(manualPrice?' manualPriceChoice':'')+'"><b>'+e(cl)+'</b>'+manualOddsPriceHtml(m.gmTs,r.no,c)+'</div>'}).join(''):'<div class="choice"><b>배당확인중</b><em>-</em></div>')+'</div></div>'}).join('');return '<article class="markTicket'+ccls(m.displayGrade)+'"><div class="markTicketTop"><b class="protoNo">#'+e(m.no)+'</b><span>'+e((m.date||'').slice(5))+' '+e(m.time||'')+' KST</span><span class="hourBadge">배당마킹 '+e(String(m.time||'--').slice(0,2))+'시</span><span class="grade '+gcls(m.displayGrade)+'">'+e(m.displayGrade||'일반')+'</span><span class="settle '+st[1]+'">'+st[0]+'</span></div><div class="markTicketGame"><strong>'+e(m.game)+'</strong><small>'+e(m.league)+' · '+e(m.pick?marketLabel({market:m.market,line:m.line,finalPick:m.pick,handicapEffectiveLine:m.handicapEffectiveLine}):(m.selectionStatus||'배당확인중'))+'</small></div><div class="protoBoard">'+board+'</div><div class="markTicketFoot"><span>'+(m.manualReview?'<b class="postStartReview">현재 수동마킹: #'+e(m.manualReview.no)+' '+e(m.manualReview.pick)+' '+e(Number(m.manualReview.odds).toFixed(2))+'배 · 수동정산 '+e(String(m.manualReview.settlement?.status||'정산대기'))+'</b> · 원래 자동픽 ':'')+'마킹 '+e(m.pick||(m.selectionStatus==='분석보류'?'추천 없음 · 자료검증 필요':m.selectionStatus==='미선정'?'미선정':'확인중'))+(m.odds?' · '+e(Number(m.odds).toFixed(2))+'배':'')+(m.oddsFetchedAt?' · 배당갱신 '+e(String(m.oddsFetchedAt).slice(11,16)):'')+(m.oddsSnapshotStatus==='LAST_KNOWN'?'<span class="deepBadge">이전 정상배당 유지</span>':m.oddsSnapshotStatus==='SCREENSHOT_REFERENCE'?
+function pastResultHtml(m){const isVoid=m.settlementStatus==='적특',isHit=m.hit===true&&!isVoid,status=isVoid?(m.settlementType==='USER_REQUESTED_VOID'?'사용자 적특⚪':'적특⚪'):isHit?'적중⭕':'낙첨❌',cl=isVoid?'void':isHit?'hit':'miss',mk=pastResultPickLabel(m),od=Number(m.odds)>1?Number(m.odds).toFixed(2)+'배':'-',score=m.score?(/^(합계 |핸디적용 )/.test(String(m.score))?String(m.score):'최종점수 '+m.score):'점수 확인중',official=pastOfficialResultLabel(m)+' · '+score;return '<div class="pastResult '+cl+'"><div class="pastStatus">'+status+'</div><div class="pastGame"><b>#'+e(m.no)+' · '+e(m.game||((m.home||'')+' vs '+(m.away||'')))+'</b><small>'+e((m.date||'').slice(5))+' '+e(m.time||'')+' KST · '+e(m.league||m.sport||'')+'<br>'+e(mk)+' · 현재 적용픽 '+e(m.pick||'-')+' · '+e(od)+(m.originalAuto?' · 최초 자동픽 '+e(m.originalAuto.pick||'-'):'')+'</small>'+manualPastLabel(m)+manualPastEditButton(m)+'</div><div class="pastOutcome">공식결과 <strong>'+e(official)+'</strong></div></div>'}function pastPendingHtml(m){const mk=pastResultPickLabel(m),od=Number(m.odds)>1?Number(m.odds).toFixed(2)+'배':'-',when=e((m.date||'').slice(5))+' '+e(m.time||'')+' KST';return '<div class="pastResult wait"><div class="pastStatus">⏳ 정산대기</div><div class="pastGame"><b>#'+e(m.no)+' · '+e(m.game||((m.home||'')+' vs '+(m.away||'')))+'</b><small>'+when+' · '+e(m.league||m.sport||'')+'<br>'+e(mk)+' · 현재 적용픽 '+e(m.pick||'-')+' · '+e(od)+(m.originalAuto?' · 최초 자동픽 '+e(m.originalAuto.pick||'-'):'')+'</small>'+manualPastLabel(m)+manualPastEditButton(m)+'</div><div class="pastOutcome">최종결과 <strong>미확인 · 검증된 종료결과 수신 시 자동정산</strong></div></div>'}function gameCardHtml(m){const st=settle(m);const board=(m.marketRows||[]).map(r=>{const ch=(r.choices||[]);return '<div class="marketRow"><div class="marketName">#'+e(r.no)+' · '+e(marketLabel(r))+'</div><div class="choices">'+(ch.length?ch.map(c=>{const reviewed=!!m.manualReview&&String(m.manualReview.no)===String(r.no)&&String(m.manualReview.pick)===String(c.label),on=m.manualReview?reviewed:(r.marked&&String(c.label)===String(r.finalPick)),cl=r.marketFamily==='HANDICAP'?handicapChoiceText(r,c.label):c.label,manualPrice=false;const canManual=manualMode&&Number(c.odds)>=1.31&&r.marketId&&!(r.marketFamily==='HANDICAP'&&m.sport==='야구'&&Math.abs(Number(r.line))!==2.5);return manualMode?'<button type="button" class="choice manualChoice '+(on?pcls(m.displayGrade):'')+(manualPrice?' manualPriceChoice':'')+'" '+(canManual?'':'disabled')+' data-manual-no="'+e(r.no)+'" data-manual-round="'+e(m.gmTs)+'" data-manual-pick="'+e(c.label)+'" aria-label="#'+e(r.no)+' '+e(cl)+' '+e(c.odds)+'배 수동 선택"><b>'+e(cl)+'</b>'+manualOddsPriceHtml(m.gmTs,r.no,c)+'</button>':'<div class="choice '+(on?pcls(m.displayGrade):'')+(manualPrice?' manualPriceChoice':'')+'"><b>'+e(cl)+'</b>'+manualOddsPriceHtml(m.gmTs,r.no,c)+'</div>'}).join(''):'<div class="choice"><b>배당확인중</b><em>-</em></div>')+'</div></div>'}).join('');return '<article class="markTicket'+ccls(m.displayGrade)+'"><div class="markTicketTop"><b class="protoNo">#'+e(m.no)+'</b><span>'+e((m.date||'').slice(5))+' '+e(m.time||'')+' KST</span><span class="hourBadge">배당마킹 '+e(String(m.time||'--').slice(0,2))+'시</span><span class="grade '+gcls(m.displayGrade)+'">'+e(m.displayGrade||'일반')+'</span><span class="settle '+st[1]+'">'+st[0]+'</span></div><div class="markTicketGame"><strong>'+e(m.game)+'</strong><small>'+e(m.league)+' · '+e(m.pick?marketLabel({market:m.market,line:m.line,finalPick:m.pick,handicapEffectiveLine:m.handicapEffectiveLine}):(m.selectionStatus||'배당확인중'))+'</small></div><div class="protoBoard">'+board+'</div><div class="markTicketFoot"><span>'+(m.manualReview?'<b class="postStartReview">현재 수동마킹: #'+e(m.manualReview.no)+' '+e(m.manualReview.pick)+' '+e(Number(m.manualReview.odds).toFixed(2))+'배 · 수동정산 '+e(String(m.manualReview.settlement?.status||'정산대기'))+'</b> · 원래 자동픽 ':'')+'마킹 '+e(m.pick||(m.selectionStatus==='분석보류'?'추천 없음 · 자료검증 필요':m.selectionStatus==='미선정'?'미선정':'확인중'))+(m.odds?' · '+e(Number(m.odds).toFixed(2))+'배':'')+(m.oddsFetchedAt?' · 배당갱신 '+e(String(m.oddsFetchedAt).slice(11,16)):'')+(m.oddsSnapshotStatus==='LAST_KNOWN'?'<span class="deepBadge">이전 정상배당 유지</span>':m.oddsSnapshotStatus==='SCREENSHOT_REFERENCE'?
    (m.manualOverride?'<span class="deepBadge">사용자 수동 언더 · 1.67배는 캡처 참고 · 실시간 미검증</span>':
    '<span class="deepBadge">캡처 참고배당 · 현재배당 검증 전 · 자동마킹 금지</span>'):'')+(m.selectionMode==='DEEP_REVIEW'?'<span class="deepBadge">심층재분석 '+e(Math.round(Number(m.deepReviewScore||0)*100))+'</span>':'')+
       (m.selectionMode==='R373_DRAW_INTEREST'?'<span class="deepBadge">무승부 관심 · 상대가치 · 엄격 추천 검증 미완료</span>':'')+(m.manualOverride?'<span class="deepBadge">수동변경</span>':'')+
@@ -10663,6 +10719,14 @@ async function r398LoadState(env){
     else if(!stored.state)MEM.state=restored;
   }
   if(r431ApplyOwner7780Over(MEM.state)){await persistState(env,true);}
+  const candidate443=r398Clone(MEM.state),fixed443=r443Repair7804(candidate443);
+  if(fixed443.changed){
+    if(stored.state&&ds&&typeof ds.transaction==='function')
+      await r398AtomicCommit(ds,MEM.state,candidate443,'BEFORE_R443_7804_SCORE_CORRECTION',
+        {type:'R443_SCORE_CORRECTION',no:7804,before:fixed443.before,after:'99:89'});
+    else if(!stored.state)MEM.state=candidate443;
+    else MEM.state.r443CorrectionAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
+  }
   MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();return MEM.state;
 }
 async function r398HandleProtocolAdmin(req,env){
