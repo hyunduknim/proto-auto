@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R459-7845-OVER";
-const BUILD_ID = "proto-r459-20261013-7845-over";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R460-7845-VERIFIED-ALL-VIEWS";
+const BUILD_ID = "proto-r460-20261013-7845-verified-all-views";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5734,6 +5734,53 @@ function r459Repair7845(state,now=Date.now()){
  state.updatedAt=new Date(now).toISOString();return {changed:true,before};
 }
 
+// R460: reconcile exact verified 7845 regardless of whether a market or
+// past-game ledger is the surviving copy. Never change a pregame pick/price.
+function r460Reconcile7845(state,now=Date.now()){
+ if(now<Date.parse('2026-10-13T03:30:00+09:00'))return {changed:false,reason:'BEFORE_FINAL'};
+ const match=x=>x&&String(x.gmTs)==='260121'&&Number(x.no)===7845;
+ const ms=(state.markets||[]).filter(match),ls=(state.settlementLedger||[]).filter(match),
+   cs=(state.settledCards?.rows||[]).filter(match);
+ if(ms.length>1||ls.length>1||cs.length>1)return {changed:false,reason:'DUPLICATE_7845'};
+ const m=ms[0],l=ls[0],c=cs[0],items=[m,l,c].filter(Boolean);
+ if(!items.length)return {changed:false,reason:'NOT_STORED'};
+ const hs=['알와슬','알와슬fc','알와슬sc','alwasl','alwaslfc'].map(norm);
+ const as=['알아흘리','알아흘리sc','알아흘리sfc','알아흘리사우디','알아흘리제다','alahli','alahli sc','alahli sfc','alahli saudi','alahli jeddah'].map(norm);
+ if(items.some(x=>x.date!=='2026-10-13'||String(x.time||'').slice(0,5)!=='01:00'||x.sport!=='축구'||x.marketFamily!=='TOTAL'||Number(x.line)!==2.5||!hs.includes(norm(x.home))||!as.includes(norm(x.away))))
+  return {changed:false,reason:'EXACT_IDENTITY_MISMATCH'};
+ const pick=m?.finalPick??l?.pick??c?.pick,odds=Number(m?.finalOdds??l?.odds??c?.odds);
+ const review=state.manualReviewSelections?.['260121|'+gameSeed(items[0])];
+ const manualOver=!!(review&&review.pick==='오버'&&Number(review.no)===7845&&
+  (!m||!review.marketId||review.marketId===marketIdentity(m))&&
+  (!m||validChoices(m).some(x=>x.label==='오버'&&Number(x.odds)>=1.31)));
+ if(!['오버','언더'].includes(pick)||!(odds>=1.31))
+  return {changed:false,reason:'NO_ORIGINAL_MARKED_ODDS'};
+ if(pick!=='오버'&&!manualOver)return {changed:false,reason:'NO_ORIGINAL_OR_MANUAL_OVER'};
+ if(m&&(!m.marked||!m.representativeSelected))return {changed:false,reason:'NOT_REPRESENTATIVE'};
+ if(items.some(x=>x.settlementStatus==='적특'&&/취소|연기|CANCEL|POSTPON/i.test(String(x.resultSpecialStatus||x.result||x.resultStatus||''))))
+  return {changed:false,reason:'OFFICIAL_VOID_CONFLICT'};
+ const correct=x=>!!x&&x.resultFinal&&x.result==='오버'&&x.hit===(String(x.finalPick??x.pick)==='오버')&&
+  x.settlementStatus===((String(x.finalPick??x.pick)==='오버')?'적중':'낙첨')&&String(x.score??x.resultScoreText??'')==='1:3';
+ if(items.every(correct)&&(!m||!!l)&&(!m||String(state.gmTs)!=='260121'||!!c))
+  return {changed:false,reason:'ALREADY_CORRECT'};
+ const before=items.map(x=>({no:x.no,pick:x.finalPick??x.pick,hit:x.hit,status:x.settlementStatus,score:x.score??x.resultScoreText}));
+ const apply=(x,original)=>{const hit=original==='오버';Object.assign(x,{resultFinal:true,result:'오버',hit,
+  settlementStatus:hit?'적중':'낙첨',settlementType:'NORMAL',resultSpecialStatus:null,
+  resultSource:'R460_VERIFIED_AS_7845_FULLTIME',resultVerifiedAt:new Date(now).toISOString(),
+  resultResolutionSource:'RAW_1_3_TOTAL4_OVER2_5'});
+  if('score' in x)x.score='1:3';if('resultScoreText' in x)x.resultScoreText='1:3';};
+ if(m){apply(m,String(m.finalPick));m.resultScoreText='1:3';m.homeScore=1;m.awayScore=3;
+  m.resultStatus='경기종료';m.resultDerivedFromScore=true;m.resultScoreOutcome='오버';
+  recordSettlementLedger(state,m);upsertSettledCard(state,m);}
+ const ledger=(state.settlementLedger||[]).find(match);if(ledger)apply(ledger,String(ledger.pick));
+ const card=(state.settledCards?.rows||[]).find(match);if(card)apply(card,String(card.pick));
+ state.r4607845Audit={at:new Date(now).toISOString(),gmTs:'260121',no:7845,score:'1:3',pick,
+  odds,manualOver,before,source:'https://as.com/futbol/internacional/trincao-salva-el-papelon-f202610-n/',
+  originalSelectionPreserved:true,archivedOriginal:m?.aggregateRecorded===true};
+ state.updatedAt=new Date(now).toISOString();
+ return {changed:true,before,pick,manualOver};
+}
+
 // R457: owner requested this exact correction; public ZenToto row #7851
 // was verified 경기종료 3:1 at 2026-10-13 03:23 KST. Preserve pregame selection.
 function r457RepairAtalanta(state){
@@ -5914,6 +5961,7 @@ function r444AppliedSummary(state,original,past,pending,active){
 function r446VerifiedRank(m){
  const src=String(m?.resultSource||'');
  if(/^R44[345]_/i.test(src)&&/VERIFIED|YONHAP|CHOSUNBIZ|NEWS/i.test(src))return 9;
+ if(/^(R459_AS_VERIFIED_FULLTIME|R460_VERIFIED_AS_7845_FULLTIME)$/.test(src))return 9;
  if(/^(NPB_OFFICIAL|KBO_OFFICIAL|FLASHSCORE_VERIFIED|AISCORE_VERIFIED|SPGOD_VERIFIED|ZENTOTO_VERIFIED)/i.test(src))return 7;
  if(/^BETMAN_OFFICIAL/i.test(src))return 6;
  if(/^(ZENTOTO_|SPOGOD_|ESPN_)/i.test(src)&&/FINAL|RESULT|VERIFIED/i.test(src))return 5;
@@ -9664,7 +9712,7 @@ async function handleAppInternal(req,env,ctx){
           .slice(0,500)});
     }
     if(u.pathname==="/api/diagnostics"){
-      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,fiveMinuteSettlementAudit:s.fiveMinuteSettlementAudit||null,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,wisetotoSettlementAudit:s.wisetotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),r400SettlementContinuity:s.r400SettlementContinuity||null,r4597845Audit:s.r4597845Audit||null,sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
+      const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,fiveMinuteSettlementAudit:s.fiveMinuteSettlementAudit||null,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,wisetotoSettlementAudit:s.wisetotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,settlementHealth:settlementHealth(s),r400SettlementContinuity:s.r400SettlementContinuity||null,r4597845Audit:s.r4597845Audit||null,r4607845Audit:s.r4607845Audit||null,r4607845RepairStatus:s.r4607845RepairStatus||null,sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
     }
     if(u.pathname==="/api/protocol-status"&&req.method==="GET"){const s=await loadState(env);return json({protocol:r398ProtocolStatus(s),sources:r398SourceStatus(s),odds:s.domesticOddsAudit||null,operations:r398OperationalMetrics(s)});}
     if(u.pathname==="/api/model-validation"&&req.method==="GET"){const s=await loadState(env);return json(r398EvaluateShadowBacktest(s));}
@@ -11058,7 +11106,20 @@ function r448RestoreFuturePremium(state,now=Date.now()){
 }
 
 async function r398LoadState(env){
-  if(MEM.state)return r398EnableProtocol(MEM.state);
+  if(MEM.state){
+    // R460: also heal long-running DO instances after a result is saved.
+    const next=r398Clone(MEM.state),fix=r460Reconcile7845(next);
+    if(fix.changed){
+      const ds=doStorage();
+      if(ds&&typeof ds.transaction==='function')
+        await r398AtomicCommit(ds,MEM.state,next,'BEFORE_R460_WARM_RESULT_CORRECTION',
+          {type:'R460_WARM_7845',before:fix.before,after:'1:3'});
+      else if(!ds&&!kv(env))MEM.state=next;
+      else MEM.state.r4607845RepairStatus={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
+    }else if(fix.reason!=='ALREADY_CORRECT')
+      MEM.state.r4607845RepairStatus={reason:fix.reason,at:nowIso()};
+    return r398EnableProtocol(MEM.state);
+  }
   const stored=await readStoredState(env);MEM.storageSource=stored.source;
   if(stored.state&&(!Array.isArray(stored.state.markets)||typeof stored.state!=='object'))throw Error('R398_STORED_STATE_INVALID_NO_OVERWRITE');
   let initialBackup=null;
@@ -11119,6 +11180,16 @@ async function r398LoadState(env){
     else if(!stored.state)MEM.state=next459;
     else MEM.state.r4597845Audit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
   }
+  // R460: persist reconciled ledger/cards in one backed-up transaction.
+  const next460=r398Clone(MEM.state),fix460=r460Reconcile7845(next460);
+  if(fix460.changed){
+    if(stored.state&&ds&&typeof ds.transaction==='function')
+      await r398AtomicCommit(ds,MEM.state,next460,'BEFORE_R460_VERIFIED_7845_RECONCILE',
+        {type:'R460_7845_LEDGER_CARD',before:fix460.before,after:'1:3'});
+    else if(!stored.state)MEM.state=next460;
+    else MEM.state.r4607845RepairStatus={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
+  }else if(fix460.reason!=='ALREADY_CORRECT')
+    MEM.state.r4607845RepairStatus={at:nowIso(),reason:fix460.reason};
   const next457=r398Clone(MEM.state),fixed457=r457RepairAtalanta(next457);
   if(fixed457.changed){
     if(stored.state&&ds&&typeof ds.transaction==='function')
