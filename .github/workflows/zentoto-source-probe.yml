@@ -3,8 +3,6 @@ name: Zentoto settlement source probe
 on:
   workflow_dispatch:
 
-zentoto-source-probe.yml']
-  workflow_dispatch:
 permissions:
   contents: read
 jobs:

@@ -3,10 +3,6 @@ name: R365 Zentoto original HTML settlement parser check
 on:
   workflow_dispatch:
 
-zentoto-settlement.cjs'
-      - '.github/workflows/official-settlement-relay.yml'
-      - '.github/workflows/r365-zentoto-live-audit.yml'
-  workflow_dispatch:
 permissions:
   contents: read
 jobs:
