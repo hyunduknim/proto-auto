@@ -38,7 +38,7 @@
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
 const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R400-EVIDENCE-FIRST";
-const BUILD_ID = "proto-r400-detailed-performance-odds-v2";
+const BUILD_ID = "proto-r400-7767-espn-mls-settlement-date-fix";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -7005,9 +7005,19 @@ const R385_MLS_FIXTURES=[
  ["콜로라도 래피즈","새너제이 어스퀘이크스",["Colorado Rapids"],["San Jose Earthquakes"]],
  ["LAFC","밴쿠버 화이트캡스FC",["LAFC","Los Angeles FC"],["Vancouver Whitecaps","Vancouver Whitecaps FC"]]
 ];
+// R401: Proto 7767 (2026-10-12 08:00 KST) missed the older Oct-11-only MLS recovery.
+const R401_MLS_7767=["세인트루이스 시티SC","LA 갤럭시",
+  ["St. Louis CITY SC","St. Louis City SC","St. Louis"],
+  ["LA Galaxy","Los Angeles Galaxy"]];
 function r385MlsFixtureSpec(m){
-  if(!m||m.sport!=="축구"||String(m.date)!=="2026-10-11"||
-     String(m.gmTs)!=="260120")return null;
+  if(!m||m.sport!=="축구"||String(m.gmTs)!=="260120")return null;
+  if(String(m.date)==="2026-10-12"){
+    if(Number(m.no)!==7767||String(m.time).slice(0,5)!=="08:00"||
+       m.marketFamily!=="TOTAL"||Math.abs(Number(m.line)-3.5)>.001)return null;
+    return norm(m.home)===norm(R401_MLS_7767[0])&&
+      norm(m.away)===norm(R401_MLS_7767[1])?R401_MLS_7767:null;
+  }
+  if(String(m.date)!=="2026-10-11")return null;
   return R385_MLS_FIXTURES.find(x=>norm(x[0])===norm(m.home)&&norm(x[1])===norm(m.away))||null;
 }
 function r385ResolveMlsEspn(state,events){
@@ -7068,21 +7078,31 @@ async function r385RefreshMlsFinals(state,env,force=false){
     status:"CHECKING",pendingBefore:pending.length,
     pendingAfter:pending.length,events:0,matched:0,settled:0,rejected:0,
     reasons:{},error:null,
-    policy:"EXACT_MLS_20261011_COMPLETED_FULL_TIME_KICKOFF_NAMES_MARKET"};
+    policy:"EXACT_MLS_20261011_AND_7767_COMPLETED_FULL_TIME_KICKOFF_NAMES_MARKET"};
   const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),9500);
   try{
-    const url="https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=20261010&limit=300";
-    const res=await fetch(url,{headers:{accept:"application/json"},
-      redirect:"follow",signal:ac.signal});
-    if(!res.ok)throw Error("ESPN_MLS_HTTP_"+res.status);
-    const ct=String(res.headers?.get("content-type")||"");
-    if(ct&&!/application\/json/i.test(ct))throw Error("ESPN_MLS_NOT_JSON");
-    const txt=await res.text();
-    if(txt.length>1600000)throw Error("ESPN_MLS_BAD_SIZE");
-    const parsed=JSON.parse(txt);
-    if(!Array.isArray(parsed?.events))throw Error("ESPN_MLS_EVENTS_MISSING");
-    audit.events=parsed.events.length;
-    const out=r385ResolveMlsEspn(state,parsed.events);
+    const dates=[...new Set(pending.map(m=>m.date==="2026-10-12"?"20261011":"20261010"))];
+    const replies=await Promise.allSettled(dates.map(async d=>{
+      const url="https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates="+d+"&limit=300";
+      const res=await fetch(url,{headers:{accept:"application/json"},
+        redirect:"follow",signal:ac.signal});
+      if(!res.ok)throw Error("ESPN_MLS_HTTP_"+res.status);
+      const ct=String(res.headers?.get("content-type")||"");
+      if(ct&&!/application\/json/i.test(ct))throw Error("ESPN_MLS_NOT_JSON");
+      const txt=await res.text();
+      if(txt.length>1600000)throw Error("ESPN_MLS_BAD_SIZE");
+      const parsed=JSON.parse(txt);
+      if(!Array.isArray(parsed?.events)||parsed.events.length>300)
+        throw Error("ESPN_MLS_EVENTS_INVALID");
+      return {date:d,events:parsed.events};
+    }));
+    const valid=replies.filter(x=>x.status==="fulfilled").map(x=>x.value);
+    audit.requestedDates=dates;
+    audit.failedDates=replies.map((x,i)=>x.status==="rejected"?dates[i]:null).filter(Boolean);
+    if(!valid.length)throw Error("ESPN_MLS_ALL_DATES_UNAVAILABLE");
+    const events=valid.flatMap(x=>x.events);
+    audit.events=events.length;
+    const out=r385ResolveMlsEspn(state,events);
     audit.matched=out.matched;audit.settled=out.settled;
     audit.rejected=out.rejected;audit.reasons=out.reasons;audit.samples=out.samples;
     audit.pendingAfter=pendingSettlementMarkets(state).filter(r385MlsFixtureSpec).length;
