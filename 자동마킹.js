@@ -38,7 +38,7 @@
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
 const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R400-EVIDENCE-FIRST";
-const BUILD_ID = "proto-r400-experiment-match-settlement-continuity";
+const BUILD_ID = "proto-r400-detailed-performance-odds-v2";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5436,8 +5436,9 @@ function representativeGames(state){
       gradeEvidenceWarning:rep?.gradeEvidenceWarning||null,gradeEvidenceQualified:rep?.gradeEvidenceQualified??null,gradeRelativeRank:rep?.gradeRelativeRank??null,drawEvidenceQualified:rep?.drawEvidenceQualified??null,
       modelEstimatedEV:rep?.finalOdds&&rep?.hitProbability!=null?r3(Number(rep.hitProbability)*Number(rep.finalOdds)-1):null,
       resultFinal:!!rep?.resultFinal,result:rep?.result||null,hit:rep?.hit??null,settlementStatus:rep?.settlementStatus||null,settlementType:rep?.settlementType||null,resultSpecialStatus:rep?.resultSpecialStatus||null,score:rep?.resultScoreText||null,analysisHoldReason:first.r398AnalysisHoldReason||null,analysisStatus:first.r398AnalysisStatus||null,selectionStatus:first.r398AnalysisStatus==="ANALYSIS_HELD"?"분석보류":rep?.selectionStatus||(startedWithoutRep?"마킹누락":(first.selectionStatus==="미선정"?"미선정":"배당확인중")),aiQuality:rep?.aiQuality??null,confidenceScore:rep?.confidenceScore??null,confidenceLevel:rep?.confidenceLevel??null,marketProbability:rep?.marketProbability??null,modelProbability:rep?.modelProbability??null,calibratedProbability:rep?.calibratedProbability??rep?.hitProbability??null,conservativeProbability:rep?.safeHitProbability??rep?.conservativeProbability??null,dataReliability:rep?.dataReliability??null,dataCoverage:rep?.dataCoverage??null,modelEdge:rep?.modelEdge??null,modelEdgeAvailable:rep?.modelEdgeAvailable??false,valuePercentage:rep?.valuePercentage??null,conservativeValue:rep?.conservativeValue??null,oddsMovement:rep?.oddsMovement??null,crossAgreement:rep?.crossAgreement??null,axisOppositionCount:rep?.axisOppositionCount??0,independentGroupCount:rep?.independentGroupCount??0,gradeAxisOppositionCount:rep?.gradeAxisOppositionCount??0,independentEvidence:rep?.independentEvidence??false,evidenceLayers:rep?.evidenceLayers??0,fiveApkActiveCount:rep?.fiveApkActiveCount??0,dataIntegrityScore:rep?.dataIntegrityScore??null,segmentAdjustment:rep?.segmentAdjustment??0,segmentLearningSamples:rep?.segmentLearningSamples??0,analysisLayers:rep?.analysisLayers||null,representativeGatePassed:rep?.representativeGatePassed??null,selectionMode:rep?.selectionMode??null,deepReviewScore:rep?.deepReviewScore??null,deepReviewStrength:rep?.deepReviewStrength??null,deepReviewRecommended:rep?.deepReviewRecommended??false,deepReviewReason:rep?.deepReviewReason??null,oddsSnapshotStatus:rep?.oddsSnapshotStatus||null,oddsFetchedAt:rep?.domesticOddsFetchedAt||rep?.fetchedAt||null,
-      experimentPerformance:(()=>{const p=ms.find(x=>x.performanceAvailable&&x.performanceFeatures)||ms.find(x=>x.performanceFeatures)||first,f=p.performanceFeatures||{};return {available:p.performanceAvailable===true&&!!p.performanceFeatures,source:p.performanceSource||null,coverage:p.performanceCoverage??null,features:{homeGames:f.homeGames??null,awayGames:f.awayGames??null,homeElo:f.homeElo??null,awayElo:f.awayElo??null,homeForm:f.homeForm??null,awayForm:f.awayForm??null,homeVenue:f.homeVenue??null,awayVenue:f.awayVenue??null,h2hHome:f.h2hHome??null,projectedHome:f.projectedHome??null,projectedAway:f.projectedAway??null,projectedTotal:f.projectedTotal??null}};})(),
-      marketRows:ms.map(m=>({oddsSource:m.domesticOddsSource||m.oddsSource||m.source||null,oddsSnapshotStatus:m.oddsSnapshotStatus||null,no:m.no,market:m.market,marketFamily:m.marketFamily,line:m.line,handicapEffectiveLine:m.marketFamily==="HANDICAP"?handicapEffectiveLine(m,m.finalPick):null,handicapDirection:m.marketFamily==="HANDICAP"?handicapDirectionKorean(m,m.finalPick):null,choices:m.choices,marked:!!m.marked,finalPick:m.finalPick,finalOdds:m.finalOdds,selectionStatus:m.selectionStatus,analysisEngine:m.analysisEngine||null,analysisSelectable:m.analysisSelectable??false,analysisBestPick:m.analysisBestPick??null,analysisBestOdds:m.analysisBestOdds??null,analysisProbability:m.analysisProbability??null,analysisModelProbability:m.analysisModelProbability??null,analysisMarketProbability:m.analysisMarketProbability??null,analysisConservativeProbability:m.analysisConservativeProbability??null,analysisModelEdge:m.analysisModelEdge??null,analysisValuePercentage:m.analysisValuePercentage??null,analysisReliability:m.analysisReliability??null,analysisCoverage:m.analysisCoverage??null,analysisQuality:m.analysisQuality??null,analysisSelectionScore:m.analysisSelectionScore??null,analysisConfidence:m.analysisConfidence??null,analysisGateCode:m.analysisGateCode??null,analysisLayers:m.analysisLayers||null,analysisFiveApkActiveCount:m.analysisFiveApkActiveCount??0,analysisDataIntegrity:m.analysisDataIntegrity??null,sharedAnalysis:m.sharedAnalysis||null,oddsFetchedAt:m.domesticOddsFetchedAt||m.fetchedAt||null})).sort((a,b)=>Number(a.no||0)-Number(b.no||0))
+      gameStarted:started(first)||!!first.resultFinal,gameFinished:!!first.resultFinal,
+      experimentPerformance:(()=>{const p=ms.find(x=>x.performanceAvailable&&x.performanceFeatures)||ms.find(x=>x.performanceFeatures)||first,f=p.performanceFeatures||{};return {available:p.performanceAvailable===true&&!!p.performanceFeatures,source:p.performanceSource||null,coverage:p.performanceCoverage??null,features:{homeGames:f.homeGames??null,awayGames:f.awayGames??null,homeElo:f.homeElo??null,awayElo:f.awayElo??null,homeForm:f.homeForm??null,awayForm:f.awayForm??null,homeVenue:f.homeVenue??null,awayVenue:f.awayVenue??null,h2hHome:f.h2hHome??null,homeRest:f.homeRest??null,awayRest:f.awayRest??null,sampleShrink:f.sampleShrink??null,priorScope:f.priorScope??null,priorSamples:f.priorSamples??null,priorScoreSamples:f.priorScoreSamples??null,priorCoverage:f.priorCoverage??null,projectedMargin:f.projectedMargin??null,projectedHome:f.projectedHome??null,projectedAway:f.projectedAway??null,projectedTotal:f.projectedTotal??null}};})(),
+      marketRows:ms.map(m=>({oddsSource:m.domesticOddsSource||m.oddsSource||m.source||null,oddsSnapshotStatus:m.oddsSnapshotStatus||null,performanceProbabilities:m.performanceProbabilities||null,performanceCoverage:m.performanceCoverage??null,no:m.no,market:m.market,marketFamily:m.marketFamily,line:m.line,handicapEffectiveLine:m.marketFamily==="HANDICAP"?handicapEffectiveLine(m,m.finalPick):null,handicapDirection:m.marketFamily==="HANDICAP"?handicapDirectionKorean(m,m.finalPick):null,choices:m.choices,marked:!!m.marked,finalPick:m.finalPick,finalOdds:m.finalOdds,selectionStatus:m.selectionStatus,analysisEngine:m.analysisEngine||null,analysisSelectable:m.analysisSelectable??false,analysisBestPick:m.analysisBestPick??null,analysisBestOdds:m.analysisBestOdds??null,analysisProbability:m.analysisProbability??null,analysisModelProbability:m.analysisModelProbability??null,analysisMarketProbability:m.analysisMarketProbability??null,analysisConservativeProbability:m.analysisConservativeProbability??null,analysisModelEdge:m.analysisModelEdge??null,analysisValuePercentage:m.analysisValuePercentage??null,analysisReliability:m.analysisReliability??null,analysisCoverage:m.analysisCoverage??null,analysisQuality:m.analysisQuality??null,analysisSelectionScore:m.analysisSelectionScore??null,analysisConfidence:m.analysisConfidence??null,analysisGateCode:m.analysisGateCode??null,analysisHoldReason:m.r398AnalysisHoldReason||null,analysisLayers:m.analysisLayers||null,analysisFiveApkActiveCount:m.analysisFiveApkActiveCount??0,analysisDataIntegrity:m.analysisDataIntegrity??null,sharedAnalysis:m.sharedAnalysis||null,oddsFetchedAt:m.domesticOddsFetchedAt||m.fetchedAt||null})).sort((a,b)=>Number(a.no||0)-Number(b.no||0))
     });
   }
   return out.sort(marketSort);
@@ -6276,6 +6277,17 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .expControls{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:7px;margin-bottom:9px}.expControls input,.expControls select{width:100%;min-width:0;background:#0e1d31;color:#fff;border:1px solid #446182;border-radius:8px;padding:10px;font-size:13px}
 .expCard{border:1px solid #365673;border-radius:11px;margin:8px 0;background:#101c30;overflow:hidden}.expHead{display:block;width:100%;text-align:left;background:transparent;border:0;color:#f6fbff;padding:12px;cursor:pointer;font-size:13px;line-height:1.6}.expHead small{display:block;color:#a4c1d9}.expBody{padding:12px;border-top:1px solid #2c4661}.expTitle{font-weight:800;color:#91e8ff;font-size:13px;margin:10px 0}.expMetrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.expMetric{background:#0a1729;border:1px solid #243a58;border-radius:7px;padding:8px;overflow-wrap:anywhere}.expMetric b{display:block;color:#fff;font-size:14px}.expMetric small{font-size:11px;color:#adc0d3}.expInfo{color:#a8bfda;font-size:11px;line-height:1.6;margin:6px 0}.expWarning{background:#2b2419;border:1px solid #6b5830;color:#ffe2a6;padding:8px;border-radius:7px;font-size:11px;line-height:1.5}.expMarket{background:#091729;border:1px solid #344c69;border-radius:8px;padding:8px;margin:7px 0}.expMarket b{font-size:12px}.expOdd{display:grid;grid-template-columns:.7fr .6fr .85fr 1fr;gap:4px;font-size:11px;padding:7px 0;border-bottom:1px solid #263e58;overflow-wrap:anywhere}.expOdd:last-child{border-bottom:0}.expChosen{color:#ffd453}.expEmpty{padding:14px;border:1px dashed #455a72;color:#c9d3e0;border-radius:8px;font-size:12px}
 @media(max-width:370px){.viewTabs button{font-size:10px;padding:8px 2px}.expControls{grid-template-columns:minmax(0,1fr) 88px}.expOdd{font-size:10px}}
+
+/* R400 detailed analytics: phone-first evidence and odds cards */
+.expMarketTop,.expChoiceHead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.expMarketTop{margin-bottom:8px}.expMarketTop strong{font-size:13px}.expMarketTop small{color:#a7b7ca}
+.expFacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0}
+.expChoice{border:1px solid #33516d;background:#0d1e32;border-radius:9px;margin:8px 0;padding:9px}
+.expChoiceOn{border-color:#dfbd5e}.expChoiceHead{color:#f2f8fd;margin-bottom:7px}
+.expChoiceHead strong{font-size:13px}.expFamily{margin:10px 0 16px}.expFamilyTitle{font-size:14px;font-weight:900;color:#b3eaff;margin:8px 0}
+.expMetric{min-width:0}.expMetric b{font-size:13px;overflow-wrap:anywhere;padding:3px 0}.expMetric small{display:block;line-height:1.5}
+.expMarketFacts{margin-top:4px}.expWarning{overflow-wrap:anywhere}
+@media(min-width:720px){.expFacts{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="refresh">회차·배당 갱신</button><button type="button" id="results">결과 확인</button><button type="button" id="reanalyze">자동마킹 재분석</button><button type="button" id="exportJson">분석 JSON 저장</button></div><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">지난경기</button><button id="tabExperiment" type="button">경기력·배당분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 경기력 배당 분석">
 <div class="expIntro"><b>실험 메뉴 · 경기 하나씩 분석</b> · 저장된 경기력·국내배당·시장 확률을 비교합니다. 화면 갱신은 실시간 경기 중 점유율·슈팅·xG 수신이 아닙니다. 이 메뉴에서 자동마킹과 정산기록은 변경되지 않습니다.</div>
@@ -6364,31 +6376,85 @@ function expKey(m){return [m.gmTs,m.date,m.time,m.home,m.away].join('|')}
 function expFmt(v,d=1){return v!==null&&v!==undefined&&Number.isFinite(Number(v))?Number(v).toFixed(d):'자료 없음'}
 function expPct(v){return v!==null&&v!==undefined&&Number.isFinite(Number(v))?(Number(v)*100).toFixed(1)+'%':'자료 없음'}
 function expMetric(name,value){return '<div class="expMetric"><b>'+e(String(value))+'</b><small>'+e(name)+'</small></div>'}
+/* R400 detailed read-only match report. No mutation, network calls or settlement writes. */
+function expNum(v){return v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v):null}
+function expVal(v,unit='',digits=1){const x=expNum(v);return x==null?'자료 없음':x.toFixed(digits)+unit}
+function expUnitPct(v){const x=expNum(v);return x==null?'자료 없음':(x*100).toFixed(1)+'%'}
+function expMini(title,body,sub){return '<div class="expMetric"><small>'+e(title)+'</small><b>'+e(body)+'</b>'+(sub?'<small>'+e(sub)+'</small>':'')+'</div>'}
 function expOdds(r){
-  const choices=Array.isArray(r.choices)?r.choices:[],priced=choices.filter(x=>Number(x.odds)>1&&Number.isFinite(Number(x.odds))),sum=priced.reduce((a,x)=>a+1/Number(x.odds),0);
-  const analysis=Array.isArray(r.sharedAnalysis?.choices)?r.sharedAnalysis.choices:[];
-  const title=String(r.market||r.marketFamily||'시장')+(r.line!=null?' 기준 '+r.line:'');
-  const rows=priced.map(x=>{
-    const p=sum>0?(1/Number(x.odds))/sum:null,selected=r.marked&&String(r.finalPick)===String(x.label);
-    const c=analysis.find(z=>String(z.pick)===String(x.label));
-    const prob=c&&c.calibratedProbability!=null&&Number.isFinite(Number(c.calibratedProbability))?Number(c.calibratedProbability):null;
-    const ev=prob!=null&&prob>=0&&prob<=1?prob*Number(x.odds)-1:null;
-    return '<div class="expOdd'+(selected?' expChosen':'')+'"><span>'+e(String(x.label||'?'))+(selected?' ✓':'')+'</span><span>'+e(Number(x.odds).toFixed(2))+'</span><span>'+e(expPct(p))+'</span><span>'+e(prob==null?'검증 안 됨':expPct(prob))+(ev==null?'':' · EV '+e((ev*100).toFixed(1))+'%')+'</span></div>';
+  const priced=(Array.isArray(r.choices)?r.choices:[]).filter(x=>expNum(x?.odds)!=null&&Number(x.odds)>1),sum=priced.reduce((a,x)=>a+1/Number(x.odds),0),margin=priced.length>=2?(sum-1)*100:null;
+  const analysis=Array.isArray(r.sharedAnalysis?.choices)?r.sharedAnalysis.choices:[],perf=r.performanceProbabilities||{},age=Date.parse(String(r.oddsFetchedAt||'')),stale=Number.isFinite(age)&&Date.now()-age>20*60000;
+  const status=String(r.oddsSnapshotStatus||'상태 미확인'),family=String(r.marketFamily||'');
+  const title=String(r.market||family||'시장')+(r.line!=null?' · 기준 '+r.line:'');
+  const choiceCards=priced.map(x=>{
+    const odd=Number(x.odds),open=expNum(x.openingOdds),marketP=1/odd,normalized=sum>0?marketP/sum:null,delta=open!=null&&open>1?(odd-open):null;
+    const calc=analysis.find(z=>String(z.pick)===String(x.label)),p0=expNum(calc?.calibratedProbability),p1=expNum(perf[x.label]);
+    const probability=p0!=null&&p0>0&&p0<1?p0:(p1!=null&&p1>0&&p1<1?p1:null),kind=p0!=null&&p0>0&&p0<1?'내부 보정모델':p1!=null&&p1>0&&p1<1?'경기력 자체모델':'확률 근거 없음';
+    const ev=probability!=null?probability*odd-1:null,edge=probability!=null?probability-marketP:null;
+    const selected=!!r.marked&&String(r.finalPick)===String(x.label);
+    const betShare=expNum(x.betShare);
+    return '<div class="expChoice'+(selected?' expChoiceOn':'')+'"><div class="expChoiceHead"><strong>'+e(String(x.label||'-'))+(selected?' · 현재 마킹':'')+'</strong><strong>'+odd.toFixed(2)+'배</strong></div>'+
+      '<div class="expFacts">'+
+      expMini('개장 → 현재',open!=null&&open>1?open.toFixed(2)+' → '+odd.toFixed(2):'개장 자료 없음',delta!=null?'변동 '+(delta>0?'+':'')+delta.toFixed(2)+'배':'개장 대비 비교 불가')+
+      expMini('손익분기 확률',expUnitPct(marketP),'1 / 현재 배당')+
+      expMini('마진제거 시장비중',expUnitPct(normalized),'배당 시장 참고값')+
+      expMini('내부 모델 확률',expUnitPct(probability),kind)+
+      expMini('모델 기대값 EV',ev==null?'계산 불가':((ev>=0?'+':'')+(ev*100).toFixed(1)+'%'),'표본·보정 검증 전 참고값')+
+      expMini('모델 대 손익분기 차이',edge==null?'자료 없음':((edge>=0?'+':'')+(edge*100).toFixed(1)+'%p'),'실제 적중 가능성 보장 아님')+
+      '</div>'+(betShare!=null&&betShare>=0&&betShare<=100?'<p class="expInfo">투표 점유 정보: '+e(betShare.toFixed(1))+'% (수집 출처 검증 필요)</p>':'')+'</div>';
   }).join('');
-  const age=Date.parse(String(r.oddsFetchedAt||'')),stale=Number.isFinite(age)&&Date.now()-age>20*60000;
-  return '<div class="expMarket"><b>#'+e(String(r.no||'-'))+' · '+e(title)+'</b><div class="expOdd"><span>선택</span><span>배당</span><span>마진제거확률</span><span>모델 참고</span></div>'+(rows||'<div class="expInfo">정상 배당 없음</div>')+'<div class="expInfo">'+(stale?'⚠ 배당 20분 초과 · ':'')+'출처 '+e(String(r.oddsSource||'미확인'))+' · '+e(String(r.oddsSnapshotStatus||'상태 미확인'))+'</div></div>';
+  let issues=[];
+  if(!r.oddsFetchedAt)issues.push('배당 수집 시각 없음');
+  else if(stale)issues.push('배당 수집 후 20분 초과');
+  if(status!=='OPEN')issues.push('배당상태 '+status);
+  if(priced.length<2)issues.push('유효 배당 2개 미만');
+  if(r.analysisSelectable===false)issues.push('신규 마킹 자격 미충족');
+  if(r.analysisHoldReason)issues.push(String(r.analysisHoldReason).slice(0,140));
+  if(r.sharedAnalysis?.reason)issues.push(String(r.sharedAnalysis.reason).slice(0,140));
+  return '<div class="expMarket"><div class="expMarketTop"><strong>#'+e(String(r.no||'-'))+' · '+e(title)+'</strong><small>'+e(family)+'</small></div>'+
+    '<div class="expFacts expMarketFacts">'+
+    expMini('시장 마진(역배당합 - 1)',margin==null?'산출 불가':(margin>=0?'+':'')+margin.toFixed(1)+'%','모든 정상 선택지 합산')+
+    expMini('배당 기준시각',r.oddsFetchedAt?String(r.oddsFetchedAt).replace('T',' ').slice(0,19):'미확인','원본 저장 시각; KST 변환값 아님')+
+    expMini('분석 품질 지표',expUnitPct(r.analysisQuality),'내부 산식 참고')+
+    expMini('시장 분석 상태',r.analysisSelectable===true?'후보 검토 가능':'추천 자격 미확인',String(r.analysisGateCode||r.selectionStatus||'근거 부족'))+
+    '</div>'+
+    (choiceCards||'<div class="expEmpty">현재 조회 가능한 배당 선택지가 없습니다.</div>')+
+    '<div class="expInfo">배당 출처: '+e(String(r.oddsSource||'미확인'))+' · 상태: '+e(status)+' · 마킹된 선택: '+e(String(r.marked?r.finalPick:'없음'))+'</div>'+
+    (issues.length?'<div class="expWarning">검토 사항: '+issues.map(e).join(' · ')+'</div>':'')+
+    '</div>';
 }
 function expBody(m){
   const p=m.experimentPerformance||{},f=p.features||{},metrics=[];
   if(p.available){
-    metrics.push(expMetric('홈 / 원정 경기수',expFmt(f.homeGames,0)+' / '+expFmt(f.awayGames,0)));
-    if(f.homeForm!=null&&f.awayForm!=null)metrics.push(expMetric('최근 폼',expPct(f.homeForm)+' / '+expPct(f.awayForm)));
-    if(f.homeElo!=null&&f.awayElo!=null)metrics.push(expMetric('팀 강도 ELO (내부 추정)',expFmt(f.homeElo,0)+' / '+expFmt(f.awayElo,0)));
-    if(f.homeVenue!=null&&f.awayVenue!=null)metrics.push(expMetric('홈 / 원정 지표',expPct(f.homeVenue)+' / '+expPct(f.awayVenue)));
-    if(f.projectedHome!=null&&f.projectedAway!=null)metrics.push(expMetric('자체 예상득점',expFmt(f.projectedHome,2)+' : '+expFmt(f.projectedAway,2)));
-    metrics.push(expMetric('경기력 자료 커버리지',expPct(p.coverage)));
+    metrics.push(expMini('기록 표본 홈 / 원정',expVal(f.homeGames,'경',0)+' / '+expVal(f.awayGames,'경',0),'실제 저장된 경기 결과 기반'));
+    metrics.push(expMini('최근 폼 홈 / 원정',expUnitPct(f.homeForm)+' / '+expUnitPct(f.awayForm),'자체 최근 결과 가중치'));
+    metrics.push(expMini('홈 경기 / 원정 경기 성과',expUnitPct(f.homeVenue)+' / '+expUnitPct(f.awayVenue),'자체 홈·원정 표본 기준'));
+    metrics.push(expMini('내부 Elo 홈 / 원정',expVal(f.homeElo,'',0)+' / '+expVal(f.awayElo,'',0),'팀 상대강도 모델 추정치'));
+    metrics.push(expMini('휴식 관련 지표',expUnitPct(f.homeRest)+' / '+expUnitPct(f.awayRest),'실제 휴식일 수 아님: 모델 점수'));
+    metrics.push(expMini('상대전적 반영 점수',expUnitPct(f.h2hHome),'상대전적 표본 가중 모델'));
+    metrics.push(expMini('홈 / 원정 자체 예상득점',expVal(f.projectedHome,'',2)+' : '+expVal(f.projectedAway,'',2),'현재 경기 실황 점수 아님'));
+    metrics.push(expMini('예상 총점 / 득점차',expVal(f.projectedTotal,'',2)+' / '+expVal(f.projectedMargin,'',2),'내부 통계모형 추정'));
+    metrics.push(expMini('해당 리그 표본 수',expVal(f.priorSamples,'경',0),'득점 기록 표본 '+expVal(f.priorScoreSamples,'경',0)));
+    metrics.push(expMini('분석자료 커버리지',expUnitPct(p.coverage),'사전 학습 기록의 내부 지표'));
   }
-  return '<div class="expBody"><div class="expTitle">① 경기력 분석</div><div class="expWarning">'+(m.gameStarted?'경기 중 데이터가 아닙니다. 종료 후 기록 또는 실황으로 소급 해석 금지.':'사전 경기력 참고값입니다. 경기 중 슈팅·점유율·xG는 미연동입니다.')+'</div>'+(p.available?'<div class="expMetrics">'+metrics.join('')+'</div><p class="expInfo">자료 출처: '+e(String(p.source||'내부 기록'))+'</p>':'<div class="expEmpty">확인된 팀별 경기력 기록이 없습니다. 수치를 만들지 않습니다.</div>')+'<div class="expTitle">② 일반승 · 핸디캡 · 언더오버 배당</div><div class="expInfo">마진 제거 확률은 시장 참고값이며 실제 승리 확률은 아닙니다. 모델의 EV는 검증되지 않은 참고 계산입니다.</div>'+((m.marketRows||[]).map(expOdds).join('')||'<div class="expEmpty">해당 경기 배당 없음</div>')+'<div class="expTitle">③ 기존 마킹 참고</div><div class="expInfo">마킹: '+e(String(m.pick||'없음'))+' · 등급: '+e(String(m.displayGrade||'일반'))+' · 실험 조회는 정산에 영향을 주지 않습니다.</div></div>';
+  const markets=Array.isArray(m.marketRows)?m.marketRows:[];
+  const families=[['MONEYLINE','일반승·승무패'],['HANDICAP','핸디캡'],['TOTAL','언더오버']];
+  const byFamily=families.map(([key,title])=>({title,rows:markets.filter(x=>x.marketFamily===key)})).filter(x=>x.rows.length);
+  const missing=['경기 중 슈팅','점유율','경기 중 xG','라인업·부상 확정 정보'].join(' · ');
+  const risk=markets.every(x=>x.analysisSelectable!==true)?'현재 저장 자료만으로는 신규 추천의 자격을 확인할 수 없습니다.':'일부 시장은 후보 검토 가능하지만 확정 추천은 아닙니다.';
+  const verdict=markets.filter(x=>x.analysisSelectable===true&&x.analysisBestPick).map(x=>'#'+String(x.no)+' '+String(x.analysisBestPick)+' '+(expNum(x.analysisBestOdds)!=null?Number(x.analysisBestOdds).toFixed(2)+'배':''));
+  return '<div class="expBody">'+
+    '<div class="expTitle">① 경기력 상세 · 근거와 표본</div>'+
+    '<div class="expWarning">이 화면은 저장된 사전 데이터 기반입니다. 경기 중 실황자료와 구분하십시오. 실시간 미연동: '+e(missing)+'</div>'+
+    (p.available?'<div class="expFacts">'+metrics.join('')+'</div><p class="expInfo">모델 근거: '+e(String(p.source||'미확인'))+' · 우선순위 기준: '+e(String(f.priorScope||'미확인'))+' · 리그 사전표본 보정: '+e(expUnitPct(f.priorCoverage))+'</p>':'<div class="expEmpty">팀별 경기력 근거가 부족합니다. 수치 대신 누락 상태를 표시합니다.</div>')+
+    '<div class="expTitle">② 경기별 배당 상세 · 시장 전체</div>'+
+    '<p class="expInfo">배당 선택지별로 개장가격, 현재가격, 확률, 기대값과 보류 사유를 분리했습니다. 배당변화가 실제 자금 흐름이나 승률 상승을 증명하지는 않습니다.</p>'+
+    (byFamily.length?byFamily.map(x=>'<div class="expFamily"><div class="expFamilyTitle">'+e(x.title)+'</div>'+x.rows.map(expOdds).join('')+'</div>').join(''):'<div class="expEmpty">일반승·핸디캡·언더오버 배당이 저장되지 않았습니다.</div>')+
+    '<div class="expTitle">③ 마킹과 모델 판단 · 실험 결과</div>'+
+    '<div class="expWarning">'+e(risk)+'</div>'+
+    (verdict.length?'<p class="expInfo">기존 분석 엔진 후보: '+e(verdict.join(' / '))+'</p>':'<p class="expInfo">검증조건을 통과한 시장 후보 없음</p>')+
+    '<p class="expInfo">실제 마킹: '+e(String(m.pick||'없음'))+' · 등급: '+e(String(m.displayGrade||'일반'))+' · 선택 상태: '+e(String(m.selectionStatus||'미확인'))+'</p>'+
+    '<p class="expInfo">※ 이 조회 화면은 기존 자동마킹, 정산, 배당 원장, 추천등급을 변경하지 않습니다.</p></div>';
 }
 function renderExperiment(){
   if(!state||activeView!=='experiment')return;
