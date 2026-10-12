@@ -1,0 +1,26 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync('자동마킹.js','utf8'),worker=vm.createContext({URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(src.replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),worker);
+const index=vm.runInContext('INDEX',worker),client=index.match(/<script>([\s\S]*?)<\/script>/)[1];const nodes={},ctx=vm.createContext({Date,Number,Math,JSON,Intl,console,document:{getElementById:id=>nodes[id]??={textContent:'',classList:{toggle(){}}}},localStorage:{setItem(){}},setInterval(){}});
+vm.runInContext(client.slice(0,client.indexOf('function bindActionButton')),ctx);const fn=n=>vm.runInContext(n,ctx),now=new Date().toISOString();
+const row={no:7845,marketFamily:'TOTAL',market:'언더오버',line:2.5,marked:true,finalPick:'오버',finalOdds:1.49,choices:[{label:'언더',odds:2.15},{label:'오버',odds:1.49}],oddsSnapshotStatus:'OPEN',precision:{valid:true,observedAt:now,period:'FULL_TIME',historyCount:2,choices:[{label:'언더',currentOdds:2.15,firstObservedOdds:2.05,sampleSamples:565,sampleHits:259},{label:'오버',currentOdds:1.49,firstObservedOdds:1.6,sampleSamples:565,sampleHits:306}]}};
+const game={no:7845,pick:'오버',odds:1.49,sport:'축구',displayGrade:'추천',marketRows:[row]},before=JSON.stringify(game),main=fn('expBody')(game),detail=fn('expDSFull')(game,row);
+assert.match(main,/배당으로 본 가능성/);assert.match(main,/59\.1%/);assert.match(main,/40\.9%/);assert.match(main,/width:59\.1%/);assert.match(main,/배당은 오버 쪽/);assert.match(main,/실제 승률/);assert.match(detail,/306회/);assert.match(detail,/54\.2%/);
+const forbidden=/손익|\bEV\b|기대값|시장비중|환급|마진|오버라운드|Wilson|%p|정합성|역배당합|표본|원천/;
+assert.doesNotMatch(main+detail,forbidden,'all visible explanations including expanded details use plain language');assert.equal(JSON.stringify(game),before);
+const opposite={...row,finalPick:'언더'};assert.match(fn('expDS')(game,opposite),/현재 마킹은 언더.*배당은 오버/);
+assert.doesNotMatch(fn('expDS')(game,{...row,choices:[{label:'오버',odds:0}]}),/width:|NaN|Infinity/);
+const noHistory={...row,precision:{...row.precision,choices:[]}};assert.match(fn('expDSFull')(game,noHistory),/지난 결과가 없습니다/);
+const stale={...row,oddsSnapshotStatus:'LAST_KNOWN'};assert.match(fn('expDS')(game,stale),/마감|지난 배당/);
+
+const cards=fn('expEasyPrices')(game,row);
+assert.match(cards,/선택지별 배당 비교/);assert.match(cards,/1\.49배/);assert.match(cards,/0\.11배 내려감/);assert.match(cards,/0\.10배 올라감/);
+assert.match(cards,/처음 확인/);assert.doesNotMatch(cards,forbidden);
+const opening={...row,precision:{...row.precision,choices:row.precision.choices.map(c=>({...c,openingOdds:2}))}};
+assert.match(fn('expEasyPrices')(game,opening),/시작 배당/);
+assert.match(fn('expEasyPrices')(game,{...row,precision:{choices:[]}}),/이전 기록 없음/);
+assert.doesNotMatch(fn('expEasyPrices')(game,{...row,choices:[{label:'오버',odds:0}]}),/NaN|Infinity/);
+const three={...row,marketFamily:'MONEYLINE',choices:[{label:'승',odds:2},{label:'무',odds:3.1},{label:'패',odds:3.4}]};
+const html=fn('expEasyPrices')(game,three);assert.match(html,/edTone0/);assert.match(html,/edTone1/);assert.match(html,/edTone2/);
+assert.equal(JSON.stringify(game),before);
+console.log('PASS R452: all choice prices, exact increase/decrease, reference provenance, missing and invalid prices, three-choice colors, immutable picks');

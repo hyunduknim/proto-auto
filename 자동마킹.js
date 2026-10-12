@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R451-EASY-ODDS-CHARTS";
-const BUILD_ID = "proto-r451-20261013-easy-odds-charts";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R452-COLOR-ODDS-DETAIL";
+const BUILD_ID = "proto-r452-20261013-color-odds-detail";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6929,6 +6929,18 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .edExpert{padding:10px 12px;background:#102d3f;border-left:3px solid #e9c96b;border-radius:8px;font-size:12px;line-height:1.6}.edExpert>b{color:#ffde93}.edExpert p{margin:5px 0;color:#d8e8f3}.edActivePick{padding:8px;color:#9debc3;font-size:12px;line-height:1.5}.edOtherMarkets{margin-top:12px}.edOtherMarkets>.edBriefInner{padding:7px}.edBriefKpis{margin:8px 0}.edBriefPrices{margin:7px 0}
 .edEasyTitle{font-size:17px;line-height:1.5;font-weight:900;color:#ffe5a1;margin:8px 0}.edEasyDetail{padding:3px}.edDomTrack{height:15px}.edDomLabel strong{font-size:22px}.edExpert p{line-height:1.7}
 .edFlow{padding:10px;background:#10263b;border:1px solid #355d80;border-radius:10px;margin:9px 0}.edFlowTitle{display:flex;justify-content:space-between;font-size:12px;gap:6px}.edFlowTitle b{color:#c4eaff}.edFlowTitle span{color:#ffe08e}.edFlowPrices{font-size:16px;font-weight:900;color:#edf5ff;margin:6px 0}.edFlow svg{width:100%;height:80px;display:block}.edFlowTimes{display:flex;justify-content:space-between;font-size:10px;color:#b0cce1}.edFlow small,.edFlowEmpty{font-size:10px;color:#aec5d8;line-height:1.5}.edFlowEmpty{padding:7px 2px}
+
+/* R452: distinct selection colors, compact readable price comparison. */
+.edTone0{--odds-color:#62d9ff;--odds-soft:rgba(52,172,235,.12)}.edTone1{--odds-color:#ffbb72;--odds-soft:rgba(250,151,65,.12)}.edTone2{--odds-color:#c9a0ff;--odds-soft:rgba(164,108,240,.12)}
+.edPrices{margin:10px 0;padding:12px;background:linear-gradient(135deg,#102f47,#17243e);border:1px solid #43678e;border-radius:12px}
+.edPriceGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px;margin-top:9px}
+.edPriceCard{padding:12px;background:var(--odds-soft);border:1px solid var(--odds-color);border-top:3px solid var(--odds-color);border-radius:10px;min-width:0}.edPriceCard.picked{box-shadow:0 0 0 1px #f8da83}
+.edPriceLabel{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font-size:13px;color:var(--odds-color)}.edPriceLabel span{font-size:10px;background:#0c1b2d;padding:3px 5px;border-radius:5px;color:#eee2b6}
+.edPriceBig{display:block;font-size:25px;color:#fff;margin:10px 0 7px;font-variant-numeric:tabular-nums}.edPriceShare{font-size:11px;color:#d1e0ef;line-height:1.6}.edPriceShare b{color:var(--odds-color)}
+.edPriceMove{font-size:12px;font-weight:800;margin:8px 0}.edPriceMove.down{color:#ffb6a0}.edPriceMove.up{color:#8fdbff}.edPriceMove.flat{color:#ced7e4}.edPriceCard small{color:#c0cede;font-size:10px;line-height:1.5;display:block}
+.edPriceExplain{font-size:11px;color:#ccdbea;line-height:1.7;margin-top:10px}.edDomRow{padding:8px;border-left:3px solid var(--odds-color);background:var(--odds-soft);border-radius:6px}.edDomRow .edDomTrack i{background:linear-gradient(90deg,var(--odds-color),#e0edff)}.edDomRow strong{color:var(--odds-color)}
+.edFlow{background:linear-gradient(120deg,#123048,#192a41);border:1px solid #47698c;border-radius:12px}.edFlow.falling .edFlowTitle span{color:#ffb6a0}.edFlow.rising .edFlowTitle span{color:#8fdbff}.edFlowTitle span{padding:3px 7px;border-radius:6px;background:#091b2c}.edEasyTitle{color:#ffe3a0;border-left:3px solid #ffd173;padding-left:10px}.edExpert{background:linear-gradient(120deg,#133d45,#132d43)}
+@media(max-width:480px){.edPrices{padding:9px}.edPriceGrid{grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:7px}.edPriceCard{padding:10px}.edPriceBig{font-size:23px}.edPriceLabel{font-size:12px}}
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>쉽게 보는 배당 분석</b> · 어느 쪽을 더 높게 보는지 차트와 짧은 이유로 확인하세요. <small>현재 마킹 먼저 보기 · 배당 흐름은 선 차트로 보기 · 지난 결과는 펼쳐서 보기</small></div>
@@ -7157,6 +7169,18 @@ function expEasyData(m,r){
  const notice=!q.fresh?(m.gameStarted||r.oddsSnapshotStatus==='LAST_KNOWN'?'마감된 배당으로 비교한 내용입니다.':'지난 배당일 수 있어 새 배당 확인이 필요합니다.'):'최근 배당으로 비교했습니다.';
  return {q,cs,ranked,leader,selected,records,comparable,pastLeader,gap,title,reasons:reasons.slice(0,3),notice};
 }
+function expEasyPrices(m,r){
+ const d=expEasyData(m,r),p=r.precision||{};
+ if(!d.cs.length)return '<div class="edFlowEmpty">비교할 배당이 없습니다.</div>';
+ const cards=d.cs.map((c,i)=>{const a=(p.choices||[]).find(x=>String(x.label)===String(c.label))||{},opening=Number(a.openingOdds),first=opening>1?opening:Number(a.firstObservedOdds),current=Number(c.odds),delta=first>1?current-first:null,down=delta!==null&&delta<-.005,up=delta!==null&&delta>.005,picked=r.marked&&String(c.label)===String(r.finalPick),share=d.q.valid?(100/current/d.q.sum).toFixed(1)+'%':'비교 보류';
+ const change=delta===null?'이전 기록 없음':Math.abs(delta)<.005?'변화 없음':Math.abs(delta).toFixed(2)+'배 '+(down?'내려감':'올라감');
+ return '<div class="edPriceCard edTone'+i+(picked?' picked':'')+'"><div class="edPriceLabel"><b>'+e(c.label)+'</b><span>'+e(picked?'현재 마킹':d.leader?.label===c.label?'배당상 앞섬':'비교 선택')+'</span></div><strong class="edPriceBig">'+e(expDOdds(current))+'</strong><div class="edPriceShare">배당으로 본 가능성 <b>'+e(share)+'</b></div><div class="edPriceMove '+(down?'down':up?'up':'flat')+'">'+(down?'↘ ':up?'↗ ':'→ ')+e(change)+'</div><small>'+e(first>1?(opening>1?'시작 배당 ':'처음 확인 ')+expDOdds(first):'이전 배당이 없어 변화 비교는 보류합니다.')+'</small></div>';
+ }).join('');
+ const gap=d.q.valid&&d.ranked.length>1?Math.abs(100/Number(d.ranked[0].odds)/d.q.sum-100/Number(d.ranked[1].odds)/d.q.sum):null;
+ const explain=gap===null?'배당 자료가 맞는지 확인 후 비교합니다.':gap<2?'앞선 두 선택의 차이가 작습니다. 배당만으로 방향을 고르기 어렵습니다.':String(d.leader.label)+' 쪽이 앞섭니다. 100칸 막대로 보면 다음 선택과 약 '+gap.toFixed(1)+'칸 차이입니다.';
+ return '<div class="edPrices"><div class="edDomVizHead">선택지별 배당 비교</div><div class="edPriceGrid">'+cards+'</div><div class="edPriceExplain">'+e(explain)+'<br>낮은 배당은 더 자주 나올 것으로 보는 쪽이며, 맞혔을 때 받는 금액은 작습니다.</div></div>';
+}
+
 function expEasyFlow(m,r){
  const d=expEasyData(m,r),target=d.selected||d.leader,p=r.precision||{},points=new Map();
  if(!target)return '<div class="edFlowEmpty">배당 흐름 기록이 없습니다.</div>';
@@ -7167,16 +7191,16 @@ function expEasyFlow(m,r){
  const first=rows[0],last=rows[rows.length-1],delta=last.odds-first.odds,low=Math.min(...rows.map(x=>x.odds)),high=Math.max(...rows.map(x=>x.odds)),range=high-low;
  const plot=rows.map(x=>({x:12+256*(x.at-first.at)/(last.at-first.at),y:range<.005?40:65-50*(x.odds-low)/range,odds:x.odds}));
  const direction=Math.abs(delta)<.005?'변화 없음':delta<0?'내려감':'올라감',clock=at=>new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(at));
- return '<div class="edFlow"><div class="edFlowTitle"><b>'+e(target.label)+' 배당 흐름</b><span>'+e(direction)+'</span></div><div class="edFlowPrices">'+e(expDOdds(first.odds))+' → '+e(expDOdds(last.odds))+'</div>'+
- '<svg viewBox="0 0 280 80" role="img" aria-label="'+e(target.label+' 배당 '+first.odds+'에서 '+last.odds+'로 '+direction)+'"><line x1="10" y1="72" x2="270" y2="72" stroke="#355270"/><polyline fill="none" stroke="#68d9ff" stroke-width="3" points="'+plot.map(x=>x.x.toFixed(1)+','+x.y.toFixed(1)).join(' ')+'"/>'+plot.map(x=>'<circle cx="'+x.x.toFixed(1)+'" cy="'+x.y.toFixed(1)+'" r="3.5" fill="#ffe08e"><title>'+e(expDOdds(x.odds))+'</title></circle>').join('')+'</svg><div class="edFlowTimes"><span>'+e(clock(first.at))+'</span><span>'+e(clock(last.at))+'</span></div><small>확인된 '+rows.length+'번의 배당 기록입니다.</small></div>';
+ return '<div class="edFlow '+(delta<-.005?'falling':delta>.005?'rising':'flat')+'"><div class="edFlowTitle"><b>'+e(target.label)+' 배당 흐름</b><span>'+e(direction)+'</span></div><div class="edFlowPrices">'+e(expDOdds(first.odds))+' → '+e(expDOdds(last.odds))+'</div>'+
+ '<svg viewBox="0 0 280 80" role="img" aria-label="'+e(target.label+' 배당 '+first.odds+'에서 '+last.odds+'로 '+direction)+'"><line x1="10" y1="72" x2="270" y2="72" stroke="#355270"/><polyline fill="none" stroke="'+(delta<-.005?'#ffb6a0':delta>.005?'#8fdbff':'#ffe08e')+'" stroke-width="3" points="'+plot.map(x=>x.x.toFixed(1)+','+x.y.toFixed(1)).join(' ')+'"/>'+plot.map(x=>'<circle cx="'+x.x.toFixed(1)+'" cy="'+x.y.toFixed(1)+'" r="3.5" fill="#ffe08e"><title>'+e(expDOdds(x.odds))+'</title></circle>').join('')+'<text x="12" y="'+Math.max(10,plot[0].y-10).toFixed(1)+'" text-anchor="start" fill="#e5faff" font-size="10">'+first.odds.toFixed(2)+'</text><text x="268" y="'+Math.max(10,plot[plot.length-1].y-10).toFixed(1)+'" text-anchor="end" fill="#ffe8a3" font-size="10">'+last.odds.toFixed(2)+'</text></svg><div class="edFlowTimes"><span>'+e(clock(first.at))+'</span><span>'+e(clock(last.at))+'</span></div><small>확인된 '+rows.length+'번의 배당 기록입니다.</small></div>';
 }
 
 function expEasyBars(r,data,past=false){
  if(!past&&!data.q.valid)return '<div class="edDomWarning">배당이 부족하거나 맞지 않아 차트를 만들 수 없습니다.</div>';
  const rows=past?data.records.filter(x=>x.sample):data.cs.map(c=>({c,rate:1/Number(c.odds)/data.q.sum}));
  if(!rows.length)return '<div class="edDomWarning">비슷한 배당의 지난 결과가 없습니다.</div>';
- const bars=rows.map(x=>{const rate=past?x.sample.rate:x.rate,pct=(rate*100).toFixed(1),selected=r.marked&&String(x.c.label)===String(r.finalPick);
-  return '<div class="edDomRow'+(selected?' picked':'')+'"><div class="edDomLabel"><span>'+e(x.c.label)+(selected?' · 현재 마킹':'')+'</span><strong>'+e(pct)+'%</strong></div><div class="edDomTrack"><i style="width:'+pct+'%"></i></div><small>'+e(past?x.sample.n+'경기 중 '+x.c.label+' '+x.sample.k+'회'+(x.sample.n<50?' · 경기 수가 적습니다':''):expDOdds(x.c.odds))+'</small></div>';
+ const bars=rows.map((x,i)=>{const rate=past?x.sample.rate:x.rate,pct=(rate*100).toFixed(1),selected=r.marked&&String(x.c.label)===String(r.finalPick);
+  return '<div class="edDomRow edTone'+i+(selected?' picked':'')+'"><div class="edDomLabel"><span>'+e(x.c.label)+(selected?' · 현재 마킹':'')+'</span><strong>'+e(pct)+'%</strong></div><div class="edDomTrack"><i style="width:'+pct+'%"></i></div><small>'+e(past?x.sample.n+'경기 중 '+x.c.label+' '+x.sample.k+'회'+(x.sample.n<50?' · 경기 수가 적습니다':''):expDOdds(x.c.odds))+'</small></div>';
  }).join('');
  return '<div class="edDomViz"><div class="edDomVizHead">'+(past?'비슷한 배당의 지난 결과':'배당으로 본 가능성')+'</div>'+bars+'<div class="edDomNote">'+(past?'지난 경기의 기록입니다. 지금 경기의 예상 승률은 아닙니다.':'배당을 비교해 계산한 값입니다. 실제 승률을 예측한 값은 아닙니다.')+'</div></div>';
 }
@@ -7184,7 +7208,7 @@ function expDS(m,r){
  const d=expEasyData(m,r),name=String(r.market||({MONEYLINE:'승패',HANDICAP:'핸디캡',TOTAL:'언더오버'}[r.marketFamily])||'배당')+(r.line==null?'':' '+r.line);
  return '<section class="edBriefMarket'+(r.marked?' selected':'')+'"><div class="edBriefTop"><b>#'+e(r.no)+' · '+e(name)+'</b>'+(r.marked?'<span>현재 마킹</span>':'')+'</div>'+
  (r.marked?'<div class="edActivePick"><b>'+e(r.finalPick)+' · '+e(expDOdds(r.finalOdds))+'</b></div>':'')+
- '<div class="edEasyTitle">'+e(d.title)+'</div>'+expEasyBars(r,d)+expEasyFlow(m,r)+'<div class="edExpert"><b>왜 이렇게 볼까요?</b>'+d.reasons.map(t=>'<p>'+e(t)+'</p>').join('')+'</div><div class="edBriefQuality">'+e(d.notice)+'</div>'+
+ '<div class="edEasyTitle">'+e(d.title)+'</div>'+expEasyPrices(m,r)+expEasyBars(r,d)+expEasyFlow(m,r)+'<div class="edExpert"><b>왜 이렇게 볼까요?</b>'+d.reasons.map(t=>'<p>'+e(t)+'</p>').join('')+'</div><div class="edBriefQuality">'+e(d.notice)+'</div>'+
  '<details class="edBriefDetails" data-exp-market="'+e(r.no)+'"><summary>지난 결과·배당 변화 보기 <span>펼치기</span></summary><div class="edBriefInner"></div></details></section>';
 }
 function expDSFull(m,r){
