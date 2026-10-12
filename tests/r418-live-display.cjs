@@ -4,7 +4,8 @@ const worker=vm.createContext({URL,Response,Request,TextEncoder,TextDecoder,Abor
 vm.runInContext(src.replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),worker);
 const index=vm.runInContext('INDEX',worker),client=index.match(/<script>([\s\S]*?)<\/script>/)[1];
 const nodes={};const $=id=>nodes[id]??=( {innerHTML:'',textContent:'',className:'',style:{},classList:{toggle(){}}} );
-const ctx=vm.createContext({$,e:String,Date,JSON,Math,Number,state:null,AbortController,fetch:async()=>({ok:false,status:503}),clearTimeout(){},setTimeout(){return 1},timer:null,busy:false,pendingRefreshId:null,
+let fetchedUrl=null;
+const ctx=vm.createContext({$,e:String,Date,JSON,Math,Number,state:null,AbortController,fetch:async url=>{fetchedUrl=url;return {ok:false,status:503}},clearTimeout(){},setTimeout(){return 1},timer:null,busy:false,pendingRefreshId:null,
  renderLayerOverview(){},renderHourly(){},applyMarkMenu(){},renderPastSettlementPanel(){},applyView(){}});
 vm.runInContext(client.slice(client.indexOf('function render(s)'),client.indexOf('function setActionBusy')),ctx);
 const state={round:121,summary:{games:38,representatives:38},markingGames:Array.from({length:38},()=>({pick:'언더',odds:1.63})),sourceAudit:{ok:false,reason:'BETMAN_NO_VERIFIED_OFFICIAL_MARKETS'},r401OddsAudit:{},r410PregameAudit:{updated:178}};
@@ -17,4 +18,4 @@ assert.match($('notice').textContent,/공식배당.*지연/);
 state.r410PregameAudit.at=new Date(Date.now()-3*3600000).toISOString();
 vm.runInContext('render',ctx)(state);
 assert.doesNotMatch($('notice').textContent,/젠토토 공개배당 수신/,'stale backup must not be advertised as fresh');
-(async()=>{await vm.runInContext('load()',ctx);assert.match($('notice').textContent,/화면 데이터.*HTTP_503.*재시도/);console.log('PASS R418: retained count, fresh/stale fallback status, visible initial-load failure');})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{await vm.runInContext('load()',ctx);assert.equal(fetchedUrl,'/api/state','use the verified live state endpoint without a separate timestamp-query route');assert.match($('notice').textContent,/화면 데이터.*HTTP_503.*재시도/);console.log('PASS R418: retained count, fresh/stale fallback status, visible initial-load failure, exact live state URL');})().catch(e=>{console.error(e);process.exitCode=1});
