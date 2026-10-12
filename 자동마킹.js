@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R467-ODDS-TRACK";
-const BUILD_ID = "proto-r467-20261013-odds-track";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R468-ODDS-WINRATE-RED";
+const BUILD_ID = "proto-r468-20261013-odds-winrate-red";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -7180,11 +7180,14 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 @media(max-width:720px){.odwFrame{padding:12px}.odwOutcomes{grid-template-columns:1fr}.odwSelected{grid-template-columns:repeat(2,minmax(0,1fr))}.odwOutcome{padding:12px}}
 @media(max-width:375px){.odwSummary{grid-template-columns:1fr 1fr}.odwSummary>div:last-child{grid-column:1/-1}.odwSelected strong{font-size:15px}}
 
-.r466Trend{border:1px solid #418e96;border-radius:13px;padding:14px;margin:14px 0;background:#0c273b;max-width:100%;overflow:hidden}
-.r466Trend header{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between}.r466Trend header b{font-size:14px;color:#edfbff}
-.r466Trend header span{color:#b5f0d8;font-size:11px}.r466Trend svg{display:block;width:100%;height:auto;background:#081e30;border-radius:10px}
-.r466Legend{margin:12px 0;color:#ecfaff;font-size:11px}.r466Trend>small,.odwSource{font-size:10px;line-height:1.6;color:#adcdd9}
-@media(max-width:720px){.r466Trend{padding:10px}}
+/* R468: emphasize the saved current market pick's odds win rate. */
+.odwSelected.odwHasPick .odwPickRate{border:1px solid #ec495c;background:linear-gradient(135deg,#411e32,#311b2b)}
+.odwSelected.odwHasPick .odwPickRate small{color:#ff8d9d!important;font-size:12px;font-weight:900}
+.odwSelected.odwHasPick .odwPickRate .odwPickRateValue{color:#ff4d61!important;font-size:clamp(23px,3.6vw,32px);font-weight:900;text-shadow:0 0 10px #e9434b30}
+.odwOutcome.odwPicked .odwBig{color:#ff4d61!important}
+.odwSource{font-size:10px;line-height:1.6;color:#adcdd9}
+@media(max-width:720px){.odwSelected.odwHasPick{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:365px){.odwSelected.odwHasPick .odwPickRate .odwPickRateValue{font-size:23px}}
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당승률 차트</b> · 이 경기 배당에 반영된 각 선택지의 시장 예상 비율을 비교합니다. <small>일반승 · 핸디캡 · 언더오버 · 현재 마킹 강조</small></div>
@@ -7528,68 +7531,6 @@ function r465OddsWinRateData(r){
  return {valid,rows,selected:rows.find(x=>x.selected)||null,sum,margin:valid?(sum-1)*100:null};
 }
 
-function r466TrendData(r){
- const current=r465OddsWinRateData(r);
- if(!current.valid)return null;
- const labels=current.rows.map(x=>x.label);
- const groups=[];
- for(const source of ['betman','zentoto']){
-  const candidates=[];
-  for(const item of (r.precision?.history||[])){
-   if(!String(item.source||'').toLowerCase().includes(source))continue;
-   const time=Date.parse(item.at||'');
-   if(!Number.isFinite(time)||time>Date.now()+60000)continue;
-   const choices=item.prices||[];
-   if(choices.length!==labels.length)continue;
-   const row=labels.map(name=>choices.find(p=>p.label===name));
-   if(row.some(p=>!p||!(Number(p.odds)>1)))continue;
-   const odds=row.map(p=>Number(p.odds));
-   const total=odds.reduce((a,b)=>a+1/b,0);
-   if(total<.85||total>1.3)continue;
-   candidates.push({time,odds});
-  }
-  const points=[];
-  for(const p of candidates.sort((a,b)=>a.time-b.time)){
-   const prev=points[points.length-1];
-   if(prev&&p.time<=prev.time)continue;
-   if(prev&&prev.odds.every((n,j)=>Math.abs(n-p.odds[j])<.005))continue;
-   points.push(p);
-  }
-  if(points.length>1)groups.push({source,points:points.slice(-16)});
- }
- if(!groups.length)return null;
- groups.sort((a,b)=>b.points[b.points.length-1].time-a.points[a.points.length-1].time);
- return {labels,group:groups[0]};
-}
-function r466TrendChart(r){
- const d=r466TrendData(r);
- if(!d)return '';
- const points=d.group.points;
- const values=points.flatMap(p=>p.odds);
- const min=Math.min(...values),max=Math.max(...values),pad=Math.max(.06,(max-min)*.2);
- const start=points[0].time,end=points[points.length-1].time;
- const xx=t=>40+(t-start)/Math.max(60000,end-start)*590;
- const yy=v=>12+(max+pad-v)/(max-min+2*pad)*148;
- const colors=['#71d4ff','#ffdd8a','#ff9fb2'];
- const kst=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
- const lines=d.labels.map((label,j)=>{
-  let paths=[],segment=[];
-  for(const p of points){
-   if(segment.length&&p.time-segment[segment.length-1].time>7200000){paths.push(segment);segment=[];}
-   segment.push(p);
-  }
-  if(segment.length)paths.push(segment);
-  const poly=paths.filter(p=>p.length>1).map(chunk=>'<polyline points="'+chunk.map(p=>xx(p.time).toFixed(1)+','+yy(p.odds[j]).toFixed(1)).join(' ')+'" fill="none" stroke="'+colors[j%3]+'" stroke-width="3"/>').join('');
-  const dots=points.map(p=>'<circle cx="'+xx(p.time).toFixed(1)+'" cy="'+yy(p.odds[j]).toFixed(1)+'" r="4" fill="'+colors[j%3]+'"><title>'+e(label)+' '+p.odds[j].toFixed(2)+'배 · '+kst(p.time)+'</title></circle>').join('');
-  return poly+dots;
- }).join('');
- const legend=d.labels.map((name,i)=>'<span style="color:'+colors[i%3]+'">'+e(name)+' '+points[points.length-1].odds[i].toFixed(2)+'배</span>').join(' · ');
- const ticks='<text x="40" y="189" font-size="12" fill="#daeaf2">'+kst(start)+'</text><text x="630" y="189" text-anchor="end" font-size="12" fill="#daeaf2">'+kst(end)+'</text>';
- return '<section class="r466Trend"><header><b>국내배당 시간별 변동 흐름</b><span>'+(d.group.source==='betman'?'배트맨 공식배당':'젠토토 공개배당')+'</span></header>'+
- '<div class="r466Legend">'+legend+'</div><svg viewBox="0 0 670 200" role="img" aria-label="실제 국내배당 변경 시각 차트">'+lines+ticks+'</svg>'+
- '<small>관측된 실제 변경 '+(points.length-1)+'회 · '+kst(start)+' ~ '+kst(end)+' KST · 관측되지 않은 시간의 배당은 표시하지 않습니다.</small></section>';
-}
-
 function expEasyFlow(m,r){
  const d=r465OddsWinRateData(r),q=expDQuality(r);
  const source=e(r.precision?.source||r.oddsSource||'배당원 확인 필요');
@@ -7598,8 +7539,7 @@ function expEasyFlow(m,r){
  if(!d.valid)return '<section class="odwFrame">'+head+'<div class="odwEmpty">선택지 또는 배당값에 오류가 있어 배당승률을 계산할 수 없습니다. 실제 배당을 확인해 주세요.</div></section>';
  const highest=d.rows.reduce((a,b)=>b.rate>a.rate?b:a);
  const fmt=n=>(n*100).toFixed(1)+'%';
- const current=d.selected?'<div class="odwSelected"><div><small>현재 자동마킹 선택</small><strong>'+e(d.selected.label)+' · '+d.selected.odds.toFixed(2)+'배</strong></div><div><small>배당승률</small><strong>'+fmt(d.selected.rate)+'</strong></div></div>':
- '<div class="odwSelected"><div><small>현재 선택</small><strong>저장된 자동마킹 없음</strong></div></div>';
+ const current=d.selected?'<div class="odwSelected odwHasPick"><div><small>현재마킹</small><strong>'+e(d.selected.label)+' · '+d.selected.odds.toFixed(2)+'배</strong></div><div class="odwPickRate"><small>현재마킹 배당승률</small><strong class="odwPickRateValue">'+fmt(d.selected.rate)+'</strong></div></div>':'';
  const bars=d.rows.map((x,i)=>{
    const label=r.marketFamily==='HANDICAP'?handicapChoiceText(r,x.label):x.label;
    return '<div class="odwOutcome'+(x.selected?' odwPicked':'')+'" style="--odc:'+(i===0?'#57bbf7':i===1?'#fbd26c':'#f38b99')+'">'+
@@ -7614,7 +7554,7 @@ function expEasyFlow(m,r){
    '<div class="odwSummary"><div><small>배당상 최고 확률</small><strong>'+e(highest.label)+' '+fmt(highest.rate)+'</strong></div>'+
    '<div><small>시장 선택지</small><strong>'+d.rows.length+'개</strong></div>'+
    '<div><small>배당 수신 기준</small><strong>'+(stale?'마지막 저장 배당':'최근 관측 배당')+'</strong></div></div>'+
-   '<div class="odwSource">출처 '+source+' · '+at+'</div></section>'+r466TrendChart(r);
+   '<div class="odwSource">출처 '+source+' · '+at+'</div></section>';
 }
 async function expLoadHistory(panel,change){
  const key=panel.dataset.historyKey,previous=expHistoryCache.get(key),token={data:previous?.data,loading:true};
@@ -7671,7 +7611,7 @@ function expDS(m,r){
  const title=String(r.market||({MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'}[r.marketFamily])||'배당')+(r.line==null?'':' '+r.line);
  return '<section class="edBriefMarket'+(r.marked?' selected':'')+'"><div class="edBriefTop"><b>#'+e(r.no)+' · '+e(title)+'</b>'+(r.marked?'<span>현재 마킹</span>':'')+'</div>'+
  '<div class="edMarketCondition">'+e(condition)+'</div>'+expEasyFlow(m,r)+
- '<details class="edBriefDetails" data-exp-market="'+e(r.no)+'"><summary>시간별 배당변동 확인 <span>펼치기</span></summary><div class="edBriefInner"></div></details></section>';
+ '<details class="edBriefDetails" data-exp-market="'+e(r.no)+'"><summary>배당 변경 전후 비교 <span>펼치기</span></summary><div class="edBriefInner"></div></details></section>';
 }
 function expDSFull(m,r){
  const d=expEasyData(m,r),p=r.precision||{},changes=d.cs.map(c=>{
@@ -7679,7 +7619,7 @@ function expDSFull(m,r){
  const opening=Number(a.openingOdds)>1?Number(a.openingOdds):Number(a.firstObservedOdds);
  return '<div class="edEvidence"><b>'+e(c.label)+'</b> · '+(opening>1?expDOdds(opening)+' → '+expDOdds(c.odds):'이전 배당 기록 없음')+'</div>';
  }).join('');
- return '<div class="edEasyDetail">'+expEasyTimeline(m,r)+'<div class="edSectionTitle">개장/첫 관측과 현재 배당</div>'+changes+
+ return '<div class="edEasyDetail"><div class="edSectionTitle">개장/첫 관측과 현재 배당</div>'+changes+
  '<p class="edEducational">관측된 배당변동은 시장 가격의 기록입니다. 적중 여부나 실제 승률을 보장하지 않습니다.</p></div>';
 }
 
