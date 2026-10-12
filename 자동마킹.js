@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R401-ODDS-ONLY-14KST";
-const BUILD_ID = "proto-r401-20261012-1400-odds-baseline";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R403-OFFICIAL-121-14KST";
+const BUILD_ID = "proto-r403-20261012-official-round121-recovery";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -1340,8 +1340,7 @@ function extractActiveProtoGames(root){
 // R262: 두 회차가 동시에 판매될 때 목록 순서에 따라 회차가 오가지 않도록, 진행 중인 회차를 우선 유지한다.
 function pickActiveGmTs(list,currentGmTs){
   const xs=[...new Set((list||[]).map(String))].filter(x=>/^\d+$/.test(x)).sort((a,b)=>Number(a)-Number(b));if(!xs.length)return null;
-  const cur=String(currentGmTs||"");if(cur&&xs.includes(cur))return cur;
-  if(cur){const next=xs.find(x=>Number(x)>Number(cur));if(next)return next;}
+  const cur=String(currentGmTs||"");if(cur){const next=xs.find(x=>Number(x)>Number(cur));if(next)return next;if(xs.includes(cur))return cur;}
   return xs[xs.length-1];
 }
 async function fetchActiveRound(currentGmTs=null){
@@ -1353,6 +1352,25 @@ async function fetchActiveRound(currentGmTs=null){
   return {active:true,gmId:BETMAN.gameId,gmTs,round:roundFromGmTs(gmTs),rawCount:games.length,listed:[...new Set(listed)]};
 }
 
+// R403: attempt 121 gameInfo if G101 still holds obsolete round 120.
+// Every recovered fixture must originate from a successful official response.
+async function r403Recover121OfficialRound(round,state){
+ const audit={policy:'R403_VERIFIED_OFFICIAL_ROUND121_14KST',attempted:false,verified:false,before:round?.round||state?.round||null,after:round?.round||null};
+ const now=Date.now();
+ if(now<Date.parse('2026-10-12T00:00:00+09:00')||now>Date.parse('2026-10-14T00:00:00+09:00')||Number(round?.round||0)>=121||Number(state?.round||0)>=122)
+  return {ok:false,round,audit};
+ audit.attempted=true;
+ try{
+  const gmTs='260121',raw=await fetchGameInfo(gmTs,8500),rows=parseBetmanMarkets(raw,gmTs);
+  const marker=rows.some(m=>Number(m.no)===7719&&m.date==='2026-10-12'&&m.time==='14:00'&&
+   !r403PlaceholderIdentity(m)&&/세이부/.test(m.home)&&/닛폰햄/.test(m.away));
+  audit.checkedMarkets=rows.length;audit.marker7719Verified=marker;
+  if(!marker){audit.reason='OFFICIAL_7719_NOT_CONFIRMED';return {ok:false,round,audit};}
+  audit.verified=true;audit.after=121;audit.reason='VERIFIED_OFFICIAL_121_GAMEINFO';
+  return {ok:true,round:{...round,active:true,gmTs,round:121,r403PrefetchedOfficial:raw,
+   listed:[...new Set([...(round?.listed||[]),gmTs])]},audit};
+ }catch(err){audit.reason='OFFICIAL_121_LOOKUP_UNAVAILABLE';audit.error=String(err?.message||err).slice(0,120);return {ok:false,round,audit};}
+}
 // R308: When a remote request aborts, retrying instantly doubles the DO alarm queue delay.
 async function betmanRetry(fn){return fn(0);}
 async function fetchGameInfo(gmTs,timeoutMs=CFG.settlementFetchTimeoutMs){
@@ -1377,7 +1395,7 @@ function sportFromItem(code,league=""){
 function marketFamilyName(text){
   const x=String(text||"");
   if(/언더[\s\/·ㆍ-]*오버|오버[\s\/·ㆍ-]*언더|언오버|\b(?:U\s*\/\s*O|O\s*\/\s*U|UO|OU|OVER\s*\/\s*UNDER|UNDER\s*\/\s*OVER)\b/i.test(x))return "TOTAL";
-  if(/핸디/i.test(x))return "HANDICAP";  if(/승무패|승패|일반승|일반\s*승/i.test(x))return "MONEYLINE";
+  if(/핸디/i.test(x))return "HANDICAP";  if(/승무패|승패|일반승|일반\s*승|^\s*일반\s*$/i.test(x))return "MONEYLINE";
   return "OTHER";
 }
 function hiddenBetmanMarket(text){ return /SUM|전반|후반|1쿼터|2쿼터|3쿼터|4쿼터|승1패|승①패|홀짝/i.test(String(text||"")); }
@@ -1455,6 +1473,14 @@ function compScheduleObjects(data){
   return rows.map(r=>Array.isArray(r)?Object.fromEntries(keys.map((k,i)=>[k,r?.[i]])):{...(r||{})});
 }
 
+// R403: exact official team names, no guessed fixture identities.
+function r403UnknownName(v){return !String(v||'').trim()||/^(?:미정|미확정|확인중|TBD|TBA|UNKNOWN|\?|[-–]+)$/i.test(String(v).trim());}
+function r403OfficialName(row,side){
+ const fields=side==='home'?['homeName','homeTeamName','homeTeamNm','homeNm']:['awayName','awayTeamName','awayTeamNm','awayNm'];
+ for(const key of fields){const v=String(row?.[key]||'').trim();if(!r403UnknownName(v))return v;}
+ return '미정';
+}
+function r403PlaceholderIdentity(m){return r403UnknownName(m?.home)||r403UnknownName(m?.away);}
 function parseBetmanMarkets(data,gmTs){
   const votes=voteMap(data),tips=tooltipMap(data),out=[];
   for(const s of compScheduleObjects(data)){
@@ -1466,7 +1492,7 @@ function parseBetmanMarkets(data,gmTs){
     const no=Number(s.matchSeq); if(!Number.isFinite(no)||no<=0)continue;
     const date=kstDateFromMs(s.gameDate),time=kstTimeFromMs(s.gameDate); if(!date||date<CUTOFF_DATE||isPurgedMidnightMarket({date,time}))continue;
     const league=String(s.leagueShortName||s.leagueName||"").trim(),sport=sportFromItem(s.itemCode,league);
-    const home=String(s.homeName||"").trim(),away=String(s.awayName||"").trim(); if(!home||!away)continue;
+    const home=r403OfficialName(s,"home"),away=r403OfficialName(s,"away"); if(!home||!away)continue;
     const line=parseLine(s),choices=choiceListFromSchedule(s,family,tips.get(no)||[]),vote=votes.get(no)||{};
     const cnt={W:Number(vote.W_BET_CNT||0),D:Number(vote.D_BET_CNT||0),L:Number(vote.L_BET_CNT||0)}; const total=cnt.W+cnt.D+cnt.L;
     for(const c of choices)c.betShare=total?clamp(cnt[c.voteKey]/total,0,1):null;
@@ -5065,6 +5091,8 @@ async function refreshBetmanSource(state,env,force=false){
         usedKnownRoundFallback=true;
       }
     }
+    const recovery=await r403Recover121OfficialRound(r,state);
+    if(recovery.ok){r=recovery.round;usedKnownRoundFallback=false;}
     if(!r.active||Number(r.round||0)<MIN_ACTIVE_ROUND){
       // Never delete previously published official lines or settlements.
       recordOddsStability(state,{missing:1,kept:(state.markets||[]).filter(m=>validChoices(m).length>=2).length});if(!state.r398Protocol?.enforce)applyRound118FreshStart(state);if(state.round==null||Number(state.round)<MIN_ACTIVE_ROUND)state.round=MIN_ACTIVE_ROUND;
@@ -5076,7 +5104,7 @@ async function refreshBetmanSource(state,env,force=false){
       await saveState(state,env);return false;
     }
     const isNewRound=!!state.gmTs&&String(state.gmTs)!==String(r.gmTs);
-    const raw=await fetchGameInfo(r.gmTs,11000),parsedMarkets=parseBetmanMarkets(raw,r.gmTs),freshMarkets=parsedMarkets.filter(m=>!isArchivedMarket(state,m));
+    const raw=r.r403PrefetchedOfficial||await fetchGameInfo(r.gmTs,11000),parsedMarkets=parseBetmanMarkets(raw,r.gmTs),freshMarkets=parsedMarkets.filter(m=>!isArchivedMarket(state,m));
     if(!parsedMarkets.length)throw new Error("BETMAN_G101_MARKETS_0");
     // 새 회차 응답이 정상임을 확인한 뒤에만 기존 회차의 카드/원장을 전환한다.
     if(isNewRound)clearForRoundRollover(state,r.round,r.gmTs);
@@ -5097,7 +5125,7 @@ async function refreshBetmanSource(state,env,force=false){
     if(state.r398Protocol?.enforce){await r398CollectDomesticOdds(state,env,{preserveOfficialFresh:true});r398AttachShadowFeatures(state);}
     markState(state);
     const priced=markets.filter(m=>validChoices(m).length>=2).length,waiting=markets.length-priced,freshPriced=freshMarkets.filter(m=>validChoices(m).length>=2).length;
-    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
+    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
     MEM.lastSourceSuccess=Date.now();await saveState(state,env);return true;
   }catch(e){
     for(const m of state.markets||[]){m.lastFetchAt=nowIso();if(validChoices(m).length>=2&&!explicitMarketClosed(m)){m.oddsSnapshotStatus="LAST_KNOWN";m.oddsFetchStatus="FETCH_FAILED";}}
@@ -5508,7 +5536,7 @@ function buildHourlyMarking(state){
 function publicState(state){
   const removed=state.r398Protocol?.enforce?0:purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
   const key=`${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
-  const cur={...currentRoundStateView(state),markets:(state.markets||[]).filter(m=>r401Scope(m)&&settlementAllowed(m)),
+  const cur={...currentRoundStateView(state),markets:(state.markets||[]).filter(m=>r401Scope(m)&&settlementAllowed(m)&&(!r403PlaceholderIdentity(m)||m.marked||m.resultFinal)),
     settlementLedger:(state.settlementLedger||[]).filter(r401Scope)};
   // R391: old-round unfinished picks remain visible in past screen.
   const activeGames=representativeGames(cur).filter(g=>r401Scope(g)&&!g.resultFinal).sort(marketSort),
@@ -8600,7 +8628,7 @@ function r401Reset(s,now=Date.now()){
  s.updatedAt=nowIso();return true;
 }
 function r401OddsCandidate(m,c,now=Date.now()){
- if(!r401Pregame(m,now)||!candidateEligible(m))return null;
+ if(!r401Pregame(m,now)||r403PlaceholderIdentity(m)||!candidateEligible(m))return null;
  const odds=Number(c.odds),prices=validChoices(m),sum=prices.reduce((t,x)=>t+1/Number(x.odds),0);
  if(!Number.isFinite(odds)||odds<1.31||odds>6.5||sum<.85||sum>1.30)return null;
  if(m.marketFamily==='HANDICAP'&&(!Number.isFinite(Number(m.line))||m.handicapLineAmbiguous))return null;
