@@ -6598,9 +6598,9 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 
 /* R433 action priority layout and premium research overview */
 .actions{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}
-.actions #manualMode{grid-column:1/-1!important;grid-row:1!important;justify-self:center!important;display:block!important;width:min(100%,560px)!important;min-height:75px!important;padding:16px 12px!important;line-height:1.35!important;font-size:clamp(17px,4vw,22px)!important;letter-spacing:.1px;border:3px solid #ffe198!important;border-radius:16px!important;background:linear-gradient(140deg,#5f3508 0%,#af790b 48%,#643e04 100%)!important;box-shadow:0 0 0 3px #ffdf9754,0 8px 20px #0007!important;color:#fff6cc!important}
-.actions #manualMode[aria-pressed="true"]{background:linear-gradient(140deg,#06453f,#11656b)!important;border-color:#7fffe8!important;box-shadow:0 0 0 3px #6affdd50,0 8px 20px #0007!important}
-.actions .manualActionHint{grid-column:1/-1;grid-row:2;text-align:center;color:#cfe9fa;font-size:11px;line-height:1.6;padding:1px 9px 8px;font-weight:700}
+.actions #manualMode{grid-column:1/-1!important;grid-row:1!important;justify-self:center!important;display:block!important;width:min(82%,330px)!important;height:46px!important;min-height:46px!important;padding:8px 12px!important;line-height:1.3!important;font-size:14px!important;letter-spacing:0!important;border:2px solid #ffe198!important;border-radius:11px!important;background:linear-gradient(140deg,#5f3508 0%,#a37316 48%,#643e04 100%)!important;box-shadow:0 0 0 1px #ffdf974a,0 3px 8px #0006!important;color:#fff6cc!important}
+.actions #manualMode[aria-pressed="true"]{background:linear-gradient(140deg,#06453f,#11656b)!important;border-color:#7fffe8!important;box-shadow:0 0 0 1px #6affdd50,0 3px 8px #0007!important}
+.actions .manualActionHint{grid-column:1/-1;grid-row:2;text-align:center;color:#a8c6dc;font-size:10px;line-height:1.3;padding:0 9px 3px;font-weight:600}
 .edCompare{background:#101f32;border:1px solid #42627d;border-radius:12px;padding:12px;margin:10px 0}
 .edCompare h4{font-size:13px;color:#ffd981;margin:0 0 9px}
 .edCompareKpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:9px 0}
@@ -6624,7 +6624,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .edProvenanceRow b,.edCheckRow strong{color:#91d9f9}.edProvenanceRow span,.edCheckRow span{color:#d8e9f4}
 .edRiskParagraph{font-size:11px;line-height:1.65;color:#ffdeb1;padding:8px;border-radius:7px;background:#352b20;margin:6px 0}
 @media(min-width:580px){.edCompareKpis{grid-template-columns:repeat(4,minmax(0,1fr))}.edCompareRow{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.8fr);align-items:center}.edProvenanceRow{grid-template-columns:minmax(0,1fr) minmax(0,2fr)}}
-@media(max-width:380px){.actions #manualMode{font-size:16px!important}.actions .manualActionHint{font-size:10px}}
+@media(max-width:380px){.actions #manualMode{font-size:13px!important}.actions .manualActionHint{font-size:9px}}
 
 /* R434 concise overview with technical detail available on demand. */
 .edBriefMarket{margin:10px 0;padding:12px;border:1px solid #3d6989;border-radius:12px;background:#0c2135}
