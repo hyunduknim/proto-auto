@@ -1,0 +1,19 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const NOW=Date.parse('2026-10-12T17:50:00+09:00');class Clock extends Date{constructor(...a){super(...(a.length?a:[NOW]));}static now(){return NOW;}}
+const ctx=vm.createContext({Date:Clock,URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);const f=x=>vm.runInContext(x,ctx);
+const url='https://npb.jp/scores/2026/1012/l-f-03/';
+const detail='<link rel="canonical" href="'+url+'"><div class="game_tit"><time>2026年10月12日（月）</time></div><p class="game_info">【試合終了】 ◇開始 14:00 ◇終了 17:19</p><table id="tablefix_ls"><tbody><tr class="top"><th><span class="hide_sp">北海道日本ハムファイターズ</span></th><td class="total-1">4</td></tr><tr class="bottom"><th><span class="hide_sp">埼玉西武ライオンズ</span></th><td class="total-1">1</td></tr></tbody></table>';
+assert.equal(typeof f('globalThis.r424ParseNpbFinal'),'function','official backup parser required');
+const parsed=f('r424ParseNpbFinal')(detail,url);assert.equal(parsed.score,'1:4');assert.equal(parsed.date,'2026-10-12');assert.equal(parsed.time,'14:00');
+assert.equal(f('r424ParseNpbFinal')(detail.replace('【試合終了】','9回裏'),url),null);
+assert.equal(f('r424ParseNpbFinal')(detail,url.replace('l-f-03','f-l-03')),null);
+assert.equal(f('r424ParseNpbFinal')(detail.replace('total-1">1','total-1">-'),url),null);
+const audit={id:'R412_USER_20261012_7722_UNDER',at:'2026-10-12T04:26:03.726Z',gmTs:'260120',no:7722,date:'2026-10-12',time:'14:00',pick:'언더',line:5.5,odds:1.67,status:'USER_MANUAL_PREGAME_MARK'};
+function state(){const s=f('createState')();s.gmTs='260121';s.round=121;s.markets=[];s.r412ManualAudit=audit;f('r423Restore7722')(s,NOW);return s;}
+let s=state(),m=s.markets[0];assert.equal(f('r424ApplyNpbFinal')(s,parsed),1);assert.equal(m.hit,true);assert.equal(m.resultScoreText,'1:4');assert.equal(m.finalPick,'언더');assert.equal(m.finalOdds,1.67);assert.equal(m.resultSource,'NPB_OFFICIAL_FULLTIME_RESULT');assert.equal(s.settlementLedger.filter(x=>x.no===7722).length,1);assert.equal(f('r424ApplyNpbFinal')(s,parsed),0);assert.equal(f('publicState')(s).summary.hits,1);
+for(const patch of [{time:'15:00'},{date:'2026-10-11'},{home:'요미우리'},{marketLabel:'전반 언더오버'},{league:'KBO'},{gmTs:'260120'}]){s=state();Object.assign(s.markets[0],patch);assert.equal(f('r424ApplyNpbFinal')(s,parsed),0,JSON.stringify(patch));}
+s=state();s.markets.push({...s.markets[0],no:7723});assert.equal(f('r424ApplyNpbFinal')(s,parsed),0,'ambiguous representatives lock');
+const index='<a href="/scores/2026/1012/l-f-03/">result</a>';let calls=0;
+ctx.fetch=async u=>{calls++;return new Response(u==='https://npb.jp/'?index:detail,{headers:{'content-type':'text/html'}})};
+ctx.MOCK_S=state();f('MEM.state=MOCK_S;saveState=async s=>{MEM.state=s;return true;}');
+(async()=>{const refresh=f('r424RefreshNpbFinals');const out=await refresh(ctx.MOCK_S,{},true);assert.equal(out.settled,1);assert.equal(calls,2);assert.equal(ctx.MOCK_S.markets[0].hit,true);await refresh(ctx.MOCK_S,{},false);assert.equal(calls,2,'settled pick causes no network');ctx.MOCK_S=state();ctx.MOCK_S.npbSettlementAudit={at:new Clock().toISOString()};await refresh(ctx.MOCK_S,{},false);assert.equal(calls,2,'60sec throttle');ctx.fetch=async()=>{throw Error('SOURCE_DOWN')};const fault=await refresh(ctx.MOCK_S,{},true);assert.equal(fault.status,'SOURCE_UNAVAILABLE');assert.equal(ctx.MOCK_S.markets[0].resultFinal,false);assert.equal(ctx.MOCK_S.markets[0].finalPick,'언더');console.log('PASS R424 official terminal proof, exact identities, original prices, ledger idempotence, partial/ambiguous locks, auto fetch, throttle and outage safety');})().catch(e=>{console.error(e);process.exitCode=1;});
