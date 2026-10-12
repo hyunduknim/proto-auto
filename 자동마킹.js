@@ -6491,9 +6491,21 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .expMetric{min-width:0}.expMetric b{font-size:13px;overflow-wrap:anywhere;padding:3px 0}.expMetric small{display:block;line-height:1.5}
 .expMarketFacts{margin-top:4px}.expWarning{overflow-wrap:anywhere}
 @media(min-width:720px){.expFacts{grid-template-columns:repeat(3,minmax(0,1fr))}}
-</style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="refresh">회차·배당 갱신</button><button type="button" id="results">결과 확인</button><button type="button" id="reanalyze">자동마킹 재분석</button><button type="button" id="precisionReanalyze">정밀근거 재마킹</button><button type="button" id="manualMode">수동 재마킹</button><button type="button" id="exportJson">분석 JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">지난경기</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
+
+/* R421 compact odds summary, 1 screen per match on mobile */
+.expShortBody{padding:10px 12px}.expShortTop{display:flex;flex-wrap:wrap;justify-content:space-between;gap:5px;padding:10px;background:#102a37;border:1px solid #32627b;border-radius:8px}
+.expShortTop strong{font-size:14px;color:#f9fdff}.expShortTop span{font-size:12px;font-weight:900;color:#ffe37c}
+.expShortStatus{font-size:11px;color:#b6cce0;margin:6px 2px 12px;overflow-wrap:anywhere}
+.expShortFamily{margin:9px 0}.expShortFamilyTitle{font-size:12px;font-weight:900;color:#98e5ff;margin-bottom:4px}
+.expShortMarket{padding:9px;background:#0b1a2c;border:1px solid #304d6b;border-radius:9px}
+.expShortSelected{border-color:#e3c16f}.expShortHeader{display:flex;flex-wrap:wrap;justify-content:space-between;gap:5px;font-size:12px}
+.expShortHeader span{color:#ffe27d;font-size:11px}.expShortSide{font-size:13px;font-weight:800;color:#e2f4ff;margin-top:7px;overflow-wrap:anywhere}
+.expShortMark{border-top:1px solid #314963;padding-top:8px;margin-top:8px;color:#ffdd90;font-size:12px;line-height:1.5}
+.expShortEvidence{color:#b8c9d8;font-size:11px;margin-top:5px;line-height:1.45;overflow-wrap:anywhere}
+.expShortNote{font-size:10px;color:#9eb4c9;line-height:1.5;margin:10px 0 0}
+</style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="refresh">회차·배당 갱신</button><button type="button" id="results">결과 확인</button><button type="button" id="reanalyze">자동마킹 재분석</button><button type="button" id="precisionReanalyze">정밀근거 재마킹</button><button type="button" id="manualMode">수동 재마킹</button><button type="button" id="exportJson">분석 JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">지난경기</button><button id="tabExperiment" type="button">배당 핵심분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
-<div class="expIntro"><b>121회차 배당 근거 상세분석</b> · 실제 동일배당 결과 표본·발생비율·95% 구간, 손익분기 대비 차이, 관측 배당 변화, 저장픽 선정 이유와 미확보 자료를 시장별로 확인합니다. 자동변경은 시작 전 동일 시장에서 표본 50건 이상·95% 구간 조건 충족 시에만 적용합니다.</div>
+<div class="expIntro"><b>배당 핵심요약</b> · 어느 쪽 배당이 우세한지와 현재 자동마킹 근거만 표시합니다. 상세 계산과 정산 기록은 그대로 유지합니다.</div>
 <div class="expControls"><input id="expSearch" type="search" placeholder="팀명 / 리그 / 프로토번호 검색" aria-label="경기 검색"><select id="expSport" aria-label="종목 선택"><option value="all">전체</option><option value="축구">축구</option><option value="야구">야구</option><option value="농구">농구</option><option value="배구">배구</option></select></div>
 <div id="expMeta" class="expInfo">경기 자료 로딩</div><div id="expList"></div></section><div id="markMenu" class="markMenu"><button type="button" data-mode="now">전체 시간순</button><button type="button" data-mode="date">날짜</button><button type="button" data-mode="time">시간</button><button type="button" data-mode="marked">마킹</button><button type="button" data-mode="best">가장추천</button><button type="button" data-mode="rec">추천</button><button type="button" data-mode="normal">일반</button></div><div id="hourlyBar" class="hourlyBar"></div><section id="pastPanel" class="pastPanel"><div class="pastTitle"><span>📂 121회차 지난경기</span><small id="pastMeta">정산 0경기</small></div><div id="settleFilters" class="settleFilters">
 <button type="button" data-mode="all" class="on" onclick="setSettleFilter('all')">전체</button>
@@ -6587,73 +6599,65 @@ function expVal(v,unit='',digits=1){const x=expNum(v);return x==null?'자료 없
 function expUnitPct(v){const x=expNum(v);return x==null?'자료 없음':(x*100).toFixed(1)+'%'}
 function expMini(title,body,sub){return '<div class="expMetric"><small>'+e(title)+'</small><b>'+e(body)+'</b>'+(sub?'<small>'+e(sub)+'</small>':'')+'</div>'}
 function expKst(at){const t=Date.parse(at||'');return Number.isFinite(t)?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false})+' KST':'자료 없음'}
-function expPrecision(r){
- const a=r.precision;if(!a)return '<div class="expWarning">해당 시장의 상세 근거가 아직 수신되지 않았습니다.</div>';
- const rows=a.choices||[],sample=rows.some(c=>c.sampleSamples!=null),chosen=rows.find(c=>c.selected);
- const why={INSUFFICIENT_VERIFIED_PATTERN:'표본 50건 미만 또는 가격·회차·최신성 검증 미달',WIDE_SAMPLE_INTERVAL:'과거 표본비율의 구간이 넓어 방향 판단 보류',NO_STRONG_CONTRADICTION:'현재 픽을 변경할 만큼 뚜렷한 반대 근거 없음',NO_STRONG_ALTERNATIVE:'반대 선택지의 표본 하한이 손익분기+1%p 기준 미달',INVALID_OR_STALE_MARKET:'배당 최신성·시장 정책 검증 미달',MANUAL_LOCK:'수동픽 보존',STARTED_OR_SETTLED_LOCK:'시작·정산된 픽 보존',STRONG_PATTERN_CONTRADICTION_AND_ALTERNATIVE:'표본 구간 기준 충족으로 시작 전 변경'};
- const h=['선택지','발생/표본','과거 발생비율','95% 구간','손익분기','차이'];
- const table=sample?'<div class="expTableScroll"><table class="expEvidenceTable"><thead><tr>'+h.map(x=>'<th>'+e(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(c=>'<tr'+(c.selected?' class="expChosen"':'')+'><td>'+e(c.label)+(c.selected?' · 마킹':'')+'</td><td>'+e(c.sampleHits==null?'미수신':c.sampleHits+' / '+c.sampleSamples)+'</td><td>'+expUnitPct(c.sampleRate)+'</td><td>'+e(c.sampleCI95?expUnitPct(c.sampleCI95[0])+' ~ '+expUnitPct(c.sampleCI95[1]):'미수신')+'</td><td>'+expUnitPct(c.breakEven)+'</td><td>'+e(c.sampleBreakEvenGap==null?'미수신':(c.sampleBreakEvenGap>=0?'+':'')+(c.sampleBreakEvenGap*100).toFixed(1)+'%p')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="expEmpty">동일배당 결과 집계를 수신하지 못했습니다. 현재배당에서 표본 성적을 만들어내지 않습니다.</div>';
- const history=(a.history||[]).map(x=>'<tr><td>'+e(expKst(x.at))+'</td>'+rows.map(c=>'<td>'+e(x.prices?.find(p=>p.label===c.label)?.odds??'미수신')+'</td>').join('')+'</tr>').join('');
- const last=rows.map(c=>expMini(c.label+' 최초관측 → 현재',c.firstObservedOdds==null?'변동 자료 미수신':Number(c.firstObservedOdds).toFixed(2)+' → '+Number(c.currentOdds).toFixed(2),c.observedChange==null?'변동률 미수신':(c.observedChange>=0?'+':'')+(c.observedChange*100).toFixed(2)+'%')).join('');
- return '<div class="expTitle">동일배당 실제 결과 표본</div>'+table+
- '<p class="expInfo">'+e(a.sampleNote||'표본 출처 미확인')+'</p>'+
- (sample?'<p class="expInfo">관측: '+e(expKst(a.sampleObservedAt))+' · 젠토토 공개 집계 · 95% 구간은 표본비율의 Wilson 구간이며 미래 승률이나 모델 신뢰도가 아닙니다.</p>':'')+
- '<div class="expTitle">배당 변화 · 실제 관측 기록</div><div class="expFacts">'+last+'</div>'+
- '<p class="expInfo">실제 개장배당과 최초관측 배당을 구분합니다. 최초관측 '+e(expKst(a.firstObservedAt))+' · 변경기록 '+e(a.historyCount)+'개 · 마지막 변경 '+e(expKst(a.lastChangedAt))+'</p>'+
- (history?'<div class="expTableScroll"><table class="expEvidenceTable"><thead><tr><th>관측시각</th>'+rows.map(c=>'<th>'+e(c.label)+'</th>').join('')+'</tr></thead><tbody>'+history+'</tbody></table></div>':'')+
- (a.lastSelectionChange?'<div class="expTitle">정밀근거 자동변경 기록</div><p class="expInfo">'+e(a.lastSelectionChange.from.pick)+' '+e(a.lastSelectionChange.from.odds)+'배 → '+e(a.lastSelectionChange.to.pick)+' '+e(a.lastSelectionChange.to.odds)+'배 · 표본 '+e(a.lastSelectionChange.samples)+'건 · '+e(expKst(a.lastSelectionChange.at))+'</p>':'')+
- '<div class="expTitle">이 시장의 마킹·보류 판단</div>'+
- (a.autoEvaluation?'<p class="expInfo"><b>자동변경 판단</b> · '+e(why[a.autoEvaluation.reason]||'판단 자료 미수신')+' · '+e(expKst(a.autoEvaluation.at))+'</p>':'')+
- (chosen?'<p class="expInfo">저장픽 '+e(chosen.label)+' · 마킹 당시 '+e(chosen.selectionOdds)+'배 · 현재 '+e(chosen.currentOdds)+'배</p>':'<p class="expInfo">대표마킹에 선택되지 않은 시장입니다.</p>')+
- rows.map(c=>'<p class="expInfo"><b>'+e(c.label)+'</b> · '+e(c.reasons?.join(' / ')||'검증된 독립 확률이 없어 가치판단 보류')+'</p>').join('')+
- '<div class="expWarning">'+e(a.explanation)+'<br>가치 검증 보류: '+e((a.missing||[]).join(' · '))+'</div>'+
- (a.flags?.length?'<p class="expWarning">'+e(a.flags.join(' · '))+'</p>':'');
-}
-
-function expOdds(r){
- const rows=(Array.isArray(r.choices)?r.choices:[]).filter(x=>expNum(x.odds)!=null&&Number(x.odds)>1);
- const inv=rows.reduce((z,x)=>z+1/Number(x.odds),0),margin=rows.length>=2?(inv-1)*100:null;
- const fair=inv>0&&rows.length>=2;
- const invalidMarket=rows.length<2||inv<.85||inv>1.30;
- const sourceTime=Date.parse(r.oddsFetchedAt||'');
- const minutesOld=Number.isFinite(sourceTime)?Math.max(0,Math.floor((Date.now()-sourceTime)/60000)):null;
- const freshness=minutesOld==null?'수신시각 미확인':minutesOld<=15?'최근 15분 이내':minutesOld<=90?'수신 후 '+minutesOld+'분':'오래된 배당 · '+minutesOld+'분 전';
- const flags=[];
- if(invalidMarket)flags.push('선택지 누락·환급률 비정상');
- if(minutesOld==null||minutesOld>90)flags.push('배당 최신성 확인 필요');
- if(r.oddsSnapshotStatus==='LAST_KNOWN')flags.push('이전 정상배당, 실시간 가격 아님');
- if(r.oddsSnapshotStatus==='SCREENSHOT_REFERENCE')flags.push('캡처 참고만, 현재배당 미검증');
- const cards=rows.map(x=>{
-  const p=Number(x.odds),opening=expNum(x.openingOdds),selected=r.marked&&String(r.finalPick)===String(x.label);
-  const delta=opening!=null&&opening>1?(p/opening-1)*100:null;
-  const movement=delta==null?'기록 없음':(delta>0?'+':'')+delta.toFixed(2)+'%';
-  return '<div class="expChoice'+(selected?' expChoiceOn':'')+'"><div class="expChoiceHead"><strong>'+e(String(x.label))+(selected?' · 자동마킹':'')+'</strong><strong>'+p.toFixed(2)+'배</strong></div><div class="expFacts">'+
-   expMini('개장 → 현재',opening!=null&&opening>1?opening.toFixed(2)+' → '+p.toFixed(2):'개장배당 미수신','배당변화')+
-   expMini('손익분기 확률',expUnitPct(1/p),'1 ÷ 현재배당')+
-   expMini('마진제거 시장비중',expUnitPct(fair?(1/p)/inv:null),'확률 합계를 100%로 정규화')+
-   expMini('마진제거 적정배당',fair?(p*inv).toFixed(2)+'배':'산출 불가','현재 선택지의 무마진 환산가격')+
-   expMini('개장 대비 변동',movement,'음수=배당 하락, 양수=배당 상승')+
-   expMini('기대값 EV','독립검증 전','정밀배당과 실제 적중확률은 다름')+'</div></div>';
- }).join('');
- return '<div class="expMarket"><div class="expMarketTop"><strong>#'+e(String(r.no||'-'))+' · '+e(String(r.market||r.marketFamily||'시장'))+(r.line!=null?' '+e(String(r.line)):'')+'</strong></div>'+
- '<div class="expFacts">'+expMini('시장 마진',margin==null?'산출 불가':margin.toFixed(2)+'%','역배당합−1')+
- expMini('총 역배당합',inv>0?inv.toFixed(4):'산출 불가','정상범위 0.85~1.30 참고')+
- expMini('배당 최신성',freshness,'현재 시각 대비 저장 시각')+
- expMini('배당 수집시각',String(r.oddsFetchedAt||'미확인'),'원본 시각')+'</div>'+
- (cards||'<div class="expEmpty">현재가격 수신 대기</div>')+
- (flags.length?'<div class="expWarning">⚠ '+e(flags.join(' · '))+'</div>':'')+
- '<p class="expInfo">배당 출처: '+e(String(r.oddsSource||'미확인'))+' · 상태: '+e(String(r.oddsSnapshotStatus||'미확인'))+'</p>'+expPrecision(r)+'</div>';
+/* R421: 배당 핵심요약 UI 전용. 확률·마킹·정산 엔진은 변경하지 않는다. */
+function expShortOdds(m,r){
+ const arr=(Array.isArray(r.choices)?r.choices:[]).filter(c=>expNum(c.odds)!=null&&Number(c.odds)>1);
+ const inv=arr.reduce((v,c)=>v+1/Number(c.odds),0);
+ const ranked=arr.slice().sort((a,b)=>Number(a.odds)-Number(b.odds));
+ const top=ranked[0],next=ranked[1];
+ const meta=r.precision||{};
+ const sourceAt=Date.parse(r.oddsFetchedAt||meta.observedAt||'');
+ const minutesOld=Number.isFinite(sourceAt)?Math.max(0,Math.floor((Date.now()-sourceAt)/60000)):null;
+ const valid=arr.length>=2&&inv>=.85&&inv<=1.30&&meta.valid!==false;
+ const stale=minutesOld==null||minutesOld>90||['LAST_KNOWN','SCREENSHOT_REFERENCE'].includes(r.oddsSnapshotStatus);
+ const selected=!!r.marked&&!!r.finalPick,chosen=selected?arr.find(c=>String(c.label)===String(r.finalPick)):null;
+ const marketLabel=String(r.market||r.marketFamily||'시장')+(r.line!=null?' '+String(r.line):'');
+ let advantage='판단보류 · 배당 데이터 검증 필요';
+ if(valid&&stale)advantage='판단보류 · 최신 배당 확인 필요';
+ else if(valid&&top){
+   const share=100/Number(top.odds)/inv;
+   const tied=next&&(1/Number(top.odds)-1/Number(next.odds))/inv<.01;
+   advantage=(tied?'배당상 박빙: ':'배당상 우세: ')+String(top.label)+' '+Number(top.odds).toFixed(2)+'배 (시장비중 '+share.toFixed(1)+'%)';
+ }
+ let markText='';
+ if(selected){
+   const selectedPrice=chosen?Number(chosen.odds):Number(r.finalOdds);
+   const current=Number.isFinite(selectedPrice)?selectedPrice.toFixed(2)+'배':'배당 미확인';
+   const aligned=!valid||stale?'배당 비교 보류':chosen&&top&&String(chosen.label)===String(top.label)?'배당상 우세 방향과 일치':'배당상 우세와 다른 선택 · 별도 근거 점검';
+   markText='<div class="expShortMark"><b>자동마킹</b> '+e(String(r.finalPick))+' '+e(current)+' · '+e(aligned)+'</div>';
+   const sample=(meta.choices||[]).find(c=>String(c.label)===String(r.finalPick));
+   if(sample&&Number(sample.sampleSamples)>=50&&Number.isFinite(Number(sample.sampleHits))&&Number.isFinite(Number(sample.sampleRate))){
+     markText+='<div class="expShortEvidence">동일배당 과거 '+e(String(sample.sampleHits))+'/'+e(String(sample.sampleSamples))+'건 ('+expUnitPct(sample.sampleRate)+') · 예측승률 아님</div>';
+   }else{
+     markText+='<div class="expShortEvidence">검증 가능한 동일배당 표본 부족 · 실제 우위 미확정</div>';
+   }
+   const why={INSUFFICIENT_VERIFIED_PATTERN:'표본·최신성 부족',WIDE_SAMPLE_INTERVAL:'과거 표본 불확실',NO_STRONG_CONTRADICTION:'변경할 반대 근거 없음',NO_STRONG_ALTERNATIVE:'대체픽 근거 부족',INVALID_OR_STALE_MARKET:'배당 재검증 필요',MANUAL_LOCK:'수동마킹 잠금',STARTED_OR_SETTLED_LOCK:'시작·정산 경기 잠금',STRONG_PATTERN_CONTRADICTION_AND_ALTERNATIVE:'동일배당 조건 충족해 변경'};
+   if(meta.lastSelectionChange?.to){
+     markText+='<div class="expShortEvidence">재마킹: '+e(String(meta.lastSelectionChange.from?.pick||'기존픽'))+' → '+e(String(meta.lastSelectionChange.to.pick))+' (경기 시작 전 변경기록)</div>';
+   }else if(meta.autoEvaluation?.reason){
+     markText+='<div class="expShortEvidence">재마킹 판단: '+e(why[meta.autoEvaluation.reason]||'근거 재검토')+'</div>';
+   }
+ }
+ return '<div class="expShortMarket'+(selected?' expShortSelected':'')+'"><div class="expShortHeader"><strong>#'+e(String(r.no||'-'))+' · '+e(marketLabel)+'</strong>'+(selected?'<span>선택 시장</span>':'')+'</div><div class="expShortSide">'+e(advantage)+'</div>'+markText+'</div>';
 }
 function expBody(m){
  const rows=Array.isArray(m.marketRows)?m.marketRows:[];
  const families=[['MONEYLINE','일반승·승무패'],['HANDICAP','핸디캡'],['TOTAL','언더오버']];
- const markets=families.map(([key,title])=>({title,rows:rows.filter(r=>r.marketFamily===key)})).filter(g=>g.rows.length);
- return '<div class="expBody"><div class="expTitle">① 경기별 전체 배당</div>'+
- '<p class="expInfo">각 프로토번호별 현재가격과 실제 동일배당 성적을 대조합니다. 시장비중·과거빈도·검증된 경기력 확률을 구분하며, 동일배당 표본의 구성 기준이 미확인되면 가치판단을 보류합니다.</p>'+
- (markets.length?markets.map(g=>'<div class="expFamily"><div class="expFamilyTitle">'+e(g.title)+'</div>'+g.rows.map(expOdds).join('')+'</div>').join(''):'<div class="expEmpty">유효 국내배당 대기</div>')+
- '<div class="expTitle">② 자동마킹</div><p class="expInfo">픽: '+e(String(m.pick||'없음'))+' · 배당: '+e(String(m.odds||'대기'))+
- ' · 등급: '+e(String(m.displayGrade||'일반'))+' · 상태: '+e(String(m.selectionStatus||'배당확인중'))+'</p>'+
- '<div class="expWarning">배당만으로 기대수익률(EV)이 양수라는 결론은 내리지 않습니다. 적중/낙첨은 최종 경기결과로 자동정산합니다.</div></div>';
+ const summaries=families.map(([key,title])=>{
+   const group=rows.filter(r=>r.marketFamily===key);
+   if(!group.length)return null;
+   const focus=group.find(r=>r.marked&&r.finalPick)||
+     group.find(r=>Array.isArray(r.choices)&&r.choices.filter(c=>expNum(c.odds)!=null&&Number(c.odds)>1).length>=2&&r.precision?.valid!==false)||
+     group[0];
+   return '<div class="expShortFamily"><div class="expShortFamilyTitle">'+e(title)+'</div>'+expShortOdds(m,focus)+'</div>';
+ }).filter(Boolean);
+ const markedRow=rows.find(r=>r.marked&&r.finalPick),grade=markedRow?String(m.displayGrade||'일반'):'미선정';
+ const odds=expNum(m.odds),pick=markedRow?String(m.pick||markedRow.finalPick):'마킹 없음';
+ const sourceStatus=markedRow&&['LAST_KNOWN','SCREENSHOT_REFERENCE'].includes(markedRow.oddsSnapshotStatus)?' · 배당 재확인 필요':'';
+ return '<div class="expBody expShortBody"><div class="expShortTop"><strong>현재 자동마킹: '+e(pick)+'</strong><span>'+(odds!=null?e(odds.toFixed(2))+'배 · ':'')+e(grade)+'</span></div>'+
+ '<div class="expShortStatus">'+e(String(m.selectionStatus||'분석 상태 확인중'))+e(sourceStatus)+'</div>'+
+ (summaries.length?summaries.join(''):'<div class="expEmpty">현재 확인 가능한 경기별 국내배당이 없습니다.</div>')+
+ '<p class="expShortNote">시장비중은 배당 마진을 제거한 상대가격 지표입니다. 실제 적중확률·양(+) 기대값을 보장하지 않습니다.</p></div>';
 }
 function renderExperiment(){
   if(!state||activeView!=='experiment')return;
