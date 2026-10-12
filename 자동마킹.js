@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R412-MANUAL-7722-1830";
-const BUILD_ID = "proto-r412-20261012-user7722-and-1830";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R413-ROUND121-ODDS";
+const BUILD_ID = "proto-r413-20261012-verified-121-rollover";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -1340,7 +1340,11 @@ function extractActiveProtoGames(root){
 // R262: 두 회차가 동시에 판매될 때 목록 순서에 따라 회차가 오가지 않도록, 진행 중인 회차를 우선 유지한다.
 function pickActiveGmTs(list,currentGmTs){
   const xs=[...new Set((list||[]).map(String))].filter(x=>/^\d+$/.test(x)).sort((a,b)=>Number(a)-Number(b));if(!xs.length)return null;
-  const cur=String(currentGmTs||"");if(cur){const next=xs.find(x=>Number(x)>Number(cur));if(next)return next;if(xs.includes(cur))return cur;}
+  const cur=String(currentGmTs||"");if(/^\d{6}$/.test(cur)){
+    const next=xs.find(x=>Number(x)>Number(cur));if(next)return next;
+    // Never roll back to an obsolete advertised round while the newer round is already persisted.
+    if(xs.includes(cur)||Number(xs[xs.length-1])<Number(cur))return cur;
+  }
   return xs[xs.length-1];
 }
 async function fetchActiveRound(currentGmTs=null){
@@ -1355,21 +1359,41 @@ async function fetchActiveRound(currentGmTs=null){
 // R403: attempt 121 gameInfo if G101 still holds obsolete round 120.
 // Every recovered fixture must originate from a successful official response.
 async function r403Recover121OfficialRound(round,state){
- const audit={policy:'R403_VERIFIED_OFFICIAL_ROUND121_14KST',attempted:false,verified:false,before:round?.round||state?.round||null,after:round?.round||null};
+ const audit={policy:'R413_VERIFIED_OFFICIAL_ROUND121_1830_KST',
+   attempted:false,verified:false,before:round?.round||state?.round||null,
+   after:round?.round||null,requiredAnchors:2};
  const now=Date.now();
- if(now<Date.parse('2026-10-12T00:00:00+09:00')||now>Date.parse('2026-10-14T00:00:00+09:00')||Number(round?.round||0)>=121||Number(state?.round||0)>=122)
+ if(now<Date.parse('2026-10-12T12:00:00+09:00')||
+    now>Date.parse('2026-10-14T00:00:00+09:00')||
+    Number(round?.round||0)>=121||Number(state?.round||0)>=122)
   return {ok:false,round,audit};
  audit.attempted=true;
  try{
   const gmTs='260121',raw=await fetchGameInfo(gmTs,8500),rows=parseBetmanMarkets(raw,gmTs);
-  const marker=rows.some(m=>Number(m.no)===7719&&m.date==='2026-10-12'&&m.time==='14:00'&&
-   !r403PlaceholderIdentity(m)&&/세이부/.test(m.home)&&/닛폰햄/.test(m.away));
-  audit.checkedMarkets=rows.length;audit.marker7719Verified=marker;
-  if(!marker){audit.reason='OFFICIAL_7719_NOT_CONFIRMED';return {ok:false,round,audit};}
+  // These are distinct 121st-round fixtures published on 2026-10-12 at 18:30.
+  // Do not use #7719: that belonged to round 120's 14:00 game.
+  const checks=[
+   {no:7782,home:/두산/,away:/롯데/},
+   {no:7785,home:/삼성/,away:/KT/i},
+   {no:7793,home:/KIA/i,away:/LG/i}
+  ];
+  const verified=checks.filter(x=>rows.some(m=>
+    Number(m.no)===x.no&&m.date==='2026-10-12'&&m.time==='18:30'&&
+    m.gmTs===gmTs&&!r403PlaceholderIdentity(m)&&
+    x.home.test(m.home)&&x.away.test(m.away)&&validChoices(m).length>=2));
+  audit.checkedMarkets=rows.length;audit.verifiedAnchors=verified.map(x=>x.no);
+  if(verified.length<2){
+   audit.reason='ROUND121_OFFICIAL_1830_ANCHORS_NOT_VERIFIED';
+   return {ok:false,round,audit};
+  }
   audit.verified=true;audit.after=121;audit.reason='VERIFIED_OFFICIAL_121_GAMEINFO';
   return {ok:true,round:{...round,active:true,gmTs,round:121,r403PrefetchedOfficial:raw,
    listed:[...new Set([...(round?.listed||[]),gmTs])]},audit};
- }catch(err){audit.reason='OFFICIAL_121_LOOKUP_UNAVAILABLE';audit.error=String(err?.message||err).slice(0,120);return {ok:false,round,audit};}
+ }catch(err){
+  audit.reason='OFFICIAL_121_LOOKUP_UNAVAILABLE';
+  audit.error=String(err?.message||err).slice(0,120);
+  return {ok:false,round,audit};
+ }
 }
 // R308: When a remote request aborts, retrying instantly doubles the DO alarm queue delay.
 async function betmanRetry(fn){return fn(0);}
@@ -5117,6 +5141,14 @@ async function refreshBetmanSource(state,env,force=false){
     let r,roundDiscoveryError=null,usedKnownRoundFallback=false;
     try{r=await fetchActiveRound(state.gmTs);}
     catch(e){roundDiscoveryError=String(e?.message||e);r={active:false,listed:[]};}
+    // R413: G101 may still advertise round 120 after round 121 prices go live.
+    // Promote ONLY after distinct Betman 121 fixtures and priced choices verify.
+    // Preserve frozen round-120 marks and settlement ledger via normal rollover.
+    if(Number(r?.round||0)<121){
+      const verified121=await r403Recover121OfficialRound(r,state);
+      state.r413RolloverAudit={...verified121.audit,at:nowIso()};
+      if(verified121.ok)r=verified121.round;
+    }
     const knownRound=String(state?.gmTs||"");
     const hasCurrentUpcoming=!!knownRound&&(state.markets||[]).some(m=>
       String(m.gmTs||"")===knownRound&&!started(m)&&!m.resultFinal);
@@ -5178,7 +5210,7 @@ async function refreshBetmanSource(state,env,force=false){
     // R408: official current odds must be selected BEFORE optional source polls.
     markState(state);
     const priced=markets.filter(m=>validChoices(m).length>=2).length,waiting=markets.length-priced,freshPriced=freshMarkets.filter(m=>validChoices(m).length>=2).length;
-    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,r408Recovery:r408Recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
+    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,r408Recovery:r408Recovery.audit,r413RolloverAudit:state.r413RolloverAudit||null,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
     MEM.lastSourceSuccess=Date.now();await saveState(state,env);
     if(optionalDue){
       try{
