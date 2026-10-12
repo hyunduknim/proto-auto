@@ -8853,14 +8853,14 @@ async function runTickInternal(env){
   }
   // R388: saved final-score recovery has no network. It is already performed
   // by loadState() before any remote source can block this tick.
-  // R384: Zen first, Spogod verified full-time second, optional licensed Wise, Betman last.
+  // R436: Zentoto first; Spogod exact full-time second; NPB official and other audited backups later.
   // A failure in one source never blocks the next source and cannot alter
   // already settled scores, picks, prices or historical records.
   await settlementCheck("ZENTOTO",()=>r381RefreshCloudflareZentoto(cur,env,fiveMinuteDue));
   cur=MEM.state||cur;
-  await settlementCheck("NPB_OFFICIAL",()=>r424RefreshNpbFinals(cur,env,fiveMinuteDue));
-  cur=MEM.state||cur;
   await settlementCheck("SPOGOD",()=>r384RefreshSpogodResults(cur,env,fiveMinuteDue));
+  cur=MEM.state||cur;
+  await settlementCheck("NPB_OFFICIAL",()=>r424RefreshNpbFinals(cur,env,fiveMinuteDue));
   cur=MEM.state||cur;
   await settlementCheck("ESPN_MLS",()=>r385RefreshMlsFinals(cur,env,false));
   cur=MEM.state||cur;
