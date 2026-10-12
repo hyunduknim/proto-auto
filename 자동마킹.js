@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R410-ZENTOTO-PREGAME-FALLBACK";
-const BUILD_ID = "proto-r410-20261012-zen-public-odds-fallback";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R411-14KST-SOURCE-TRIGGER";
+const BUILD_ID = "proto-r411-20261012-pregame-source-trigger";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5200,7 +5200,15 @@ async function refreshBetmanSource(state,env,force=false){
     }
     return true;
   }catch(e){
-    for(const m of state.markets||[]){m.lastFetchAt=nowIso();if(validChoices(m).length>=2&&!explicitMarketClosed(m)){m.oddsSnapshotStatus="LAST_KNOWN";m.oddsFetchStatus="FETCH_FAILED";}}
+    for(const m of state.markets||[]){
+      m.lastFetchAt=nowIso();
+      if(validChoices(m).length<2||explicitMarketClosed(m))continue;
+      const zenFresh=m.oddsSource==='ZENTOTO_PUBLIC_PREGAME_HTML'&&
+        Number.isFinite(Date.parse(m.domesticOddsFetchedAt||''))&&
+        Date.now()-Date.parse(m.domesticOddsFetchedAt)<=5*60000;
+      if(zenFresh){m.oddsFetchStatus='BETMAN_FAILED_PUBLIC_PREGAME_FRESH';continue;}
+      m.oddsSnapshotStatus="LAST_KNOWN";m.oddsFetchStatus="FETCH_FAILED";
+    }
     r404Reconcile14Snapshot(state);
     recordOddsStability(state,{fetchFailures:1,kept:(state.markets||[]).filter(m=>validChoices(m).length>=2).length});
     state.sourceAudit={...(state.sourceAudit||{}),lastAt:nowIso(),ok:false,error:String(e?.message||e),keptGames:gameCount(state.markets),errors:[String(e?.message||e)]};
@@ -8014,6 +8022,10 @@ function r394FiveMinuteAudit(state,before,nowMs){
 }
 async function runTickInternal(env){
   const s=await loadState(env);let cur=MEM.state||s;
+  // R411: the 14:00 reference cards may have existed ONLY in publicState(),
+  // never in persisted state. Seed those reference identities BEFORE urgent
+  // detection so the public pregame quote adapter can actually run.
+  r404Reconcile14Snapshot(cur);
   const fiveMinuteDue=r394FiveMinuteDue(cur,Date.now());
   const pendingBefore=fiveMinuteDue?pendingSettlementMarkets(cur).length:0;
   // R400: result-provider failures do not block later providers or watchdog writes.
