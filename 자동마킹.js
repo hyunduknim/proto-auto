@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R454C-ODDS-TIMELINE-DETAIL";
-const BUILD_ID = "proto-r454c-20261013-odds-timeline-detail";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R455-SINGLE-MARKET-REPORT";
+const BUILD_ID = "proto-r455-20261013-single-market-report";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6946,7 +6946,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .edMarketGroup{margin:14px 0;border:1px solid #48627d;border-radius:12px;padding:10px;background:#0b1c30}.edMarketGroupHead{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-radius:7px;background:#13354c;color:#8ee3ff}.edMarketGroupHead b{font-size:15px}.edMarketGroupHead span{font-size:11px;color:#d6e0ec}.edMarketGroup .edBriefMarket{margin:10px 0 0}.edFamilyHANDICAP>.edMarketGroupHead{background:#342f48;color:#d2b5ff}.edFamilyTOTAL>.edMarketGroupHead{background:#3b3026;color:#ffd39a}
 @media(max-width:480px){.edMarketGroup{padding:7px}.edMarketGroupHead b{font-size:14px}}
 
-.edCompareAll{margin:12px 0;padding:12px;background:linear-gradient(135deg,#12354d,#252644);border:1px solid #577a9c;border-radius:11px;color:#ddedf9;font-size:12px}.edCompareAll>b{color:#ffe1a1;font-size:14px}.edCompareScroll{overflow-x:auto;margin-top:10px}.edCompareAll table{border-collapse:collapse;width:100%;min-width:330px}.edCompareAll th{text-align:left;background:#0a1e34;color:#aee4ff;font-size:11px;padding:9px}.edCompareAll td{padding:10px 8px;border-bottom:1px solid #36546f;vertical-align:top;font-size:11px;line-height:1.5}.edCompareAll td small{display:block;color:#b5c9de;font-size:10px;margin-top:5px}.edCompareAll tr.marked{background:#3a3528}.edCompareAll tr.marked td:first-child{border-left:3px solid #ffda80}.edCompareAll p{font-size:11px;line-height:1.6;color:#c1d1e3;margin-bottom:0}.edMarketCondition{font-size:11px;color:#c7d8e9;line-height:1.6;margin:9px 0}
+.edCompareScroll{overflow-x:auto;margin-top:10px}.edMarketCondition{font-size:11px;color:#c7d8e9;line-height:1.6;margin:9px 0}
 
 .edDirection{padding:11px 12px;margin:10px 0;border:1px solid #607b98;border-left:4px solid #ffd77d;border-radius:9px;background:linear-gradient(135deg,#133243,#182b42);font-size:12px;line-height:1.6}.edDirection>b{color:#ffe1a1}.edDirection.agree{border-left-color:#6adbb8}.edDirection.agree>b{color:#94f0cb}.edDirection.different{border-left-color:#ffa282}.edDirection.different>b{color:#ffbfaa}.edDirection p{margin:6px 0;color:#d4e1ef}.edObserved{font-size:10px;color:#aac1d8;border-top:1px solid #395671;padding-top:6px;margin-top:7px}
 .edTimeline{padding:12px;border:1px solid #52779c;background:linear-gradient(130deg,#152d44,#222b46);border-radius:10px;margin:8px 0 12px}.edTimeline>b{font-size:13px;color:#bceaff}.edTimeline table{width:100%;border-collapse:collapse;min-width:330px;font-size:11px}.edTimeline th{background:#0c1c30;text-align:left;padding:9px;color:#ceeaff}.edTimeline th.edTone0,.edTimeline th.edTone1,.edTimeline th.edTone2{color:var(--odds-color)}.edTimeline td{padding:9px;border-bottom:1px solid #36516d;vertical-align:top;color:#cdddeb}.edTimeline td b{color:var(--odds-color)}.edTimeline td small{display:block;margin-top:4px;font-size:10px;color:#b8c8dc}.edTimeline small.down{color:#ffb6a0}.edTimeline small.up{color:#8fdbff}.edTimeline p{color:#b9cde0;font-size:10px;line-height:1.6;margin-bottom:0}
@@ -7248,21 +7248,13 @@ function expDSFull(m,r){
  const d=expEasyData(m,r),p=r.precision||{},changes=d.cs.map(c=>{const a=(p.choices||[]).find(a=>String(a.label)===String(c.label))||{},first=Number(a.openingOdds)>1?Number(a.openingOdds):Number(a.firstObservedOdds);return '<div class="edEvidence"><b>'+e(c.label)+'</b> · '+e(first>1?expDOdds(first)+' → '+expDOdds(c.odds):'이전 배당 기록이 없습니다')+'</div>';}).join('');
  return '<div class="edEasyDetail">'+expEasyTimeline(m,r)+expEasyBars(r,d,true)+'<div class="edSectionTitle">배당이 어떻게 바뀌었나요?</div>'+changes+'<p class="edEducational">배당이 내려갔다고 반드시 적중하는 것은 아닙니다. 여러 경기의 지난 기록을 참고해 보세요.</p></div>';
 }
-function expMarketComparison(m,rows){
- const labels={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'};
- const content=rows.slice().sort((a,b)=>Number(b.marked)-Number(a.marked)||Number(a.no)-Number(b.no)).map(r=>{const d=expEasyData(m,r),target=d.selected||d.leader,a=(r.precision?.choices||[]).find(x=>String(x.label)===String(target?.label))||{},first=Number(a.openingOdds)>1?Number(a.openingOdds):Number(a.firstObservedOdds),delta=target&&first>1?Number(target.odds)-first:null,move=delta===null?'이전 기록 없음':Math.abs(delta)<.005?'변화 없음':Math.abs(delta).toFixed(2)+'배 '+(delta<0?'내려감':'올라감'),lead=d.q.valid&&d.leader?d.leader.label+' '+expDOdds(d.leader.odds):'비교 보류';
- return '<tr class="'+(r.marked?'marked':'')+'"><td><b>'+e(labels[r.marketFamily]||r.market||'기타')+'</b><small>#'+e(r.no)+(r.line==null?'':' · 기준값 '+e(r.line))+'</small></td><td>'+e(lead)+'<small>'+e(d.gap!==null&&d.gap<.02?'선택 간 차이가 작음':d.q.valid?'낮은 배당 방향':'배당 확인 필요')+'</small></td><td>'+e(target?target.label+' · '+move:'기록 없음')+'<small>'+e(r.marked?'현재 마킹 '+r.finalPick:'배당이 앞서는 방향의 변화')+'</small></td></tr>';
- }).join('');
- return '<div class="edCompareAll"><b>시장별 한눈에 비교</b><div class="edCompareScroll"><table><thead><tr><th>시장·기준값</th><th>배당이 앞서는 쪽</th><th>배당 변화·현재 마킹</th></tr></thead><tbody>'+content+'</tbody></table></div><p>시장마다 맞혀야 하는 조건이 다릅니다. 배당이 낮거나 가능성 숫자가 높다는 이유만으로 서로 다른 시장의 적중 가능성을 순위로 매기지는 않습니다.</p></div>';
-}
-
 function expBody(m){
  const raw=Array.isArray(m.marketRows)?m.marketRows:[],rows=raw.map(r=>({...r,marked:!!m.pick&&String(r.no)===String(m.no),finalPick:String(r.no)===String(m.no)?m.pick:r.finalPick,finalOdds:String(r.no)===String(m.no)?m.odds:r.finalOdds})),chosen=rows.find(r=>r.marked);
  const families=[['MONEYLINE','일반승'],['HANDICAP','핸디캡'],['TOTAL','언더오버']];
  if(chosen){const index=families.findIndex(x=>x[0]===chosen.marketFamily);if(index>0)families.unshift(families.splice(index,1)[0]);}
  const groups=families.map(([family,label])=>{const list=rows.filter(r=>r.marketFamily===family).sort((a,b)=>Number(b.marked)-Number(a.marked)||Number(a.no)-Number(b.no));return '<section class="edMarketGroup edFamily'+family+'"><div class="edMarketGroupHead"><b>'+label+'</b><span>'+list.length+'개 배당'+(list.some(r=>r.marked)?' · 현재 마킹 포함':'')+'</span></div>'+(list.length?list.map(r=>expDS(m,r)).join(''):'<div class="edFlowEmpty">'+label+' 배당이 아직 없습니다.</div>')+'</section>';}).join('');
  const extra=rows.filter(r=>!families.some(x=>x[0]===r.marketFamily));
- return '<div class="expBody edReport"><div class="edAllMarketNote">일반승 · 핸디캡 · 언더오버 전체 배당 비교'+(chosen?' · 현재 마킹 시장 먼저':'')+'</div>'+expMarketComparison(m,rows)+groups+(extra.length?'<section class="edMarketGroup"><div class="edMarketGroupHead"><b>기타 배당</b></div>'+extra.map(r=>expDS(m,r)).join('')+'</section>':'')+'</div>';
+ return '<div class="expBody edReport"><div class="edAllMarketNote">일반승 · 핸디캡 · 언더오버 전체 배당 비교'+(chosen?' · 현재 마킹 시장 먼저':'')+'</div>'+groups+(extra.length?'<section class="edMarketGroup"><div class="edMarketGroupHead"><b>기타 배당</b></div>'+extra.map(r=>expDS(m,r)).join('')+'</section>':'')+'</div>';
 }
 
 function expDReview(m,r){

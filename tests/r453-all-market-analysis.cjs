@@ -22,5 +22,5 @@ assert.ok(output.indexOf('#7845')<output.indexOf('#7844'),'current marked market
 assert.match(fn('expBody')(game),/일반승 배당이 아직 없습니다/);
 assert.match(fn('expBody')(game),/핸디캡 배당이 아직 없습니다/);
 assert.equal(JSON.stringify(game),before);assert.doesNotMatch(output,forbidden);
-assert.match(output,/시장별 한눈에 비교/);assert.match(output,/<table/);assert.match(output,/기준값/);
+assert.doesNotMatch(output,/시장별 한눈에 비교/);assert.match(output,/기준값/);
 console.log('PASS R453: all three market families visible, no other-market fold, current mark first, missing prices honest');
