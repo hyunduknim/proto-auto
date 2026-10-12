@@ -29,6 +29,8 @@ jobs:
           node-version: "22"
       - name: Check Worker JavaScript syntax
         run: node --check "자동마킹.js"
+      - name: Verify R400 evidence-first selection and settlement invariants
+        run: node tests/r400-evidence-first.cjs
       - name: Verify settlement, state persistence and public UI
         run: node tests/settlement-check.cjs
       - name: Verify R356 price EV and source authenticity
