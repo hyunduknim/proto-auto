@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R447-PREMIUM-VISIBILITY";
-const BUILD_ID = "proto-r447-20261012-premium-visibility";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R448-PREMIUM-FUTURE-REPAIR";
+const BUILD_ID = "proto-r448-20261012-premium-grade-durable-restore";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5996,7 +5996,7 @@ function publicState(state){
   const originalSummary=summary(cur),
     appliedSummary=r444AppliedSummary(state,originalSummary,pastGames,pastPendingGames,activeGames),
     gradeDisplayCounts=Object.fromEntries(['가장추천','추천','일반'].map(g=>[g,
-      all.filter(m=>!!m.pick&&m.displayGrade===g).length]));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:appliedSummary,overallSummary:appliedSummary,originalAutoSummary:originalSummary,performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r444CorrectionAudit:state.r444CorrectionAudit||null,r445KiaLgSettlementAudit:state.r445KiaLgSettlementAudit||null,r446ManualSettlementAudit:{manual:all.filter(m=>m.manualReview).length,settled:all.filter(m=>m.manualReview&&m.resultFinal).length,pending:all.filter(m=>m.manualReview&&!m.resultFinal).map(m=>({no:m.manualReview.no,reason:m.manualReview.settlement?.reason||'경기종료 검증 대기'}))},r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,gradeDisplayCounts,markingGradeHistory:pastGames,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      all.filter(m=>!!m.pick&&m.displayGrade===g).length]));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:appliedSummary,overallSummary:appliedSummary,originalAutoSummary:originalSummary,performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r448PremiumRestoreAudit:state.r448PremiumRestoreAudit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r444CorrectionAudit:state.r444CorrectionAudit||null,r445KiaLgSettlementAudit:state.r445KiaLgSettlementAudit||null,r446ManualSettlementAudit:{manual:all.filter(m=>m.manualReview).length,settled:all.filter(m=>m.manualReview&&m.resultFinal).length,pending:all.filter(m=>m.manualReview&&!m.resultFinal).map(m=>({no:m.manualReview.no,reason:m.manualReview.settlement?.reason||'경기종료 검증 대기'}))},r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,gradeDisplayCounts,markingGradeHistory:pastGames,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -10843,6 +10843,65 @@ function r431ApplyOwner7780Over(state,now=Date.now()){
    mode:'RETROSPECTIVE_MANUAL_WITH_VERIFIED_RESCORE',preservesOfficialResult:true}];
  state.updatedAt=at;return true;
 }
+
+/* R448: one-time repair of pregame relative grade labels erased by R440.
+ * This only changes grade metadata. It never creates a pick, changes the
+ * selected outcome/odds, touches started events, or rewrites settlement.
+ */
+const R448_PREMIUM_REPAIR_ID='R448_20261012_RESTORE_FUTURE_RELATIVE_TIERS';
+function r448RestoreFuturePremium(state,now=Date.now()){
+ if(state.r448PremiumRestoreAudit?.id===R448_PREMIUM_REPAIR_ID)return {status:'ALREADY_APPLIED',changed:0};
+ const groups=r405RoundFixtures((state.markets||[]).filter(m=>
+   currentRoundMarket(m,state)&&Number(m.gmTs)>=260121&&
+   r401Scope(m)&&settlementAllowed(m)));
+ const active=[...groups.values()].map(ms=>ms.find(m=>
+   m.marked&&m.representativeSelected&&m.finalPick)).filter(Boolean);
+ const eligible=active.filter(m=>r401Pregame(m,now)&&!m.manualOverride&&
+   Number(m.finalOdds)>=1.31&&validChoices(m).some(c=>c.label===m.finalPick&&Number(c.odds)>=1.31));
+ const existingPremium=active.filter(m=>
+   ['가장추천','추천'].includes(m.displayGrade)).length;
+ const audit={id:R448_PREMIUM_REPAIR_ID,at:new Date(now).toISOString(),
+  status:'NOT_NEEDED',eligible:eligible.length,active:active.length,existingPremium,
+  changed:0,selectionChanges:0,settlementChanges:0,protectedStarted:true,
+  policy:'RESTORE_RELATIVE_15_25_60_LABELS_NOT_VALIDATED_PREDICTION'};
+ // Do not invent a grade without any valid future odds, or regrade an already
+ // functioning premium board. 3+ eligible future picks allow one highest tier.
+ if(existingPremium>0||eligible.length<3){audit.status=existingPremium?'PREMIUM_PRESENT':'INSUFFICIENT_ELIGIBLE_FUTURE';
+   state.r448PremiumRestoreAudit=audit;return audit;}
+ const frozen=active.filter(m=>!r401Pregame(m,now)||m.manualOverride);
+ const frozenBefore=frozen.map(m=>[officialOddsIdentity(m),m.displayGrade,m.finalPick,m.finalOdds,
+  m.resultFinal,m.settlementStatus,m.resultScoreText].join('|'));
+ const selectionsBefore=(state.markets||[]).map(m=>
+  [officialOddsIdentity(m),m.marked,m.representativeSelected,m.finalPick,m.finalOdds,
+   m.resultFinal,m.settlementStatus,m.resultScoreText,m.hit].join('|')).join('\n');
+ const oldGrades=new Map(eligible.map(m=>[officialOddsIdentity(m),m.displayGrade]));
+ const result=r406AssignGrades(active,now);
+ const selectionsAfter=(state.markets||[]).map(m=>
+  [officialOddsIdentity(m),m.marked,m.representativeSelected,m.finalPick,m.finalOdds,
+   m.resultFinal,m.settlementStatus,m.resultScoreText,m.hit].join('|')).join('\n');
+ const frozenAfter=frozen.map(m=>[officialOddsIdentity(m),m.displayGrade,m.finalPick,m.finalOdds,
+  m.resultFinal,m.settlementStatus,m.resultScoreText].join('|'));
+ if(selectionsBefore!==selectionsAfter||JSON.stringify(frozenBefore)!==JSON.stringify(frozenAfter))
+  throw Error('R448_HISTORY_SELECTION_OR_FROZEN_CHANGE_BLOCKED');
+ audit.changed=eligible.filter(m=>m.displayGrade!==oldGrades.get(officialOddsIdentity(m))).length;
+ audit.status=audit.changed?'RESTORED_FUTURE_RELATIVE_GRADES':'NO_CHANGE';
+ audit.counts=result.counts;audit.target=result.target;audit.deviation=result.deviation;
+ for(const m of eligible){
+  if(!['가장추천','추천'].includes(m.displayGrade))continue;
+  m.gradeEvidenceQualified=false;
+  m.gradeEvidenceTier='R448_RELATIVE_ODDS_TIER_UNVERIFIED';
+  m.gradeEvidenceWarning='국내배당 상대순위 등급 복구 · 승률/양(+)기대값 독립검증 전';
+ }
+ state.r448PremiumRestoreAudit=audit;
+ if(audit.changed){
+  state.gradeAudit={...(state.gradeAudit||{}),mode:'R448_RELATIVE_GRADE_REPAIR',
+   counts:result.counts,target:{best:15,recommend:25,normal:60},exact:result.deviation===0,
+   at:audit.at,notVerifiedPrediction:true};
+  state.updatedAt=audit.at;
+ }
+ return audit;
+}
+
 async function r398LoadState(env){
   if(MEM.state)return r398EnableProtocol(MEM.state);
   const stored=await readStoredState(env);MEM.storageSource=stored.source;
@@ -10921,6 +10980,20 @@ async function r398LoadState(env){
         {type:'R445_VERIFIED_KIA_LG_FINAL',before:r445.corrections,final:'4:2'});
     else if(!stored.state)MEM.state=next445;
     else MEM.state.r445KiaLgSettlementAudit={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
+  }
+  // R448: take an immutable transactional backup before updating ONLY the
+  // pregame grade labels lost by the earlier R440 fallback implementation.
+  if(MEM.state?.r448PremiumRestoreAudit?.id!==R448_PREMIUM_REPAIR_ID){
+   const candidate448=r398Clone(MEM.state);
+   const result448=r448RestoreFuturePremium(candidate448);
+   if(result448.changed){
+    if(stored.state&&ds&&typeof ds.transaction==='function')
+      await r398AtomicCommit(ds,MEM.state,candidate448,'BEFORE_R448_FUTURE_PREMIUM_LABEL_REPAIR',
+        {type:'R448_RELATIVE_PREMIUM_LABEL_REPAIR',changed:result448.changed,
+         counts:result448.counts,zeroSelectionChanges:true,zeroSettlementChanges:true});
+    else if(!stored.state)MEM.state=candidate448;
+    else MEM.state.r448PremiumRestoreAudit={status:'BLOCKED_NO_TRANSACTIONAL_BACKUP',at:nowIso()};
+   }else MEM.state.r448PremiumRestoreAudit=result448;
   }
   MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();return MEM.state;
 }
