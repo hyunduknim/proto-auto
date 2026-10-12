@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R406-QUOTAS-AND-ODDS-FIRST";
-const BUILD_ID = "proto-r406-20261012-152560-202060-source-priority";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R407-OFFICIAL-ODDS-PRESERVE";
+const BUILD_ID = "proto-r407-20261012-official-current-odds-before-mark";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5147,7 +5147,7 @@ async function refreshBetmanSource(state,env,force=false){
     if(state.r398Protocol?.enforce){await r398CollectDomesticOdds(state,env,{preserveOfficialFresh:true});r398AttachShadowFeatures(state);}
     markState(state);
     const priced=markets.filter(m=>validChoices(m).length>=2).length,waiting=markets.length-priced,freshPriced=freshMarkets.filter(m=>validChoices(m).length>=2).length;
-    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
+    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
     MEM.lastSourceSuccess=Date.now();await saveState(state,env);
     if(optionalDue){
       try{
@@ -5584,7 +5584,7 @@ function publicState(state){
     pastGames=mergeCurrentPastCards(state,savedSettled).filter(r401Scope).sort((a,b)=>marketSort(b,a)),
     pastPendingGames=pendingSettlementMarkets(state).filter(r401Scope)
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -8305,6 +8305,20 @@ function r398OddsValidate(row,source,target,now,ttl){
   if(!r398OddsPrices(row,r398OddsExpectedLabels(target)))return 'INVALID_OR_INCOMPLETE_PRICES';
   return null;
 }
+// R407: an OFFICIAL Betman gameInfo quote is already a verified domestic
+// primary source. Missing optional normalized Zen/Spogod/PerfectPick feeds
+// must never erase an official fresh quote before the marking pass.
+function r407IsFreshOfficialOdds(m,now=Date.now()){
+ if(!m||m.r404ReferenceOnly||m.resultFinal||m.oddsClosedOrMissing||explicitMarketClosed(m))return false;
+ const origin=String(m.oddsSource||''),fromApi=String(m.source||'');
+ if(!/^BETMAN_OFFICIAL_(?:CURRENT|JSON)$/.test(origin)&&fromApi!=='BETMAN_OFFICIAL_JSON')return false;
+ const stamp=r398OddsMs(m.domesticOddsFetchedAt);
+ if(stamp==null||stamp>now+R398_ODDS_LIMITS.clockSkewMs||now-stamp>300000)return false;
+ if(m.domesticOddsValid!==true||m.oddsSnapshotStatus==='CLOSED'||m.oddsSnapshotStatus==='LAST_KNOWN')return false;
+ const ps=validChoices(m);
+ return ps.length>=2&&!r360OddsAnomalyReason(m)&&
+   !!r398OddsPrices(m,r398OddsExpectedLabels(m));
+}
 function r398ApplyDomesticOdds(state,feeds={},options={}){
   const now=Number.isFinite(options.now)?options.now:Date.now(),env=options.env||{},at=new Date(now).toISOString();
   const audit={at,policy:'ZENTOTO_SPOGOD_PERFECTPICK_EXACT_DOMESTIC_CURRENT_NO_AVERAGING',updated:0,preserved:0,preservedOfficialFresh:0,frozen:0,rejected:0,conflicts:[],markets:[],sources:options.sourceAudit||{}};
@@ -8340,6 +8354,15 @@ function r398ApplyDomesticOdds(state,feeds={},options={}){
     }
     const chosen=candidates[0];
     if(!chosen){
+      // R407: official valid odds are independent of optional provider readiness.
+      if(options.preserveOfficialFresh&&r407IsFreshOfficialOdds(m,now)){
+        audit.preservedOfficialFresh++;
+        m.oddsSource=m.oddsSource||'BETMAN_OFFICIAL_JSON';
+        m.oddsSnapshotStatus='OPEN';m.domesticOddsValid=true;m.oddsClosedOrMissing=false;
+        add(audit.markets,{gmTs:m.gmTs,no:m.no,status:'OFFICIAL_FRESH_PRESERVED_R407',
+          source:m.oddsSource,fetchedAt:m.domesticOddsFetchedAt});
+        continue;
+      }
       const officialFetched=r398OddsMs(m.domesticOddsFetchedAt);
       if(options.preserveOfficialFresh&&/^BETMAN_OFFICIAL(?:_CURRENT|_JSON)?$/.test(String(m.oddsSource||''))&&(m.oddsSnapshotStatus==='OPEN'||m.oddsSnapshotStatus==null)&&m.domesticOddsValid===true&&officialFetched!==null&&officialFetched<=now+R398_ODDS_LIMITS.clockSkewMs&&now-officialFetched<=300000&&r398OddsPrices(m,r398OddsExpectedLabels(m))){
         audit.preservedOfficialFresh++;add(audit.markets,{gmTs:m.gmTs,no:m.no,status:'OFFICIAL_FRESH_PRESERVED',source:m.oddsSource,fetchedAt:m.domesticOddsFetchedAt});continue;
@@ -8679,6 +8702,22 @@ function r404Reconcile14Snapshot(state,now=Date.now()){
 
 function r402RecentScheduleMarket(m,now=Date.now()){
  const k=gameTimeMs(m);return r401Scope(m)&&k!=null&&k>=now-18*3600000&&!m.resultFinal;
+}
+// R407: publish the *real* server-side reception/selection reasons for
+// the 14:00 rows, rather than treating a screenshot reference as a live price.
+function r407EarlyMarkingDiagnostics(state,now=Date.now()){
+ const nos=[7719,7720,7721,7722],expected='2026-10-12',rows=(state?.markets||[])
+  .filter(m=>m.date===expected&&String(m.time).slice(0,5)==='14:00'&&
+    nos.includes(Number(m.no)));
+ return {at:new Date(now).toISOString(),scope:'OCT12_1400_OFFICIAL_ROWS',activeRound:state?.gmTs||null,
+  officialReceived:rows.filter(m=>!m.r404ReferenceOnly).length,
+  screenshotOnly:rows.filter(m=>m.r404ReferenceOnly).length,
+  markets:rows.map(m=>({gmTs:m.gmTs,no:m.no,market:m.marketFamily,home:m.home,away:m.away,
+   source:m.oddsSource||m.source||null,official:!m.r404ReferenceOnly,
+   fetchedAt:m.domesticOddsFetchedAt||null,priceStatus:m.oddsSnapshotStatus||null,
+   choiceCount:validChoices(m).length,marked:!!m.marked&&!!m.representativeSelected,
+   finalPick:m.finalPick||null,grade:m.displayGrade||null,
+   kickoffPassed:gameTimeMs(m)<=now,blockedReason:m.selectionStatus||null}))};
 }
 function r402ScheduleAudit(s){
  const rows=(s.markets||[]).filter(r401Scope);
