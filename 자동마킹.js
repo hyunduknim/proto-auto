@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R407-OFFICIAL-ODDS-PRESERVE";
-const BUILD_ID = "proto-r407-20261012-official-current-odds-before-mark";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R408-OFFICIAL-FIRST-AUTOMARK";
+const BUILD_ID = "proto-r408-20261012-official-first";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5082,6 +5082,23 @@ function applyOfficialMarketStatusSettlement(state){
   return changed;
 }
 
+// R408: only an official Betman gameInfo response may recover a missing 14:00 fixture.
+async function r408VerifyOfficialRound120(reason){
+ const audit={at:nowIso(),reason,attempted:false,status:'WINDOW_CLOSED',gmTs:'260120',matched:[]};
+ if(Date.now()<Date.parse('2026-10-12T00:00:00+09:00')||
+    Date.now()>Date.parse('2026-10-13T14:00:00+09:00'))return {round:null,audit};
+ audit.attempted=true;
+ try{
+  const raw=await fetchGameInfo('260120',7000),rows=parseBetmanMarkets(raw,'260120');
+  const matched=rows.filter(m=>m.date==='2026-10-12'&&m.time==='14:00'&&
+    [7719,7720,7721,7722].includes(Number(m.no))&&!r403PlaceholderIdentity(m));
+  audit.matched=matched.map(m=>m.no);audit.received=rows.length;
+  if(!matched.length){audit.status='OFFICIAL_14_FIXTURE_UNAVAILABLE';return {round:null,audit};}
+  audit.status='OFFICIAL_14_FIXTURE_VERIFIED';
+  return {round:{active:true,gmTs:'260120',round:120,listed:['260120'],
+   r408PrefetchedOfficial:raw,r408Fallback:true},audit};
+ }catch(e){audit.status='OFFICIAL_GAMEINFO_FAILED';audit.error=String(e?.message||e).slice(0,130);return {round:null,audit};}
+}
 async function refreshBetmanSource(state,env,force=false){
   // R406: optional enrichment is deferred until AFTER the official Betman
   // schedule and pregame mark have been persisted. Its timeout must not starve
@@ -5111,8 +5128,12 @@ async function refreshBetmanSource(state,env,force=false){
         usedKnownRoundFallback=true;
       }
     }
-    // R404: 7719-7722 belong to 2026 round 120; never redirect this fixture to 121.
-    const recovery={ok:false,audit:{policy:'R404_NO_UNVERIFIED_121_REDIRECT',reason:'2026_120_OCT12_1400'}};
+    let r408Recovery={audit:{status:'NOT_NEEDED'}};
+    if(!r.active||Number(r.round||0)<MIN_ACTIVE_ROUND){
+      r408Recovery=await r408VerifyOfficialRound120('G101_NO_ACTIVE');
+      if(r408Recovery.round){r=r408Recovery.round;usedKnownRoundFallback=true;}
+    }
+    const recovery={ok:!!r408Recovery.round,audit:r408Recovery.audit};
     if(!r.active||Number(r.round||0)<MIN_ACTIVE_ROUND){
       r404Reconcile14Snapshot(state);
       // Never delete previously published official lines or settlements.
@@ -5125,15 +5146,25 @@ async function refreshBetmanSource(state,env,force=false){
       await saveState(state,env);return false;
     }
     const isNewRound=!!state.gmTs&&String(state.gmTs)!==String(r.gmTs);
-    const raw=r.r403PrefetchedOfficial||await fetchGameInfo(r.gmTs,11000),parsedMarkets=parseBetmanMarkets(raw,r.gmTs),freshMarkets=parsedMarkets.filter(m=>!isArchivedMarket(state,m));
-    if(!parsedMarkets.length)throw new Error("BETMAN_G101_MARKETS_0");
+    let raw=r.r408PrefetchedOfficial||r.r403PrefetchedOfficial||null;
+    let parsedMarkets=[];
+    try{raw=raw||await fetchGameInfo(r.gmTs,11000);parsedMarkets=parseBetmanMarkets(raw,r.gmTs);}
+    catch(e){roundDiscoveryError=[roundDiscoveryError,String(e?.message||e)].filter(Boolean).join('; ');}
+    if(!parsedMarkets.length&&String(r.gmTs)!=='260120'){
+      r408Recovery=await r408VerifyOfficialRound120('ACTIVE_GAMEINFO_EMPTY');
+      if(r408Recovery.round){r=r408Recovery.round;raw=r.r408PrefetchedOfficial;
+        parsedMarkets=parseBetmanMarkets(raw,r.gmTs);usedKnownRoundFallback=true;}
+    }
+    if(!parsedMarkets.length)throw new Error("BETMAN_NO_VERIFIED_OFFICIAL_MARKETS");
+    const freshMarkets=parsedMarkets.filter(m=>!isArchivedMarket(state,m));
     // 새 회차 응답이 정상임을 확인한 뒤에만 기존 회차의 카드/원장을 전환한다.
     if(isNewRound)clearForRoundRollover(state,r.round,r.gmTs);
     const sameOld=(state.markets||[]).filter(m=>String(m.gmTs||"")===String(r.gmTs));
     preserveSettlement(sameOld,freshMarkets);
     const lastKnown=mergeLastKnownOfficialMarkets(sameOld,freshMarkets),markets=lastKnown.markets;recordOddsStability(state,lastKnown.stability);
-    // R266: 새 회차에서는 새 배당을 분석하고 이전 회차 대표픽은 정산/지난경기 보존용으로만 유지한다.
-    const aux=await fetchFourAxisAuxGames(env,force);const auxMerge=aux.ok?mergeAuxGames(markets,aux):{matched:0,fresh:0,finalScores:0,totalFeedGames:0};
+    // First persist official picks; optional auxiliary services cannot block marking.
+    const aux={enabled:false,ok:false,reason:'DEFERRED_UNTIL_AFTER_OFFICIAL_PICKS',connectors:{}};
+    const auxMerge={matched:0,fresh:0,finalScores:0,totalFeedGames:0};
     const adjacent=await r402CollectListedRoundSchedules(r,state);
      const otherRounds=(state.markets||[]).filter(m=>String(m.gmTs||"")!==String(r.gmTs)&&
        ((m.marked&&m.representativeSelected)||r402RecentScheduleMarket(m)));
@@ -5144,13 +5175,18 @@ async function refreshBetmanSource(state,env,force=false){
      }
     state.round=r.round;state.gmTs=r.gmTs;state.markets=dedupeMarkets([...markets,...otherRounds,...supplemental]);
     r404Reconcile14Snapshot(state);state.auxAudit={at:nowIso(),enabled:!!aux.enabled,ok:!!aux.ok,reason:aux.reason||null,urlHost:aux.urlHost||null,connectors:aux.connectors||{},...auxMerge,privateAppApiUsed:false,connectorMode:"SC_PS_SN_PROTOODDS_FOUR_MAIN_AXES_PLUS_JEONGBAEDANG_AUX"};const statusSettled=applyOfficialMarketStatusSettlement(state);
-    if(state.r398Protocol?.enforce){await r398CollectDomesticOdds(state,env,{preserveOfficialFresh:true});r398AttachShadowFeatures(state);}
+    // R408: official current odds must be selected BEFORE optional source polls.
     markState(state);
     const priced=markets.filter(m=>validChoices(m).length>=2).length,waiting=markets.length-priced,freshPriced=freshMarkets.filter(m=>validChoices(m).length>=2).length;
-    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
+    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,r408Recovery:r408Recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
     MEM.lastSourceSuccess=Date.now();await saveState(state,env);
     if(optionalDue){
       try{
+        const enriched=await fetchFourAxisAuxGames(env,force);
+        const auxStats=enriched.ok?mergeAuxGames(state.markets,enriched):{matched:0,fresh:0,finalScores:0,totalFeedGames:0};
+        state.auxAudit={at:nowIso(),enabled:!!enriched.enabled,ok:!!enriched.ok,reason:enriched.reason||null,
+         connectors:enriched.connectors||{},...auxStats,privateAppApiUsed:false,
+         connectorMode:'AFTER_OFFICIAL_MARKING'};
         await r398RefreshSourceAdapters(state,env,{force:!!force});
         const alt=await r398CollectDomesticOdds(state,env,{preserveOfficialFresh:true});
         state.r398AdapterPolledAt=Date.now();
