@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R440-0100KST-EVIDENCE";
-const BUILD_ID = "proto-r440-20261012-0100kst-independent-team-model";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R441-SCORE-INTEGRITY";
+const BUILD_ID = "proto-r441-20261012-score-integrity";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5462,6 +5462,11 @@ function sameOfficialGame(rr,m){
 }
 function resultMatchesMarket(rr,m){
   if(rr.gmTs&&m.gmTs&&String(rr.gmTs)!==String(m.gmTs))return false;
+  // R441: a matching market number cannot override contradictory fixture data.
+  if(rr.date&&m.date&&rr.date!==m.date)return false;
+  if(rr.time&&m.time&&String(rr.time).slice(0,5)!==String(m.time).slice(0,5))return false;
+  if(rr.home&&m.home&&norm(rr.home)!==norm(m.home))return false;
+  if(rr.away&&m.away&&norm(rr.away)!==norm(m.away))return false;
   if(rr.specialStatus){
     if(rr.no&&Number(m.no)===Number(rr.no))return true;
     return sameOfficialGame(rr,m);
@@ -5513,12 +5518,9 @@ function terminalOfficialScoringRows(state,gameInfo,gmTs){
   });
 }
 function gameInfoRowUsableForPending(rr,pendingForRound){
-  // R263: gameInfo는 경기 중에도 결과코드형 필드가 노출될 수 있으므로 코드 존재만으로 조기정산하지 않는다.
+  // R441: extra innings/overtime make an elapsed-time score unsafe as a final.
   if(rr?.specialStatus)return true;
-  if(rr?.terminal)return true;
-  if(rr?.partial||!rr?.score)return false;
-  // 상태문구가 비어도 경기 시작 후 충분한 시간이 지난 최종스코어는 보조 fallback으로만 허용한다.
-  return (pendingForRound||[]).some(m=>safeOverdueScoreFallbackMarket(m)&&resultMatchesMarket(rr,m));
+  return rr?.terminal===true&&!rr?.partial;
 }
 function applyResults(state,resultRows,source="BETMAN_OFFICIAL_RESULT"){
   if(state?.r398Protocol?.enforce)r398ObserveSettlement(state,resultRows,source);
@@ -5531,9 +5533,16 @@ function applyResults(state,resultRows,source="BETMAN_OFFICIAL_RESULT"){
   for(const m of state.markets||[]){
     if(m.resultFinal||!m.marked||!m.representativeSelected||!started(m)||!settlementAllowed(m))continue;
     if((selectedCounts.get(String(m.gmTs||"")+"|"+gameSeed(m))||0)!==1)continue;
-    const rr=resultRows.filter(x=>!x.partial&&!(x.terminal!==true&&/예정|경기중|진행중|\blive\b|\bin[ -]?progress\b|\bscheduled\b|\bnot[ -]?started\b/i.test(String(x.statusText||"")))&&resultMatchesMarket(x,m)).sort((a,b)=>
-      Number(b.family===m.marketFamily)-Number(a.family===m.marketFamily)||Number(Number(b.no)===Number(m.no))-Number(Number(a.no)===Number(m.no)))
-      .find(x=>x.specialStatus||resolveOfficialOutcome(x,m).outcome);if(!rr)continue;
+    const candidates=resultRows.filter(x=>!x.partial&&
+      !(x.terminal!==true&&/예정|경기중|진행중|\blive\b|\bin[ -]?progress\b|\bscheduled\b|\bnot[ -]?started\b/i.test(String(x.statusText||"")))&&
+      resultMatchesMarket(x,m)).sort((a,b)=>
+      Number(b.family===m.marketFamily)-Number(a.family===m.marketFamily)||Number(Number(b.no)===Number(m.no))-Number(Number(a.no)===Number(m.no)));
+    const rr=candidates.find(x=>x.specialStatus||resolveOfficialOutcome(x,m).outcome);if(!rr)continue;
+    // A duplicated, contradictory terminal score needs another source.
+    if(candidates.some(x=>x!==rr&&!x.specialStatus&&x.terminal===true&&rr.terminal===true&&
+      String(x.no??"")===String(rr.no??"")&&x.family===rr.family&&
+      ((x.score&&rr.score&&String(x.score)!==String(rr.score))||
+       (x.outcome&&rr.outcome&&String(x.outcome)!==String(rr.outcome)))))continue;
     if(rr.specialStatus){
       m.result=rr.specialStatus;m.resultFinal=true;m.hit=null;m.settlementStatus="적특";m.settlementType="VOID";m.resultSpecialStatus=rr.specialStatus;
       m.resultSource=source;m.resultStatus=`경기${rr.specialStatus}`;m.resultVerifiedAt=nowIso();m.resultScoreText=rr.score||null;changed++;continue;
@@ -5545,7 +5554,11 @@ function applyResults(state,resultRows,source="BETMAN_OFFICIAL_RESULT"){
       m.resultDerivedFromScore=true;changed++;continue;
     }
     m.result=outcome;m.resultFinal=true;m.hit=String(m.finalPick)===String(outcome);m.resultDerivedFromScore=String(resolved.source||"").startsWith("SCORE");m.settlementStatus=m.hit?"적중":"낙첨";m.settlementType="NORMAL";m.resultSpecialStatus=null;
-    m.resultSource=source;m.resultResolutionSource=resolved.source;m.resultMatchedNo=rr.no??null;m.resultMatchedFamily=rr.family||null;m.resultCrossFamilyScoreMatch=!!(rr.score&&rr.family&&rr.family!=="OTHER"&&rr.family!==m.marketFamily);m.resultCodeOutcome=resolved.codeOutcome;m.resultScoreOutcome=resolved.scoreOutcome;m.resultCodeScoreMismatch=resolved.mismatch;m.resultStatus="경기종료";m.resultVerifiedAt=nowIso();m.resultScoreText=rr.score||"-";
+    m.resultSource=source;m.resultResolutionSource=resolved.source;m.resultMatchedNo=rr.no??null;m.resultMatchedFamily=rr.family||null;m.resultCrossFamilyScoreMatch=!!(rr.score&&rr.family&&rr.family!=="OTHER"&&rr.family!==m.marketFamily);m.resultCodeOutcome=resolved.codeOutcome;m.resultScoreOutcome=resolved.scoreOutcome;m.resultCodeScoreMismatch=resolved.mismatch;m.resultStatus="경기종료";m.resultVerifiedAt=nowIso();
+    // Distinguish adjusted/market scores from unadjusted match scores.
+    m.resultScoreText=rr.score?(rr.family==="HANDICAP"&&scoreHasFraction(rr.score)?
+      "핸디적용 "+rr.score:rr.family==="TOTAL"&&/^\d{1,3}$/.test(String(rr.score))?
+      "합계 "+rr.score+"점":rr.score):"-";
     if(rr.score){const sc=resultScorePairText(rr.score);if(sc){m.homeScore=sc.home;m.awayScore=sc.away;}}
     const auxOutcome=auxOutcomeForMarket(m);m.auxSettlementOutcome=auxOutcome;m.settlementCrossCheck=auxOutcome==null?"NO_AUX_FINAL":(String(auxOutcome)===String(outcome)?"MATCH":"MISMATCH");
     changed++;
@@ -5602,7 +5615,7 @@ async function refreshBetmanResults(state,env,force=false){
           // Learn extra confirmed final scores, but NEVER settle from training-only rows.
           performanceLearned+=ingestPerformanceRows(state,[...giRows,...allTerminalScores]);
           const jb=ingestJeongbaedangOfficialRows(state,giRows);jbLearnedMarkets+=jb.markets;jbLearnedChoiceRows+=jb.choiceRows;
-          changed+=applyResults(state,giRows);
+          changed+=applyResults(state,giRows,"BETMAN_GAMEINFO_CONFIRMED_FINAL");
         }catch(e){errors.push(`${ts}:GAMEINFO:${String(e?.message||e)}`);}
       })();
       await Promise.all([resultTask,gameTask]);
