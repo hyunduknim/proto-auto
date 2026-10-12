@@ -6609,7 +6609,11 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .pastManualTitle{font-weight:900;font-size:14px;color:#ffdd80}.pastManualHint{font-size:11px;color:#c5d3e1;line-height:1.6;margin:8px 0}
 .pastManualMarket{margin:10px 0;padding:9px;background:#071629;border:1px solid #344c68;border-radius:9px}.pastManualMarket b{color:#92dcf9;font-size:12px}
 .pastManualChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:7px}.pastManualChoice{padding:10px 5px;border-radius:8px;border:1px solid #536f8a;color:white;background:#1c3049;font-size:11px}.pastManualChoice.selected{background:#473616;border-color:#ffde80}.pastManualChoice:disabled{opacity:.4}.pastManualClose{margin-top:8px;padding:9px 14px;border:1px solid #647e94;border-radius:8px;color:white;background:#24374b}
-</style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="refresh">회차·배당 갱신</button><button type="button" id="results">결과 확인</button><button type="button" id="reanalyze">자동마킹 재분석</button><button type="button" id="manualMode">수동 재마킹</button><button type="button" id="manualOddsMode">수동 배당변경</button><button type="button" id="exportJson">분석 JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><section id="manualOddsPanel" class="manualOddsPanel" hidden><div class="manualOddsTitle">수동 배당변경 · 경기 시작 후에도 입력 가능</div><p class="manualOddsInfo">표시용 수동 배당을 수정합니다. 원본 공식 배당, 마킹 당시 배당, 적중·낙첨 정산은 변경되지 않습니다.</p><input id="manualOddsSearch" type="search" placeholder="팀명·번호 검색" aria-label="배당 수정할 경기 검색"><div id="manualOddsRows"></div></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">지난경기</button><button id="tabExperiment" type="button">배당 핵심분석</button></div>
+
+.actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:stretch}
+.actions #manualMode{grid-column:1/-1!important;justify-self:center!important;width:min(100%,480px)!important;min-height:64px!important;font-size:18px!important;font-weight:1000!important;color:#fff7ca!important;text-align:center!important;background:linear-gradient(145deg,#63400d,#ae7c18,#63400d)!important;border:2px solid #ffea94!important;box-shadow:0 0 14px #edbd4a66!important}
+.actions #manualOddsMode{grid-column:1/-1!important;justify-self:center!important;width:min(100%,480px)!important;min-height:44px!important}
+</style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="refresh">회차·배당 갱신</button><button type="button" id="results">결과 확인</button><button type="button" id="reanalyze">자동마킹 재분석</button><button type="button" id="manualMode">✏️ 수동 재마킹 · 픽 변경</button><button type="button" id="manualOddsMode">수동 배당변경</button><button type="button" id="exportJson">분석 JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><section id="manualOddsPanel" class="manualOddsPanel" hidden><div class="manualOddsTitle">수동 배당변경 · 경기 시작 후에도 입력 가능</div><p class="manualOddsInfo">표시용 수동 배당을 수정합니다. 원본 공식 배당, 마킹 당시 배당, 적중·낙첨 정산은 변경되지 않습니다.</p><input id="manualOddsSearch" type="search" placeholder="팀명·번호 검색" aria-label="배당 수정할 경기 검색"><div id="manualOddsRows"></div></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">지난경기</button><button id="tabExperiment" type="button">배당 핵심분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 핵심요약</b> · 어느 쪽 배당이 우세한지와 현재 자동마킹 근거만 표시합니다. 상세 계산과 정산 기록은 그대로 유지합니다.</div>
 <div class="expControls"><input id="expSearch" type="search" placeholder="팀명 / 리그 / 프로토번호 검색" aria-label="경기 검색"><select id="expSport" aria-label="종목 선택"><option value="all">전체</option><option value="축구">축구</option><option value="야구">야구</option><option value="농구">농구</option><option value="배구">배구</option></select></div>
@@ -10108,6 +10112,26 @@ function r398EnableProtocol(state,now=Date.now()){
   if(!state.r398Protocol)state.r398Protocol={enforce:true,schema:'R11_R398_EXECUTABLE',enrolledAt:now,validationProtocolId:'R398_FIXED_SHADOW_'+String(now),newModelActive:false};
   return state;
 }
+
+/* R431 verified identity-gated owner instruction, not a rewrite of pregame or settlement history. */
+function r431ApplyOwner7780Over(state,now=Date.now()){
+ const fixture=(state.markets||[]).find(m=>String(m.gmTs)==='260121'&&Number(m.no)===7780&&
+  String(m.date)==='2026-10-12'&&m.marketFamily==='TOTAL'&&Math.abs(Number(m.line)-7.5)<0.0001&&
+  (m.sport==='야구'||/KBO/.test(String(m.league||'')))&&
+  (m.choices||[]).some(c=>String(c.label)==='오버'&&Number(c.odds)>=1.31));
+ if(!fixture)return false;
+ const key='260121|'+gameSeed(fixture);
+ if(state.manualReviewSelections?.[key])return false;
+ const quote=fixture.choices.find(c=>String(c.label)==='오버');
+ const at=new Date(now).toISOString();
+ state.manualReviewSelections={...(state.manualReviewSelections||{}),
+  [key]:{gmTs:'260121',no:7780,pick:'오버',odds:Number(quote.odds),at,
+   marketId:marketIdentity(fixture),source:'USER_REQUEST_7780_OVER_KBO_20261012'}};
+ state.manualPickHistory=[...(state.manualPickHistory||[]).slice(-99),
+  {at,gmTs:'260121',no:7780,to:{no:7780,pick:'오버',odds:Number(quote.odds)},
+   mode:'RETROSPECTIVE_MANUAL_WITH_VERIFIED_RESCORE',preservesOfficialResult:true}];
+ state.updatedAt=at;return true;
+}
 async function r398LoadState(env){
   if(MEM.state)return r398EnableProtocol(MEM.state);
   const stored=await readStoredState(env);MEM.storageSource=stored.source;
@@ -10160,6 +10184,7 @@ async function r398LoadState(env){
     if(ds&&typeof ds.transaction==="function")await r398AtomicCommit(ds,MEM.state,restored,"BEFORE_RESTORE_7722_CORRECT_ROUND",{type:"RESTORE_EXISTING_PREGAME_MANUAL_7722"});
     else if(!stored.state)MEM.state=restored;
   }
+  if(r431ApplyOwner7780Over(MEM.state)){await persistState(env,true);}
   MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();return MEM.state;
 }
 async function r398HandleProtocolAdmin(req,env){
