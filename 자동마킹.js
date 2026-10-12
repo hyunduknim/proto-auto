@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R409-PRIORITY-PREGAME-MARKING";
-const BUILD_ID = "proto-r409-20261012-priority-pregame-marking";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R410-ZENTOTO-PREGAME-FALLBACK";
+const BUILD_ID = "proto-r410-20261012-zen-public-odds-fallback";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5178,7 +5178,7 @@ async function refreshBetmanSource(state,env,force=false){
     // R408: official current odds must be selected BEFORE optional source polls.
     markState(state);
     const priced=markets.filter(m=>validChoices(m).length>=2).length,waiting=markets.length-priced,freshPriced=freshMarkets.filter(m=>validChoices(m).length>=2).length;
-    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,r408Recovery:r408Recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r409PriorityAudit:state.r409PriorityAudit||null,cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
+    state.sourceAudit={lastAt:nowIso(),lastSuccessAt:nowIso(),ok:true,source:"BETMAN_OFFICIAL_JSON",knownRoundRecovery:usedKnownRoundFallback,r403Recovery:recovery.audit,r408Recovery:r408Recovery.audit,roundDiscoveryError,gmTs:r.gmTs,round:r.round,markets:markets.length,games:gameCount(markets),pricedMarkets:priced,freshPricedMarkets:freshPriced,preservedClosedMarkets:lastKnown.preserved,statusSettled,waitingMarkets:waiting,r402AdjacentRounds:adjacent.audit,r402Schedule:r402ScheduleAudit(state),r404Schedule:state.r404ScheduleAudit,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,cutoff:CUTOFF_DATE,wiseTotoUsed:false,zentotoUsed:false,publicAuxEnabled:!!state.auxAudit?.enabled,publicAuxMatched:state.auxAudit?.matched||0,axisFeedConnectors:state.auxAudit?.connectors||{},errors:[]};
     MEM.lastSourceSuccess=Date.now();await saveState(state,env);
     if(optionalDue){
       try{
@@ -5620,7 +5620,7 @@ function publicState(state){
     pastGames=mergeCurrentPastCards(state,savedSettled).filter(r401Scope).sort((a,b)=>marketSort(b,a)),
     pastPendingGames=pendingSettlementMarkets(state).filter(r401Scope)
       .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean)
-      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      .sort((a,b)=>marketSort(b,a));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:summary(cur),overallSummary:summary(cur),performanceSummary:null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -6826,6 +6826,110 @@ function r381ParseZentoto(html){
   return results;
 }
 
+// R410 public-site PREMATCH prices. Uses the same publicly reachable URL as
+// the existing settlement reader. Only an exact known round/date/time/sequence,
+// both matching teams, pregame status and plausible three-price row may update
+// the quote. Screenshots and terminated games are never marked retrospectively.
+function r410ZenTeamSame(a,b){
+ const x=norm(a),y=norm(b);
+ return x.length>=2&&y.length>=2&&(x===y||x.length>=3&&y.includes(x)||y.length>=3&&x.includes(y));
+}
+function r410ZenApplyHtml(state,html,now=Date.now()){
+ const audit={at:new Date(now).toISOString(),source:'ZENTOTO_PUBLIC_PREGAME_HTML',
+   http:200,blocks:0,verified:0,updated:0,markedNow:0,reason:null,samples:[],
+   quoteClass:'PUBLIC_SITE_OBSERVED_NOT_BETMAN_OFFICIAL',previousSettlementsPreserved:true};
+ const before=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&r401Scope(m)).length;
+ if(typeof html!=='string'||html.length<10000||html.length>4500000){
+  audit.reason='INVALID_HTML_LENGTH';state.r410PregameAudit=audit;return audit;
+ }
+ // Match the already established ZenToto public game-card structure.
+ const blocks=html.split(/<div\s+class=["']game row col-xs-12["']\s*>/i);
+ audit.blocks=blocks.length-1;
+ for(const block of blocks.slice(1)){
+  const noTag=block.match(/<p\s+class=["']proto_uid["'][^>]*>\s*(\d{3,6})\s*<\/p>/i),
+   status=block.match(/<p\s+class=["']game_state[^"']*["'][^>]*>([\s\S]*?)<\/p>/i),
+   datetime=block.match(/(20\d{2}-\d\d-\d\d)\s*\([^)]*\)\s*(\d\d:\d\d)/),
+   homeTag=block.match(/<p\s+class=["']home["'][^>]*>([\s\S]*?)<\/p>/i),
+   awayTag=block.match(/<p\s+class=["']away["'][^>]*>([\s\S]*?)<\/p>/i);
+  if(!noTag||!status||!datetime||!homeTag||!awayTag||r381ZenStrip(status[1])!=='경기전')continue;
+  const no=Number(noTag[1]),date=datetime[1],time=datetime[2];
+  const kickoff=gameTimeMs({date,time});
+  if(kickoff==null||kickoff<=now||!r401Scope({date,time}))continue;
+  const home=r381ZenStrip(homeTag[1].replace(/<span\b[^>]*>[\s\S]*?<\/span>/gi,'')),
+    away=r381ZenStrip(awayTag[1]);
+  if(r403UnknownName(home)||r403UnknownName(away))continue;
+  const round=block.match(/(?:game_round|round)=["']?(\d{6})/i)||
+    block.match(/\/(\d{6})\/\d{3,6}/);
+  const hand=homeTag[1].match(/\(H\s*([+-]?\d+(?:\.\d+)?)\)/i),
+   total=homeTag[1].match(/\(U\s*\/\s*O\s*(\d+(?:\.\d+)?)\)/i);
+  const family=total?'TOTAL':hand?'HANDICAP':'MONEYLINE',
+    line=total?Number(total[1]):hand?Number(hand[1]):null;
+  const flat=r381ZenStrip(block),p=flat.indexOf('배당율'),q=flat.indexOf('배당승률',p+3);
+  if(p<0||q<=p||q-p>240)continue;
+  const slots=(flat.slice(p+3,q).match(/(?:\d{1,2}\.\d{1,2}|-)/g)||[]).slice(0,3);
+  if(slots.length!==3)continue;
+  const nums=slots.map(v=>v==='-'?null:Number(v));
+  if(nums.some(v=>v!==null&&(!Number.isFinite(v)||v<=1.01||v>100)))continue;
+  const labels=family==='TOTAL'?['언더',null,'오버']:['승','무','패'],
+    choices=nums.flatMap((v,i)=>v!==null&&labels[i]?[{label:labels[i],odds:v}]:[]);
+  if(choices.length<2||choices.length>3)continue;
+  const implied=choices.reduce((acc,c)=>acc+1/c.odds,0);
+  if(implied<.85||implied>1.30)continue;
+  // When public block has no round ID, it must match a known state market,
+  // not any invented protocol round. Both team names are cross-checked.
+  const matches=(state.markets||[]).filter(m=>Number(m.no)===no&&m.date===date&&m.time===time&&
+   (!round||String(m.gmTs)===round[1])&&m.marketFamily===family&&
+   (line===null?m.line==null:Math.abs(Number(m.line)-line)<.001)&&
+   r410ZenTeamSame(m.home,home)&&r410ZenTeamSame(m.away,away));
+  if(matches.length!==1)continue;
+  const m=matches[0];if(m.marked&&m.representativeSelected||m.resultFinal||gameTimeMs(m)<=now)continue;
+  // Fresh official odds have priority over the public backup.
+  if(!m.r404ReferenceOnly&&m.domesticOddsValid&&m.oddsSnapshotStatus==='OPEN'&&
+   oddsFresh(m)&&/BETMAN_OFFICIAL/.test(String(m.source||m.oddsSource||'')))continue;
+  audit.verified++;
+  const at=new Date(now).toISOString();
+  m.choices=choices.map(c=>({...c,openingOdds:null,hasOddsHistory:false,
+   lastGoodOdds:c.odds,lastGoodOddsAt:at}));
+  m.source='ZENTOTO_PUBLIC_PREGAME_HTML';
+  m.domesticOddsSource='zentoto_public';m.oddsSource='ZENTOTO_PUBLIC_PREGAME_HTML';
+  m.domesticOddsFetchedAt=at;m.domesticOddsObservedAt=at;m.domesticOddsValid=true;
+  m.oddsSnapshotStatus='OPEN';m.oddsClosedOrMissing=false;
+  m.oddsFetchStatus='PUBLIC_HTML_PREGAME_OBSERVED';m.r404ReferenceOnly=false;
+  m.selectionStatus='배당공개 · 젠토토 공개 경기표';audit.updated++;
+  if(audit.samples.length<15)audit.samples.push({gmTs:m.gmTs,no:m.no,time:m.time,
+   game:m.home+' vs '+m.away,choices:choices.map(c=>[c.label,c.odds])});
+ }
+ if(audit.updated){
+  state.markets=dedupeMarkets(state.markets);
+  r401MarkState(state,now);
+ }
+ const after=(state.markets||[]).filter(m=>m.marked&&m.representativeSelected&&r401Scope(m)).length;
+ audit.markedNow=Math.max(0,after-before);
+ audit.reason=audit.updated?'OBSERVED_QUOTES_APPLIED':'NO_EXACT_KNOWN_PREGAME_QUOTES';
+ state.r410PregameAudit=audit;return audit;
+}
+async function r410RefreshZenPregame(state,env){
+ const now=Date.now(),last=Date.parse(state.r410PregameAudit?.at||'');
+ if(Number.isFinite(last)&&now-last<60000)return {status:'THROTTLED',settled:0};
+ const relevant=(state.markets||[]).some(m=>r401Scope(m)&&!m.resultFinal&&
+  gameTimeMs(m)>now&&gameTimeMs(m)-now<=4*3600000&&(!m.marked||!m.representativeSelected));
+ if(!relevant)return {status:'NO_UPCOMING_UNMARKED',settled:0};
+ const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),9000);
+ try{
+  const response=await fetch('https://v1.zentoto.com/proto/game',{
+   headers:{accept:'text/html','user-agent':'Mozilla/5.0 (compatible; ProtoPublicPregameOdds/1.0)'},
+   redirect:'manual',signal:ac.signal});
+  if(!response.ok||response.status>=300&&response.status<400)throw Error('HTTP_'+response.status);
+  if(!/text\/html/i.test(String(response.headers?.get('content-type')||'')))throw Error('NON_HTML');
+  const audit=r410ZenApplyHtml(state,await response.text(),Date.now());
+  await saveState(state,env,audit.markedNow>0);
+  return audit;
+ }catch(err){
+  const audit={at:nowIso(),source:'ZENTOTO_PUBLIC_PREGAME_HTML',
+   status:'SOURCE_FAILED',error:String(err?.message||err).slice(0,140),markedNow:0};
+  state.r410PregameAudit=audit;await saveState(state,env);return audit;
+ }finally{clearTimeout(timer);}
+}
 // R382: Explain *why* each long-pending selection is still not settled.
 // This is diagnostics only; no score/outcome or settlement status is inferred.
 function r382PendingSourceCoverage(pending,rows){
@@ -7938,6 +8042,8 @@ async function runTickInternal(env){
       (!m.marked||!m.representativeSelected);
   });
   if(urgentPregame){
+    await settlementCheck('ZENTOTO_PUBLIC_PREGAME_ODDS',()=>r410RefreshZenPregame(cur,env));
+    cur=MEM.state||cur;
     const begun=Date.now();
     await settlementCheck("BETMAN_ODDS_PRIORITY",()=>refreshBetmanSource(cur,env,false));
     cur=MEM.state||cur;
