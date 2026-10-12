@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R420-PRECISION-PREGAME-MARKING";
-const BUILD_ID = "proto-r420-20261012-evidence-repick-audit";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R421-PRECISION-EVIDENCE-BOOTSTRAP";
+const BUILD_ID = "proto-r421-20261012-immediate-evidence-bootstrap";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -7162,7 +7162,7 @@ function r410ZenApplyHtml(state,html,now=Date.now()){
   m.oddsSnapshotStatus='OPEN';m.oddsClosedOrMissing=false;
   m.oddsFetchStatus='PUBLIC_HTML_PREGAME_OBSERVED';m.r404ReferenceOnly=false;
   if(!m.marked)m.selectionStatus='배당공개 · 젠토토 공개 경기표';
-  r419RecordQuote(m,now);m.sameOddsEvidence=r419SameOddsEvidence(block,choices,no,now);
+  r419RecordQuote(m,now);m.sameOddsEvidence=r419SameOddsEvidence(block,choices,no,now);m.r419EvidenceCheckedAt=at;
   const leagueName=r381ZenStrip(block.match(/class=["']s-name["'][^>]*>([\s\S]*?)<\/span>/i)?.[1]||'');
   if(leagueName)m.league=leagueName;
   if(m.sport==='기타'&&/ico_(?:soccer|football)\./i.test(block))m.sport='축구';
@@ -7183,11 +7183,13 @@ function r410ZenApplyHtml(state,html,now=Date.now()){
 }
 async function r410RefreshZenPregame(state,env){
  const now=Date.now(),last=Date.parse(state.r410PregameAudit?.at||'');
- if(Number.isFinite(last)&&now-last<300000)return {status:'THROTTLED',settled:0};
+ const initialEvidence=!state.r419EvidenceBootstrapAttemptAt&&!(state.markets||[]).some(m=>m.sameOddsEvidence);
+ if(Number.isFinite(last)&&now-last<300000&&!initialEvidence)return {status:'THROTTLED',settled:0};
  const relevant=(state.markets||[]).some(m=>Number(m.gmTs)>=260121&&r401Scope(m)&&!m.resultFinal&&
   gameTimeMs(m)>now);
  const emptyCurrent=!(state.markets||[]).some(m=>Number(m.gmTs)>=260121);
  if(!emptyCurrent&&!relevant)return {status:'NO_UPCOMING_UNMARKED',settled:0};
+ if(initialEvidence)state.r419EvidenceBootstrapAttemptAt=new Date(now).toISOString();
  const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),9000);
  try{
   const response=await fetch('https://v1.zentoto.com/proto/game',{
