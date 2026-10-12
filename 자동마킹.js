@@ -7708,6 +7708,16 @@ function r365ApplyZentotoResults(state,rows,gmTs){
       line:m.line,pick:m.finalPick,score:r.score,outcome:outcome||"SCORE_DERIVED"});
   }
   audit.settled=applyResults(state,normalized,"ZENTOTO_PUBLIC_FULLTIME_RESULT");
+  // R458: persist verified Zen terminal results in past-game history immediately.
+  // Preserve pregame selection, odds, grades, and already frozen outcomes.
+  if(audit.settled){
+    audit.ledgerRecorded=0;
+    for(const m of targets){
+      if(!m.resultFinal||m.resultSource!=="ZENTOTO_PUBLIC_FULLTIME_RESULT")continue;
+      if(recordSettlementLedger(state,m))audit.ledgerRecorded++;
+      upsertSettledCard(state,m);
+    }
+  }
   audit.scoresUpdated=r366BackfillZentotoScores(state,rows,gmTs);
   return audit;
 }
@@ -7749,7 +7759,13 @@ function r380ApplyZentotoFixtureFinals(state,rows,gmTs){
       home:m.home,away:m.away,family:"MONEYLINE",score:raw.score,
       outcome:null,specialStatus:null,terminal:true,partial:false};
     audit.matched++;
-    audit.settled+=applyResults({markets:[m]},[rr],"ZENTOTO_PUBLIC_FULLTIME_EXACT_FIXTURE_RESULT");
+    const settled=applyResults({markets:[m]},[rr],"ZENTOTO_PUBLIC_FULLTIME_EXACT_FIXTURE_RESULT");
+    if(settled){
+      audit.settled+=settled;
+      // R458: same-fixture fallback must record history, not just flag the market.
+      recordSettlementLedger(state,m);
+      upsertSettledCard(state,m);
+    }
   }
   return audit;
 }
