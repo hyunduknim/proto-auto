@@ -34,6 +34,12 @@ const output=render(parsed);assert.match(output,/동일배당 전적/);assert.ma
  const n=fetches;const cached=await get('handleApp')(req,{},{});assert.equal(cached.status,200);assert.equal(fetches,n,'cached queries do not repeat network work');
  const bad=await get('handleApp')(new Request('https://test/api/odds-history?gmTs=260121&no=999999'),{},{});assert.equal(bad.status,404);
  const badStage=await get('handleApp')(new Request('https://test/api/odds-history?gmTs=260121&no=7835&change=99'),{},{});assert.equal(badStage.status,400);
+
+ let requested='';const view={gmTs:state.gmTs,markingGames:[{...market,no:7838,marketFamily:'TOTAL',line:6.5,choices:[{label:'언더',odds:1.81},{label:'오버',odds:1.71}],marketRows:[market]}]},env={PROTO_DO:{idFromName:()=> 'main',get:()=>({fetch:async req=>{requested=new URL(req.url).pathname;return requested==='/api/state'?new Response(JSON.stringify(view)):new Response('old DO route missing',{status:404});}})}};
+ const edge=await get('WORKER_DEFAULT').fetch(req,env,{});assert.equal(edge.status,200,'History must work while DO still runs prior version');assert.equal(requested,'/api/state');assert.equal((await edge.json()).total,3);
+ const badEnv={PROTO_DO:{idFromName:()=> 'main',get:()=>({fetch:async()=>new Response('{}')})}};assert.equal((await get('WORKER_DEFAULT').fetch(req,badEnv,{})).status,503,'invalid public state must not fall back to edge storage');
+ const failEnv={PROTO_DO:{idFromName:()=> 'main',get:()=>({fetch:async()=>new Response('{}',{status:500})})}};assert.equal((await get('WORKER_DEFAULT').fetch(req,failEnv,{})).status,503);
+
  assert.equal(JSON.stringify(state),before,'history reads must not mutate picks, settlement or state');
  console.log('PASS R462 exact full-price filtering, duplicates, ties, totals, line/price/identity checks, history stages, cached read-only endpoint, escaped mobile UI');
 })().catch(e=>{console.error(e);process.exitCode=1;});

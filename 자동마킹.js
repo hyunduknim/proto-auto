@@ -9711,10 +9711,10 @@ async function r462FetchHtml(url){
  const c=new AbortController(),timer=setTimeout(()=>c.abort(),10000);
  try{const r=await fetch(url,{signal:c.signal,headers:{'user-agent':'Mozilla/5.0'}});if(!r.ok)throw Error('HISTORY_SOURCE_UNAVAILABLE');const text=await r.text();if(text.length>4000000)throw Error('HISTORY_SOURCE_TOO_LARGE');return text;}finally{clearTimeout(timer);}
 }
-async function r462HandleHistory(req,env){
+async function r462HandleHistory(req,env,readState=null){
  const u=new URL(req.url),round=u.searchParams.get('gmTs'),no=u.searchParams.get('no'),stage=u.searchParams.get('change');
  if(!/^\d{6}$/.test(round||'')||!/^\d{1,6}$/.test(no||'')||(stage!==null&&!/^\d{1,3}$/.test(stage)))return json({error:'INVALID_HISTORY_QUERY'},400);
- const s=await loadState(env),stored=(s?.markets||[]).find(m=>String(m.gmTs||s.gmTs)===round&&Number(m.no)===Number(no));
+ const s=await (readState?readState():loadState(env)),stored=(s?.markets||[]).find(m=>String(m.gmTs||s.gmTs)===round&&Number(m.no)===Number(no));
  if(!stored)return json({error:'HISTORY_MARKET_NOT_FOUND'},404);
  const m={...stored,gmTs:round},key=JSON.stringify([round,no,stage,m.date,m.time,m.home,m.away,m.marketFamily,m.line,validChoices(m)]),cached=r462HistoryCache.get(key);
  if(cached&&Date.now()-cached.at<120000)return json(cached.data);
@@ -11458,6 +11458,19 @@ export default {
     const u=new URL(req.url);
     if(u.pathname.startsWith("/__"))return json({error:"not found"},404); // 내부 경로는 외부에서 호출 불가
     const stub=doStub(env);
+    if(stub&&u.pathname==='/api/odds-history'&&req.method==='GET'){
+      try{return await r462HandleHistory(req,env,async()=>{
+        const res=await stub.fetch(new Request(new URL('/api/state',req.url),{method:'GET'}));
+        if(!res.ok)throw Error('HISTORY_STATE_UNAVAILABLE');
+        const view=await res.json();
+        if(!Array.isArray(view.markingGames))throw Error('HISTORY_STATE_INVALID');
+        const markets=view.markingGames.flatMap(g=>{
+          if(!Array.isArray(g.marketRows))throw Error('HISTORY_STATE_INVALID');
+          return g.marketRows.map(r=>({gmTs:g.gmTs,date:g.date,time:g.time,home:g.home,away:g.away,sport:g.sport,league:g.league,no:r.no,marketFamily:r.marketFamily,line:r.line,choices:r.choices}));
+        });
+        return {gmTs:view.gmTs,markets};
+      });}catch{return json({error:'HISTORY_STATE_UNAVAILABLE'},503);}
+    }
     if(stub&&u.pathname!=="/")return stub.fetch(req);
     if(u.pathname.startsWith("/api/admin/"))return await r398HandleProtocolAdmin(req,env)||await r398HandleOperational(req,env);
     return handleApp(req,env,ctx);
