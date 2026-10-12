@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R448-PREMIUM-FUTURE-REPAIR";
-const BUILD_ID = "proto-r448-20261012-premium-grade-durable-restore";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.12-R448B-PREMIUM-FUTURE-REPAIR";
+const BUILD_ID = "proto-r448b-20261012-premium-grade-future-only";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -10848,7 +10848,7 @@ function r431ApplyOwner7780Over(state,now=Date.now()){
  * This only changes grade metadata. It never creates a pick, changes the
  * selected outcome/odds, touches started events, or rewrites settlement.
  */
-const R448_PREMIUM_REPAIR_ID='R448_20261012_RESTORE_FUTURE_RELATIVE_TIERS';
+const R448_PREMIUM_REPAIR_ID='R448_20261012_RESTORE_FUTURE_RELATIVE_TIERS_V2';
 function r448RestoreFuturePremium(state,now=Date.now()){
  if(state.r448PremiumRestoreAudit?.id===R448_PREMIUM_REPAIR_ID)return {status:'ALREADY_APPLIED',changed:0};
  const groups=r405RoundFixtures((state.markets||[]).filter(m=>
@@ -10858,15 +10858,17 @@ function r448RestoreFuturePremium(state,now=Date.now()){
    m.marked&&m.representativeSelected&&m.finalPick)).filter(Boolean);
  const eligible=active.filter(m=>r401Pregame(m,now)&&!m.manualOverride&&
    Number(m.finalOdds)>=1.31&&validChoices(m).some(c=>c.label===m.finalPick&&Number(c.odds)>=1.31));
- const existingPremium=active.filter(m=>
-   ['가장추천','추천'].includes(m.displayGrade)).length;
+ const futureBest=eligible.filter(m=>m.displayGrade==='가장추천').length;
+ const futureRecommend=eligible.filter(m=>m.displayGrade==='추천').length;
+ const existingPremium=futureBest+futureRecommend;
  const audit={id:R448_PREMIUM_REPAIR_ID,at:new Date(now).toISOString(),
   status:'NOT_NEEDED',eligible:eligible.length,active:active.length,existingPremium,
   changed:0,selectionChanges:0,settlementChanges:0,protectedStarted:true,
   policy:'RESTORE_RELATIVE_15_25_60_LABELS_NOT_VALIDATED_PREDICTION'};
  // Do not invent a grade without any valid future odds, or regrade an already
  // functioning premium board. 3+ eligible future picks allow one highest tier.
- if(existingPremium>0||eligible.length<3){audit.status=existingPremium?'PREMIUM_PRESENT':'INSUFFICIENT_ELIGIBLE_FUTURE';
+ if(eligible.length<3||(futureBest>0&&futureRecommend>0)){
+   audit.status=eligible.length<3?'INSUFFICIENT_ELIGIBLE_FUTURE':'BOTH_PREMIUM_TIERS_PRESENT';
    state.r448PremiumRestoreAudit=audit;return audit;}
  const frozen=active.filter(m=>!r401Pregame(m,now)||m.manualOverride);
  const frozenBefore=frozen.map(m=>[officialOddsIdentity(m),m.displayGrade,m.finalPick,m.finalOdds,
@@ -10875,7 +10877,8 @@ function r448RestoreFuturePremium(state,now=Date.now()){
   [officialOddsIdentity(m),m.marked,m.representativeSelected,m.finalPick,m.finalOdds,
    m.resultFinal,m.settlementStatus,m.resultScoreText,m.hit].join('|')).join('\n');
  const oldGrades=new Map(eligible.map(m=>[officialOddsIdentity(m),m.displayGrade]));
- const result=r406AssignGrades(active,now);
+ // Restore premium labels ONLY on future non-manual picks with verified odds.
+ const result=r406AssignGrades(eligible,now);
  const selectionsAfter=(state.markets||[]).map(m=>
   [officialOddsIdentity(m),m.marked,m.representativeSelected,m.finalPick,m.finalOdds,
    m.resultFinal,m.settlementStatus,m.resultScoreText,m.hit].join('|')).join('\n');
@@ -10885,7 +10888,8 @@ function r448RestoreFuturePremium(state,now=Date.now()){
   throw Error('R448_HISTORY_SELECTION_OR_FROZEN_CHANGE_BLOCKED');
  audit.changed=eligible.filter(m=>m.displayGrade!==oldGrades.get(officialOddsIdentity(m))).length;
  audit.status=audit.changed?'RESTORED_FUTURE_RELATIVE_GRADES':'NO_CHANGE';
- audit.counts=result.counts;audit.target=result.target;audit.deviation=result.deviation;
+ audit.futureCounts=result.counts;audit.futureTarget=result.target;audit.deviation=result.deviation;
+ audit.counts=active.reduce((z,m)=>{z[m.displayGrade]=(z[m.displayGrade]||0)+1;return z;},{'가장추천':0,'추천':0,'일반':0});
  for(const m of eligible){
   if(!['가장추천','추천'].includes(m.displayGrade))continue;
   m.gradeEvidenceQualified=false;
@@ -10895,7 +10899,7 @@ function r448RestoreFuturePremium(state,now=Date.now()){
  state.r448PremiumRestoreAudit=audit;
  if(audit.changed){
   state.gradeAudit={...(state.gradeAudit||{}),mode:'R448_RELATIVE_GRADE_REPAIR',
-   counts:result.counts,target:{best:15,recommend:25,normal:60},exact:result.deviation===0,
+   counts:audit.counts,target:{best:15,recommend:25,normal:60},exact:result.deviation===0,
    at:audit.at,notVerifiedPrediction:true};
   state.updatedAt=audit.at;
  }
