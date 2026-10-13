@@ -7349,6 +7349,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 #expPanel .r474Market .edPriceShare{font-size:10px}
 #expPanel .r474Track{height:6px;border-radius:4px;background:#061729;margin-top:6px;overflow:hidden}
 #expPanel .r474Track i{display:block;height:100%;border-radius:4px}
+#expPanel .r474Change{display:block;font-size:9px;color:#a3c6d7;margin-top:5px;line-height:1.4}
 #expPanel .r474Insights{background:#102c42;border:1px solid #45677e;padding:9px 11px;border-radius:10px;display:flex;flex-wrap:wrap;gap:6px 9px;align-items:center;font-size:11px;margin:9px 0}
 #expPanel .r474Insights b{color:#a6f0d3;white-space:nowrap}
 #expPanel .r474Insights span{color:#cfe6ef;line-height:1.6}
@@ -7615,12 +7616,17 @@ function expEasyPrices(m,r){
  if(!d.cs.length)return '<div class="edFlowEmpty">선택지 배당 미확인</div>';
  const colors=['#6bd5f4','#f9c477','#cba8ff'];
  const cards=d.cs.map((c,i)=>{
-  const pick=r.marked&&String(c.label)===String(r.finalPick),rate=d.q.valid?100/Number(c.odds)/d.q.sum:null;
+  const pick=r.marked&&String(c.label)===String(r.finalPick),rate=d.q.valid?100/Number(c.odds)/d.q.sum:null,
+   prior=(r.precision?.choices||[]).find(x=>String(x.label)===String(c.label))||{},
+   opening=Number(prior.openingOdds),first=Number(prior.firstObservedOdds),previous=opening>1?opening:first>1?first:null,
+   diff=previous!==null?Number(c.odds)-previous:null,
+   movement=diff===null?'이전 기록 없음':Math.abs(diff)<.005?'변화 없음':Math.abs(diff).toFixed(2)+'배 '+(diff<0?'내려감':'올라감'),
+   priorText=previous===null?'':(opening>1?'시작 배당 ':'처음 확인 ')+expDOdds(previous)+' · ';
   return '<div class="edPriceCard edTone'+i+(pick?' picked':'')+'"><div class="edPriceLabel"><b>'+e(c.label)+'</b>'+
    (pick?'<span>현재 마킹</span>':'')+'</div><strong class="edPriceBig">'+e(expDOdds(c.odds))+'</strong>'+
    '<div class="edPriceShare">배당으로 본 가능성 <b>'+(rate===null?'확인 중':rate.toFixed(1)+'%')+'</b></div>'+
    (rate===null?'':'<div class="r474Track"><i style="width:'+rate.toFixed(1)+'%;background:'+colors[i%3]+'"></i></div>')+
-   '</div>';
+   '<small class="r474Change">'+e(priorText+movement)+'</small></div>';
  }).join('');
  return '<div class="edPrices r474Choices"><div class="edDomVizHead">선택지별 배당 비교</div>'+
   '<div class="edPriceGrid">'+cards+'</div></div>';
@@ -7865,7 +7871,7 @@ function r474Insights(m,r){
 /* R474: minimal market view with real, observed odds flow only. */
 function expDS(m,r){
  const d=expEasyData(m,r),title=String(r.market||({MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'}[r.marketFamily])||'배당')+
-  (r.line==null?'':' '+r.line),valid=d.q.valid,
+  (r.line==null?'':' · 기준값 '+r.line),valid=d.q.valid,
   warning=r.oddsSnapshotStatus==='LAST_KNOWN'||r.oddsSnapshotStatus==='SCREENSHOT_REFERENCE'?' · 마감/지난 배당':'';
  return '<section class="edBriefMarket r474Market'+(r.marked?' selected':'')+'">'+
   '<div class="edBriefTop"><b>#'+e(r.no)+' · '+e(title)+'</b>'+(r.marked?'<span>현재 마킹</span>':'')+'</div>'+
@@ -7930,7 +7936,7 @@ function r470ChanceHtml(m){
   rightValue=d.model!==null?pct(d.model):other?pct(other.rate):'미확인',
   leftLabel='배당 기준 가능성';
  const info=d.model!==null?(d.modelBasis+' · 실제 적중 보장 아님'):
-  '배당 기준은 시장 비교값이며 실제 승률이 아닙니다';
+  '경기 분석 자료 부족 · 배당 기준은 시장 비교값이며 실제 승률이 아닙니다';
  return '<section class="chCard chPremium r474Hero" aria-label="현재 마킹 핵심 배당 분석">'+
   '<div class="r474HeroHead"><strong>핵심 배당 분석</strong><span>마킹 '+e(d.label)+' · '+d.odds.toFixed(2)+'배</span></div>'+
   '<div class="r474HeroGrid"><div><small>'+leftLabel+'</small><strong>'+pct(d.market)+'</strong></div>'+
