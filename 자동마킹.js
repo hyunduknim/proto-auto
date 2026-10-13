@@ -7928,7 +7928,7 @@ function r474Insights(m,r){
   gap=p===null?null:100*p-share;
  const past=expDSample(r,pick);
  const infos=[];
- if(Number.isFinite(gap))infos.push('경기 예상 '+(p*100).toFixed(1)+'% · 배당보다 '+(Math.abs(gap)).toFixed(1)+'%p '+(gap>=0?'높음':'낮음'));
+ if(Number.isFinite(gap))infos.push('경기 예상 '+(p*100).toFixed(1)+'% · 배당보다 '+(Math.abs(gap)).toFixed(1)+'퍼센트포인트 '+(gap>=0?'높음':'낮음'));
  else infos.push('배당 기준 '+share.toFixed(1)+'% · 실제 적중률과 구분');
  if(past&&past.n>=30)infos.push('같은 배당 과거 '+past.n+'건 중 '+pick.label+' '+past.k+'회 ('+(past.rate*100).toFixed(1)+'%)');
  const dReliability=Number(m?.dataReliability);
