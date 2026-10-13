@@ -8215,12 +8215,13 @@ function r477SignatureCard(m,r){
  if(!r)return '';
  const p=r.precision||{},d=r465OddsWinRateData(r),format=x=>Number(x).toFixed(1)+'%',
   tagline=r.marketFamily==='HANDICAP'?'핸디캡':r.marketFamily==='TOTAL'?'언더오버':'일반승';
- if(!d.valid)return '<section class="r477Shell"><div class="r477Head"><strong>◆ 핵심 배당 분석</strong><span>DATA</span></div><p class="r477Missing">현재 확인된 국내배당을 기준으로 분석합니다. 선택지 배당이 모두 수신되면 비교 차트를 표시합니다.</p></section>';
+ if(!d.valid||!expDQuality(r).valid)return '<section class="r477Shell"><div class="r477Head"><strong>◆ 핵심 배당 분석</strong><span>DATA</span></div><p class="r477Missing">현재 확인된 국내배당을 기준으로 분석합니다. 선택지 배당이 모두 수신되면 비교 차트를 표시합니다.</p></section>';
  const selected=d.rows.find(x=>!!m.pick&&String(m.no)===String(r.no)&&x.label===String(m.pick))||null,
   target=selected||d.rows.slice().sort((a,b)=>b.rate-a.rate)[0],
   fresh=expDQuality(r).fresh&&!(m.gameStarted||m.resultFinal),
   market=target.rate*100,model=selected?r470ChanceData(m):null,
   predicted=model?.status==='OK'&&typeof model.model==='number'&&Number.isFinite(model.model)?model.model*100:null,
+  conservative=predicted!==null&&typeof model.low==='number'&&Number.isFinite(model.low)?model.low*100:null,
   sample=expDSample(r,{label:target.label,odds:target.odds}),
   history=r474FlowData(r),pc=(p.choices||[]).find(x=>String(x.label)===String(target.label))||{},
   old=Number(pc.openingOdds)>1?Number(pc.openingOdds):Number(pc.firstObservedOdds)>1?Number(pc.firstObservedOdds):null,
@@ -8228,7 +8229,6 @@ function r477SignatureCard(m,r){
   moveTone=movement==null?'flat':movement<-.005?'down':movement>.005?'up':'flat',
   movementText=movement==null?'변동 기록 없음':
    old.toFixed(2)+' → '+target.odds.toFixed(2)+'배 ('+(movement>0?'+':'')+movement.toFixed(2)+')',
-  sampleText=sample?sample.k+'/'+sample.n+'건 · '+format(sample.rate*100):'검증된 동일배당 표본 없음',
   sampleSub=sample?(sample.n<50?'참고 표본 적음 · 미래 승률 아님':'과거 발생 비율 · 미래 승률 아님'):'표본과 배당이 정확히 일치해야 표시',
   source=String(p.source||r.oddsSource||'국내 저장 배당'),stamp=expEasyClock(p.observedAt||r.oddsFetchedAt),
   bars=d.rows.map((x,i)=>{
@@ -8237,7 +8237,7 @@ function r477SignatureCard(m,r){
     '<div class="r477BarTrack"><i style="width:'+(x.rate*100).toFixed(2)+'%;background:'+col+'"></i></div>'+
     '<strong style="color:'+col+'">'+pct+'</strong></div>';
   }).join('');
- const forecast=predicted==null?'':'<div class="r477Kpi forecast"><small>경기 자료 분석</small><strong>'+format(predicted)+'</strong><span>모델 참고치</span></div>';
+ const forecast=predicted==null?'':'<div class="r477Kpi forecast"><small>경기 자료 분석</small><strong>'+format(predicted)+'</strong><span>모델 참고치'+(conservative!==null?' · 보수 '+format(conservative):'')+'</span></div>';
  const verifiedLine=history?'저장된 실제 변동 '+history.rows.length+'회 · 아래 시장별 흐름차트 확인':
     movement==null?'확인된 시각별 변화가 아직 없습니다.':'최초·현재 배당 비교 · 시간별 흐름 미확보';
  const targetLabel=selected?'현재 마킹 '+target.label:'가격상 우세 '+target.label;
