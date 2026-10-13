@@ -1,0 +1,48 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const NOW=Date.parse('2026-10-13T22:20:00+09:00');
+class Clock extends Date{constructor(...a){super(...(a.length?a:[NOW]));}static now(){return NOW;}}
+const ctx=vm.createContext({Date:Clock,URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);
+const f=x=>vm.runInContext(x,ctx);
+assert.equal(typeof f('globalThis.r480RecommendState'),'function','Data recommendations must be implemented');
+const mk=(no,extra={})=>({no,gmTs:'260121',date:'2026-10-14',time:'03:45',sport:'축구',league:'TEST',home:'H'+no,away:'A'+no,market:'언더오버',marketFamily:'TOTAL',line:2.5,period:'FULL',choices:[{label:'언더',odds:1.7},{label:'오버',odds:1.9}],domesticOddsFetchedAt:new Date(NOW-1000).toISOString(),domesticOddsValid:true,oddsSnapshotStatus:'OPEN',domesticOddsSource:'zentoto_public',source:'ZENTOTO_PUBLIC_PREGAME_HTML',marked:true,representativeSelected:true,finalPick:'언더',finalOdds:1.6,displayGrade:'추천',selectionMode:'R406_ODDS_ONLY',...extra});
+const a=mk(9001),manual=mk(9002,{manualOverride:true}),begun=mk(9003,{date:'2026-10-13',time:'20:00'}),past=mk(9004,{resultFinal:true,hit:true}),old=mk(9005,{gmTs:'260120'}),stale=mk(9006,{domesticOddsFetchedAt:new Date(NOW-8*3600000).toISOString()}),missing=mk(9007,{domesticOddsFetchedAt:null});
+const locked=JSON.stringify([manual,begun,past,old,stale,missing]);
+const state={round:121,gmTs:'260121',markets:[a,manual,begun,past,old,stale,missing],settlementLedger:[{no:9004,hit:true}]};
+const ledger=JSON.stringify(state.settlementLedger);
+const audit=f('r480RecommendState')(state,NOW);
+assert.equal(a.finalOdds,1.7,'pregame selection price follows current verified quote');
+assert.equal(a.selectionMode,'R480_DATA_RELATIVE');assert.equal(a.modelProbability,null);assert.equal(a.modelEdgeAvailable,false);assert.equal(a.gradeEvidenceQualified,false);
+assert.equal(JSON.stringify([manual,begun,past,old,stale,missing]),locked,'all protected and stale rows stay byte-for-byte intact');
+assert.equal(JSON.stringify(state.settlementLedger),ledger);assert.ok(audit.changed>=1);
+const snap=JSON.stringify(state.markets),n=state.r398SelectionHistory.length;
+assert.equal(f('r480RecommendState')(state,NOW).changed,0);assert.equal(JSON.stringify(state.markets),snap);assert.equal(state.r398SelectionHistory.length,n);
+// A second, unidentified segment must not win just because its price is short.
+const primary=mk(9101,{marketFamily:'MONEYLINE',market:'승무패',line:null,choices:[{label:'승',odds:1.7},{label:'무',odds:3.5},{label:'패',odds:4.3}],marked:false,representativeSelected:false}),total=mk(9103,{home:primary.home,away:primary.away}),secondary=mk(9105,{home:primary.home,away:primary.away,marketFamily:'MONEYLINE',line:null,choices:[{label:'승',odds:1.31},{label:'패',odds:4.5}],marked:false,representativeSelected:false});
+const ss={round:121,gmTs:'260121',markets:[primary,total,secondary]};f('r480RecommendState')(ss,NOW);assert.equal(secondary.marked,false);assert.equal(ss.markets.filter(m=>m.marked&&m.representativeSelected).length,1);
+const low=mk(9201,{marketFamily:'MONEYLINE',line:null,choices:[{label:'승',odds:1.2},{label:'패',odds:4.5}]});assert.equal(f('r480DataOption')(low,low.choices[1],NOW),null,'no forced outsider when favorite is below minimum');
+const baseball=mk(9202,{sport:'야구',marketFamily:'HANDICAP',line:-1.5,choices:[{label:'승',odds:1.7},{label:'패',odds:1.9}]});assert.equal(f('r480DataOption')(baseball,baseball.choices[0],NOW),null,'baseball requires 2.5 handicap');
+const patterned=mk(9301);patterned.sameOddsEvidence={source:'ZENTOTO_PUBLIC_SAME_ODDS_COUNTS',gmTs:'260121',no:9301,observedAt:new Date(NOW).toISOString(),sampleSize:100,counts:{언더:60,오버:40},prices:structuredClone(patterned.choices)};
+const used=f('r480DataOption')(patterned,patterned.choices[0],NOW);assert.equal(used.evidence.sampleSamples,100);assert.equal(used.evidence.futureWinProbability,null);
+patterned.sameOddsEvidence.no=9999;const rejected=f('r480DataOption')(patterned,patterned.choices[0],NOW);assert.equal(rejected.evidence.sampleSamples,null,'mismatched source quote/round/number never enters scoring');
+const src=fs.readFileSync('자동마킹.js','utf8');assert.match(src,/r480RecommendState\(s,now\)/);assert.match(src,/BEFORE_R480_DATA_RECOMMENDATIONS/);
+// Exercise the actual runtime caller, not only the isolated recommendation helper.
+const retained=mk(9401,{selectionMode:'R480_DATA_RELATIVE',finalPick:'오버',finalOdds:1.9});
+const runtime={round:121,gmTs:'260121',markets:[retained]};
+vm.runInContext('applyPerformanceContext=function(s){return s}',ctx);
+f('r401MarkState')(runtime,NOW);assert.equal(retained.finalPick,'오버','runtime must not reset an existing R480 direction through R406');
+assert.ok(!(runtime.r398SelectionHistory||[]).some(x=>x.reason==='R406_PREMATCH_ALLOCATION'));
+const badPrimary=mk(9501,{choices:[],marked:false,representativeSelected:false}),late=mk(9502,{home:badPrimary.home,away:badPrimary.away,marketFamily:'HANDICAP',line:1,choices:[{label:'승',odds:1.5},{label:'패',odds:2.4}],marked:false,representativeSelected:false});
+f('r401MarkState')({round:121,gmTs:'260121',markets:[badPrimary,late]},NOW);assert.equal(late.marked,false,'upstream caller may not bypass primary-bundle restriction');
+const unknownLater=mk(9602,{marketFamily:'HANDICAP',line:1,choices:[{label:'승',odds:1.5},{label:'패',odds:2.4}],selectionMode:'R480_DATA_RELATIVE',finalPick:'승',finalOdds:1.5});
+const first=mk(9601,{home:unknownLater.home,away:unknownLater.away,marked:false,representativeSelected:false});
+f('r480RecommendState')({round:121,gmTs:'260121',markets:[first,unknownLater]},NOW);assert.equal(unknownLater.marked,false,'R480 retained row also passes the primary gate');
+const incomplete=f('r480PrimaryRows')([{no:1,marketFamily:'MONEYLINE'},{no:2,marketFamily:'HANDICAP'},{no:3,marketFamily:'HANDICAP'}]);assert.equal(incomplete.length,2,'missing total cannot admit repeated unidentified markets');
+const beforeRank=retained.r480Recommendation.rank;retained.sameOddsEvidence={source:'ZENTOTO_PUBLIC_SAME_ODDS_COUNTS',gmTs:'260121',no:retained.no,observedAt:new Date(NOW).toISOString(),sampleSize:500,counts:{언더:150,오버:350},prices:structuredClone(retained.choices)};
+f('r480RecommendState')(runtime,NOW);assert.notEqual(retained.r480Recommendation.rank,beforeRank,'changed evidence refreshes grade rank without needing a price/pick change');
+const half=mk(9701,{period:'HALF',marked:false,representativeSelected:false});f('r401MarkState')({round:121,gmTs:'260121',markets:[half]},NOW);assert.equal(half.marked,false,'runtime rejects explicit partial period');
+const fullHandicap=mk(9711,{marketFamily:'HANDICAP',line:1,choices:[{label:'승',odds:1.5},{label:'패',odds:2.4}],marked:false,representativeSelected:false}),halfHandicap=mk(9712,{home:fullHandicap.home,away:fullHandicap.away,marketFamily:'HANDICAP',line:1,period:'HALF',choices:structuredClone(fullHandicap.choices),finalPick:'승',finalOdds:1.5,selectionMode:'R480_DATA_RELATIVE'}),boundary=mk(9713,{home:fullHandicap.home,away:fullHandicap.away,marked:false,representativeSelected:false});
+f('r480RecommendState')({round:121,gmTs:'260121',markets:[fullHandicap,halfHandicap,boundary]},NOW);assert.equal(halfHandicap.marked,false,'small-difference retention cannot reinsert rejected HALF rows');
+const absent=mk(9801,{choices:[],marked:false,representativeSelected:false}),invalidSaved=mk(9802,{home:absent.home,away:absent.away,marketFamily:'HANDICAP',line:1,choices:[{label:'승',odds:1.5},{label:'패',odds:2.4}],selectionMode:'R480_DATA_RELATIVE',finalPick:'승',finalOdds:1.5});
+f('r401MarkState')({round:121,gmTs:'260121',markets:[absent,invalidSaved]},NOW);assert.equal(invalidSaved.marked,false,'no valid primary alternative cannot preserve an invalid automatic recommendation');
+console.log('PASS R480 current price, exact source joins, primary segment, no forced outsider, 2.5 handicap, no invented probabilities, locked/manual/stale/old-round/ledger preservation, idempotence, runtime integration and atomic migration');
