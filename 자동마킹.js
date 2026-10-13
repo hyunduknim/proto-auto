@@ -8426,7 +8426,7 @@ function r482TeamHtml(m){
  };
  const h2h=d.h2h?.length?'<div class="r482Note">최근 기록 안의 맞대결 '+d.h2h.length+'경기 · '+
   d.h2h.map(r=>esc(r.date.slice(5)+' '+r.gf+':'+r.ga)).join(' / ')+'</div>':'';
- return '<section class="r482Shell"><div class="r482Title"><strong>팀 데이터 분석</strong><span>최근 5경기</span></div>'+
+ return '<section class="r482Shell" data-version="R482_TEAM_FORM"><div class="r482Title"><strong>팀 데이터 분석</strong><span>최근 5경기</span></div>'+
   '<div class="r482Teams">'+card(d.home,'home')+card(d.away,'away')+'</div>'+h2h+
   '<small class="r482Note">승·무·패는 실제 경기 결과 · 득실·홈·원정은 위 최근 기록 기준</small></section>';
 }
