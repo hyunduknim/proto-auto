@@ -7398,6 +7398,47 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 #expPanel .r474Other{box-shadow:0 3px 8px #0002;transition:border-color .15s}
 #expPanel .r474Other[open]{border-color:#7698b6}
 
+
+/* R474 premium colorful text: deliberate information hierarchy & accessible contrast. */
+#expPanel .r474HeroHead strong{color:#ffe5a4;text-shadow:0 0 13px #f5c56a40;letter-spacing:-.25px}
+#expPanel .r474HeroHead span{font-weight:800;color:#ffda8c;border-color:#cc9b5a}
+#expPanel .r474HeroGrid>div:first-child small{color:#b5edff;font-weight:750}
+#expPanel .r474HeroGrid>div:last-child small{color:#ffe1aa;font-weight:750}
+#expPanel .r474HeroGrid>div:first-child strong{color:#7feaff;text-shadow:0 0 15px #34c3ed44}
+#expPanel .r474HeroGrid>div:last-child strong{color:#ffdd87;text-shadow:0 0 15px #f4bc5f3f}
+#expPanel .r474BarRow:nth-child(1)>span,#expPanel .r474BarRow:nth-child(1)>b{color:#93e4ff}
+#expPanel .r474BarRow:nth-child(2)>span,#expPanel .r474BarRow:nth-child(2)>b{color:#ffda98}
+#expPanel .r474BarRow:nth-child(3)>span,#expPanel .r474BarRow:nth-child(3)>b{color:#d9bdff}
+#expPanel .r474BarRow>b{font-size:12px;font-weight:900}
+#expPanel .r474Market .edBriefTop>b{font-size:14px;color:#ebf7ff;text-shadow:0 0 10px #8dd1ff22}
+#expPanel .r474Market.selected .edBriefTop>b{color:#ffdd94}
+#expPanel .r474MarketVerdict{color:#ffda90;font-size:12px;line-height:1.6}
+#expPanel .r474Market .edPriceLabel b{font-size:12px;font-weight:900}
+#expPanel .r474Market .edPriceCard.edTone0 .edPriceLabel b,#expPanel .r474Market .edPriceCard.edTone0 .edPriceShare b{color:#8ae5ff}
+#expPanel .r474Market .edPriceCard.edTone1 .edPriceLabel b,#expPanel .r474Market .edPriceCard.edTone1 .edPriceShare b{color:#ffda99}
+#expPanel .r474Market .edPriceCard.edTone2 .edPriceLabel b,#expPanel .r474Market .edPriceCard.edTone2 .edPriceShare b{color:#d2baff}
+#expPanel .r474Market .edPriceBig{color:#f9fcff!important;text-shadow:0 1px 8px #b2dfff2b;font-weight:900}
+#expPanel .r474Market .edPriceShare b{font-size:13px;font-weight:900}
+#expPanel .r474Market .edPriceCard.picked .edPriceLabel>span{color:#ffdfa3;font-weight:900}
+#expPanel .r474Market .r474Change{color:#bfdeec}
+#expPanel .r474Insights{border-left:3px solid #80e3bc}
+#expPanel .r474Insights b{color:#9bfbd2;font-size:12px;font-weight:900;text-shadow:0 0 12px #35d1a83d}
+#expPanel .r474Insights span{font-size:11px;font-weight:650;color:#e0f2fc}
+#expPanel .r474FlowHead b{color:#ffe0a4;font-size:13px;font-weight:900}
+#expPanel .r474FlowLegend span:nth-child(1){color:#9ae8ff;font-weight:800}
+#expPanel .r474FlowLegend span:nth-child(2){color:#ffda94;font-weight:800}
+#expPanel .r474FlowLegend span:nth-child(3){color:#dbbfff;font-weight:800}
+#expPanel .r474FlowTicks{color:#b3d1e0;font-size:10px}
+#expPanel .r474Other>summary{color:#b9e6ff;font-weight:800}
+#expPanel .edAllMarketNote{color:#cde9ff;font-weight:700}
+#expPanel .r474HeroCaption,#expPanel .r474Foot{color:#b4cadb}
+@media(max-width:600px){
+ #expPanel .r474Market .edPriceBig{font-size:22px}
+ #expPanel .r474Market .edPriceShare{font-size:11px}
+ #expPanel .r474BarRow>b{font-size:12px}
+ #expPanel .r474Insights span{font-size:11px;line-height:1.6}
+}
+
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 현재 마킹 확률, 경기 자료 예상치, 각 선택지의 배당을 한눈에 비교합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
