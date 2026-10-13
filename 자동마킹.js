@@ -38,7 +38,7 @@
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
 const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R483-ALL-SPORT-TEAM-AUTO";
-const BUILD_ID = "proto-r483-20261014-all-sport-team-auto";
+const BUILD_ID = "proto-r483-20261014-all-sport-team-auto-alias";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5688,7 +5688,9 @@ function r483FixtureKey(m){return JSON.stringify([String(m.gmTs||''),m.sport,m.l
 function r483Fixture(m){return Object.fromEntries(['gmTs','sport','league','date','time','home','away'].map(k=>[k,m[k]]));}
 function r483SameTeam(a,b){
  const aliases={'사바FK':'사바바쿠','알시브클럽':'AlSeeb','J알후세인':'J알후세','인테르나치오날레밀라노':'인터밀란','클뤼프브뤼허':'클럽브루게','샤바브알아흘리두바이':'알알리두바이','비킹FK':'바이킹','RC랑스':'랑스','스포르팅CP':'스포르팅','포트FC':'포트MTIFC','비셀고베':'고베'};
- const clean=x=>aliases[norm(x)]||norm(x);return r410ZenTeamSame(clean(a),clean(b));
+ aliases['S알이티하드']='알이티하드FC';
+ const canonical=Object.fromEntries(Object.entries(aliases).map(([k,v])=>[norm(k),norm(v)]));
+ const clean=x=>canonical[norm(x)]||norm(x);return r410ZenTeamSame(clean(a),clean(b));
 }
 function r483ZenFixtureLinks(state,html){
  const title=r381ZenStrip(String(html).match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||'');
