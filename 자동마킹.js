@@ -7779,7 +7779,7 @@ function r470ChanceData(m){
  const r=(Array.isArray(m.marketRows)?m.marketRows:[]).find(x=>String(x.no)===String(m.no));
  if(!r)return {status:'NO_MARKET'};
  const q=r465OddsWinRateData({...r,marked:true,finalPick:m.pick});
- if(!q.valid||!q.selected)return {status:'BAD_ODDS'};
+ if(!q.valid||!q.selected||!expDQuality(r).valid)return {status:'BAD_ODDS'};
  if(!Number.isFinite(Number(m.odds))||Math.abs(Number(m.odds)-q.selected.odds)>.011)return {status:'CHANGED'};
  const allowed=m.selectionMode==='R400_EVIDENCE_FIRST'&&!m.manualOverride&&!m.manualReview?.pick;
  const model=allowed&&typeof m.calibratedProbability==='number'&&Number.isFinite(m.calibratedProbability)&&m.calibratedProbability>0&&m.calibratedProbability<1?m.calibratedProbability:null;
