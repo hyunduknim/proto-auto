@@ -7970,7 +7970,7 @@ function expBody(m){
   '<details class="r474Other"><summary>#'+e(r.no)+' · '+e(r.market||r.marketFamily||'기타 배당')+
    (r.line==null?'':' '+e(r.line))+' · 다른 시장 보기</summary>'+expDS(m,r)+'</details>').join('');
  return '<div class="expBody edReport">'+r470ChanceHtml(m)+r473PerformanceHtml(m)+
-  '<div class="edAllMarketNote">선택지별 배당 비교 · 확인된 '+all.length+'개 시장'+(chosen?' · 현재 마킹 먼저':'')+'</div>'+
+  '<div class="edAllMarketNote">전체 배당 비교 · 확인된 '+all.length+'개 시장'+(chosen?' · 현재 마킹 먼저':'')+'</div>'+
   (cards||'<div class="r474Foot">확인된 시장 배당이 없습니다.</div>')+'</div>';
 }
 
