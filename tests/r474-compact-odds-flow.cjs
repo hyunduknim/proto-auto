@@ -23,7 +23,7 @@ assert.match(html,/배당흐름/);
 assert.match(html,/<svg[^>]*role="img"/);
 assert.match(html,/<polyline/);
 assert.match(html,/<circle/,"real observations should have chart point markers");
-assert.match(html,/r474BarChart/,"visualize current-mark price versus stored analysis");
+assert.match(html,/r477Bars/,"compact colorful R477 market-share chart");
 assert.match(html,/r474FlowTicks/,"timestamps must be visible in Korean local time");
 assert.match(src,/#expPanel \.r474HeroGrid>div:first-child strong\{color:#7feaff/,"high-contrast colorful probability text");
 assert.match(html,/3회/);

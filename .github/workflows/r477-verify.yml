@@ -1,0 +1,41 @@
+name: Verify R477 odds analytics (no deploy)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '자동마킹.js'
+      - 'tests/r477-data-odds.cjs'
+      - 'tests/r472-precision-odds-ui.cjs'
+      - 'tests/r474-compact-odds-flow.cjs'
+  push:
+    branches: [feature/r477-data-pickschool-odds]
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: Syntax, Data evidence, and regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check all updated JavaScript syntax
+        run: |
+          node --check "자동마킹.js"
+          node --check tests/r477-data-odds.cjs
+      - name: Verify unchanged bet marking and score settlement plus new Data features
+        run: |
+          node tests/r477-data-odds.cjs
+          node tests/r419-precision-evidence.cjs
+          node tests/r420-evidence-bootstrap.cjs
+          node tests/r420-precision-marking.cjs
+          node tests/r462-odds-history.cjs
+          node tests/r465-odds-win-rate.cjs
+          node tests/r472-precision-odds-ui.cjs
+          node tests/r473-real-evidence-coverage.cjs
+          node tests/r474-compact-odds-flow.cjs
+          node tests/r475-all-non-odd-market-restore.cjs
+          node tests/r476-levante-odds-settlement.cjs
+          node tests/settlement-check.cjs
