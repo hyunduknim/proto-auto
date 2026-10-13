@@ -7779,7 +7779,7 @@ function expDSFull(m,r){
   source=String(p.sampleSource||p.source||r.oddsSource||'출처 미확인');
  return '<div class="edEasyDetail"><div class="edSectionTitle">과거 경기 결과와 범위</div>'+(
   d.records.some(x=>x.sample)?expEasyBars(r,d,true)+(breakdown?'<div class="edEvidenceGrid">'+breakdown+'</div>':''):
-  '<p class="edEducational">현재 선택지와 정확히 같은 배당의 과거 경기 결과는 아직 확보하지 못했습니다. 배당 History에서 원자료를 조회할 수 있습니다.</p>')+
+  '<p class="edEducational">같은 배당의 지난 결과가 없습니다. 해당 배당과 정확히 일치하는 과거 경기 기록을 아직 확보하지 못했습니다. 배당 History에서 원자료를 조회할 수 있습니다.</p>')+
  '<p class="edEducational">과거 빈도와 95% 참고 범위는 이번 경기의 승률을 보장하지 않습니다. 경기 조건이 다르면 결과도 달라질 수 있습니다.</p>'+
  '<div class="edSectionTitle">배당이 어떻게 바뀌었나요?</div>'+changes+
  '<p class="edEducational">자료 출처: '+e(source)+' · 배당 확인 '+e(expEasyClock(p.observedAt||r.oddsFetchedAt))+' · 실제 가격이 확인된 경우에만 전후를 표시합니다.</p></div>';
@@ -7878,7 +7878,7 @@ function expBody(m){
  const groups=available.map(g=>'<section class="edMarketGroup edFamily'+g.family+'"><div class="edMarketGroupHead"><b>'+g.label+'</b><span>'+g.list.length+'개 배당'+(g.list.some(r=>r.marked)?' · 현재 마킹 포함':'')+'</span></div>'+
    g.list.map(r=>expDS(m,r)).join('')+'</section>').join('');
  const extra=rows.filter(r=>!families.some(x=>x[0]===r.marketFamily));
- const note=available.length?'<div class="edAllMarketNote">확인된 배당 '+rows.length+'개 시장 · '+available.map(g=>g.label).join(' · ')+(chosen?' · 현재 마킹 먼저':'')+'</div>':
+ const note=available.length?'<div class="edAllMarketNote">전체 배당 비교 · 확인된 '+rows.length+'개 시장 · '+available.map(g=>g.label).join(' · ')+(chosen?' · 현재 마킹 먼저':'')+'</div>':
   '<div class="edAllMarketNote">현재 확인된 국내배당 선택지가 없습니다.</div>';
  return '<div class="expBody edReport">'+r470ChanceHtml(m)+r473PerformanceHtml(m)+note+groups+
    (extra.length?'<section class="edMarketGroup"><div class="edMarketGroupHead"><b>기타 배당</b></div>'+extra.map(r=>expDS(m,r)).join('')+'</section>':'')+'</div>';
