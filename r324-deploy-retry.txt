@@ -9,3 +9,5 @@ R390 Cloudflare automatic deployment retrigger (2026-10-11): source commit 6791c
 R481 next-round automatic marking and precise odds analysis verified. Retry connected Workers Builds for source c8d08d3afd09fa7c974f1b98599c166bb3c2e9bf. 2026-10-13 KST.
 
 R482 recent-five team analysis: deploy verified source ec60edc7222d5ab924b1c822b791e4c5e5ef1bc8. Verify live R482 version and teamData cards before completion.
+
+R483 final alias lookup verified for future-round discovery. Redeploy source b59df0b75457f46db70595378b0acdc398db9a8b; live build must end in all-sport-team-auto-alias. Current24fixtures48teams recent-five coverage verified.
