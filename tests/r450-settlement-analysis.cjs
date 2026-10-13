@@ -8,7 +8,7 @@ const s={markets:[m],cloudflareSettlementAudit:{at:new Clock().toISOString(),sta
 const before=JSON.stringify(s),h=get('settlementHealth')(s);
 assert.equal(h.stalled,false,'fresh native checks with only five minutes elapsed are not a stalled relay');assert.equal(h.sourceCheckingFresh,true);assert.equal(h.verifiedFinalPending,0);assert.equal(h.premiumResultReadiness,null,'previous round readiness must not be shown for current pending');assert.equal(JSON.stringify(s),before);
 s.cloudflareSettlementAudit.at='2026-10-11T02:08:45Z';s.spogodSettlementAudit.at=s.cloudflareSettlementAudit.at;assert.equal(get('settlementHealth')(s).stalled,true);
-assert.equal(get('r450SettlementCadenceMs')({markets:[m]}),30000);assert.equal(get('r450LiveOddsRetryAllowed')({...s,sourceAudit:{ok:false,lastAt:new Clock().toISOString()}},false),false);assert.equal(get('r450LiveOddsRetryAllowed')({...s,sourceAudit:{ok:false,lastAt:new Clock().toISOString()}},true),false);
+assert.equal(get('r450SettlementCadenceMs')({markets:[m]}),25000);assert.equal(get('r450LiveOddsRetryAllowed')({...s,sourceAudit:{ok:false,lastAt:new Clock().toISOString()}},false),false);assert.equal(get('r450LiveOddsRetryAllowed')({...s,sourceAudit:{ok:false,lastAt:new Clock().toISOString()}},true),false);
 assert.equal(get('r450LiveOddsRetryAllowed')({...s,sourceAudit:{ok:false,lastAt:new Clock(NOW-180000).toISOString()}},true),true,'failed odds retry after three minutes');
 assert.equal(get('r450LiveOddsRetryAllowed')({markets:[],sourceAudit:{ok:false,lastAt:new Clock().toISOString()}},true),true,'pregame refresh remains allowed without live results');
 assert.equal(get('r450LiveOddsRetryAllowed')({...s,sourceAudit:{ok:true,lastAt:new Clock().toISOString()}},true),true,'working odds source remains allowed');
@@ -20,10 +20,10 @@ const detailed=fn('expDSFull')({sport:'축구'},row);assert.match(detailed,/100�
 const frozen={...row,precision:{...row.precision,observedAt:'2026-10-12T00:00:00Z',ageSec:0}};assert.equal(fn('expDQuality')(frozen).fresh,false,'elapsed freshness is derived from actual timestamp, not frozen ageSec');
 assert.equal(fn('expDQuality')({...row,choices:[{label:'승',odds:3},{label:'패',odds:3}]}).valid,false,'underround domestic quotes require recheck');
 const body=fn('expBody')({no:1,pick:'오버',odds:1.6,sport:'축구',marketRows:[{...row,no:2,marked:false},row]});assert.ok(body.indexOf('#1')<body.indexOf('#2'));assert.match(body,/전체 배당 비교/);
-console.log('PASS R450 health: fresh empty checks, stale detection, round scope, 30 sec cadence, live odds backoff. Analysis: break-even, margin, samples, freshness, selected-first, no state mutation.');
+console.log('PASS R450 health: fresh empty checks, stale detection, round scope, 25 sec cadence, live odds backoff. Analysis: break-even, margin, samples, freshness, selected-first, no state mutation.');
 
 worker.liveFixture={markets:[m],resultAudit:{ok:false,errors:['timeout']}};
-vm.runInContext('MEM.state=liveFixture',worker);assert.equal(get('ProtoStateDO').prototype.alarmIntervalMs.call({env:{}}),30000,'native alarm stays 30 sec even during official backoff');
+vm.runInContext('MEM.state=liveFixture',worker);assert.equal(get('ProtoStateDO').prototype.alarmIntervalMs.call({env:{}}),25000,'native alarm stays 25 sec even during official backoff');
 if(fs.existsSync('live-current.json')){const live=JSON.parse(fs.readFileSync('live-current.json','utf8')),liveBefore=JSON.stringify(live);
 for(const game of live.markingGames){const output=fn('expBody')(game);assert.doesNotMatch(output,/NaN|Infinity|undefined/);assert.match(output,/왜 이렇게 볼까요/);for(const row of game.marketRows||[])assert.doesNotMatch(fn('expDSFull')(game,row),/NaN|Infinity|undefined/);}
 assert.equal(JSON.stringify(live),liveBefore);console.log('PASS LIVE REPLAY: all 32 current games and market details rendered without invalid numbers; marks and settlement unchanged');
