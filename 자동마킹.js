@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R478-LEVANTE-7883-OVER";
-const BUILD_ID = "proto-r478-20261013-7883-over-reconcile";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R479-MANUAL-7883-HANDICAP-CLARITY";
+const BUILD_ID = "proto-r479-20261013-7883-manual-7837-team-clarity";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -6127,7 +6127,13 @@ function r430ManualSettlement(state,card,review){
  if(evidence.some(m=>m.resultFinal&&m.settlementStatus==='적특'&&
    /취소|연기|CANCEL|POSTPON/i.test(String(m.result||m.resultStatus||''))))
   return {status:'적특',hit:null,outcome:'적특',source:'VERIFIED_CANCELLED'};
- const scored=evidence.map(m=>r446RawFinal(m,target)).filter(Boolean)
+ // R479: exact official LaLiga 3:3 score is valid for a later displayed manual
+ // 7883 U/O2.5 choice even when the original automatic pick was a different
+ // market (for example moneyline '승'). Do not rewrite the archived auto pick.
+ const official7883=r478Exact7883(target)&&Number(review.no)===7883&&
+  ['언더','오버'].includes(String(review.pick))?
+   [{score:'3:3',rank:9,source:R478_7883_SOURCE}]:[];
+ const scored=[...official7883,...evidence.map(m=>r446RawFinal(m,target)).filter(Boolean)]
   .sort((a,b)=>b.rank-a.rank);
  let outcome=null,source=null,score=null,reason=null;
  if(scored.length){
@@ -7663,7 +7669,7 @@ function settledMarkCardHtml(m){
  rows=rows.map(r=>({...r,marked:String(r.no)===String(m.no),finalPick:String(r.no)===String(m.no)?m.pick:null,handicapEffectiveLine:String(r.no)===String(m.no)?m.handicapEffectiveLine:null}));
  return gameCardHtml({...m,marketRows:rows})+manualPastEditButton(m);
 }
-function shadowPanelHtml(){return ''}function pastResultPickLabel(m){const f=String(m?.marketFamily||''),p=String(m?.pick||'').trim();if(f==='MONEYLINE')return '일반승'+(p?' '+p:'');if(f==='TOTAL')return p==='언더'?'언더':p==='오버'?'오버':('언더오버'+(p?' '+p:''));if(f==='HANDICAP'){let x=Number(m?.handicapEffectiveLine);if(!Number.isFinite(x)||x===0){const line=Number(m?.line);if(Number.isFinite(line)&&line!==0){if(p==='승')x=line;else if(p==='패')x=-line;else x=line;}}const dir=Number.isFinite(x)&&x>0?'플러스핸디캡':Number.isFinite(x)&&x<0?'마이너스핸디캡':'핸디캡';return dir+(p?' '+p:'');}return (m?.market||'일반승')+(p?' '+p:'');}function pastOfficialResultLabel(m){const f=String(m?.marketFamily||''),r=String(m?.result||'').trim();if(f==='MONEYLINE')return '일반승'+(r?' '+r:'');if(f==='TOTAL')return r||'언더오버';if(f==='HANDICAP'){const line=Number(m?.line),dir=Number.isFinite(line)&&line>0?'플러스핸디캡':Number.isFinite(line)&&line<0?'마이너스핸디캡':'핸디캡';return dir+(r?' '+r:'');}return r||String(m?.market||'결과');}
+function shadowPanelHtml(){return ''}function pastResultPickLabel(m){const f=String(m?.marketFamily||''),p=String(m?.pick||'').trim();if(f==='MONEYLINE')return '일반승'+(p?' '+p:'');if(f==='TOTAL')return p==='언더'?'언더':p==='오버'?'오버':('언더오버'+(p?' '+p:''));if(f==='HANDICAP'){let x=Number(m?.handicapEffectiveLine);if(!Number.isFinite(x)||x===0){const line=Number(m?.line);if(Number.isFinite(line)&&line!==0){if(p==='승')x=line;else if(p==='패')x=-line;else x=line;}}const dir=Number.isFinite(x)&&x>0?'플러스핸디캡':Number.isFinite(x)&&x<0?'마이너스핸디캡':'핸디캡';const side=p==='승'?String(m?.home||'홈팀'):p==='패'?String(m?.away||'원정팀'):'';const signed=Number.isFinite(x)&&x!==0?' '+(x>0?'+':'')+String(x):'';return (side?side+signed+' · ':'')+dir+(p?' '+p:'');}return (m?.market||'일반승')+(p?' '+p:'');}function pastOfficialResultLabel(m){const f=String(m?.marketFamily||''),r=String(m?.result||'').trim();if(f==='MONEYLINE')return '일반승'+(r?' '+r:'');if(f==='TOTAL')return r||'언더오버';if(f==='HANDICAP'){const line=Number(m?.line),dir=Number.isFinite(line)&&line>0?'플러스핸디캡':Number.isFinite(line)&&line<0?'마이너스핸디캡':'핸디캡';return (Number.isFinite(line)&&line!==0?'홈 '+String(m?.home||'홈팀')+' '+(line>0?'+':'')+String(line)+' · ':'')+dir+(r?' '+r:'');}return r||String(m?.market||'결과');}
 /* R429: Retrospective choices must remain distinct from settlement and pregame picks. */
 function manualPastLabel(m){
  const review=m.manualReview,settled=review?.settlement;
