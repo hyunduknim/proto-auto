@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R475-FULL-NONODD-MARKETS";
-const BUILD_ID = "proto-r475-20261013-full-nonodd-markets";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R476-LEVANTE-ODDS-SETTLEMENT";
+const BUILD_ID = "proto-r476-20261013-levante-odds-settlement";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5816,6 +5816,46 @@ function r457RepairAtalanta(state){
  state.r457AtalantaAudit={at:nowIso(),no:7851,gmTs:'260121',before,score:'3:1',originalPick:m.finalPick,source:'https://v1.zentoto.com/proto/game',sourceStatus:'경기종료',ownerConfirmed:true};state.updatedAt=nowIso();return {changed:true,before};
 }
 
+/* R476: independently verified LaLiga FULL-TIME score. Never infer a market result
+ * from an in-progress Spogod detail page or change an already settled card.
+ * LaLiga matchday 8, Levante 3-3 Sevilla: official 2026-10-12 final. */
+const R476_LEVANTE_SOURCE='https://www.laliga.com/en-US/match/temporada-2026-2027-laliga-ea-sports-levante-ud-sevilla-fc-8';
+function r476IsLevanteSevilla(m){
+ const home=norm(m?.home),away=norm(m?.away),league=norm(m?.league);
+ return String(m?.gmTs)==='260121'&&String(m?.date)==='2026-10-13'&&
+   ['03:00','04:00'].includes(String(m?.time||'').slice(0,5))&&m?.sport==='축구'&&
+   /라리가|laliga|primera|스페인/.test(league)&&
+   (home.includes('레반테')||home.includes('levante'))&&
+   (away.includes('세비야')||away.includes('sevilla'));
+}
+function r476RepairLevanteFinal(state){
+ const candidates=(state?.markets||[]).filter(r476IsLevanteSevilla),audit={
+  source:'LALIGA_OFFICIAL_FINAL_20261012',url:R476_LEVANTE_SOURCE,score:'3:3',
+  checked:candidates.length,settled:0,skipped:0,reasons:{},rows:[]};
+ const pending=candidates.filter(m=>m.marked&&m.representativeSelected&&
+   !m.resultFinal&&started(m)&&settlementAllowed(m));
+ // One active representative pick per fixture. Do not override unknown, manual, or already-settled results.
+ const fullRepresentatives=(state?.markets||[]).filter(m=>r476IsLevanteSevilla(m)&&
+   m.marked&&m.representativeSelected);
+ if(fullRepresentatives.length!==1){audit.reasons.AMBIGUOUS_REPRESENTATIVE=fullRepresentatives.length;return audit;}
+ for(const m of pending){
+  const pair={score:'3:3',family:'MONEYLINE',home:m.home,away:m.away,
+   date:m.date,time:m.time,gmTs:m.gmTs,no:null,terminal:true,partial:false,specialStatus:null};
+  const resolved=resolveOfficialOutcome(pair,m);
+  if(!resolved?.outcome||resolved.void||resolved.outcome==='적특'||scoreUnitMismatch(m,resultScorePairText(pair.score))||
+    !validChoices(m).some(c=>c.label===resolved.outcome)){
+    audit.skipped++;audit.reasons.UNRESOLVED_MARKET_OR_PUSH=(audit.reasons.UNRESOLVED_MARKET_OR_PUSH||0)+1;continue;
+  }
+  const settled=applyResults({markets:[m]},[pair],'LALIGA_OFFICIAL_20261012_FULLTIME');
+  if(settled!==1){audit.skipped++;audit.reasons.ENGINE_REJECTED=(audit.reasons.ENGINE_REJECTED||0)+1;continue;}
+  recordSettlementLedger(state,m);upsertSettledCard(state,m);
+  audit.settled++;audit.rows.push({no:m.no,family:m.marketFamily,line:m.line,pick:m.finalPick,
+   result:m.result,status:m.settlementStatus,score:m.resultScoreText});
+ }
+ if(audit.settled){state.r476LevanteAudit={...audit,at:nowIso()};
+  state.updatedAt=nowIso();}
+ return audit;
+}
 function r443Is7804(m){
  return String(m?.gmTs)==='260121'&&Number(m.no)===7804&&
   m.date==='2026-10-12'&&String(m.time||'').slice(0,5)==='19:00'&&
@@ -7451,6 +7491,28 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .markTicket .choice em{font-weight:900;font-size:13px}
 @media(max-width:440px){.markTicket .marketRow{grid-template-columns:90px minmax(0,1fr)}.markTicket .choices{grid-template-columns:repeat(auto-fit,minmax(min(58px,100%),1fr))}.markTicket .choice b{font-size:10px}.markTicket .choice em{font-size:12px}}
 
+
+/* R476: compact evidence cards: verified opening quotes, observed movement. */
+#expPanel .r476Movement{display:grid;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);align-items:center;gap:8px;margin:11px 0}
+#expPanel .r476Movement>div:not(.r476Arrow){padding:11px;border-radius:11px;border:1px solid #426c8e;background:#0b314e}
+#expPanel .r476Movement small{display:block;color:#b7ddec;font-size:11px}
+#expPanel .r476Movement strong{display:block;color:#81e5ff;font-size:21px;font-weight:900;margin-top:4px}
+#expPanel .r476Movement>div:nth-child(3) strong{color:#ffdc8e}
+#expPanel .r476Arrow{color:#fbd78e;text-align:center;font-size:19px;font-weight:900}
+#expPanel .r476PriceRate{color:#bad8ec;font-size:11px;margin-bottom:9px}
+#expPanel .r476PriceRate b{color:#a2f8da}
+#expPanel .r476Observed,#expPanel .r476Provider{padding:9px 11px;border:1px solid #3b6f80;border-radius:10px;background:linear-gradient(125deg,#102c41,#162744);margin:8px 0}
+#expPanel .r476Provider{border-color:#78694b;background:linear-gradient(130deg,#292e48,#102e3e)}
+#expPanel .r476Observed>b{color:#91edca;font-size:12px}
+#expPanel .r476Provider>b{color:#ffe19a;font-size:12px}
+#expPanel .r476MoveRows{display:flex;gap:5px 12px;flex-wrap:wrap;margin:7px 0}
+#expPanel .r476MoveRows>span{font-size:11px;color:#b9d7e9}
+#expPanel .r476MoveRows b{color:#eefaff;font-variant-numeric:tabular-nums;font-size:12px}
+#expPanel .r476MoveRows small{color:#a8d5bc}
+#expPanel .r476Observed>small,#expPanel .r476Provider>small{color:#b9c8d4;font-size:9px}
+#expPanel .r476ProviderLinks{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+#expPanel .r476ProviderLinks a{color:#98e4ff;font-size:11px;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 현재 마킹 확률, 경기 자료 예상치, 각 선택지의 배당을 한눈에 비교합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
@@ -7948,6 +8010,48 @@ function r474FlowHtml(r){
   paths+'</svg><div class="r474FlowTicks"><span>'+stamp(t0)+'</span><span>'+stamp(d.rows[d.rows.length-1].at)+'</span></div>'+
   '<div class="r474FlowLegend">'+legend+'</div><div class="r474Foot">저장된 시각의 실제 배당만 연결했습니다. 기록 사이 변동은 알 수 없습니다.</div></div>';
 }
+/* R476: full provenance only when published quotes match the selected source
+ * exactly. External opening quotes do not manufacture timed chart points. */
+function r476OddsEvidenceHtml(m,r){
+ const p=r?.precision||{},q=Array.isArray(r?.choices)?r.choices:[],
+  recorded=Array.isArray(p.choices)?p.choices:[],rows=[];
+ for(const c of q){
+  const x=recorded.find(x=>String(x.label)===String(c.label))||{},
+    opening=Number(x.openingOdds),first=Number(x.firstObservedOdds),
+    old=opening>1?opening:first>1?first:null,now=Number(c.odds);
+  if(old!==null&&Number.isFinite(now)&&now>1&&Math.abs(now-old)>.004)
+    rows.push('<span>'+e(c.label)+' <b>'+old.toFixed(2)+' → '+now.toFixed(2)+'</b>'+
+     '<small> '+(now<old?'하락':'상승')+'</small></span>');
+ }
+ let provider='';
+ if(r476IsLevanteQuoteFixture(m)){
+   const types=[
+    {family:'MONEYLINE',line:null,opening:[2.55,3.00,2.36],latest:[2.65,2.90,2.34],labels:['승','무','패']},
+    {family:'HANDICAP',line:1,opening:[1.46,3.80,5.00],latest:[1.49,3.65,4.90],labels:['승','무','패']},
+    {family:'HANDICAP',line:2,opening:[1.08,7.00,12.50],latest:[1.11,6.50,10.50],labels:['승','무','패']}
+   ];
+   const spec=types.find(x=>r?.marketFamily===x.family&&
+      (x.line===null||Math.abs(Number(r.line)-x.line)<.001)&&q.length===3);
+   if(spec&&spec.labels.every((label,i)=>String(q[i]?.label)===label&&
+      Math.abs(Number(q[i]?.odds)-spec.latest[i])<=.011)){
+    const changes=spec.labels.map((label,i)=>'<span>'+e(label)+' <b>'+spec.opening[i].toFixed(2)+' → '+spec.latest[i].toFixed(2)+'</b></span>').join('');
+    provider='<div class="r476Provider"><b>젠토토·스포갓 공개 배당변동</b>'+
+     '<div class="r476MoveRows">'+changes+'</div>'+
+     '<small>개장 → 변경배당 · 변경 정확한 시각은 미확인</small>'+
+     '<div class="r476ProviderLinks"><a href="https://v1.zentoto.com/analizer/ADgsxdhm" target="_blank" rel="noopener noreferrer">젠토토 근거 보기 ↗</a>'+
+     '<a href="https://spogod.com/match/1929/" target="_blank" rel="noopener noreferrer">스포갓 근거 보기 ↗</a></div></div>';
+   }
+ }
+ const prior=rows.length?'<div class="r476Observed"><b>저장된 국내배당 변동</b><div class="r476MoveRows">'+rows.join('')+'</div>'+
+   '<small>개장/처음 확인 배당과 현재 값 비교 · 시간별 원자료가 있을 때만 선 그래프 표시</small></div>':'';
+ return prior+provider;
+}
+function r476IsLevanteQuoteFixture(m){
+ const home=String(m?.home||'').toLowerCase(),away=String(m?.away||'').toLowerCase();
+ return String(m?.gmTs)==='260121'&&String(m?.date)==='2026-10-13'&&
+  (home.includes('레반테')||home.includes('levante'))&&
+  (away.includes('세비야')||away.includes('sevilla'));
+}
 function r474Insights(m,r){
  const d=expEasyData(m,r),pick=d.selected||d.leader;if(!pick||!d.q.valid)return '';
  const share=100/Number(pick.odds)/d.q.sum,
@@ -7972,7 +8076,7 @@ function expDS(m,r){
  return '<section class="edBriefMarket r474Market'+(r.marked?' selected':'')+'">'+
   '<div class="edBriefTop"><b>#'+e(r.no)+' · '+e(title)+'</b>'+(r.marked?'<span>현재 마킹</span>':'')+'</div>'+
   (valid?'<div class="r474MarketVerdict">'+e(d.title)+e(warning)+'</div>':'<div class="r474MarketVerdict">배당 확인 중'+e(warning)+'</div>')+
-  expEasyPrices(m,r)+r474Insights(m,r)+r474FlowHtml(r)+
+  expEasyPrices(m,r)+r474Insights(m,r)+r476OddsEvidenceHtml(m,r)+r474FlowHtml(r)+
   '<details class="edBriefDetails" data-exp-market="'+e(r.no)+'"><summary>지난 결과 · 상세 자료</summary><div class="edBriefInner"></div></details></section>';
 }
 
@@ -8002,7 +8106,7 @@ function r470ChanceData(m){
  if(!r)return {status:'NO_MARKET'};
  const q=r465OddsWinRateData({...r,marked:true,finalPick:m.pick});
  if(!q.valid||!q.selected||!expDQuality(r).valid)return {status:'BAD_ODDS'};
- if(!Number.isFinite(Number(m.odds))||Math.abs(Number(m.odds)-q.selected.odds)>.011)return {status:'CHANGED'};
+ if(!Number.isFinite(Number(m.odds))||Math.abs(Number(m.odds)-q.selected.odds)>.011)return {status:'CHANGED',label:q.selected.label,odds:q.selected.odds,market:q.selected.rate};
  const autoModes=['R400_EVIDENCE_FIRST','STRICT','DEEP_REVIEW','DRAW_EVIDENCE_3_TO_4'];
  const allowed=autoModes.includes(String(m.selectionMode||''))&&!m.manualOverride&&!m.manualReview?.pick;
  const validP=n=>typeof n==='number'&&Number.isFinite(n)&&n>0&&n<1;
@@ -8022,9 +8126,16 @@ function r470ChanceData(m){
 }
 function r470ChanceHtml(m){
  const d=r470ChanceData(m);if(d.status==='NO_PICK')return '';
+ if(d.status==='CHANGED'){
+  const prior=Number(m.odds),current=Number(d.odds),fmt=n=>Number.isFinite(n)&&n>1?n.toFixed(2):'미확인';
+  return '<section class="chCard chPremium r474Hero"><div class="r474HeroHead"><strong>핵심 배당 분석</strong><span>선택 배당 흐름</span></div>'+
+    '<div class="r476Movement"><div><small>마킹 당시</small><strong>'+e(fmt(prior))+'배</strong></div>'+
+    '<div class="r476Arrow">→</div><div><small>지금 확인된 배당</small><strong>'+e(fmt(current))+'배</strong></div></div>'+
+    (Number.isFinite(d.market)?'<div class="r476PriceRate">현재 선택지 배당 기준 <b>'+(d.market*100).toFixed(1)+'%</b> · 실제 적중률 아님</div>':'')+
+    '<small class="r474HeroCaption">배당이 달라졌어도 기존 마킹 당시 배당과 픽은 유지됩니다.</small></section>';
+ }
  if(d.status!=='OK'){
-  const note=d.status==='CHANGED'?'배당 변경 확인 필요':d.status==='BAD_ODDS'?'배당 선택지 검증 필요':'마킹 배당 확인 필요';
-  return '<section class="chCard r474Hero"><b>핵심 배당 분석</b><p>'+e(note)+'</p></section>';
+  return '<section class="chCard r474Hero"><b>핵심 배당 분석</b><p>확인된 선택지 배당부터 보여드립니다.</p></section>';
  }
  const pct=n=>(n*100).toFixed(1)+'%',
   other=d.model===null&&d.alternative?d.alternative:null,
@@ -12053,6 +12164,16 @@ async function r398LoadState(env){
         {type:'R443_SCORE_CORRECTION',no:7804,before:fixed443.before,after:'99:89'});
     else if(!stored.state)MEM.state=candidate443;
     else MEM.state.r443CorrectionAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
+  }
+  // R476 user-reported pending Levante-Sevilla: official LaLiga full-time 3:3.
+  // Constrained fixture identity and source; immutable DO backup before correction.
+  const next476=r398Clone(MEM.state),fix476=r476RepairLevanteFinal(next476);
+  if(fix476.settled){
+    if(stored.state&&ds&&typeof ds.transaction==='function')
+      await r398AtomicCommit(ds,MEM.state,next476,'BEFORE_R476_LALIGA_VERIFIED_LEVANTE_SEVILLA',
+        {type:'R476_OFFICIAL_LALIGA_FINAL',score:'3:3',rows:fix476.rows,source:R476_LEVANTE_SOURCE});
+    else if(!stored.state)MEM.state=next476;
+    else MEM.state.r476LevanteAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
   }
   // R444 independently verified KBO final, backed up and committed once.
   const next444=r398Clone(MEM.state),r444=r444RepairDoosanLotte(next444);
