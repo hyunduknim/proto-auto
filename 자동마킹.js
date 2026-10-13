@@ -8130,7 +8130,7 @@ function r470ChanceHtml(m){
   const prior=Number(m.odds),current=Number(d.odds),fmt=n=>Number.isFinite(n)&&n>1?n.toFixed(2):'미확인';
   return '<section class="chCard chPremium r474Hero"><div class="r474HeroHead"><strong>핵심 배당 분석</strong><span>선택 배당 흐름</span></div>'+
     '<div class="r476Movement"><div><small>마킹 당시</small><strong>'+e(fmt(prior))+'배</strong></div>'+
-    '<div class="r476Arrow">→</div><div><small>지금 확인된 배당</small><strong>'+e(fmt(current))+'배</strong></div></div>'+
+    '<div class="r476Arrow">→</div><div><small>화면에 표시된 배당</small><strong>'+e(fmt(current))+'배</strong></div></div>'+
     (Number.isFinite(d.market)?'<div class="r476PriceRate">현재 선택지 배당 기준 <b>'+(d.market*100).toFixed(1)+'%</b> · 실제 적중률 아님</div>':'')+
     '<small class="r474HeroCaption">배당이 달라졌어도 기존 마킹 당시 배당과 픽은 유지됩니다.</small></section>';
  }
