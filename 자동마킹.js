@@ -7848,7 +7848,7 @@ function r474FlowData(r){
  }
  const rows=[...byTime.values()].sort((a,b)=>a.at-b.at).slice(-12);
  if(rows.length<2||rows[rows.length-1].at<=rows[0].at)return null;
- const moving=labels.some(l=>Math.abs(rows[0].values[l]-rows[rows.length-1].values[l])>=.005);
+ const moving=labels.some(l=>rows.some((point,i)=>i>0&&Math.abs(point.values[l]-rows[i-1].values[l])>=.005));
  if(!moving)return null;
  return {rows,labels,source:p.source||r.oddsSource||null};
 }
