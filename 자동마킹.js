@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R485-LIVE-ODDS-FLOW";
-const BUILD_ID = "proto-r485-20261014-live-odds-flow";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R486-SETTLEMENT-FIRST";
+const BUILD_ID = "proto-r486-20261014-settlement-first";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -10574,7 +10574,7 @@ function premiumOfficialSettlementReadiness(state,officialResult,gmTs){
     unannounced:reasons.OFFICIAL_RESULT_NOT_ANNOUNCED,
     cases:cases.slice(0,50),policy:"OFFICIAL_CONFIRMED_ONLY_NO_GRADE_EXCLUSION"};
 }
-function r450SettlementCadenceMs(state){return pendingSettlementMarkets(state).length?30000:120000;}
+function r450SettlementCadenceMs(state){return pendingSettlementMarkets(state).length?25000:120000;}
 function r450LiveOddsRetryAllowed(state,urgent=false){
  // A pregame request must not bypass failed-odds backoff while results are pending.
  if(!hasLivePending(state)||state.sourceAudit?.ok!==false)return true;
@@ -10868,8 +10868,11 @@ async function runTickInternal(env){
       return null;
     }
   }
-  await settlementCheck('LIVE_ODDS_OBSERVATIONS',()=>r485RefreshLiveQuotes(cur,env));
-  cur=MEM.state||cur;
+  // R486: Do not let pregame quote requests block finished-match settlement.
+  if(!settlementFirst){
+    await settlementCheck('LIVE_ODDS_OBSERVATIONS',()=>r485RefreshLiveQuotes(cur,env));
+    cur=MEM.state||cur;
+  }
   // R409: upcoming unmarked fixtures must not wait behind several network
   // settlement providers. The 14:00+ pregame odds poll runs FIRST when kickoff
   // is within three hours, while final settlements still run every cron tick.
@@ -10913,6 +10916,11 @@ async function runTickInternal(env){
   cur=MEM.state||cur;
   if(hasLivePending(cur))await settlementCheck("BETMAN_RESULTS",()=>refreshBetmanResults(cur,env,fiveMinuteDue));
   cur=MEM.state||cur;
+  // R486: pregame quote history remains enabled, but only AFTER terminal results.
+  if(settlementFirst){
+    await settlementCheck("LIVE_ODDS_OBSERVATIONS",()=>r485RefreshLiveQuotes(cur,env));
+    cur=MEM.state||cur;
+  }
   if(!urgentPregame||settlementFirst){
     if(settlementFirst){await settlementCheck("PREGAME_EVIDENCE_AFTER_SETTLEMENT",()=>r410RefreshZenPregame(cur,env));cur=MEM.state||cur;}
     if(r450LiveOddsRetryAllowed(cur,urgentPregame))await settlementCheck("BETMAN_ODDS",()=>refreshBetmanSource(cur,env,false));
