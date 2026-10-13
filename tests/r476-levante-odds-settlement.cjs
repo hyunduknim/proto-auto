@@ -1,0 +1,21 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
+const source=fs.readFileSync("자동마킹.js","utf8");const worker=vm.createContext({URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(source.replace("export class ProtoStateDO","class ProtoStateDO").replace("export default {","const WORKER_DEFAULT = {"),worker);
+const html=vm.runInContext("INDEX",worker),client=html.split("<script>")[1].split("</script>")[0];new vm.Script(client);
+const ui=vm.createContext({Date,Math,JSON,Number,Intl,console,document:{getElementById:()=>({textContent:"",classList:{toggle(){}}})},localStorage:{setItem(){}},setInterval(){}});
+vm.runInContext(client.slice(0,client.indexOf("function bindActionButton")),ui);
+const get=n=>vm.runInContext(n,ui),run=n=>vm.runInContext(n,worker),m0={gmTs:"260121",no:7871,date:"2026-10-13",time:"04:00",sport:"축구",league:"스페인 라리가",home:"레반테",away:"세비야",game:"레반테 vs 세비야",marked:true,representativeSelected:true,resultFinal:false,marketFamily:"MONEYLINE",market:"승무패",choices:[{label:"승",odds:2.65},{label:"무",odds:2.9},{label:"패",odds:2.34}],finalPick:"무",finalOdds:2.9};
+const apply=(patch={})=>{const m={...m0,...patch,choices:patch.choices||m0.choices},s={gmTs:"260121",markets:[m],settlementLedger:[],settledCards:{rows:[]}};return {m,s,audit:run("r476RepairLevanteFinal")(s)};};
+const draw=apply();assert.equal(draw.audit.settled,1);assert.equal(draw.m.result,"무");assert.equal(draw.m.hit,true);assert.equal(draw.m.resultScoreText,"3:3");assert.match(draw.m.resultSource,/LALIGA_OFFICIAL/);assert.ok(draw.s.settlementLedger.length);
+const miss=apply({finalPick:"패"});assert.equal(miss.m.hit,false);assert.equal(miss.m.settlementStatus,"낙첨");
+const over=apply({no:7874,marketFamily:"TOTAL",market:"언더오버",line:2.5,choices:[{label:"언더",odds:1.67},{label:"오버",odds:1.86}],finalPick:"오버",finalOdds:1.86});assert.equal(over.m.result,"오버");assert.equal(over.m.hit,true);
+const handi=apply({no:7872,marketFamily:"HANDICAP",market:"핸디캡",line:1,choices:[{label:"승",odds:1.49},{label:"무",odds:3.65},{label:"패",odds:4.9}],finalPick:"승",finalOdds:1.49});assert.equal(handi.m.result,"승");assert.equal(handi.m.resultFinal,true);
+for(const changed of [{away:"발렌시아"},{date:"2026-10-14"},{gmTs:"260120"},{time:"12:00"},{sport:"야구"}]){const x=apply(changed);assert.equal(x.audit.settled,0);assert.equal(x.m.resultFinal,false);}
+const frozen=apply({resultFinal:true,settlementStatus:"낙첨",result:"패"});assert.equal(frozen.audit.settled,0);assert.equal(frozen.m.result,"패");
+const basePrice={...m0,no:7871,marketRows:[{no:7871,market:"승무패",marketFamily:"MONEYLINE",choices:m0.choices,precision:{valid:true,source:"betman",choices:m0.choices.map(c=>({label:c.label,currentOdds:c.odds}))}}],pick:"무",odds:3,selectionMode:"STRICT",calibratedProbability:.4};
+const card=get("r470ChanceHtml")(basePrice);assert.doesNotMatch(card,/배당 변경 확인 필요/);assert.match(card,/3\.00/);assert.match(card,/2\.90/);assert.match(card,/배당 변동/);
+const sourceQuote=get("r476OddsEvidenceHtml")(basePrice,basePrice.marketRows[0]);assert.match(sourceQuote,/젠토토/);assert.match(sourceQuote,/스포갓/);assert.match(sourceQuote,/2\.55/);assert.match(sourceQuote,/2\.65/);
+const unknown=get("r476OddsEvidenceHtml")({...basePrice,home:"울산",away:"서울"},basePrice.marketRows[0]);assert.doesNotMatch(unknown,/젠토토/);
+const fake=get("r476OddsEvidenceHtml")(basePrice,{...basePrice.marketRows[0],choices:[{label:"승",odds:1.2},{label:"무",odds:2.3},{label:"패",odds:3.2}]});assert.doesNotMatch(fake,/젠토토/);
+console.log("R476 PASS: official 3:3 safely settles outcome-specific markets; identity protections, price provenance, replaced changed-odds text");
