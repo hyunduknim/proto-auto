@@ -6079,6 +6079,7 @@ function r444AppliedSummary(state,original,past,pending,active){
 // Keep the pregame/settlement ledger intact; a manual choice affects the effective UI.
 function r446VerifiedRank(m){
  const src=String(m?.resultSource||'');
+ if(src==='LALIGA_OFFICIAL_20261012_FINAL_R478')return 9;
  if(/^R44[345]_/i.test(src)&&/VERIFIED|YONHAP|CHOSUNBIZ|NEWS/i.test(src))return 9;
  if(/^(R459_AS_VERIFIED_FULLTIME|R460_VERIFIED_AS_7845_FULLTIME)$/.test(src))return 9;
  if(/^(NPB_OFFICIAL|KBO_OFFICIAL|FLASHSCORE_VERIFIED|AISCORE_VERIFIED|SPGOD_VERIFIED|ZENTOTO_VERIFIED)/i.test(src))return 7;
