@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R472-PREMIUM-PROBABILITY-UI";
-const BUILD_ID = "proto-r472-20261013-premium-probability-ui";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R473-EVIDENCE-COVERAGE";
+const BUILD_ID = "proto-r473-20261013-evidence-coverage";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -7315,6 +7315,17 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
  #expPanel .edPriceGrid{grid-template-columns:1fr}
 }
 
+
+/* R473: evidence-rich compact panel, no empty/unoffered categories. */
+#expPanel .edEvidSample{margin:10px 0 15px;border:1px solid #54887b;border-radius:13px;padding:12px;background:linear-gradient(120deg,#123d3a,#102b3a);color:#dcf4ee}
+#expPanel .edEvidSample>b{color:#abf2d2;font-size:14px}
+#expPanel .edEvidSampleGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+#expPanel .edEvidSampleGrid>div{background:#0c2e36;border-radius:9px;padding:11px;border:1px solid #3e716f;font-size:12px}
+#expPanel .edEvidSampleGrid strong{color:#e6fdff;font-size:18px;display:block;margin-top:4px}
+#expPanel .edEvidSample small{font-size:10px;color:#b4d7d5;line-height:1.65}
+#expPanel .chMetric:last-child:not(.cautious){grid-column:auto}
+@media(max-width:600px){#expPanel .edEvidSampleGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 현재 마킹 확률, 경기 자료 예상치, 각 선택지의 배당을 한눈에 비교합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
@@ -7766,14 +7777,16 @@ function expDSFull(m,r){
   changes=d.cs.map(c=>{const a=(p.choices||[]).find(x=>String(x.label)===String(c.label))||{},opening=Number(a.openingOdds)>1?Number(a.openingOdds):Number(a.firstObservedOdds);
   return '<div class="edEvidence"><b>'+e(c.label)+'</b> · '+e(opening>1?expDOdds(opening)+' → '+expDOdds(c.odds):'이전 배당 기록 없음')+'</div>';}).join(''),
   source=String(p.sampleSource||p.source||r.oddsSource||'출처 미확인');
- return '<div class="edEasyDetail"><div class="edSectionTitle">과거 경기 결과와 범위</div>'+expEasyBars(r,d,true)+
- (breakdown?'<div class="edEvidenceGrid">'+breakdown+'</div>':'')+
+ return '<div class="edEasyDetail"><div class="edSectionTitle">과거 경기 결과와 범위</div>'+(
+  d.records.some(x=>x.sample)?expEasyBars(r,d,true)+(breakdown?'<div class="edEvidenceGrid">'+breakdown+'</div>':''):
+  '<p class="edEducational">현재 선택지와 정확히 같은 배당의 과거 경기 결과는 아직 확보하지 못했습니다. 배당 History에서 원자료를 조회할 수 있습니다.</p>')+
  '<p class="edEducational">과거 빈도와 95% 참고 범위는 이번 경기의 승률을 보장하지 않습니다. 경기 조건이 다르면 결과도 달라질 수 있습니다.</p>'+
  '<div class="edSectionTitle">배당이 어떻게 바뀌었나요?</div>'+changes+
  '<p class="edEducational">자료 출처: '+e(source)+' · 배당 확인 '+e(expEasyClock(p.observedAt||r.oddsFetchedAt))+' · 실제 가격이 확인된 경우에만 전후를 표시합니다.</p></div>';
 }
 
 /* R470: display-only chart for the selected pick; no mutation of marking or settlement. */
+/* R473: reuse existing selected automatic-marking evidence, without treating it as verified actual win rate. */
 function r470ChanceData(m){
  if(!m||!m.pick)return {status:'NO_PICK'};
  const r=(Array.isArray(m.marketRows)?m.marketRows:[]).find(x=>String(x.no)===String(m.no));
@@ -7781,65 +7794,95 @@ function r470ChanceData(m){
  const q=r465OddsWinRateData({...r,marked:true,finalPick:m.pick});
  if(!q.valid||!q.selected||!expDQuality(r).valid)return {status:'BAD_ODDS'};
  if(!Number.isFinite(Number(m.odds))||Math.abs(Number(m.odds)-q.selected.odds)>.011)return {status:'CHANGED'};
- const allowed=m.selectionMode==='R400_EVIDENCE_FIRST'&&!m.manualOverride&&!m.manualReview?.pick;
- const model=allowed&&typeof m.calibratedProbability==='number'&&Number.isFinite(m.calibratedProbability)&&m.calibratedProbability>0&&m.calibratedProbability<1?m.calibratedProbability:null;
- const low=model!==null&&typeof m.conservativeProbability==='number'&&m.conservativeProbability>0&&m.conservativeProbability<=model?m.conservativeProbability:null;
- return {status:'OK',label:q.selected.label,odds:q.selected.odds,market:q.selected.rate,model,low,reviewed:m.gradeEvidenceQualified===true,
- saved:!!m.gameStarted||!!m.resultFinal||['LAST_KNOWN','SCREENSHOT_REFERENCE'].includes(r.oddsSnapshotStatus),
- source:r.precision?.source||r.oddsSource||'출처 미확인',at:r.precision?.observedAt||r.oddsFetchedAt||m.oddsFetchedAt||''};
+ const autoModes=['R400_EVIDENCE_FIRST','STRICT','DEEP_REVIEW','DRAW_EVIDENCE_3_TO_4'];
+ const allowed=autoModes.includes(String(m.selectionMode||''))&&!m.manualOverride&&!m.manualReview?.pick;
+ const validP=n=>typeof n==='number'&&Number.isFinite(n)&&n>0&&n<1;
+ const stored=allowed&&validP(m.calibratedProbability)?m.calibratedProbability:null;
+ const matchingMarket=allowed&&String(r.analysisBestPick||'')===String(m.pick)&&
+   Number.isFinite(Number(r.analysisBestOdds))&&Math.abs(Number(r.analysisBestOdds)-Number(m.odds))<=.011;
+ const fallback=matchingMarket&&validP(r.analysisProbability)?r.analysisProbability:null;
+ const model=stored!==null?stored:fallback;
+ const bound=stored!==null?m.conservativeProbability:r.analysisConservativeProbability;
+ const low=model!==null&&validP(bound)&&bound<=model?bound:null;
+ const modelBasis=model===null?null:stored!==null?
+   (m.selectionMode==='R400_EVIDENCE_FIRST'?'경기근거 기반 계산 참고치':'기존 자동분석 참고치'):'선택 시장 계산 참고치';
+ const alternative=q.rows.filter(x=>!x.selected).sort((a,b)=>b.rate-a.rate)[0]||null;
+ return {status:'OK',label:q.selected.label,odds:q.selected.odds,market:q.selected.rate,model,low,modelBasis,alternative,
+  reviewed:m.gradeEvidenceQualified===true,saved:!!m.gameStarted||!!m.resultFinal||['LAST_KNOWN','SCREENSHOT_REFERENCE'].includes(r.oddsSnapshotStatus),
+  source:r.precision?.source||r.oddsSource||null,at:r.precision?.observedAt||r.oddsFetchedAt||m.oddsFetchedAt||''};
 }
 function r470ChanceHtml(m){
  const d=r470ChanceData(m);if(d.status==='NO_PICK')return '';
- const header='<div class="chHead"><small>PREMIUM ODDS · 현재 마킹 분석</small><h4>이 선택, 얼마나 가능할까요?</h4><p>배당의 숫자와 경기 자료의 추정치를 구분해 보여드립니다.</p></div>';
+ const header='<div class="chHead"><small>PREMIUM ODDS · 현재 마킹 분석</small><h4>이 선택, 얼마나 가능할까요?</h4><p>확인된 배당과 실제 저장된 분석자료만 구분해 보여드립니다.</p></div>';
  if(d.status!=='OK'){
-  const reason=d.status==='CHANGED'?'선택 배당과 최신 배당이 달라 비교를 보류합니다.':d.status==='BAD_ODDS'?'배당이 누락되었거나 확인되지 않아 확률을 계산할 수 없습니다.':'현재 선택한 배당의 자료가 없습니다.';
+  const reason=d.status==='CHANGED'?'선택 배당이 변경되어 비교를 보류합니다.':d.status==='BAD_ODDS'?'배당 선택지의 값이나 구성 확인이 필요합니다.':'현재 선택에 연결된 배당을 확인할 수 없습니다.';
   return '<section class="chCard">'+header+'<p class="chWarn">'+e(reason)+'</p></section>';
  }
  const pct=n=>(n*100).toFixed(1)+'%',loc=n=>Math.max(1,Math.min(99,n*100)).toFixed(2)+'%';
  const raw=1/d.odds,delta=d.model===null?null:(d.model-d.market)*100;
- const deltaText=delta===null?'경기 분석 자료 부족':Math.abs(delta)<.05?'배당과 경기 분석이 거의 같습니다.':
-  '경기 자료 예상치 '+pct(d.model)+' · 배당 기준보다 '+Math.abs(delta).toFixed(1)+'%포인트 '+(delta>0?'높음':'낮음');
- const summary=d.model===null?'배당만으로 이번 경기의 실제 적중 가능성을 단정할 수 없습니다.':
-  delta>=0?'배당에 반영된 가능성보다 경기 분석이 높게 보고 있습니다.':'경기 자료는 배당보다 신중하게 보고 있습니다.';
- const estimate=d.model===null?'경기 분석 자료 부족':'경기 자료 예상치 '+pct(d.model);
- const low=d.low===null?'보수 참고값 미확인':'보수 참고값 '+pct(d.low);
- const leg=(label,number,tone,desc)=>'<div class="chMetric '+tone+'"><span>'+label+'</span><strong>'+number+'</strong><small>'+desc+'</small></div>';
- const oddsCompare='<div class="chExtra"><b>확률을 세 가지로 구분했습니다</b><div class="chBreakdown">'+
- leg('배당에 반영된 비율',pct(d.market),'price','현재 같은 경기의 배당끼리 비교')+
- leg('경기 분석 참고치',d.model===null?'자료 없음':pct(d.model),'forecast',d.model===null?'확인된 계산값 없음':'저장된 경기 분석 추정값')+
- leg('조심스러운 참고치',d.low===null?'자료 없음':pct(d.low),'cautious','오차 범위나 보장값이 아닌 내부 보수 추정')+'</div></div>';
- const first=d.model===null?d.market:Math.min(d.market,d.model),range=d.model===null?0:Math.abs(d.market-d.model);
- const scale='<div class="chGraphWrap"><div class="chScaleHead"><b>배당과 경기 분석 비교</b><small>'+e(deltaText)+'</small></div>'+
- '<div class="chGraph" role="img" aria-label="'+e('배당에 반영된 비율 '+pct(d.market)+(d.model===null?', 경기 분석 자료 없음':', 경기 분석 예상 '+pct(d.model)))+'">'+
- '<div class="chRange" style="left:'+loc(first)+';width:'+(range*100).toFixed(2)+'%"></div><i class="chDot chMarket" style="left:'+loc(d.market)+'"></i>'+
- (d.model===null?'':'<i class="chDot chModel" style="left:'+loc(d.model)+'"></i>')+'</div>'+
- '<div class="chTicks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>'+
- '<div class="chLegend"><span><i class="chLegendMarket"></i>배당 기준 '+pct(d.market)+'</span>'+
- (d.model===null?'':'<span><i class="chLegendModel"></i>경기 자료 '+pct(d.model)+'</span>')+'</div></div>';
- const details='<details class="chDetails"><summary>확률과 자료 기준 자세히 보기</summary>'+
- '<p>배당으로 계산한 비율은 각 선택지의 배당을 역수로 바꾼 다음 전체가 100%가 되도록 맞춘 숫자입니다. 실제 승률이 아닙니다.</p>'+
- '<p>배당 '+d.odds.toFixed(2)+'배의 단순 역수는 '+pct(raw)+'이지만, 선택지 전체를 반영한 배당 기준 비율은 '+pct(d.market)+'입니다.</p>'+
- '<p>'+e(estimate)+' · '+e(low)+' · 독립된 실제 경기의 검증된 적중률이나 통계적 신뢰 범위는 아닙니다.</p>'+
- '<p>배당 출처 '+e(String(d.source))+' · '+e(expEasyClock(d.at))+'</p></details>';
+ const summary=d.model===null?'경기 분석 자료 부족 · 배당에 반영된 상대적 비율을 표시했습니다.':
+  (Math.abs(delta)<.05?'경기 자료의 추정치가 배당 기준과 거의 같습니다.':
+  '경기 자료가 배당 기준보다 '+Math.abs(delta).toFixed(1)+'%포인트 '+(delta>0?'높게':'낮게')+' 추정합니다.');
+ const low=d.low===null?'보수 계산값은 확인되지 않았습니다.':'보수 참고값 '+pct(d.low);
+ const leg=(label,num,tone,note)=>'<div class="chMetric '+tone+'"><span>'+e(label)+'</span><strong>'+e(num)+'</strong><small>'+e(note)+'</small></div>';
+ const alt=d.alternative&&d.model===null;
+ const secondLabel=alt?'비교 선택 '+d.alternative.label:'경기 자료 예상';
+ const secondValue=alt?pct(d.alternative.rate):d.model!==null?pct(d.model):'비교값 없음';
+ const secondHelp=alt?'같은 시장의 다른 배당 기준':d.model!==null?d.modelBasis:'';
+ const metrics=leg('배당에 반영된 비율',pct(d.market),'price','같은 경기 선택지의 배당 비교')+
+   (d.model!==null?leg('경기 분석 참고치',pct(d.model),'forecast',d.modelBasis):
+     d.alternative?leg('다른 선택 '+d.alternative.label,pct(d.alternative.rate),'forecast','실제 적중률 아님'):'')+
+   (d.low!==null?leg('보수 참고값',pct(d.low),'cautious','통계적 95% 구간은 아님'):'');
+ const scale='<div class="chGraphWrap"><div class="chScaleHead"><b>배당과 경기 분석 비교</b><small>'+
+  (d.model===null?'확인된 배당 기준만 표시':'경기 자료 예상치 '+pct(d.model))+'</small></div>'+
+  '<div class="chGraph" role="img" aria-label="'+e('배당 기준 '+pct(d.market)+(d.model!==null?', 경기 자료 추정 '+pct(d.model):''))+'">'+
+  (d.model!==null?'<div class="chRange" style="left:'+loc(Math.min(d.market,d.model))+';width:'+(Math.abs(d.model-d.market)*100).toFixed(2)+'%"></div>':'')+
+  '<i class="chDot chMarket" style="left:'+loc(d.market)+'"></i>'+
+  (d.model!==null?'<i class="chDot chModel" style="left:'+loc(d.model)+'"></i>':'')+'</div>'+
+  '<div class="chTicks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>'+
+  '<div class="chLegend"><span><i class="chLegendMarket"></i>배당 기준 '+pct(d.market)+'</span>'+
+  (d.model!==null?'<span><i class="chLegendModel"></i>경기 분석 '+pct(d.model)+'</span>':'')+'</div></div>';
+ const details='<details class="chDetails"><summary>자료와 계산 기준 자세히 보기</summary>'+
+  '<p>배당 기준 비율은 각 선택지의 역배당을 합계 100%로 환산한 숫자입니다. 실제 승률은 아닙니다.</p>'+
+  '<p>선택 배당 '+d.odds.toFixed(2)+'배의 단순 역수는 '+pct(raw)+'이며, 전체 선택지를 비교한 비율은 '+pct(d.market)+'입니다.</p>'+
+  (d.model!==null?'<p>'+e(d.modelBasis)+' '+pct(d.model)+' · '+e(low)+'. 내부 계산값은 외부 검증된 적중률이나 실제 성적이 아닙니다.</p>':
+   '<p>독립 경기 자료가 확인되지 않아 실제 적중 가능성을 숫자로 단정하지 않았습니다.</p>')+
+  (d.source?'<p>배당 출처 '+e(String(d.source))+'</p>':'')+
+  (d.at?'<p>배당 관측 '+e(expEasyClock(d.at))+'</p>':'')+'</details>';
  return '<section class="chCard chPremium" aria-label="선택 배당 정밀확률 분석">'+header+
- '<div class="chPick"><span>현재 마킹 <b>'+e(String(d.label))+'</b></span><strong>'+d.odds.toFixed(2)+'배</strong></div>'+
- '<div class="chHeroGrid"><div class="chHeroMain"><small>배당이 보는 가능성</small><strong>'+pct(d.market)+'</strong><span>실제 적중률 확정 아님</span></div>'+
- '<div class="chHeroSide"><small>경기 자료 예상</small><strong>'+(d.model===null?'자료 없음':pct(d.model))+'</strong><span>'+e(low)+'</span></div></div>'+
- '<p class="chForecastLine">'+e(estimate)+'</p>'+oddsCompare+scale+
- '<p class="chConclusion">'+e(summary)+'</p>'+
- '<p class="chNote">'+(d.saved?'경기 시작 또는 마지막 저장 배당을 사용했습니다. · ':'')+
- (d.reviewed?'추천 근거 표시가 있으나 예측 정확도는 별도 검증이 필요합니다.':'근거 수준을 추가로 확인할 필요가 있습니다.')+'</p>'+details+'</section>';
+  '<div class="chPick"><span>현재 마킹 <b>'+e(String(d.label))+'</b></span><strong>'+d.odds.toFixed(2)+'배</strong></div>'+
+  '<div class="chHeroGrid"><div class="chHeroMain"><small>배당이 보는 가능성</small><strong>'+pct(d.market)+'</strong><span>실제 적중률 확정 아님</span></div>'+
+  '<div class="chHeroSide"><small>'+e(secondLabel)+'</small><strong>'+e(secondValue)+'</strong><span>'+e(secondHelp)+'</span></div></div>'+
+  (d.model!==null?'<p class="chForecastLine">경기 자료 예상치 '+pct(d.model)+' · '+e(d.modelBasis)+'</p>':'')+
+  '<div class="chExtra"><b>확인된 확률 자료</b><div class="chBreakdown">'+metrics+'</div></div>'+scale+
+  '<p class="chConclusion">'+e(summary)+'</p><p class="chNote">'+
+  (d.saved?'경기 시작·종료 당시 저장된 배당입니다. · ':'')+
+  '이 값만으로 실제 적중을 보장하지 않습니다.</p>'+details+'</section>';
 }
-
+function r473PerformanceHtml(m){
+ const p=m?.experimentPerformance||{},f=p.features||{};
+ const n=Number(f.homeGames),a=Number(f.awayGames),coverage=Number(p.coverage);
+ if(p.available!==true||!String(p.source||'').startsWith('SC_BETMAN_RESULT_DB')||
+   !Number.isInteger(n)||!Number.isInteger(a)||n<=0||a<=0)return '';
+ const quality=Number.isFinite(coverage)&&coverage>=0&&coverage<=1?' · 기록 확보율 '+(coverage*100).toFixed(0)+'%':'';
+ return '<section class="edEvidSample"><b>확인된 경기 기록</b><div class="edEvidSampleGrid">'+
+   '<div>홈팀 <strong>'+n+'경기</strong></div><div>원정팀 <strong>'+a+'경기</strong></div></div>'+
+   '<small>국내 공식 결과 기반 팀 기록'+e(quality)+' · 과거 경기 정보이며 이번 경기 적중을 보장하지 않습니다.</small></section>';
+}
 function expBody(m){
- const raw=Array.isArray(m.marketRows)?m.marketRows:[],rows=raw.map(r=>({...r,marked:!!m.pick&&String(r.no)===String(m.no),finalPick:String(r.no)===String(m.no)?m.pick:r.finalPick,finalOdds:String(r.no)===String(m.no)?m.odds:r.finalOdds})),chosen=rows.find(r=>r.marked);
- const families=[['MONEYLINE','일반승'],['HANDICAP','핸디캡'],['TOTAL','언더오버']];
- if(chosen){const index=families.findIndex(x=>x[0]===chosen.marketFamily);if(index>0)families.unshift(families.splice(index,1)[0]);}
- const groups=families.map(([family,label])=>{const list=rows.filter(r=>r.marketFamily===family).sort((a,b)=>Number(b.marked)-Number(a.marked)||Number(a.no)-Number(b.no));return '<section class="edMarketGroup edFamily'+family+'"><div class="edMarketGroupHead"><b>'+label+'</b><span>'+list.length+'개 배당'+(list.some(r=>r.marked)?' · 현재 마킹 포함':'')+'</span></div>'+(list.length?list.map(r=>expDS(m,r)).join(''):'<div class="edFlowEmpty">'+label+' 배당이 아직 없습니다.</div>')+'</section>';}).join('');
+ const raw=Array.isArray(m.marketRows)?m.marketRows:[],
+ rows=raw.map(r=>({...r,marked:!!m.pick&&String(r.no)===String(m.no),finalPick:String(r.no)===String(m.no)?m.pick:r.finalPick,finalOdds:String(r.no)===String(m.no)?m.odds:r.finalOdds})),
+ chosen=rows.find(r=>r.marked),families=[['MONEYLINE','일반승'],['HANDICAP','핸디캡'],['TOTAL','언더오버']];
+ if(chosen){const i=families.findIndex(x=>x[0]===chosen.marketFamily);if(i>0)families.unshift(families.splice(i,1)[0]);}
+ const available=families.map(([family,label])=>({family,label,list:rows.filter(r=>r.marketFamily===family).sort((a,b)=>Number(b.marked)-Number(a.marked)||Number(a.no)-Number(b.no))})).filter(g=>g.list.length);
+ const groups=available.map(g=>'<section class="edMarketGroup edFamily'+g.family+'"><div class="edMarketGroupHead"><b>'+g.label+'</b><span>'+g.list.length+'개 배당'+(g.list.some(r=>r.marked)?' · 현재 마킹 포함':'')+'</span></div>'+
+   g.list.map(r=>expDS(m,r)).join('')+'</section>').join('');
  const extra=rows.filter(r=>!families.some(x=>x[0]===r.marketFamily));
- return '<div class="expBody edReport">'+r470ChanceHtml(m)+'<div class="edAllMarketNote">일반승 · 핸디캡 · 언더오버 전체 배당 비교'+(chosen?' · 현재 마킹 시장 먼저':'')+'</div>'+groups+(extra.length?'<section class="edMarketGroup"><div class="edMarketGroupHead"><b>기타 배당</b></div>'+extra.map(r=>expDS(m,r)).join('')+'</section>':'')+'</div>';
+ const note=available.length?'<div class="edAllMarketNote">확인된 배당 '+rows.length+'개 시장 · '+available.map(g=>g.label).join(' · ')+(chosen?' · 현재 마킹 먼저':'')+'</div>':
+  '<div class="edAllMarketNote">현재 확인된 국내배당 선택지가 없습니다.</div>';
+ return '<div class="expBody edReport">'+r470ChanceHtml(m)+r473PerformanceHtml(m)+note+groups+
+   (extra.length?'<section class="edMarketGroup"><div class="edMarketGroupHead"><b>기타 배당</b></div>'+extra.map(r=>expDS(m,r)).join('')+'</section>':'')+'</div>';
 }
-
 function expDReview(m,r){
  const q=expDQuality(r),cs=(r.choices||[]).filter(c=>Number.isFinite(Number(c.odds))&&Number(c.odds)>1),ranked=cs.slice().sort((a,b)=>Number(a.odds)-Number(b.odds)),leader=ranked[0],chosen=r.marked?cs.find(c=>String(c.label)===String(r.finalPick)):null;
  const target=chosen||leader,a=(r.precision?.choices||[]).find(a=>String(a.label)===String(target?.label))||{},opening=Number(a.openingOdds),first=Number(a.firstObservedOdds),reference=opening>1?opening:first>1?first:null;
