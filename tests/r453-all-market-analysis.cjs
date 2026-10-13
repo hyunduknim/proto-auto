@@ -19,8 +19,8 @@ assert.match(output,/일반승/);assert.match(output,/핸디캡/);assert.match(o
 assert.doesNotMatch(output,/data-exp-market="_others_"/,'every market visible immediately');
 assert.equal((output.match(/선택지별 배당 비교/g)||[]).length,3);
 assert.ok(output.indexOf('#7845')<output.indexOf('#7844'),'current marked market first');
-assert.match(fn('expBody')(game),/일반승 배당이 아직 없습니다/);
-assert.match(fn('expBody')(game),/핸디캡 배당이 아직 없습니다/);
+assert.doesNotMatch(fn('expBody')(game),/일반승 배당이 아직 없습니다/,'unavailable markets are omitted rather than rendered as empty cards');
+assert.doesNotMatch(fn('expBody')(game),/핸디캡 배당이 아직 없습니다/,'only available market families remain visible');
 assert.equal(JSON.stringify(game),before);assert.doesNotMatch(output,forbidden);
 assert.doesNotMatch(output,/시장별 한눈에 비교/);assert.match(output,/기준값/);
 console.log('PASS R453: all three market families visible, no other-market fold, current mark first, missing prices honest');
