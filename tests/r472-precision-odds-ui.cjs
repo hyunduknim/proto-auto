@@ -38,4 +38,7 @@ const bad={...row,choices:[{label:"오버",odds:0}]};
 assert.doesNotMatch(fn("expDS")(game,bad),/width:|NaN|Infinity/);
 const stale={...row,oddsSnapshotStatus:"LAST_KNOWN"};
 assert.match(fn("expDS")(game,stale),/마감|지난 배당/);
+const underround={...row,choices:[{label:"언더",odds:2.1},{label:"오버",odds:2.1}]};
+const suspicious={...game,odds:2.1,marketRows:[underround]};
+assert.equal(fn("r470ChanceData")(suspicious).status,"BAD_ODDS","underround domestic quotes must not be treated as reliable probabilities");
 console.log("R472 premium probability UI PASS: source-aware estimates, all prices, past uncertainty, invalid and stale evidence, frozen marking");
