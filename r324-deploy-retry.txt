@@ -5,3 +5,5 @@ R327 retry 2026-10-10: retry existing Cloudflare Workers Builds integration with
 R366 retry 2026-10-11 04:57 KST: retry production delivery of already validated final-score display patch; do not modify saved picks, grade ratios, odds, settlement outcomes or business logic. Require live /api/state version verification.
 
 R390 Cloudflare automatic deployment retrigger (2026-10-11): source commit 6791ca00e05e5ea3a5bbc608d49a43c6472542fa. Keep exactly the same ZENTOTO first, SPOGOD second and rotating detail-check code; no changes to Worker logic, existing picks, odds or settlement history. The earlier Workers Builds check succeeded, but live Worker version and pending settlement totals were not directly verified. Rebuild via connected Cloudflare Git integration, then confirm actual production version through /api/state and remaining queue via /api/settlement-queue.
+
+R481 next-round automatic marking and precise odds analysis verified. Retry connected Workers Builds for source c8d08d3afd09fa7c974f1b98599c166bb3c2e9bf. 2026-10-13 KST.
