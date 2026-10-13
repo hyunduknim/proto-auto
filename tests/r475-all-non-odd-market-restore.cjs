@@ -32,5 +32,5 @@ assert.match(view,/3\.30배|3\.30<\//);
 assert.equal(JSON.stringify(game),before,"display-only recovery must not rewrite saved picks");
 assert.match(fn("gameCardHtml")({...game,marketRows:sourceRows.slice(0,3)}),/#7836\b/);
 const noMarkets=fn("gameCardHtml")({...game,marketRows:[sourceRows[4],sourceRows[6]]});
-assert.doesNotMatch(noMarkets,/홀짝|홀\/짝/);
+assert.doesNotMatch(noMarkets,/#7839\b|#7841\b/,'odd/even market rows must be absent');
 console.log("PASS R475: all 6 non-odd rows visible, original prices/selected grade preserved, last known dated, no mutation");
