@@ -1,0 +1,28 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('자동마킹.js','utf8'),ctx=vm.createContext({Date,URL,URLSearchParams,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),ctx);const f=n=>vm.runInContext(n,ctx);
+assert.equal(typeof f('globalThis.r485RefreshLiveQuotes'),'function','read-only one-minute quote observer exists');
+const now=Date.parse('2026-10-14T03:00:00+09:00'),m={gmTs:'260121',no:8121,date:'2026-10-14',time:'19:00',sport:'축구',league:'AFC 챔피언스리그 엘리트',home:'가시와 레이솔',away:'포트FC',marketFamily:'MONEYLINE',market:'승무패',line:null,choices:[{label:'승',odds:1.33},{label:'무',odds:4.8},{label:'패',odds:8.5}],marked:true,representativeSelected:true,finalPick:'승',finalOdds:1.33,manualOverride:true,domesticOddsSource:'zentoto_public',domesticOddsFetchedAt:'2026-10-14T02:59:00+09:00'};
+(async()=>{
+ const state={gmTs:'260121',round:121,markets:[m],settlementLedger:[{hit:true}],manualPickAudit:{at:'saved'}};const frozen=JSON.stringify({markets:state.markets,ledger:state.settlementLedger,manual:state.manualPickAudit});let calls=0;
+ const fetcher=async()=>{calls++;return new Response(fs.readFileSync('tests/fixtures/r485/quote.html','utf8'),{headers:{'content-type':'text/html'}})};
+ const a=await f('r485RefreshLiveQuotes')(state,{}, {nowMs:now,fetcher});assert.equal(a.updated,1);assert.equal(JSON.stringify({markets:state.markets,ledger:state.settlementLedger,manual:state.manualPickAudit}),frozen,'price observation never changes original pick/price/manual/ledger');
+ const view=f('r485QuoteView')(state,m,now);assert.equal(view.choices[0].odds,1.1);assert.equal(view.finalOdds,1.33);assert.equal(view.publicOddsHistory.length,2);
+ await f('r485RefreshLiveQuotes')(state,{}, {nowMs:now+30000,fetcher});assert.equal(calls,1,'bounded one-minute polling');
+ const saved=JSON.stringify(state.r485LiveQuotes);await f('r485RefreshLiveQuotes')(state,{}, {nowMs:now+61000,fetcher:async()=>{throw Error('outage')}});assert.equal(JSON.stringify(state.r485LiveQuotes),saved);
+ const closed=f('r485QuoteView')(state,m,Date.parse('2026-10-14T20:00:00+09:00'));assert.equal(closed.choices[0].odds,1.1,'closing observation stays visible after kickoff');assert.equal(closed.oddsSnapshotStatus,'LAST_KNOWN');
+ const salesClosed={...m,status:'판매마감'};
+ assert.equal(f('r485QuoteView')(state,salesClosed,now).oddsSnapshotStatus,'LAST_KNOWN','sales closure before kickoff stays closed');
+ await f('r485RefreshLiveQuotes')({gmTs:state.gmTs,markets:[salesClosed]}, {}, {nowMs:now,fetcher:async()=>{throw Error('must not fetch closed fixtures')}}).then(a=>assert.equal(a.status,'NO_OPEN_FIXTURES'));
+ const newer={...m,domesticOddsSource:'betman',domesticOddsFetchedAt:new Date(now+30000).toISOString(),choices:[{label:'승',odds:1.2},{label:'무',odds:5.5},{label:'패',odds:11}]};
+ const merged={gmTs:state.gmTs,round:121,markets:[newer],r485LiveQuotes:JSON.parse(saved)};
+ await f('r485RefreshLiveQuotes')(merged,{}, {nowMs:now+62000,fetcher});
+ const observed=f('r485QuoteView')(merged,newer,now+62000).publicOddsHistory;
+ assert.ok(observed.some(x=>Date.parse(x.at)===now+30000&&x.prices[0].odds===1.2),'intervening official quote retained at actual timestamp');
+ assert.ok(observed.every((x,i)=>!i||Date.parse(x.at)>=Date.parse(observed[i-1].at)),'merged observations stay chronological');
+ const wrong={...m,gmTs:'260122'};assert.equal(f('r485QuoteView')(state,wrong,now).choices[0].odds,1.33,'round identity cannot reuse quote');assert.equal(f('r485QuoteView')(state,{...m,time:'02:00'},now).choices[0].odds,1.33,'started fixture cannot use a new quote');
+ const index=f('INDEX'),script=index.match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(script);const start=script.indexOf('function r485FlowData('),end=script.indexOf('function r485FlowHtml(',start),block=script.slice(start,end);const get=new Function('r','m','now',block+';return r485FlowData(r,m,now)');
+ const r={choices:[{label:'승',odds:1.8},{label:'패',odds:2.1}],finalOdds:1.95,precision:{observedAt:'2026-10-13T18:00:00Z',history:[{at:'2026-10-13T16:00:00Z',prices:[{label:'승',odds:1.95},{label:'패',odds:1.9}]},{at:'2026-10-13T17:00:00Z',prices:[{label:'승',odds:1.85},{label:'패',odds:2.0}]},{at:'2026-10-15T17:00:00Z',prices:[{label:'승',odds:10},{label:'패',odds:1.01}]}]}};
+ const d=get(r,{pick:'승',gameStarted:false},now);assert.equal(d.rows.length,3);assert.equal(d.choices[0].first,1.95);assert.equal(d.choices[0].previous,1.85);assert.equal(d.choices[0].current,1.8);assert.ok(Math.abs(d.choices[0].percent-(-7.6923076923))<.001);assert.equal(d.changeCount,2);assert.equal(d.choices[0].low,1.8);assert.equal(d.choices[0].high,1.95);assert.equal(get(r,{gameStarted:true},now).closed,true);
+ console.log('PASS R485 source-only current quote overlay, one-minute throttle, identity/start/outage guards, preserved original selections, real chronological flow deltas/range and future rejection');
+})().catch(e=>{console.error(e);process.exitCode=1});

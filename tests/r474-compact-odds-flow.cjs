@@ -29,7 +29,7 @@ assert.match(src,/#expPanel \.r474HeroGrid>div:first-child strong\{color:#7feaff
 assert.match(html,/3회/);
 assert.match(html,/ZENTOTO_PUBLIC/);
 assert.doesNotMatch(html,/chExtra|chGraphWrap|edExpert|odwFrame/,"default report is short, no stacked redundant cards");
-assert.ok(html.length<5500,"a one-market expanded report must be compact");
+assert.ok(html.length<8500,"expanded flow with first/previous/current and details stays bounded");
 const noHistory=fn("expBody")({...game,marketRows:[{...row,precision:{...row.precision,history:[],historyCount:0}}]});
 assert.doesNotMatch(noHistory,/<polyline/,"no invented price curve when snapshots are absent");
 assert.doesNotMatch(noHistory,/배당흐름 · 실제 기록/);
