@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R477-DATA-ODDS";
-const BUILD_ID = "proto-r477-20261013-data-odds-compact";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.13-R478-LEVANTE-7883-OVER";
+const BUILD_ID = "proto-r478-20261013-7883-over-reconcile";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -5856,6 +5856,66 @@ function r476RepairLevanteFinal(state){
   state.updatedAt=nowIso();}
  return audit;
 }
+
+/* R478 verified 260121 #7883, U/O 2.5: Levante 3-3 Sevilla (6 goals).
+ * Only correct pre-existing Over selections. Never invent or change a wager. */
+const R478_7883_SOURCE='https://www.laliga.com/en-US/match/temporada-2026-2027-laliga-ea-sports-levante-ud-sevilla-fc-8';
+function r478Exact7883(x){
+ return !!x&&String(x.gmTs||'')==='260121'&&Number(x.no)===7883&&
+  r476IsLevanteSevilla(x)&&String(x.time||'').slice(0,5)==='04:00'&&
+  x.marketFamily==='TOTAL'&&Number(x.line)===2.5&&
+  !/(전반|후반|1st\s*half|2nd\s*half|\b1h\b|\b2h\b)/i.test(String(x.market||'')+' '+String(x.period||''));
+}
+function r478Reconcile7883Over(state,now=Date.now()){
+ const matches=x=>x&&String(x.gmTs||'')==='260121'&&Number(x.no)===7883;
+ const ms=(state?.markets||[]).filter(matches),ls=(state?.settlementLedger||[]).filter(matches),
+  cs=(state?.settledCards?.rows||[]).filter(matches),no=reason=>({changed:false,reason});
+ if(ms.length>1||ls.length>1||cs.length>1)return no('DUPLICATE_PROTO_NUMBER');
+ const m=ms[0]||null,l=ls[0]||null,c=cs[0]||null,items=[m,l,c].filter(Boolean);
+ if(!items.length)return no('NOT_STORED');
+ if(!items.every(r478Exact7883))return no('MARKET_OR_FIXTURE_MISMATCH');
+ if(items.some(x=>String(x.finalPick??x.pick??'')!=='오버'))return no('NOT_ORIGINAL_OVER_SELECTION');
+ if(m&&(!m.marked||!m.representativeSelected||Number(m.finalOdds)<1.31))return no('NOT_MARKED_REPRESENTATIVE_OVER');
+ if(items.some(x=>x.settlementStatus==='적특'&&
+  /취소|연기|cancel|postpon/i.test(String(x.resultSpecialStatus||x.result||x.resultStatus||''))))
+  return no('OFFICIAL_VOID_CONFLICT');
+ if(m&&(state.markets||[]).some(x=>x!==m&&String(x.gmTs)==='260121'&&
+   gameSeed(x)===gameSeed(m)&&x.marked&&x.representativeSelected))
+  return no('COMPETING_REPRESENTATIVE');
+ const correct=x=>!!x&&x.resultFinal===true&&x.result==='오버'&&x.hit===true&&
+  x.settlementStatus==='적중'&&String(x.score??x.resultScoreText??'')==='3:3';
+ if(items.every(correct)&&(!m||!!l)&&(!m||String(state.gmTs)!=='260121'||!!c))
+  return no('ALREADY_CORRECT');
+ const before=items.map(x=>({no:x.no,pick:x.finalPick??x.pick,odds:x.finalOdds??x.odds,
+  result:x.result??null,hit:x.hit??null,status:x.settlementStatus??null,
+  score:x.score??x.resultScoreText??null})),at=new Date(now).toISOString();
+ const apply=x=>{
+  Object.assign(x,{resultFinal:true,result:'오버',hit:true,settlementStatus:'적중',
+   settlementType:'NORMAL',resultSpecialStatus:null,
+   resultSource:'LALIGA_OFFICIAL_20261012_FINAL_R478',
+   resultResolutionSource:'FULLTIME_3_3_TOTAL6_OVER2_5',
+   resultStatus:'경기종료',resultDerivedFromScore:true,resultScoreOutcome:'오버',resultVerifiedAt:at});
+  if('score' in x)x.score='3:3';
+  if('resultScoreText' in x)x.resultScoreText='3:3';
+ };
+ for(const x of items)apply(x);
+ if(m){
+  m.resultScoreText='3:3';m.homeScore=3;m.awayScore=3;
+  m.resultCodeScoreMismatch=false;m.resultCodeOutcome=null;
+  recordSettlementLedger(state,m);upsertSettledCard(state,m);
+ }
+ const ledger=(state.settlementLedger||[]).find(matches);
+ if(ledger)apply(ledger);
+ const card=(state.settledCards?.rows||[]).find(matches);
+ if(card)apply(card);
+ state.r4787883Audit={id:'R478_EXACT_260121_7883_OVER_2_5',at,changed:true,
+  gmTs:'260121',no:7883,fixture:'레반테 vs 세비야',date:'2026-10-13',
+  line:2.5,score:'3:3',totalGoals:6,pick:'오버',status:'적중',
+  source:R478_7883_SOURCE,before,after:'OFFICIAL_3_3_OVER2_5',noRetroactiveSelection:true};
+ state.updatedAt=at;
+ return {changed:true,reason:'VERIFIED_OVER_RECONCILED',before};
+}
+
 function r443Is7804(m){
  return String(m?.gmTs)==='260121'&&Number(m.no)===7804&&
   m.date==='2026-10-12'&&String(m.time||'').slice(0,5)==='19:00'&&
@@ -6155,7 +6215,7 @@ function publicState(state){
   const originalSummary=summary(cur),
     appliedSummary=r444AppliedSummary(state,originalSummary,pastGames,pastPendingGames,activeGames),
     gradeDisplayCounts=Object.fromEntries(['가장추천','추천','일반'].map(g=>[g,
-      all.filter(m=>!!m.pick&&m.displayGrade===g).length]));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:appliedSummary,overallSummary:appliedSummary,originalAutoSummary:originalSummary,performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r448PremiumRestoreAudit:state.r448PremiumRestoreAudit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r444CorrectionAudit:state.r444CorrectionAudit||null,r445KiaLgSettlementAudit:state.r445KiaLgSettlementAudit||null,r446ManualSettlementAudit:{manual:all.filter(m=>m.manualReview).length,settled:all.filter(m=>m.manualReview&&m.resultFinal).length,pending:all.filter(m=>m.manualReview&&!m.resultFinal).map(m=>({no:m.manualReview.no,reason:m.manualReview.settlement?.reason||'경기종료 검증 대기'}))},r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,gradeDisplayCounts,markingGradeHistory:pastGames,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
+      all.filter(m=>!!m.pick&&m.displayGrade===g).length]));const value={protocolStatus:state.r398Protocol?.enforce?r398ProtocolStatus(state):null,sourceAdapterStatus:r398SourceStatus(state),domesticOddsAudit:state.domesticOddsAudit||null,version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,round:state.round,gmTs:state.gmTs,updatedAt:state.updatedAt,summary:appliedSummary,overallSummary:appliedSummary,originalAutoSummary:originalSummary,performanceSummary:null,npbSettlementAudit:state.npbSettlementAudit||null,r423RecoveryAudit:state.r423RecoveryAudit||null,manualPickAudit:state.manualPickAudit||null,manualPickCatalog:r434ManualPickCatalog(state),r420PrecisionPolicy:state.r420PrecisionPolicy||null,r440Audit:state.r440Audit||null,r448PremiumRestoreAudit:state.r448PremiumRestoreAudit||null,r4787883Audit:state.r4787883Audit||null,r443CorrectionAudit:state.r443CorrectionAudit||null,r444CorrectionAudit:state.r444CorrectionAudit||null,r445KiaLgSettlementAudit:state.r445KiaLgSettlementAudit||null,r446ManualSettlementAudit:{manual:all.filter(m=>m.manualReview).length,settled:all.filter(m=>m.manualReview&&m.resultFinal).length,pending:all.filter(m=>m.manualReview&&!m.resultFinal).map(m=>({no:m.manualReview.no,reason:m.manualReview.settlement?.reason||'경기종료 검증 대기'}))},r420PrecisionAudit:state.r420PrecisionAudit||null,r401ResetAudit:state.r401ResetAudit||null,r401OddsAudit:state.r401OddsAudit||null,r409PriorityAudit:state.r409PriorityAudit||null,r410PregameAudit:state.r410PregameAudit||null,r412ManualAudit:state.r412ManualAudit||null,r405MarkingAudit:state.r405MarkingAudit||null,r406QuotaAudit:state.r406QuotaAudit||null,r407EarlyDiagnostics:r407EarlyMarkingDiagnostics(state),r402ScheduleAudit:r402ScheduleAudit(state),r404ScheduleAudit:state.r404ScheduleAudit||r404Display.r404ScheduleAudit||null,directionAudit:directionAudit(state),directionGuardAudit:state.directionGuardAudit||null,sourceAudit:state.sourceAudit,officialOddsRelayAudit:state.officialOddsRelayAudit||null,manualNumberMarkAudit:state.manualNumberMarkAudit||null,resultAudit:state.resultAudit,fiveMinuteSettlementAudit:state.fiveMinuteSettlementAudit||null,relayAudit:state.relayAudit||null,zentotoSettlementAudit:state.zentotoSettlementAudit||null,spogodSettlementAudit:state.spogodSettlementAudit||null,r389AfternoonAudit:state.r389AfternoonAudit||null,r385MlsFinalAudit:state.r385MlsFinalAudit||null,r386MorningAudit:state.r386MorningAudit||null,r373DrawInterestAudit:state.r373DrawInterestAudit||null,settlementHealth:settlementHealth(cur),gradeAudit:state.gradeAudit,gradeDisplayCounts,markingGradeHistory:pastGames,recommendedDirectionMigrationAudit:state.recommendedDirectionMigrationAudit||null,
   espnSettlementAudit:state.espnSettlementAudit||null,
   flashscoreSettlementAudit:state.flashscoreSettlementAudit||null,
   aiscoreSettlementAudit:state.aiscoreSettlementAudit||null,
@@ -12215,6 +12275,17 @@ async function r398LoadState(env){
       else MEM.state.r4607845RepairStatus={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
     }else if(fix.reason!=='ALREADY_CORRECT')
       MEM.state.r4607845RepairStatus={reason:fix.reason,at:nowIso()};
+    // R478 warm DO reconcile, with immutable backup and atomic persistence.
+    const next478=r398Clone(MEM.state),fix478=r478Reconcile7883Over(next478);
+    if(fix478.changed){
+      const ds=doStorage();
+      if(ds&&typeof ds.transaction==='function')
+        await r398AtomicCommit(ds,MEM.state,next478,'BEFORE_R478_WARM_LEVANTE_7883_OVER',
+          {type:'R478_LALIGA_FINAL_OVER2_5',gmTs:'260121',no:7883,
+           score:'3:3',source:R478_7883_SOURCE,before:fix478.before});
+      else if(!ds&&!kv(env))MEM.state=next478;
+      else MEM.state.r4787883Audit={status:'BLOCKED_NO_TRANSACTIONAL_BACKUP',at:nowIso()};
+    }
     return r398EnableProtocol(MEM.state);
   }
   const stored=await readStoredState(env);MEM.storageSource=stored.source;
@@ -12312,6 +12383,16 @@ async function r398LoadState(env){
         {type:'R476_OFFICIAL_LALIGA_FINAL',score:'3:3',rows:fix476.rows,source:R476_LEVANTE_SOURCE});
     else if(!stored.state)MEM.state=next476;
     else MEM.state.r476LevanteAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
+  }
+  // R478 exact #7883 result reconciliation, preserving frozen pregame odds.
+  const next478=r398Clone(MEM.state),fix478=r478Reconcile7883Over(next478);
+  if(fix478.changed){
+    if(stored.state&&ds&&typeof ds.transaction==='function')
+      await r398AtomicCommit(ds,MEM.state,next478,'BEFORE_R478_LEVANTE_7883_OVER_RECONCILE',
+        {type:'R478_LALIGA_FINAL_OVER2_5',gmTs:'260121',no:7883,
+         score:'3:3',source:R478_7883_SOURCE,before:fix478.before});
+    else if(!stored.state)MEM.state=next478;
+    else MEM.state.r4787883Audit={status:'BLOCKED_NO_TRANSACTIONAL_BACKUP',at:nowIso()};
   }
   // R444 independently verified KBO final, backed up and committed once.
   const next444=r398Clone(MEM.state),r444=r444RepairDoosanLotte(next444);
