@@ -37,8 +37,8 @@
 
 // R324: 전체 대표픽 상대등급 20/30/50 정확 배분 + 추천자격 별도 공개.
 // 시장 30/30/40은 전역 최소편차·동률 최고품질, 누락값·피드 시각·정산 경계 보정.
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R486-SETTLEMENT-FIRST";
-const BUILD_ID = "proto-r486-20261014-settlement-first";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R487-ROUND-122-RECOVERY";
+const BUILD_ID = "proto-r487-20261014-round122-recovery";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -1356,6 +1356,51 @@ async function fetchActiveRound(currentGmTs=null){
   return {active:true,gmId:BETMAN.gameId,gmTs,round:roundFromGmTs(gmTs),rawCount:games.length,listed:[...new Set(listed)]};
 }
 
+
+// R487: On official sale-opening mornings, probe the next VERIFIED round even
+// when G101 is still advertising the prior one and prior finals are pending.
+// Time and round numbers alone never create markets, prices, or selections.
+function r487SaleRolloverDue(state,now=Date.now()){
+  const gm=String(state?.gmTs||"");
+  if(!/^\d{6}$/.test(gm))return false;
+  const kst=new Date(now+9*3600000);
+  if(![1,3,5].includes(kst.getUTCDay())||kst.getUTCHours()<8||kst.getUTCHours()>=13)return false;
+  const today=kst.toISOString().slice(0,10);
+  const dates=(state.markets||[]).filter(m=>String(m.gmTs)===gm&&/^20\d\d-\d\d-\d\d$/.test(String(m.date||"")))
+    .map(m=>m.date).sort();
+  return !dates.length||dates[0]<today;
+}
+async function r487VerifyNextOfficialRound(state,now=Date.now()){
+  const current=String(state?.gmTs||"");
+  const audit={at:new Date(now).toISOString(),source:"BETMAN_OFFICIAL_GAMEINFO",
+    status:"SKIPPED",from:current,to:null,markets:0,fixtures:0,priced:0};
+  if(!r487SaleRolloverDue(state,now))return {round:null,audit};
+  const candidate=String(Number(current)+1);
+  if(!/^\d{6}$/.test(candidate)||Number(candidate)<=Number(current))return {round:null,audit};
+  audit.to=candidate;audit.status="CHECKING";
+  try{
+    const raw=await fetchGameInfo(candidate,8500);
+    const rows=parseBetmanMarkets(raw,candidate);
+    const future=rows.filter(m=>String(m.gmTs)===candidate&&gameTimeMs(m)>now&&
+      m.date>=new Date(now+9*3600000).toISOString().slice(0,10)&&
+      Number.isSafeInteger(Number(m.no))&&Number(m.no)>0&&
+      !r403PlaceholderIdentity(m));
+    const fixtureKeys=new Set(future.map(m=>[m.date,m.time,norm(m.home),norm(m.away)].join("|")));
+    const priced=future.filter(m=>validChoices(m).length>=2).length;
+    audit.markets=future.length;audit.fixtures=fixtureKeys.size;audit.priced=priced;
+    // At least 2 distinct future fixtures with prices OR 3 independently
+    // identifiable official fixtures without prices. No fabricated odds.
+    if(fixtureKeys.size<2||(priced===0&&fixtureKeys.size<3)){
+      audit.status="UNVERIFIED_NEXT_ROUND";return {round:null,audit};
+    }
+    audit.status=priced>0?"VERIFIED_PRICED":"VERIFIED_SCHEDULE_WAITING_ODDS";
+    return {round:{active:true,gmTs:candidate,round:roundFromGmTs(candidate),
+      listed:[current,candidate],r487PrefetchedOfficial:raw,r487Verified:true},audit};
+  }catch(e){
+    audit.status="SOURCE_UNAVAILABLE";audit.error=String(e?.message||e).slice(0,150);
+    return {round:null,audit};
+  }
+}
 // R403: attempt 121 gameInfo if G101 still holds obsolete round 120.
 // Every recovered fixture must originate from a successful official response.
 async function r403Recover121OfficialRound(round,state){
@@ -5185,6 +5230,12 @@ async function refreshBetmanSource(state,env,force=false){
     let r,roundDiscoveryError=null,usedKnownRoundFallback=false;
     try{r=await fetchActiveRound(state.gmTs);}
     catch(e){roundDiscoveryError=String(e?.message||e);r={active:false,listed:[]};}
+    // R487: verified next-round official schedule can lead a stale G101 index.
+    if(r487SaleRolloverDue(state,now)&&(!r?.active||Number(r.gmTs||0)<=Number(state.gmTs||0))){
+      const next=await r487VerifyNextOfficialRound(state,now);
+      state.r487OfficialDiscoveryAudit=next.audit;
+      if(next.round)r=next.round;
+    }
     // R413: G101 may still advertise round 120 after round 121 prices go live.
     // Promote ONLY after distinct Betman 121 fixtures and priced choices verify.
     // Preserve frozen round-120 marks and settlement ledger via normal rollover.
@@ -5227,7 +5278,7 @@ async function refreshBetmanSource(state,env,force=false){
     }
     if(Number(r.gmTs||0)<260121)throw Error('R414_RETIRED_ROUND_120_REJECTED');
     const isNewRound=!!state.gmTs&&String(state.gmTs)!==String(r.gmTs);
-    let raw=r.r408PrefetchedOfficial||r.r403PrefetchedOfficial||null;
+    let raw=r.r487PrefetchedOfficial||r.r408PrefetchedOfficial||r.r403PrefetchedOfficial||null;
     let parsedMarkets=[];
     try{raw=raw||await fetchGameInfo(r.gmTs,11000);parsedMarkets=parseBetmanMarkets(raw,r.gmTs);}
     catch(e){roundDiscoveryError=[roundDiscoveryError,String(e?.message||e)].filter(Boolean).join('; ');}
@@ -9709,10 +9760,10 @@ function r410ZenApplyHtml(state,html,now=Date.now(),options={}){
  audit.reason=audit.updated?'PUBLIC_ROUND_ODDS_IMPORTED_AND_MARKED':'NO_MATCHING_VALID_PREGAME_ODDS';
  state.r410PregameAudit=audit;return audit;
 }
-async function r410RefreshZenPregame(state,env){
+async function r410RefreshZenPregame(state,env,options={}){
  const now=Date.now(),last=Date.parse(state.r410PregameAudit?.at||'');
  const initialEvidence=!state.r419EvidenceBootstrapAttemptAt&&!(state.markets||[]).some(m=>m.sameOddsEvidence);
- if(Number.isFinite(last)&&now-last<300000&&!initialEvidence)return {status:'THROTTLED',settled:0};
+ if(Number.isFinite(last)&&now-last<(options.priorityRollover?60000:300000)&&!initialEvidence)return {status:'THROTTLED',settled:0};
  const relevant=(state.markets||[]).some(m=>Number(m.gmTs)>=260121&&r401Scope(m)&&!m.resultFinal&&
   gameTimeMs(m)>now);
  const emptyCurrent=!(state.markets||[]).some(m=>Number(m.gmTs)>=260121);
@@ -10877,6 +10928,22 @@ async function runTickInternal(env){
   // settlement providers. The 14:00+ pregame odds poll runs FIRST when kickoff
   // is within three hours, while final settlements still run every cron tick.
   // Do not backfill selections after kickoff or treat screenshot quotes as live.
+  // R487: previous-round unsettled games must not starve a verified next
+  // round on official sale-opening mornings. One guarded attempt per minute;
+  // never pretend missing odds are available.
+  const rolloverDue=r487SaleRolloverDue(cur,Date.now());
+  const lastRolloverAttempt=Date.parse(cur.r487PriorityRoundAudit?.at||"");
+  if(rolloverDue&&(!Number.isFinite(lastRolloverAttempt)||Date.now()-lastRolloverAttempt>=60000)){
+    cur.r487PriorityRoundAudit={at:nowIso(),status:"CHECKING",from:cur.gmTs};
+    await settlementCheck("NEW_ROUND_PUBLIC_FIRST",()=>r410RefreshZenPregame(cur,env,{priorityRollover:true}));
+    cur=MEM.state||cur;
+    if(r487SaleRolloverDue(cur,Date.now()))
+      await settlementCheck("NEW_ROUND_OFFICIAL_VERIFICATION",()=>refreshBetmanSource(cur,env,true));
+    cur=MEM.state||cur;
+    cur.r487PriorityRoundAudit={at:nowIso(),status:"CHECKED",round:cur.gmTs,
+      publicStatus:cur.r410PregameAudit?.reason||cur.r410PregameAudit?.status||null,
+      officialStatus:cur.r487OfficialDiscoveryAudit?.status||null};
+  }
   const urgentPregame=(!(cur.markets||[]).some(m=>currentRoundMarket(m,cur)))||(cur.markets||[]).some(m=>{
     const kickoff=gameTimeMs(m);
     return r401Scope(m)&&kickoff!=null&&kickoff>Date.now()&&
