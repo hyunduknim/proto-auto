@@ -7375,6 +7375,29 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 @media(max-width:600px){#expPanel .r474Market .edPriceGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:360px){#expPanel .r474HeroGrid{grid-template-columns:repeat(2,minmax(0,1fr))}#expPanel .r474Market .edPriceGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+
+/* R474 refined cards and two compact data visualizations. */
+#expPanel .r474Hero{background:radial-gradient(ellipse at 94% -12%,#52699144 0%,transparent 55%),linear-gradient(147deg,#122f4e 0%,#11243d 58%,#192b49 100%);border:1px solid #7397bb;box-shadow:0 12px 30px #0005,inset 0 1px #ffffff16}
+#expPanel .r474HeroHead strong{font-size:16px;font-weight:900;letter-spacing:-.3px}
+#expPanel .r474HeroHead span{display:inline-flex;border:1px solid #806942;background:#5d4c263f;padding:5px 9px;border-radius:99px;color:#ffe2aa}
+#expPanel .r474HeroGrid>div{background:linear-gradient(133deg,#143c56,#12334c);border-color:#4b9ac1;box-shadow:inset 0 1px #ffffff19}
+#expPanel .r474HeroGrid>div+div{background:linear-gradient(130deg,#3b374d,#282a42);border-color:#ab936f}
+#expPanel .r474BarChart{display:grid;gap:7px;margin:10px 0 9px;padding:10px;border:1px solid #365774;background:#0b243b;border-radius:10px}
+#expPanel .r474BarRow{display:grid;grid-template-columns:60px minmax(0,1fr) 49px;align-items:center;gap:8px;font-size:10px;min-width:0}
+#expPanel .r474BarRow>span{color:#bdcede;font-weight:650}
+#expPanel .r474BarRow>b{text-align:right;color:#eaf4fc;font-variant-numeric:tabular-nums}
+#expPanel .r474BarTrack{height:9px;border:1px solid #28445d;background:#06182b;border-radius:20px;overflow:hidden}
+#expPanel .r474BarTrack>i{display:block;height:100%;border-radius:20px;box-shadow:0 0 10px #a9e0ff4d}
+#expPanel .r474Market{background:linear-gradient(145deg,#112a43,#0e2136);box-shadow:0 8px 22px #0003;border:1px solid #4f6f8d}
+#expPanel .r474Market.selected{border-color:#dab984;box-shadow:0 0 0 1px #ffe0a22c,0 12px 24px #0004}
+#expPanel .r474Market .edPriceCard{background:linear-gradient(155deg,var(--odds-soft),#0f273f);border-top-width:3px;box-shadow:0 4px 14px #0003}
+#expPanel .r474Market .edPriceCard.picked{box-shadow:inset 0 0 0 1px #ffdb9855,0 0 13px #f4bc6b19}
+#expPanel .r474Flow{background:radial-gradient(ellipse at 5% 120%,#14496870,transparent 75%),linear-gradient(140deg,#0c2a43,#0b1b2f);box-shadow:inset 0 1px #ffffff14;border-color:#59809f}
+#expPanel .r474Flow svg{overflow:visible}
+#expPanel .r474FlowLegend{font-variant-numeric:tabular-nums}
+#expPanel .r474Other{box-shadow:0 3px 8px #0002;transition:border-color .15s}
+#expPanel .r474Other[open]{border-color:#7698b6}
+
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 현재 마킹 확률, 경기 자료 예상치, 각 선택지의 배당을 한눈에 비교합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
@@ -7835,8 +7858,12 @@ function r474FlowHtml(r){
  lo=Math.min(...prices),hi=Math.max(...prices),range=Math.max(.06,hi-lo),pad=range*.12,
  bottom=lo-pad,span=range+2*pad,t0=d.rows[0].at,delta=d.rows[d.rows.length-1].at-t0;
  const paths=d.labels.map((l,i)=>{
-  const points=d.rows.map(row=>[(18+284*(row.at-t0)/delta).toFixed(1),(84-65*(row.values[l]-bottom)/span).toFixed(1)].join(',')).join(' ');
-  return '<polyline fill="none" stroke="'+cols[i%3]+'" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="'+points+'"/>';
+  const coords=d.rows.map(row=>({x:(18+284*(row.at-t0)/delta).toFixed(1),y:(84-65*(row.values[l]-bottom)/span).toFixed(1)}));
+  const points=coords.map(p=>p.x+','+p.y).join(' ');
+  const area=coords[0].x+',84 '+points+' '+coords[coords.length-1].x+',84';
+  const dots=coords.map(p=>'<circle cx="'+p.x+'" cy="'+p.y+'" r="2.7" stroke="#071a2b" stroke-width="1.3" fill="'+cols[i%3]+'"/>').join('');
+  return '<polygon points="'+area+'" fill="'+cols[i%3]+'" opacity=".065"/>'+ 
+   '<polyline fill="none" stroke="'+cols[i%3]+'" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" points="'+points+'"/>'+dots;
  }).join('');
  const legend=d.labels.map((l,i)=>{
   const a=d.rows[0].values[l],z=d.rows[d.rows.length-1].values[l],diff=z-a;
@@ -7937,12 +7964,16 @@ function r470ChanceHtml(m){
   leftLabel='배당 기준 가능성';
  const info=d.model!==null?(d.modelBasis+' · 실제 적중 보장 아님'):
   '경기 분석 자료 부족 · 배당 기준은 시장 비교값이며 실제 승률이 아닙니다';
+ const plot=[{label:'배당 기준',value:d.market,shade:'#6bd5f5'},
+   ...(d.model!==null?[{label:'경기 예상',value:d.model,shade:'#f7ce87'}]:[]),
+   ...(d.low!==null?[{label:'보수 참고',value:d.low,shade:'#c1b1fa'}]:[])];
+ const probabilityChart='<div class="r474BarChart" role="img" aria-label="'+e(plot.map(x=>x.label+' '+pct(x.value)).join(', '))+'">'+
+  plot.map(x=>'<div class="r474BarRow"><span>'+e(x.label)+'</span><div class="r474BarTrack"><i style="width:'+pct(x.value)+';background:'+x.shade+'"></i></div><b>'+pct(x.value)+'</b></div>').join('')+'</div>';
  return '<section class="chCard chPremium r474Hero" aria-label="현재 마킹 핵심 배당 분석">'+
   '<div class="r474HeroHead"><strong>핵심 배당 분석</strong><span>마킹 '+e(d.label)+' · '+d.odds.toFixed(2)+'배</span></div>'+
   '<div class="r474HeroGrid"><div><small>'+leftLabel+'</small><strong>'+pct(d.market)+'</strong></div>'+
   '<div><small>'+e(rightLabel)+'</small><strong>'+e(rightValue)+'</strong></div></div>'+
-  (d.model!==null?'<p class="r474HeroNote">경기 자료 예상치 '+pct(d.model)+(d.low!==null?' · 보수 참고값 '+pct(d.low):'')+'</p>':'')+
-  '<small class="r474HeroCaption">'+e(info)+'</small></section>';
+  probabilityChart+'<small class="r474HeroCaption">'+e(info)+'</small></section>';
 }
 
 function r473PerformanceHtml(m){
