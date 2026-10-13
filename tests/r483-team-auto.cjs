@@ -4,6 +4,8 @@ const ctx=vm.createContext({Date,URL,URLSearchParams,Response,Request,TextEncode
 vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);const f=x=>vm.runInContext(x,ctx),call=(n,...args)=>f(n)(...args);
 assert.equal(typeof f('globalThis.r483SpogodRows'),'function','secondary provider history adapter exists');
 assert.equal(typeof f('globalThis.r483ZenRows'),'function','permanent public recent-results adapter is present');
+assert.equal(call('r483SameTeam','사바FK','사바 바쿠'),true,'provider aliases normalize mixed-case FK');
+assert.equal(call('r483SameTeam','S알이티하드','알 이티하드 FC'),true,'provider alias removes protocol prefix');
 const fixture={gmTs:'260121',date:'2026-10-14',time:'01:00',sport:'축구',league:'ACLE',home:'알사드SC',away:'알힐랄SFC',marketFamily:'TOTAL',line:3.5,no:7979};
 const meta=call('r483ZenMetadata',fs.readFileSync('tests/fixtures/r483/al-sadd-meta.html','utf8'),fixture);assert.equal(meta.uid_home,'1001454');assert.equal(meta.clockShiftMinutes,60);
 const payload=id=>JSON.parse(fs.readFileSync('tests/fixtures/r483/'+id+'.json','utf8'));
