@@ -1,0 +1,32 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const ctx=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);
+const run=s=>vm.runInContext(s,ctx),mk=(no,gmTs,home,away,time,family,line,pick)=>({no,gmTs,date:'2026-10-14',time,sport:home==='LG 트윈스'?'야구':'축구',league:'TEST',home,away,marketFamily:family,line,period:'FULL',marked:true,representativeSelected:true,finalPick:pick,finalOdds:1.72,displayGrade:'추천',resultFinal:false,choices:family==='TOTAL'?[{label:'언더',odds:1.72},{label:'오버',odds:1.8}]:[{label:'승',odds:1.72},{label:'패',odds:1.8}]});
+ctx.S={markets:[mk(8116,'260121','LG 트윈스','두산 베어스','18:30','TOTAL',7.5,'언더'),mk(8122,'260121','가시와 레이솔','포트FC','19:00','HANDICAP',-1,'승'),mk(8127,'260121','비셀 고베','전북 현대모터스','19:00','TOTAL',2.5,'언더'),mk(8136,'260122','요코하마 F마리노스','시미즈 에스펄스','19:00','MONEYLINE',null,'승'),mk(8172,'260122','PFC나사프','U알와흐다','22:45','TOTAL',2.5,'언더')]};
+ctx.ROWS=ctx.S.markets.map((m,i)=>({source:'ZENTOTO_LEGACY_FULLTIME',terminal:true,fullTime:true,gmTs:'260122',no:[8113,8121,8125,8133,8170][i],date:m.date,time:m.time,home:m.home,away:m.away,marketFamily:'MONEYLINE',line:null,score:['4:1','5:1','2:0','2:1','1:2'][i]}));
+(async()=>{
+ assert.equal(run('typeof r509ApplyFinishedFixtures'),'function','round/market bridge is missing');
+ const locked=JSON.stringify(ctx.S.markets.map(m=>[m.gmTs,m.no,m.finalPick,m.finalOdds,m.displayGrade]));
+ const a=run('r509ApplyFinishedFixtures(S,ROWS)');assert.equal(a.settled,5);
+ assert.deepEqual(ctx.S.markets.map(m=>m.settlementStatus),['적중','적중','적중','적중','낙첨']);
+ assert.equal(JSON.stringify(ctx.S.markets.map(m=>[m.gmTs,m.no,m.finalPick,m.finalOdds,m.displayGrade])),locked,'original round, ID, pick, price and grade preserved');
+ assert.equal(ctx.S.settlementLedger.length,5);assert.equal(ctx.S.settledCards.rows.length,5);
+ assert.equal(run('r509ApplyFinishedFixtures(S,ROWS).settled'),0,'idempotent');
+ run('globalThis.T={markets:[{...S.markets[0],resultFinal:false,hit:null}]};');
+ assert.equal(run('r509ApplyFinishedFixtures(T,[{...ROWS[0],score:"2:9"},ROWS[0]]).settled'),0,'conflicting final scores held');
+ assert.equal(run('r509ApplyFinishedFixtures(T,[{...ROWS[0],date:"2026-10-13"}]).settled'),0);
+ assert.equal(run('r509ApplyFinishedFixtures(T,[{...ROWS[0],home:ROWS[0].away,away:ROWS[0].home}]).settled'),0);
+ assert.equal(run('r509ApplyFinishedFixtures(T,[{...ROWS[0],terminal:false}]).settled'),0);
+ run('T.markets[0].period="H1"');assert.equal(run('r509ApplyFinishedFixtures(T,ROWS).settled'),0,'partial-period markets held');
+ run('T.markets[0].period="FULL";T.markets[0].domesticOddsSnapshot={period:"F5"}');assert.equal(run('r509ApplyFinishedFixtures(T,ROWS).settled'),0,'partial snapshot vetoes a conflicting FULL period');
+ run('delete T.markets[0].domesticOddsSnapshot;T.markets[0].precision={period:"H1"}');assert.equal(run('r509ApplyFinishedFixtures(T,ROWS).settled'),0,'precision partial scope is also binding');
+ run('delete T.markets[0].precision');
+ run('T.markets[0].period="FULL";T.markets[0].line=5');assert.equal(run('r509ApplyFinishedFixtures(T,ROWS).settled'),0,'no unverified push settlement');
+ run('globalThis.D={markets:[{...S.markets[0],resultFinal:false,hit:null},{...S.markets[0],no:8115,marketFamily:"HANDICAP",line:2.5,finalPick:"승",choices:[{label:"승",odds:1.8},{label:"패",odds:2}],resultFinal:false,hit:null}]};');
+ assert.equal(run('r509ApplyFinishedFixtures(D,ROWS).settled'),2,'distinct saved markets for one game settle independently');
+ assert.equal(run('r509ApplyFinishedFixtures({markets:[{...D.markets[0],resultFinal:false},{...D.markets[0],resultFinal:false}]},ROWS).settled'),0,'duplicate saved market identity held');
+ // Replay the verified bootstrap rows exactly as deployment will do.
+ run('globalThis.B={markets:S.markets.map(m=>({...m,resultFinal:false,hit:null}))}');
+ assert.equal(run('r509ApplyFinishedFixtures(B,R509_VERIFIED_OCT14).settled'),5);
+ console.log('PASS R509: five evening finals, 4 hits/1 miss, wrong round/other market recovery, strict identity, conflicts, partial periods, push and duplicate protection, ledger and frozen selections');
+})().catch(e=>{console.error(e);process.exitCode=1});
