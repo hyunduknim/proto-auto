@@ -12724,46 +12724,9 @@ try{await runTick(this.env);}catch(e){MEM.lastAlarmError=String(e?.message||e);}
 finally{await this.scheduleAlarm(true);}
 }
 }
-let R506_PROBE_RESULT=null;
-async function r506ConnectionProbe(req,env){
-const unavailable=()=>new Response('Not found',{status:404});
-if(req.method!=='GET'||Date.now()>1791989065754)return unavailable();
-const token=req.headers.get('x-connection-probe')||'';
-if(token.length!==48)return unavailable();
-const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))].map(x=>x.toString(16).padStart(2,'0')).join('');
-if(digest!=='c78df86470dd422098ed7e116c260bb2f779480cbe8dfb6eacd94545cb2ea310')return unavailable();
-if(R506_PROBE_RESULT)return json(await R506_PROBE_RESULT);
-const work=async()=>{
-const key=String(env?.THE_ODDS_API_KEY||'').trim();
-const base={checkedAt:new Date().toISOString(),provider:'THE_ODDS_API_V4',keyConfigured:!!key};
-if(!key)return {...base,status:'KEY_NOT_CONFIGURED'};
-const quota=r=>{const read=k=>{const v=r.headers.get(k);return v!==null&&/^\d+$/.test(v)?Number(v):null};return {remaining:read('x-requests-remaining'),used:read('x-requests-used'),lastCost:read('x-requests-last')}};
-const get=async(path,params={})=>{
-const url=new URL('https://api.the-odds-api.com'+path);for(const [k,v]of Object.entries({...params,apiKey:key}))url.searchParams.set(k,v);
-const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),10000);
-try{const r=await fetch(url,{signal:ac.signal,headers:{accept:'application/json'}});const body=await r.json();const rawCode=String(body?.error_code||'');const providerErrorCode=/^[A-Z_]{1,60}$/.test(rawCode)?rawCode:null;return {ok:r.ok,http:r.status,body,quota:quota(r),providerErrorCode};}finally{clearTimeout(timer)}
-};
-const fail=r=>r.providerErrorCode==='OUT_OF_USAGE_CREDITS'?'QUOTA_EXHAUSTED':r.http===401?'KEY_REJECTED':r.http===403?'ACCESS_REJECTED':r.http===429?'RATE_LIMITED':'PROVIDER_ERROR';
-try{
-const sports=await get('/v4/sports/',{all:'true'});
-if(!sports.ok||!Array.isArray(sports.body))return {...base,status:fail(sports),sports:{http:sports.http,providerErrorCode:sports.providerErrorCode,quota:sports.quota}};
-const available=sports.body.filter(x=>x&&typeof x.key==='string').map(x=>({key:x.key,title:String(x.title||''),active:!!x.active}));
-const preferred=['baseball_mlb','soccer_epl','basketball_nba'];
-const selected=preferred.map(k=>available.find(x=>x.key===k&&x.active)).find(Boolean)||available.find(x=>x.active&&/^(baseball_|soccer_|basketball_)/.test(x.key));
-const sportsAudit={http:sports.http,quota:sports.quota,available:available.filter(x=>/^(baseball_|soccer_|basketball_|volleyball_)/.test(x.key))};
-if(!selected)return {...base,status:'KEY_VALID_NO_SELECTED_ACTIVE_SPORT',sports:sportsAudit};
-const odds=await get('/v4/sports/'+encodeURIComponent(selected.key)+'/odds/',{regions:'eu',markets:'h2h,spreads,totals',oddsFormat:'decimal',dateFormat:'iso'});
-if(!odds.ok||!Array.isArray(odds.body))return {...base,status:fail(odds),sports:sportsAudit,odds:{sport:selected.key,http:odds.http,providerErrorCode:odds.providerErrorCode,quota:odds.quota}};
-const books=new Map(),markets={};for(const event of odds.body)for(const b of event.bookmakers||[]){books.set(b.key,b.title);for(const m of b.markets||[])markets[m.key]=(markets[m.key]||0)+1;}
-return {...base,status:odds.body.length&&books.size?'ODDS_RECEIVED':'KEY_VALID_NO_ODDS_AT_CHECK',sports:sportsAudit,odds:{sport:selected.key,http:odds.http,quota:odds.quota,events:odds.body.length,bookmakers:[...books].map(([key,title])=>({key,title})),marketCounts:markets}};
-}catch{return {...base,status:'PROVIDER_NETWORK_OR_RESPONSE_ERROR'}}
-};
-R506_PROBE_RESULT=work();return json(await R506_PROBE_RESULT);
-}
 export default {
 async fetch(req,env,ctx){
 const u=new URL(req.url);
-if(u.pathname==='/api/overseas-connection-check')return r506ConnectionProbe(req,env);
 if(u.pathname.startsWith("/__"))return json({error:"not found"},404); // 내부 경로는 외부에서 호출 불가
 const stub=doStub(env);
 if(stub&&u.pathname==='/api/odds-history'&&req.method==='GET'){
