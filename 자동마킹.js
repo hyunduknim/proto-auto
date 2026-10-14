@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R500-HIDE-8116-8122-8127";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R501-HIDE-CANCELLED-FIXTURES";
 const BUILD_ID = "proto-r490-20261014-argon-full-optimized";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -6276,6 +6276,22 @@ score:r.score||card.score||null,resultSource:r.source||card.resultSource||null};
    cancelled proto rows from the public projection, before and after joining
    saved/history/manual cards. Never remove the source fixture or score. */
 function r499PublicVisible(rows){return (rows||[]).filter(m=>!r498Withdrawn(m));}
+/* R501: The public fixture fallback must not resurrect an owner-cancelled
+   market under the protocol number of an unmarked sibling. Retain only a
+   separate genuinely marked sibling; do not touch source odds or results. */
+function r501FixtureKey(m){return String(m?.gmTs||'')+'|'+gameSeed(m);}
+function r501SuppressCancelledFixtureCards(state,cards){
+const cancelled=new Set((state?.markets||[]).filter(r498Withdrawn).map(r501FixtureKey));
+if(!cancelled.size)return (cards||[]).filter(m=>!r498Withdrawn(m));
+const otherSelected=new Set((state?.markets||[]).filter(m=>
+ !r498Withdrawn(m)&&m?.marked&&m?.representativeSelected&&!!m.finalPick)
+ .map(r501FixtureKey));
+return (cards||[]).filter(card=>{
+ if(r498Withdrawn(card))return false;
+ const fixture=r501FixtureKey(card);
+ return !cancelled.has(fixture)||otherSelected.has(fixture);
+});
+}
 function publicState(state){
 const removed=state.r398Protocol?.enforce?0:purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
 const key=`${APP_VERSION}|${BUILD_ID}|${state.r483TeamAudit?.at||''}|${state.r485QuoteAudit?.at||''}|${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
@@ -6293,7 +6309,7 @@ for(const card of [...originalActive,...originalPending,...originalPast]){
 const applied=r443ShowAppliedManual(state,card),id=String(applied.gmTs)+'|'+gameSeed(applied),old=joined.get(id);
 if(!old||(!old.resultFinal&&applied.resultFinal)||(!old.manualReview&&applied.manualReview))joined.set(id,applied);
 }
-const all=r499PublicVisible([...joined.values()]),
+const all=r501SuppressCancelledFixtureCards(state,r499PublicVisible([...joined.values()])),
 activeGames=all.filter(m=>!m.resultFinal).sort(marketSort),
 pastGames=all.filter(m=>m.resultFinal).sort((a,b)=>marketSort(b,a)),
 pastPendingGames=all.filter(m=>!m.resultFinal&&(m.gameStarted||m.originalAuto?.settlementStatus||((gameTimeMs(m)||Infinity)<=Date.now()))).sort((a,b)=>marketSort(b,a));
