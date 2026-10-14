@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R498-CANCEL-8116-8122";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R499-HIDE-8116-8122-VIEW";
 const BUILD_ID = "proto-r490-20261014-argon-full-optimized";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5831,7 +5831,7 @@ return [...map.values()].sort((a,b)=>String(a.date).localeCompare(String(b.date)
 }
 /* R426: user-entered quotation overrides only. They do NOT rewrite official or historical odds. */
 function r434ManualPickCatalog(state){
-const groups=groupMarkets((state.markets||[]).filter(m=>isAfterCutoff(m)&&Number(m.gmTs)>=260120)),out=[];
+const groups=groupMarkets(r499PublicVisible(state.markets).filter(m=>isAfterCutoff(m)&&Number(m.gmTs)>=260120)),out=[];
 for(const ms of groups.values()){
 if(!ms.length)continue;
 const first=ms.find(m=>m.marked&&m.representativeSelected)||ms[0];
@@ -6271,24 +6271,29 @@ resultFinal:terminal,hit:typeof r.hit==='boolean'?r.hit:null,
 settlementStatus:terminal?r.status:null,result:r.outcome||null,
 score:r.score||card.score||null,resultSource:r.source||card.resultSource||null};
 }
+/* R499: R498 cancelled the stored selections; however representativeGames()
+   also renders an unselected placeholder per fixture. Filter ONLY the exact
+   cancelled proto rows from the public projection, before and after joining
+   saved/history/manual cards. Never remove the source fixture or score. */
+function r499PublicVisible(rows){return (rows||[]).filter(m=>!r498Withdrawn(m));}
 function publicState(state){
 const removed=state.r398Protocol?.enforce?0:purgeMidnightMarkets(state);if(removed){MEM.publicCacheKey=null;MEM.publicCache=null;}
 const key=`${APP_VERSION}|${BUILD_ID}|${state.r483TeamAudit?.at||''}|${state.r485QuoteAudit?.at||''}|${state.updatedAt}|${state.round}|${state.gmTs}|${state.markets?.length||0}`;if(MEM.publicCacheKey===key&&MEM.publicCache)return MEM.publicCache;
-const r404Display={markets:[...(state.markets||[])]};r404Reconcile14Snapshot(r404Display);
+const r404Display={markets:r499PublicVisible(state.markets)};r404Reconcile14Snapshot(r404Display);
 const cur={...currentRoundStateView(state),markets:r404Display.markets.filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs)>=260121&&r401Scope(m)&&settlementAllowed(m)&&(!r403PlaceholderIdentity(m)||m.marked||m.resultFinal)),
-settlementLedger:(state.settlementLedger||[]).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs)>=260121&&r401Scope(m))};
+settlementLedger:r499PublicVisible(state.settlementLedger).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs)>=260121&&r401Scope(m))};
 const originalActive=representativeGames(cur).filter(g=>r401Scope(g)&&!g.resultFinal).sort(marketSort),
-savedSettled=(state.markets||[]).filter(m=>Number(m.gmTs)>=260121&&m.marked&&m.representativeSelected&&m.resultFinal&&settlementAllowed(m))
+savedSettled=r499PublicVisible(state.markets).filter(m=>Number(m.gmTs)>=260121&&m.marked&&m.representativeSelected&&m.resultFinal&&settlementAllowed(m))
 .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean),
-originalPast=mergeCurrentPastCards(state,savedSettled).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m)),
-originalPending=pendingSettlementMarkets(state).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m))
+originalPast=r499PublicVisible(mergeCurrentPastCards(state,savedSettled)).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m)),
+originalPending=r499PublicVisible(pendingSettlementMarkets(state)).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m))
 .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean),
 joined=new Map();
 for(const card of [...originalActive,...originalPending,...originalPast]){
 const applied=r443ShowAppliedManual(state,card),id=String(applied.gmTs)+'|'+gameSeed(applied),old=joined.get(id);
 if(!old||(!old.resultFinal&&applied.resultFinal)||(!old.manualReview&&applied.manualReview))joined.set(id,applied);
 }
-const all=[...joined.values()],
+const all=r499PublicVisible([...joined.values()]),
 activeGames=all.filter(m=>!m.resultFinal).sort(marketSort),
 pastGames=all.filter(m=>m.resultFinal).sort((a,b)=>marketSort(b,a)),
 pastPendingGames=all.filter(m=>!m.resultFinal&&(m.gameStarted||m.originalAuto?.settlementStatus||((gameTimeMs(m)||Infinity)<=Date.now()))).sort((a,b)=>marketSort(b,a));
