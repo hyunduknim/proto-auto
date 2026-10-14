@@ -1,0 +1,20 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const ctx=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);
+const run=s=>vm.runInContext(s,ctx);
+(async()=>{
+run(`MEM.state={round:122,gmTs:'260122',markets:[],updatedAt:'test'};globalThis.reads=0;globalThis.refreshes=0;loadState=async()=>{reads++;return MEM.state};r410RefreshZenPregame=async()=>{refreshes++;return {}};queueStateMaintenance=()=>{};publicState=s=>({round:s.round,updatedAt:s.updatedAt});`);
+const response=await run(`handleApp(new Request('https://proto.test/api/state'),{},{waitUntil(){}})`);
+assert.equal(response.status,200);
+assert.equal((await response.json()).round,122);
+assert.equal(ctx.reads,0,'warm public reads must not run historical full-state repair copies');
+assert.equal(ctx.refreshes,0,'empty-round public reads must not await external odds collection');
+const tag=response.headers.get('etag');ctx.TAG=tag;
+const unchanged=await run(`handleApp(new Request('https://proto.test/api/state',{headers:{'if-none-match':TAG}}),{},{waitUntil(){}})`);
+assert.equal(unchanged.status,304,'conditional GET remains available');
+run('globalThis.SAVED=MEM.state;MEM.state=null;loadState=async()=>{reads++;return MEM.state=SAVED}');
+const cold=await run(`handleApp(new Request('https://proto.test/api/state'),{},{waitUntil(){}})`);
+assert.equal(ctx.reads,1,'missing memory still loads durable state');
+assert.equal(cold.status,200);
+console.log('PASS R503: warm read avoids repairs, no foreground network fetch, cold storage and ETag preserved');
+})().catch(e=>{console.error(e);process.exitCode=1});
