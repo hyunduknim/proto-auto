@@ -12192,29 +12192,7 @@ state.updatedAt=audit.at;
 return audit;
 }
 async function r398LoadState(env){
-if(MEM.state){
-const next=r398Clone(MEM.state),fix=r460Reconcile7845(next);
-if(fix.changed){
-const ds=doStorage();
-if(ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next,'BEFORE_R460_WARM_RESULT_CORRECTION',
-{type:'R460_WARM_7845',before:fix.before,after:'1:3'});
-else if(!ds&&!kv(env))MEM.state=next;
-else MEM.state.r4607845RepairStatus={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
-}else if(fix.reason!=='ALREADY_CORRECT')
-MEM.state.r4607845RepairStatus={reason:fix.reason,at:nowIso()};
-const next478=r398Clone(MEM.state),fix478=r478Reconcile7883Over(next478);
-if(fix478.changed){
-const ds=doStorage();
-if(ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next478,'BEFORE_R478_WARM_LEVANTE_7883_OVER',
-{type:'R478_LALIGA_FINAL_OVER2_5',gmTs:'260121',no:7883,
-score:'3:3',source:R478_7883_SOURCE,before:fix478.before});
-else if(!ds&&!kv(env))MEM.state=next478;
-else MEM.state.r4787883Audit={status:'BLOCKED_NO_TRANSACTIONAL_BACKUP',at:nowIso()};
-}
-return r398EnableProtocol(MEM.state);
-}
+if(MEM.state)return r398EnableProtocol(MEM.state);
 const stored=await readStoredState(env);MEM.storageSource=stored.source;
 if(stored.state&&(!Array.isArray(stored.state.markets)||typeof stored.state!=='object'))throw Error('R398_STORED_STATE_INVALID_NO_OVERWRITE');
 let initialBackup=null;
@@ -12226,126 +12204,20 @@ await ds.transaction(tx=>r398PutBackup(tx,envelope));initialBackup=envelope.mani
 MEM.state=stored.state?Object.assign(createState(),stored.state):createState();
 r398EnableProtocol(MEM.state);if(initialBackup)MEM.state.r398Protocol.initialBackup=initialBackup;
 MEM.state.r398Protocol.backupPrerequisite=MEM.state.r398Protocol.initialBackup?'IMMUTABLE_ORIGINAL_STORED':stored.state?'TRANSACTIONAL_DO_UNAVAILABLE':'EMPTY_INITIAL_STATE';
-if(MEM.state.r401ResetAudit?.id!==R401_ID){
-if(stored.state&&(!ds||typeof ds.transaction!=='function')){
-MEM.state.r401ResetAudit={id:'R401_DEFERRED_BACKUP_REQUIRED',at:nowIso()};
-}else{
-const fresh=r398Clone(MEM.state);r401Reset(fresh);markState(fresh);
-if(stored.state)await r398AtomicCommit(ds,MEM.state,fresh,'BEFORE_R401_14KST_RESET',{type:'R401_14KST_RESET'});
-else MEM.state=fresh;
-}
-}
-if(Date.now()<Date.parse('2026-10-12T14:00:00+09:00')&&MEM.state?.r412ManualAudit?.id!==R412_MANUAL_ID){
-const proposed=r398Clone(MEM.state),tryMark=r412ApplyManualUnder(proposed);
-if(tryMark.changed){
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,proposed,'BEFORE_R412_MANUAL_UNDER_7722',
-{type:'R412_OWNER_MANUAL_MARK',no:7722,pick:'언더'});
-else if(!stored.state)MEM.state=proposed;
-else MEM.state.r412ManualAudit={status:'BLOCKED_WITHOUT_ATOMIC_BACKUP'};
-}
-}
 if(MEM.state?.r414PurgeAudit?.id!==R414_PURGE_ID){
 const proposed=r398Clone(MEM.state);
 r414ApplyOwnerRound121(proposed);
 if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,proposed,'BEFORE_R414_OWNER_121_ONLY_PURGE',
-{type:'R414_OWNER_ROUND_PURGE',gmTs:'260121'});
+await r398AtomicCommit(ds,MEM.state,proposed,'BEFORE_R414_OWNER_121_ONLY_PURGE',{type:'R414_OWNER_ROUND_PURGE',gmTs:'260121'});
 else if(!stored.state)MEM.state=proposed;
-else MEM.state.r414PurgeAudit={status:'BLOCKED_NO_TRANSACTION_BACKUP'};
 }
-const restored=r398Clone(MEM.state);
-if(r423Restore7722(restored).restored){
-if(ds&&typeof ds.transaction==="function")await r398AtomicCommit(ds,MEM.state,restored,"BEFORE_RESTORE_7722_CORRECT_ROUND",{type:"RESTORE_EXISTING_PREGAME_MANUAL_7722"});
-else if(!stored.state)MEM.state=restored;
-}
-if(r431ApplyOwner7780Over(MEM.state)){await persistState(env,true);}
-const next459=r398Clone(MEM.state),correction459=r459Repair7845(next459);
-if(correction459.changed){
+if(MEM.state?.r490Migration?.version!==APP_VERSION){
+const next490=r398Clone(MEM.state);
+markState(next490);
+next490.r490Migration={version:APP_VERSION,at:nowIso()};
 if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next459,'BEFORE_R459_7845_OVER_CORRECTION',
-{type:'R459_7845_FINAL_1_3',before:correction459.before,after:'1:3'});
-else if(!stored.state)MEM.state=next459;
-else MEM.state.r4597845Audit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
-}
-const next460=r398Clone(MEM.state),fix460=r460Reconcile7845(next460);
-if(fix460.changed){
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next460,'BEFORE_R460_VERIFIED_7845_RECONCILE',
-{type:'R460_7845_LEDGER_CARD',before:fix460.before,after:'1:3'});
-else if(!stored.state)MEM.state=next460;
-else MEM.state.r4607845RepairStatus={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
-}else if(fix460.reason!=='ALREADY_CORRECT')
-MEM.state.r4607845RepairStatus={at:nowIso(),reason:fix460.reason};
-const next457=r398Clone(MEM.state),fixed457=r457RepairAtalanta(next457);
-if(fixed457.changed){
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next457,'BEFORE_R457_VERIFIED_ATALANTA_CORRECTION',
-{type:'R457_VERIFIED_ATALANTA_FINAL',no:7851,before:fixed457.before,after:'3:1'});
-else if(!stored.state)MEM.state=next457;
-else MEM.state.r457AtalantaAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
-}
-const candidate443=r398Clone(MEM.state),fixed443=r443Repair7804(candidate443);
-if(fixed443.changed){
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,candidate443,'BEFORE_R443_7804_SCORE_CORRECTION',
-{type:'R443_SCORE_CORRECTION',no:7804,before:fixed443.before,after:'99:89'});
-else if(!stored.state)MEM.state=candidate443;
-else MEM.state.r443CorrectionAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
-}
-const next476=r398Clone(MEM.state),fix476=r476RepairLevanteFinal(next476);
-if(fix476.settled){
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next476,'BEFORE_R476_LALIGA_VERIFIED_LEVANTE_SEVILLA',
-{type:'R476_OFFICIAL_LALIGA_FINAL',score:'3:3',rows:fix476.rows,source:R476_LEVANTE_SOURCE});
-else if(!stored.state)MEM.state=next476;
-else MEM.state.r476LevanteAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
-}
-const next478=r398Clone(MEM.state),fix478=r478Reconcile7883Over(next478);
-if(fix478.changed){
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next478,'BEFORE_R478_LEVANTE_7883_OVER_RECONCILE',
-{type:'R478_LALIGA_FINAL_OVER2_5',gmTs:'260121',no:7883,
-score:'3:3',source:R478_7883_SOURCE,before:fix478.before});
-else if(!stored.state)MEM.state=next478;
-else MEM.state.r4787883Audit={status:'BLOCKED_NO_TRANSACTIONAL_BACKUP',at:nowIso()};
-}
-const next444=r398Clone(MEM.state),r444=r444RepairDoosanLotte(next444);
-if(r444.changed){
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next444,'BEFORE_R444_KBO_7780_7784_CORRECTION',
-{type:'R444_KBO_FINAL_CORRECTION',before:r444.before,after:'4:7'});
-else if(!stored.state)MEM.state=next444;
-else MEM.state.r444CorrectionAudit={blocked:'NO_ATOMIC_BACKUP',at:nowIso()};
-}
-const next445=r398Clone(MEM.state),r445=r445CorrectKiaLgFinal(next445);
-if(r445.changed){
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next445,'BEFORE_R445_VERIFIED_KIA_LG_MARKET_CORRECTION',
-{type:'R445_VERIFIED_KIA_LG_FINAL',before:r445.corrections,final:'4:2'});
-else if(!stored.state)MEM.state=next445;
-else MEM.state.r445KiaLgSettlementAudit={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
-}
-if(MEM.state?.r448PremiumRestoreAudit?.id!==R448_PREMIUM_REPAIR_ID){
-const candidate448=r398Clone(MEM.state);
-const result448=r448RestoreFuturePremium(candidate448);
-if(result448.changed){
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,candidate448,'BEFORE_R448_FUTURE_PREMIUM_LABEL_REPAIR',
-{type:'R448_RELATIVE_PREMIUM_LABEL_REPAIR',changed:result448.changed,
-counts:result448.counts,zeroSelectionChanges:true,zeroSettlementChanges:true});
-else if(!stored.state)MEM.state=candidate448;
-else MEM.state.r448PremiumRestoreAudit={status:'BLOCKED_NO_TRANSACTIONAL_BACKUP',at:nowIso()};
-}else MEM.state.r448PremiumRestoreAudit=result448;
-}
-if(MEM.state?.r480Migration?.model!==R480_MODEL){
-const next480=r398Clone(MEM.state),audit480=r480RecommendState(next480);
-next480.r480Migration={model:R480_MODEL,at:nowIso(),changed:audit480.changed,rows:audit480.rows};
-if(stored.state&&ds&&typeof ds.transaction==='function')
-await r398AtomicCommit(ds,MEM.state,next480,'BEFORE_R480_DATA_RECOMMENDATIONS',
-{type:'R480_OWNER_PREGAME_RECOMMENDATIONS',changed:audit480.changed,rows:audit480.rows});
-else if(!stored.state)MEM.state=next480;
-else MEM.state.r480RecommendationAudit={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
+await r398AtomicCommit(ds,MEM.state,next490,'BEFORE_R490_4AXIS_OPTIMIZED',{type:'R490_4AXIS_OPTIMIZED'});
+else MEM.state=next490;
 }
 MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();return MEM.state;
 }
