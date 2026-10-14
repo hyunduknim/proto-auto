@@ -1,5 +1,5 @@
 const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R507-OVERSEAS-ODDS-70";
-const BUILD_ID = "proto-r490-20261014-argon-full-optimized";
+const BUILD_ID = "proto-r507-20261014-overseas-odds-70";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
