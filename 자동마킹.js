@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R491-ARGON-OPTIMIZED";
-const BUILD_ID = "proto-r490-20261014-argon-full-optimized";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R493-CLEAR-SETTLED-KEEP-7967";
+const BUILD_ID = "proto-r493-20261014-keep-7967-win";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -198,6 +198,8 @@ marketOddsCorrelationFactor: 0.72,
 jeongbaedangAuxMaxShift: 0.012,
 layerMinIntegrity: 0.35,
 layerMaxCalibrationWeight: 0.78,
+drawInterestTarget: 4, // R492: 축구 일반무/핸디무 관심픽 회차당 목표 경기수 (0이면 끔)
+drawInterestMinShare: 0.255,
 drawMoneylineMinProbability: 0.265,
 drawMoneylineMinConservative: 0.235,
 drawHandicapMinProbability: 0.20,
@@ -1921,6 +1923,7 @@ const unsafe=Number(old.finalOdds)>3.50&&String(old.finalPick)!=="무"||
 if(!unsafe)continue;
 audit.reviewed++;
 if(started(old)||old.resultFinal){audit.preservedLocked++;continue;}
+if(old.selectionMode==="R373_DRAW_INTEREST"&&old.finalPick==="무"&&Number(old.finalOdds)<=4.8)continue;
 if(old.manualOverride||/^MANUAL/.test(String(old.selectionMode||""))){
 audit.preservedManual++;continue;
 }
@@ -2175,6 +2178,61 @@ const sold=validChoices(m).find(c=>c.label==="무"&&Number(c.odds)>=CFG.minRepOd
 if(!sold||Number(sold.odds)!==Number(q.odds)||!selectionGate(m,q).ok)return false;
 return q.independentAvailable===true&&Number(q.independentGroupCount)>=2&&Number(q.gradeAxisSupportCount)>=2&&
 Number(q.gradeAxisOppositionCount||0)===0&&Number(q.edge)>=.005&&Number(q.calibratedP)*Number(q.odds)-1>=0;
+}
+/* R492: soccer draw-interest picks (regular draw & integer-handicap draw).
+ Real priced pregame markets only; ranked by no-vig draw share and match balance.
+ Always 일반 grade unless strict value evidence exists; never invents odds or probability. */
+function r492DrawInterestScore(m,q){
+if(m?.sport!=="축구"||q?.pick!=="무"||!["MONEYLINE","HANDICAP"].includes(m.marketFamily))return null;
+if(!representativeMarketEligible(m)||m.manualOverride||r360OddsAnomalyReason(m))return null;
+if(m.marketFamily==="HANDICAP"&&(!Number.isInteger(Number(m.line))||Number(m.line)===0))return null;
+const ch=validChoices(m),fair=noVig(ch),odds=Number(q.odds),share=Number(fair["무"]);
+if(!(odds>=CFG.minRepOdds)||!Number.isFinite(share))return null;
+const [lo,hi]=m.marketFamily==="MONEYLINE"?[2.6,4.2]:[2.9,4.8];
+if(odds<lo||odds>hi||share<CFG.drawInterestMinShare-(m.marketFamily==="HANDICAP"?.045:0))return null;
+const w=Number(fair["승"]),l=Number(fair["패"]),balance=Number.isFinite(w)&&Number.isFinite(l)?1-Math.min(1,Math.abs(w-l)/.6):.5;
+const model=Number(q.calibratedP),boost=Number.isFinite(model)?clamp(model-share,-.04,.04):0;
+return share*.70+balance*.08+boost*.5+(m.marked&&m.finalPick==="무"?.004:0);
+}
+function r492ApplyDrawInterest(games,assigned,lockedCurrent){
+const target=Math.max(0,Math.floor(Number(CFG.drawInterestTarget)||0)),isDraw=x=>x?.m?.sport==="축구"&&String(x?.q?.pick)==="무";
+const lockedDraws=(lockedCurrent||[]).filter(x=>x.m?.sport==="축구"&&x.m.finalPick==="무").length;
+let have=[...assigned.values()].filter(isDraw).length+lockedDraws;
+const audit={policy:"R492_SOCCER_DRAW_INTEREST",target,lockedDraws,added:0,rebalanced:0,candidates:0,picks:[]};
+if(have>=target){audit.have=have;return audit;}
+const pool=[];
+for(const g of games){
+const cur=assigned.get(g.key);
+if(!cur||isDraw(cur)||cur.m?.sport!=="축구"||cur.m.manualOverride||/^MANUAL/.test(String(cur.selectionMode||"")))continue;
+let best=null;
+for(const m of g.ms){for(const q of analyzeChoiceRows(m)){const sc=r492DrawInterestScore(m,q);if(sc!=null&&(!best||sc>best.sc))best={m,q,sc};}}
+if(best)pool.push({g,cur,...best});
+}
+audit.candidates=pool.length;
+pool.sort((a,b)=>b.sc-a.sc||marketSort(a.m,b.m));
+for(const c of pool){
+if(have>=target)break;
+const famFrom=c.cur.m.marketFamily,famTo=c.m.marketFamily;
+assigned.set(c.g.key,{m:c.m,q:c.q,gatePassed:false,selectionMode:"R373_DRAW_INTEREST",deepReview:null});
+have++;audit.added++;
+audit.picks.push({no:c.m.no,game:c.m.game||c.m.home+" vs "+c.m.away,family:famTo,odds:Number(c.q.odds),drawShare:r3(noVig(validChoices(c.m))["무"])});
+if(famFrom!==famTo){
+// keep 20/20/60: move one other non-draw game from famTo to famFrom when that option exists
+let swap=null,loss=Infinity;
+for(const g of games){
+const x=assigned.get(g.key);let alt=g.allC?.[famFrom],stay=0;
+if(!x||!alt||x.m.marketFamily!==famTo||isDraw(x)||g.key===c.g.key||x.m.manualOverride||/^(MANUAL|R373)/.test(String(x.selectionMode||"")))continue;
+// stability: reuse the previously marked pick of famFrom if still valid
+const prior=g.ms.find(m=>m.marked&&m.representativeSelected&&m.finalPick&&m.marketFamily===famFrom&&!m.manualOverride);
+const pq=prior&&representativeMarketEligible(prior)?analyzeChoiceRows(prior).find(r=>String(r.pick)===String(prior.finalPick)&&Number(r.odds)>=CFG.minRepOdds):null;
+if(pq){alt={m:prior,q:pq,gatePassed:alt.gatePassed,selectionMode:alt.selectionMode,deepReview:alt.deepReview};stay=.05;}
+const d=candidateUtility(x)-candidateUtility(alt)-stay;if(d<loss){loss=d;swap={g,alt};}
+}
+if(swap){assigned.set(swap.g.key,swap.alt);audit.rebalanced++;}
+}
+}
+audit.have=have;audit.shortfall=Math.max(0,target-have);
+return audit;
 }
 function ensureBestSoccerDrawVisible(games,assigned,lockedCurrent=[]){
 const minimum=3,target=4,changes=[],rejected={},pool=[],removals=[];
@@ -2474,6 +2532,7 @@ for(const g of games){
 const x=assigned.get(g.key);if(!x||x.m.manualOverride||/^MANUAL/.test(String(x.selectionMode||"")))continue;
 const prior=g.ms.find(m=>m.marked&&m.representativeSelected&&m.finalPick&&!m.manualOverride);
 if(!prior||prior.marketFamily!==x.m.marketFamily||(prior===x.m&&String(prior.finalPick)===String(x.q.pick)))continue;
+if(String(prior.finalPick)==="무"&&prior.selectionMode==="R373_DRAW_INTEREST")continue;
 if(!representativeMarketEligible(prior))continue;
 const q=analyzeChoiceRows(prior).find(r=>String(r.pick)===String(prior.finalPick)&&Number(r.odds)>=CFG.minRepOdds);
 if(!q||(prior.sport==="축구"&&r354UnsafeSoccerChoice(prior,q)))continue;
@@ -2481,6 +2540,7 @@ const keep={m:prior,q,gatePassed:x.gatePassed,selectionMode:x.selectionMode,deep
 if(candidateUtility(keep)>=candidateUtility(x)-.02){assigned.set(g.key,keep);r491Kept++;}
 }
 state.r491HysteresisAudit={at:nowIso(),kept:r491Kept,threshold:.02};
+state.r492DrawInterestAudit=r492ApplyDrawInterest(games,assigned,lockedCurrent);
 const mode="FUTURE_RATIO_20_20_60";
 const counts={MONEYLINE:0,HANDICAP:0,TOTAL:0};
 for(const g of games){
@@ -2500,6 +2560,7 @@ const prefix=m.representativeGatePassed?"STRICT · ":"심층재분석 · ";
 m.analysisReason=`${prefix}보정확률 ${(q.calibratedP*100).toFixed(1)}% · Edge ${(q.edge*100).toFixed(1)}%p · 보수확률 ${(q.conservativeP*100).toFixed(1)}% · 신뢰도 ${(q.reliability*100).toFixed(0)}%${auxTxt}${deepTxt}${learnTxt}${m.moneylineRiskFlag?" · 일반승 고위험: "+m.moneylineRiskReason+" · 상대시장 대안 권장":""}`;
 m.selectionStatus="대표픽";m.markingPhase="OFFICIAL";m.officialMarked=true;
 }
+for(const g of games){const m=g.ms.find(x=>x.marked&&x.representativeSelected);if(m&&m.selectionMode==="R373_DRAW_INTEREST"){const sh=noVig(validChoices(m))["무"];m.analysisReason="축구 무승부 관심픽 · "+(m.marketFamily==="HANDICAP"?"핸디무("+m.line+")":"일반무")+" "+Number(m.finalOdds).toFixed(2)+"배 · 배당 무승부 비중 "+(sh*100).toFixed(1)+"% · 독립 근거 미검증";}}
 const totalCounts={...counts},fullRoundCounts={MONEYLINE:lockedCounts.MONEYLINE+counts.MONEYLINE,
 HANDICAP:lockedCounts.HANDICAP+counts.HANDICAP,TOTAL:lockedCounts.TOTAL+counts.TOTAL};
 const shortfall=Object.fromEntries(Object.keys(totalTarget).map(k=>[k,Math.max(0,(totalTarget[k]||0)-(totalCounts[k]||0))]));
@@ -3057,7 +3118,7 @@ return {gmTs:String(m?.gmTs||''),no:m?.no??null,date:String(m?.date||''),time:St
 }
 function ensureSettlementLedger(state){if(!Array.isArray(state.settlementLedger))state.settlementLedger=[];state.settlementLedger=state.settlementLedger.filter(settlementAllowed);return state.settlementLedger;}
 function recordSettlementLedger(state,m){
-if(!m?.resultFinal||!m?.marked||!m?.representativeSelected||!settlementAllowed(m))return false;const row=compactSettlementResult(m),ledger=ensureSettlementLedger(state),key=settlementLedgerKey(row),idx=ledger.findIndex(x=>settlementLedgerKey(x)===key);
+if(!m?.resultFinal||!m?.marked||!m?.representativeSelected||!settlementAllowed(m)||r493SuppressedSettlement(state,m))return false;const row=compactSettlementResult(m),ledger=ensureSettlementLedger(state),key=settlementLedgerKey(row),idx=ledger.findIndex(x=>settlementLedgerKey(x)===key);
 if(idx>=0)ledger[idx]=row;else ledger.push(row);ledger.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.time||'').localeCompare(String(a.time||''))||Number(b.no||0)-Number(a.no||0));return true;
 }
 function canArchive(m){return !!(settlementAllowed(m)&&m.resultFinal&&m.marked&&m.representativeSelected&&m.resultVerifiedAt&&(/^(BETMAN_OFFICIAL|BETMAN_GAMEINFO_CONFIRMED_FINAL|ZENTOTO_|SPOGOD_|ESPN_|NPB_OFFICIAL|WISETOTO_|USER_REQUESTED_VOID_NOT_OFFICIAL|FLASHSCORE_VERIFIED_FULLTIME|AISCORE_VERIFIED_FULLTIME|LALIGA_OFFICIAL|R38|R44|R45|R46|R47|R48)/.test(String(m.resultSource||'')))&&(typeof m.hit==='boolean'||m.settlementStatus==='적특'));}
@@ -3086,7 +3147,7 @@ return {gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,sport:m.sport,league:m.leagu
 }
 function settledCardKey(m){return `${m?.gmTs||''}:${m?.no||''}`;}
 function upsertSettledCard(state,m){
-if(!m||String(m.gmTs||'')!==String(state?.gmTs||''))return false;
+if(!m||String(m.gmTs||'')!==String(state?.gmTs||'')||r493SuppressedSettlement(state,m))return false;
 const h=ensureSettledCards(state),card=compactSettledCard(m),key=settledCardKey(card),i=h.rows.findIndex(x=>settledCardKey(x)===key);
 if(i>=0)h.rows[i]=card;else h.rows.push(card);
 h.rows.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.time||'').localeCompare(String(b.time||''))||Number(a.no||0)-Number(b.no||0));
@@ -3102,9 +3163,9 @@ return [...map.values()].sort((a,b)=>marketSort(b,a));
 }
 async function archiveSettledDetails(state,env){
 if(!doStorage()&&!kv(env))return state;
-const reps=(state.markets||[]).filter(canArchive);if(!reps.length)return state;
+const reps=(state.markets||[]).filter(m=>canArchive(m)&&!r493SuppressedSettlement(state,m));if(!reps.length)return state;
 const originalSnapshot=serializeState(state),staged=JSON.parse(originalSnapshot);ensureSummary(staged);ensureSettledCards(staged);
-for(const m of staged.markets.filter(canArchive)){
+for(const m of staged.markets.filter(m=>canArchive(m)&&!r493SuppressedSettlement(staged,m))){
 if(String(m.gmTs||'')===String(staged.gmTs||''))upsertSettledCard(staged,m);
 recordSettlementLedger(staged,m);
 if(!m.aggregateRecorded){addSummary(staged,m);m.aggregateRecorded=true;}
@@ -6695,7 +6756,7 @@ check("client bootstrap is top-level",!INDEX.includes("function clock(){function
 const check=(name,ok,detail="")=>t("R247 deep review: "+name,ok,detail);
 const dm={no:99771,date:"2099-10-04",time:"18:00",home:"DRH",away:"DRA",game:"DRH vs DRA",sport:"축구",league:"TEST",market:"승무패",marketFamily:"MONEYLINE",domesticOddsFetchedAt:nowIso(),choices:[{label:"승",odds:1.78,openingOdds:1.90,betShare:.56,hasOddsHistory:true,oddsHistoryCount:3},{label:"무",odds:3.5,openingOdds:3.6,betShare:.24,hasOddsHistory:true,oddsHistoryCount:3},{label:"패",odds:3.9,openingOdds:3.5,betShare:.20,hasOddsHistory:true,oddsHistoryCount:3}],auxFresh:true,auxUpdatedAt:nowIso(),auxFeatures:{scorecenter:{MatchAnalysis:{probabilities:{"승":.61,"무":.23,"패":.16}},ProtoWDLRate:{"승":.60,"무":.24,"패":.16}},pickschool:{overseasProbabilities:{"승":.59,"무":.24,"패":.17},sameDividendProbabilities:{"승":.62,"무":.23,"패":.15},sameDividendSamples:60,resultPoissonPercent:{"승":.60,"무":.24,"패":.16}},sportsnote:{AiFootballMarketAnalysis:{model_probabilities:{"승":.61,"무":.23,"패":.16},confidence_score:.75},calibrated_probabilities:{"승":.61,"무":.23,"패":.16},recommended_pick:"승"}}};
 const dq=deepReviewChoiceForMarket(dm);check("market re-evaluated with detailed layers",!!dq&&Number(dq.deepReviewScore)>=0&&Array.isArray(dq.deepReview?.missingLayers),JSON.stringify(dq?.deepReview));
-const ds=createState();ds.gmTs="260999";dm.gmTs="260999";ds.markets=[dm];markState(ds);const dr=ds.markets.find(x=>x.marked&&x.representativeSelected);check("weak deep review is representative-marked as general",!!dr&&["DEEP_REVIEW","STRICT","DRAW_BEST_OF_ROUND"].includes(dr.selectionMode)&&dr.displayGrade==="일반",JSON.stringify({mode:dr?.selectionMode,grade:dr?.displayGrade,score:dr?.deepReviewScore}));
+const ds=createState();ds.gmTs="260999";dm.gmTs="260999";ds.markets=[dm];markState(ds);const dr=ds.markets.find(x=>x.marked&&x.representativeSelected);check("weak deep review is representative-marked as general",!!dr&&["DEEP_REVIEW","STRICT","DRAW_BEST_OF_ROUND","R373_DRAW_INTEREST"].includes(dr.selectionMode)&&dr.displayGrade==="일반",JSON.stringify({mode:dr?.selectionMode,grade:dr?.displayGrade,score:dr?.deepReviewScore}));
 const probe={...dr,selectionMode:"DEEP_REVIEW",marketProbability:.54,hitProbability:.64,safeHitProbability:.60,finalOdds:1.78,gradeAxisOppositionCount:0,gradeAxisSupportCount:3,axisAvailableCount:3,axisSupportCount:3,axisOppositionCount:0,modelEdge:.10,segmentAdjustment:0,independentGroupCount:3,dataReliability:.75,aiQuality:.72,confidenceScore:.77,crossAgreement:.8,dataIntegrityScore:.76,oddsMovement:.01,sportRisk:{gradeLimited:false},analysisLayers:{jeongbaedangAux:{available:false}},deepReviewRecommended:true,deepReviewScore:.72,displayGrade:"일반"};check("deep strong can reach recommended or best",gradePasses(probe,"추천")===true&&gradePasses(probe,"가장추천")===true);
 const weakProbe={...probe,deepReviewRecommended:false,deepReviewScore:.49};check("deep normal stays general",gradePasses(weakProbe,"추천")===false);
 }
@@ -12207,6 +12268,107 @@ state.updatedAt=audit.at;
 }
 return audit;
 }
+/* R493: Owner-requested one-time cleanup of already-confirmed settlement records.
+   Preserve the verified 260121/#7967 Tampa moneyline win; do not erase
+   pending fixtures or disable future automatic settlement. */
+const R493_SETTLEMENT_CLEAR_ID='R493_20261014_KEEP_260121_7967_WIN_ONLY';
+function r493Keep7967Win(x){
+return !!x&&String(x.gmTs)==='260121'&&Number(x.no)===7967&&
+String(x.marketFamily)==='MONEYLINE'&&String(x.finalPick??x.pick)==='승'&&
+Number(x.finalOdds??x.odds)===1.56&&x.resultFinal===true&&
+x.hit===true&&String(x.settlementStatus)==='적중';
+}
+function r493SuppressedSettlement(state,x){
+return !!(state?.r493SettlementClear?.removedKeys?.[settlementLedgerKey(x)]);
+}
+async function r493BackupKeeper(ds){
+if(!ds||typeof ds.list!=='function')return null;
+try{
+const audits=await ds.list({prefix:STATE_KEY+':audit:',limit:1000});
+const entries=[...audits.values()].filter(x=>x?.type==='R491_REMOVE_MISTAKEN_7970_TOTAL'&&x?.gmTs==='260121'&&x.backupId)
+.sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+for(const a of entries.slice(0,4)){
+const backup=await r398GetBackup(ds,a.backupId);if(!backup?.state)continue;
+const st=backup.state,rows=[...(st.markets||[]),...(st.settlementLedger||[]),...(st.settledCards?.rows||[])];
+const original=rows.find(r493Keep7967Win);if(original)return original;
+// Earlier R491 may have hidden the original pick. Restore only if the
+// stored #7967 1.56 price AND a source-verified 3:1 final both exist.
+const priced=rows.find(x=>String(x?.gmTs)==='260121'&&Number(x?.no)===7967&&x.marketFamily==='MONEYLINE'&&
+((x.choices||[]).some(q=>q.label==='승'&&Number(q.odds)===1.56)||Number(x.finalOdds??x.odds)===1.56));
+if(!priced)continue;
+const settledFinal=rows.find(x=>String(x.gmTs)==='260121'&&gameSeed(x)===gameSeed(priced)&&x.resultFinal===true&&
+/^(BETMAN_OFFICIAL|ZENTOTO_|SPOGOD_|ESPN_|FLASHSCORE_VERIFIED|AISCORE_VERIFIED|R48)/.test(String(x.resultSource||''))&&
+(resultScorePairText(x.resultScoreText||x.score)?.home===3&&resultScorePairText(x.resultScoreText||x.score)?.away===1));
+if(!settledFinal)continue;
+const row=r398Clone(priced);
+Object.assign(row,{marked:true,representativeSelected:true,finalPick:'승',finalOdds:1.56,
+resultFinal:true,result:'승',hit:true,settlementStatus:'적중',
+resultSource:'R493_VERIFIED_SAVED_GAME_FINAL',resultVerifiedAt:settledFinal.resultVerifiedAt||settledFinal.resultPublishedAt||null,
+resultScoreText:settledFinal.resultScoreText||settledFinal.score,homeScore:3,awayScore:1});
+return row;
+}
+}catch(e){MEM.r493KeeperBackupError=String(e?.message||e).slice(0,180);}
+return null;
+}
+function r493RemoveConfirmed(state,backupKeeper=null){
+if(state.r493SettlementClear?.id===R493_SETTLEMENT_CLEAR_ID)return {changed:false};
+const markets=Array.isArray(state.markets)?state.markets:[],ledger=Array.isArray(state.settlementLedger)?state.settlementLedger:[],cards=Array.isArray(state.settledCards?.rows)?state.settledCards.rows:[];
+const candidates=[...markets,...ledger,...cards],found=candidates.find(r493Keep7967Win);
+const restored=found||backupKeeper;
+const removedKeys=Object.create(null);
+for(const x of candidates)if(x?.resultFinal===true&&!r493Keep7967Win(x))removedKeys[settlementLedgerKey(x)]=true;
+const before={markets:markets.filter(x=>x?.resultFinal===true).length,ledger:ledger.length,cards:cards.length};
+state.markets=markets.filter(x=>x?.resultFinal!==true||r493Keep7967Win(x));
+state.settlementLedger=ledger.filter(r493Keep7967Win);
+state.settledCards={...(state.settledCards||{}),gmTs:String(state.gmTs||''),rows:cards.filter(r493Keep7967Win)};
+// Restore ONLY an already-confirmed old result, never manufacture a win/score.
+if(restored&&!candidates.some(r493Keep7967Win)){
+const row=r398Clone(restored);
+if(Array.isArray(row.choices)){
+row.marked=true;row.representativeSelected=true;state.markets.push(row);
+}else{
+const compact=compactSettlementResult({...row,finalPick:row.finalPick??row.pick,finalOdds:row.finalOdds??row.odds,marked:true,representativeSelected:true});
+state.settlementLedger.push(compact);
+state.settledCards.rows.push(legacySettlementCard(row));
+}
+}
+const keeper=[...state.markets,...state.settlementLedger,...state.settledCards.rows].find(r493Keep7967Win);
+if(keeper){
+const row={...keeper,finalPick:keeper.finalPick??keeper.pick,finalOdds:keeper.finalOdds??keeper.odds,marked:true,representativeSelected:true};
+if(!state.settlementLedger.some(r493Keep7967Win))state.settlementLedger.push(compactSettlementResult(row));
+if(!state.settledCards.rows.some(r493Keep7967Win))state.settledCards.rows.push(legacySettlementCard(row));
+}
+// A deleted historical settlement must not be re-archived from stale feeds.
+state.archivedMarketIds=state.archivedMarketIds||{};
+for(const k of Object.keys(state.archivedMarketIds))if(k!=='260121:7967')delete state.archivedMarketIds[k];
+if(Array.isArray(state.settlementReviews))state.settlementReviews=state.settlementReviews.filter(x=>!removedKeys[String(x.marketKey||settlementLedgerKey(x))]);
+const oddsStability=state.performanceSummary?.oddsStability;
+state.performanceSummary=null;
+if(keeper){
+const m={...keeper,finalPick:keeper.finalPick??keeper.pick,finalOdds:keeper.finalOdds??keeper.odds};
+addSummary(state,m);
+for(const x of state.markets)if(r493Keep7967Win(x))x.aggregateRecorded=true;
+}
+if(oddsStability)ensureSummary(state).oddsStability=oddsStability;
+state.r493SettlementClear={id:R493_SETTLEMENT_CLEAR_ID,at:nowIso(),keptNo:7967,keptGmTs:'260121',keptVerified:!!keeper,restoredFromBackup:!!(!found&&backupKeeper),removedKeys,
+removed:{markets:before.markets-state.markets.filter(x=>x.resultFinal).length,ledger:before.ledger-state.settlementLedger.length,cards:before.cards-state.settledCards.rows.length},
+policy:'ONE_TIME_DELETE_PREEXISTING_CONFIRMED_KEEP_7967_ALLOW_NEW_SETTLEMENT'};
+state.updatedAt=nowIso();
+return {changed:true,audit:state.r493SettlementClear};
+}
+async function r493ApplySettlementClear(env){
+if(MEM.state?.r493SettlementClear?.id===R493_SETTLEMENT_CLEAR_ID)return false;
+const ds=doStorage(),candidate=r398Clone(MEM.state),hasKeeper=[...(candidate.markets||[]),...(candidate.settlementLedger||[]),...(candidate.settledCards?.rows||[])].some(r493Keep7967Win);
+const backup=hasKeeper?null:await r493BackupKeeper(ds);
+const result=r493RemoveConfirmed(candidate,backup);
+if(!result.changed)return false;
+if(ds&&typeof ds.transaction==='function'){
+await r398AtomicCommit(ds,MEM.state,candidate,'BEFORE_R493_OWNER_CONFIRMED_SETTLEMENT_CLEAR',
+{type:'R493_OWNER_ONE_TIME_SETTLEMENT_CLEAR',keepNo:7967,keepGmTs:'260121',removed:result.audit.removed});
+}else if(!ds&&!kv(env)){MEM.state=candidate;MEM.publicCache=null;MEM.publicCacheKey=null;}
+else throw Error('R493_SETTLEMENT_CLEAR_REQUIRES_TRANSACTIONAL_BACKUP');
+return true;
+}
 async function r398LoadState(env){
 if(MEM.state){
 const next=r398Clone(MEM.state),fix=r460Reconcile7845(next);
@@ -12229,6 +12391,7 @@ score:'3:3',source:R478_7883_SOURCE,before:fix478.before});
 else if(!ds&&!kv(env))MEM.state=next478;
 else MEM.state.r4787883Audit={status:'BLOCKED_NO_TRANSACTIONAL_BACKUP',at:nowIso()};
 }
+await r493ApplySettlementClear(env);
 return r398EnableProtocol(MEM.state);
 }
 const stored=await readStoredState(env);MEM.storageSource=stored.source;
@@ -12363,6 +12526,7 @@ await r398AtomicCommit(ds,MEM.state,next480,'BEFORE_R480_DATA_RECOMMENDATIONS',
 else if(!stored.state)MEM.state=next480;
 else MEM.state.r480RecommendationAudit={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
 }
+await r493ApplySettlementClear(env);
 MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();return MEM.state;
 }
 async function r398HandleProtocolAdmin(req,env){
