@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R514-OVERSEAS-SEPARATE-ALARM";
-const BUILD_ID = "proto-r514-20261015-overseas-separate-alarm";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R516-MEMORY-SAFE-ARCHIVE";
+const BUILD_ID = "proto-r516-20261015-memory-safe-archive";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -3473,27 +3473,27 @@ for(const x of liveRows||[])if(settlementAllowed(x))map.set(settledCardKey(x),x)
 return [...map.values()].sort((a,b)=>marketSort(b,a));
 }
 async function archiveSettledDetails(state,env){
+/* R516: in-place archive. The previous version held 3-5 full copies of the state at once
+   (snapshot string + staged + compact + re-serializations) on EVERY save once any market of the
+   current round was settled, which pushed the Durable Object past its 128MB memory limit. */
 if(!doStorage()&&!kv(env))return state;
+if(state.cleanupAudit&&state.cleanupAudit.archiveDeferred)delete state.cleanupAudit.archiveDeferred;
 const reps=(state.markets||[]).filter(canArchive);if(!reps.length)return state;
-const originalSnapshot=serializeState(state),staged=JSON.parse(originalSnapshot);ensureSummary(staged);ensureSettledCards(staged);
-for(const m of staged.markets.filter(canArchive)){
-if(String(m.gmTs||'')===String(staged.gmTs||''))upsertSettledCard(staged,m);
-recordSettlementLedger(staged,m);
-if(!m.aggregateRecorded){addSummary(staged,m);m.aggregateRecorded=true;}
-}
-const currentGmTs=String(staged.gmTs||''),archiveGameKey=m=>String(m.gmTs||'')+'|'+gameSeed(m),oldGames=new Set(reps.filter(m=>String(m.gmTs||'')!==currentGmTs).map(archiveGameKey));
-for(const m of staged.markets)if(oldGames.has(archiveGameKey(m)))staged.archivedMarketIds[archivedMarketToken(m)]=true;
-try{await writeStoredState(env,serializeState(staged));}catch(e){MEM.lastPersistError=String(e?.message||e);return state;}
-if(serializeState(state)!==originalSnapshot){state.cleanupAudit={...(state.cleanupAudit||{}),archiveDeferred:"CONCURRENT_CHANGE"};return state;}
-const compact=JSON.parse(serializeState(staged));compact.markets=compact.markets.filter(m=>!oldGames.has(archiveGameKey(m)));
-compactPerformanceInputs(compact);
-compact.cleanupAudit={...(compact.cleanupAudit||{}),mode:'KEEP_CURRENT_ROUND_SETTLED_DELETE_OLDER',lastAt:nowIso(),removedMarkets:staged.markets.length-compact.markets.length,keptCurrentRoundSettled:reps.filter(m=>String(m.gmTs||'')===currentGmTs).length,summarySavedBeforeDelete:true};
-if(compact.settlementRepairAudit)compact.settlementRepairAudit.items=[];
-if(compact.resultAudit)compact.resultAudit.pendingNos=(compact.markets||[]).filter(m=>m.marked&&!m.resultFinal&&started(m)).map(m=>({gmTs:m.gmTs,no:m.no}));
-try{await writeStoredState(env,serializeState(compact));MEM.lastPersistError=null;}catch(e){MEM.lastPersistError=String(e?.message||e);return staged;}
-if(serializeState(state)!==originalSnapshot){state.cleanupAudit={...(state.cleanupAudit||{}),archiveDeferred:"CONCURRENT_CHANGE"};return state;}
-MEM.lastPersistSig=persistSignature(compact);MEM.lastPersistAt=Date.now();MEM.persistWrites+=2;
-MEM.publicCache=null;MEM.publicCacheKey=null;return compact;
+ensureSummary(state);ensureSettledCards(state);
+const cur=String(state.gmTs||'');
+for(const m of reps){if(String(m.gmTs||'')===cur)upsertSettledCard(state,m);recordSettlementLedger(state,m);if(!m.aggregateRecorded){addSummary(state,m);m.aggregateRecorded=true;}}
+compactPerformanceInputs(state);
+const gameKey=m=>String(m.gmTs||'')+'|'+gameSeed(m),oldGames=new Set(reps.filter(m=>String(m.gmTs||'')!==cur).map(gameKey));
+if(!oldGames.size)return state;
+if(!state.archivedMarketIds||typeof state.archivedMarketIds!=='object')state.archivedMarketIds={};
+const before=state.markets.length;
+for(const m of state.markets)if(oldGames.has(gameKey(m)))state.archivedMarketIds[archivedMarketToken(m)]=true;
+state.markets=state.markets.filter(m=>!oldGames.has(gameKey(m)));
+state.cleanupAudit={...(state.cleanupAudit||{}),mode:'KEEP_CURRENT_ROUND_SETTLED_DELETE_OLDER',lastAt:nowIso(),removedMarkets:before-state.markets.length,keptCurrentRoundSettled:reps.filter(m=>String(m.gmTs||'')===cur).length,summarySavedBeforeDelete:true,archiveMode:'R516_IN_PLACE'};
+if(state.settlementRepairAudit)state.settlementRepairAudit.items=[];
+if(state.resultAudit)state.resultAudit.pendingNos=state.markets.filter(m=>m.marked&&!m.resultFinal&&started(m)).map(m=>({gmTs:m.gmTs,no:m.no}));
+MEM.r516ArchiveChanged=true;MEM.publicCache=null;MEM.publicCacheKey=null;
+return state;
 }
 const R342_RECOMMENDED_FAVORITE_ID="R342_RECOMMENDED_MONEYLINE_FAVORITES_ONLY";
 const R345_RECOMMENDED_FAVORITE_GUARANTEE="R345_RECOMMENDED_MONEYLINE_FAVORITE_GUARD";
@@ -5336,7 +5336,7 @@ async function saveState(state,env,force=false){
 state=r428RebaseManualOverlay(state);
 r498WithdrawTwo(state);
 /* R506: no blanket force — unchanged state is persisted by the 5-minute heartbeat, changes immediately */
-state.updatedAt=nowIso();MEM.state=sanitizeState(state);MEM.publicCacheKey=null;MEM.publicCache=null;MEM.state=await archiveSettledDetails(MEM.state,env);await persistState(env,force||MEM.state.cleanupAudit?.archiveDeferred==="CONCURRENT_CHANGE");return MEM.state;
+state.updatedAt=nowIso();MEM.state=sanitizeState(state);MEM.publicCacheKey=null;MEM.publicCache=null;MEM.state=await archiveSettledDetails(MEM.state,env);const r516Force=!!MEM.r516ArchiveChanged;MEM.r516ArchiveChanged=false;await persistState(env,force||r516Force);return MEM.state;
 }
 function officialMarketSpecialStatus(m){
 const text=String(m?.status||"").trim();
@@ -5372,13 +5372,13 @@ r408PrefetchedOfficial:raw,r408Fallback:true},audit};
 }
 async function refreshBetmanSource(state,env,force=false){
 const publishedState=state;let transitionCommitted=false;
-state=r398Clone(state);
 const optionalDue=!!state?.r398Protocol?.enforce&&
 (force||Date.now()-Number(state.r398AdapterPolledAt||0)>=5*60000);
 const now=Date.now(); if(MEM.sourceRunning)return false; const upcoming=(state?.markets||[]).some(m=>m.marked&&m.representativeSelected&&
 !m.resultFinal&&!started(m)&&Number(gameTimeMs(m))-now<=2*3600000);
 const wait=state?.sourceAudit?.ok===false&&state?.sourceAudit?.error?
 (upcoming?30000:90000):CFG.sourceRemoteMinMs; if(!force&&now-MEM.lastSourceAttempt<wait)return false;
+state=r398Clone(state); /* R516: clone only after the throttle check (was cloned on every call, even when skipped) */
 MEM.sourceRunning=true;MEM.lastSourceAttempt=now;
 try{
 let r,roundDiscoveryError=null,usedKnownRoundFallback=false;
@@ -9695,6 +9695,37 @@ function r410ZenTeamSame(a,b){
 const x=norm(a),y=norm(b);
 return x.length>=2&&y.length>=2&&(x===y||x.length>=3&&y.includes(x)||y.length>=3&&x.includes(y));
 }
+/* R515: odd/even guard for the public pregame importer. */
+function r515OddEvenText(block,head){
+return /홀\s*[\/·ㆍ-]?\s*짝|짝\s*[\/·ㆍ-]?\s*홀|odd[\s_\/-]*even|even[\s_\/-]*odd|\bSUM\b/i.test(String(head||''))||
+/class=["'][^"']*(?:odd_?even|holjjak|hol_?jjak)[^"']*["']/i.test(String(block||''));}
+function r515ZenPlainIndex(blocks){
+const first=new Map();
+for(const block of blocks){
+const noTag=block.match(/<p\s+class=["']proto_uid["'][^>]*>\s*(\d{3,6})\s*<\/p>/i),
+dt=block.match(/(20\d{2}-\d\d-\d\d)\s*\([^)]*\)\s*(\d\d:\d\d)/),
+homeTag=block.match(/<p\s+class=["']home["'][^>]*>([\s\S]*?)<\/p>/i),
+awayTag=block.match(/<p\s+class=["']away["'][^>]*>([\s\S]*?)<\/p>/i);
+if(!noTag||!dt||!homeTag||!awayTag)continue;
+if(/\(H\s*[+-]?\d|\(U\s*\/\s*O\s*\d/i.test(homeTag[1]))continue;
+const home=r381ZenStrip(homeTag[1].replace(/<span\b[^>]*>[\s\S]*?<\/span>/gi,'')),away=r381ZenStrip(awayTag[1]);
+const k=dt[1]+'|'+dt[2]+'|'+norm(home)+'|'+norm(away),no=Number(noTag[1]);
+if(!first.has(k)||no<first.get(k))first.set(k,no);}
+return {extra(no,date,time,home,away){const k=date+'|'+time+'|'+norm(home)+'|'+norm(away);return first.has(k)&&Number(no)>first.get(k);}};}
+function r515PurgeOddEvenSeeds(state,now=Date.now()){
+const groups=new Map(),audit={removed:[],keptStarted:[]};
+for(const m of state.markets||[]){if(m.marketFamily!=='MONEYLINE'||m.line!=null)continue;
+const k=[m.gmTs,m.date,m.time,norm(m.home),norm(m.away)].join('|');if(!groups.has(k))groups.set(k,[]);groups.get(k).push(m);}
+const drop=new Set();
+for(const list of groups.values()){if(list.length<2)continue;
+list.sort((a,b)=>Number(a.no)-Number(b.no));
+for(const m of list.slice(1)){
+if(!/ZENTOTO_PUBLIC_PREGAME/.test(String(m.source||m.oddsSource||''))||/BETMAN_OFFICIAL/.test(String(m.source||'')))continue;
+const t=gameTimeMs(m);
+if(m.resultFinal||(t!=null&&t<=now)||m.manualReview){audit.keptStarted.push({gmTs:m.gmTs,no:m.no,game:m.game||m.home+' vs '+m.away,settled:!!m.resultFinal});continue;}
+drop.add(m);audit.removed.push({gmTs:m.gmTs,no:m.no,game:m.game||m.home+' vs '+m.away,wasMarked:!!(m.marked&&m.representativeSelected)});}}
+if(drop.size)state.markets=state.markets.filter(m=>!drop.has(m));
+return audit;}
 function r410ZenApplyHtml(state,html,now=Date.now(),options={}){
 const audit={at:new Date(now).toISOString(),source:'ZENTOTO_PUBLIC_PREGAME_HTML',
 http:200,blocks:0,verified:0,updated:0,seeded:0,markedNow:0,reason:null,samples:[],
@@ -9718,6 +9749,8 @@ const priorMarkets=new Map((state.markets||[]).filter(m=>String(m.gmTs)!==pageGm
 const blocks=html.split(/<div\s+class=["']game row col-xs-12["']\s*>/i);
 const newlySeen=new Set();
 audit.blocks=blocks.length-1;
+const r515Plain=r515ZenPlainIndex(blocks.slice(1));
+audit.r515OddEven=r515PurgeOddEvenSeeds(state,now);audit.r515Skipped=0;
 for(const block of blocks.slice(1)){
 const noTag=block.match(/<p\s+class=["']proto_uid["'][^>]*>\s*(\d{3,6})\s*<\/p>/i),
 status=block.match(/<p\s+class=["']game_state[^"']*["'][^>]*>([\s\S]*?)<\/p>/i),
@@ -9740,6 +9773,8 @@ const family=total?'TOTAL':hand?'HANDICAP':'MONEYLINE',
 line=total?Number(total[1]):hand?Number(hand[1]):null;
 const flat=r381ZenStrip(block),p=flat.indexOf('배당율'),q=flat.indexOf('배당승률',p+3);
 if(p<0||q<=p||q-p>240)continue;
+/* R515: 홀짝/SUM rows have no (H)/(U/O) tag and were being imported as 승패. Skip them. */
+if(family==='MONEYLINE'&&(r515OddEvenText(block,flat.slice(0,p))||r515Plain.extra(no,date,time,home,away))){audit.r515Skipped++;continue;}
 const slots=(flat.slice(p+3,q).match(/(?:\d{1,2}\.\d{1,2}|-)/g)||[]).slice(0,3);
 if(slots.length!==3)continue;
 const nums=slots.map(v=>v==='-'?null:Number(v));
@@ -11091,10 +11126,10 @@ async function r513Stage(stage,start=false){
 const now=Date.now(),iso=new Date(now).toISOString();
 try{
 const ds=doStorage();
-if(start){let old=null;try{old=ds?await ds.get('r513:tick'):null;}catch(_){}
+if(start){let old=null,meta=null;try{old=ds?await ds.get('r513:tick'):null;meta=ds?await ds.get(STATE_KEY+':meta'):null;}catch(_){}
 MEM.r513Tick={start:iso,stage,at:iso,lastDoneAt:old?.lastDoneAt||null,
 previous:old?{start:old.start||null,stage:old.stage||null,at:old.at||null,completed:old.stage==='DONE'}:null,
-diedBefore:old&&old.stage!=='DONE'?Number(old.diedBefore||0)+1:0};}
+diedBefore:old&&old.stage!=='DONE'?Number(old.diedBefore||0)+1:0,storedChars:meta?.chars??null,storedChunks:meta?.n??null};}
 else{MEM.r513Tick={...(MEM.r513Tick||{start:iso}),stage,at:iso};if(stage==='DONE'){MEM.r513Tick.lastDoneAt=iso;MEM.r513Tick.diedBefore=0;}}
 if(ds)await ds.put('r513:tick',MEM.r513Tick);
 }catch(_){}
@@ -12926,8 +12961,9 @@ if(MEM.state){
 // Previously every screen poll rechecked two historical correction fixtures.
 // Recheck after 12 seconds so correction/withdrawal safety remains enabled.
 const r501Now=Date.now();
-if(MEM.r501LastWarmAuditAt&&r501Now-MEM.r501LastWarmAuditAt<12000)
-  return r398EnableProtocol(MEM.state);
+if(MEM.r516WarmAuditDone||(MEM.r501LastWarmAuditAt&&r501Now-MEM.r501LastWarmAuditAt<12000))
+  return r398EnableProtocol(MEM.state); /* R516: historical corrections are re-checked once per isolate, not every 12s (each check cloned the full state twice) */
+MEM.r516WarmAuditDone=true;
 MEM.r501LastWarmAuditAt=r501Now;
 const next=r398Clone(MEM.state),fix=r460Reconcile7845(next);
 if(fix.changed){
@@ -12991,6 +13027,7 @@ await r398AtomicCommit(ds,MEM.state,proposed,'BEFORE_R414_OWNER_121_ONLY_PURGE',
 else if(!stored.state)MEM.state=proposed;
 else MEM.state.r414PurgeAudit={status:'BLOCKED_NO_TRANSACTION_BACKUP'};
 }
+if(MEM.state?.r516HistoricalChecked!=='R516_HIST_V1'){ /* R516: one-off historical corrections (rounds 119-121) cloned the full state ~9 times on every cold start; run them once, then skip */
 const restored=r398Clone(MEM.state);
 if(r423Restore7722(restored).restored){
 if(ds&&typeof ds.transaction==="function")await r398AtomicCommit(ds,MEM.state,restored,"BEFORE_RESTORE_7722_CORRECT_ROUND",{type:"RESTORE_EXISTING_PREGAME_MANUAL_7722"});
@@ -13062,6 +13099,8 @@ await r398AtomicCommit(ds,MEM.state,next445,'BEFORE_R445_VERIFIED_KIA_LG_MARKET_
 {type:'R445_VERIFIED_KIA_LG_FINAL',before:r445.corrections,final:'4:2'});
 else if(!stored.state)MEM.state=next445;
 else MEM.state.r445KiaLgSettlementAudit={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
+}
+MEM.state.r516HistoricalChecked='R516_HIST_V1';
 }
 if(MEM.state?.r448PremiumRestoreAudit?.id!==R448_PREMIUM_REPAIR_ID){
 const candidate448=r398Clone(MEM.state);
