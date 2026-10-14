@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R513-OVERSEAS-FIRST-TICK-TRACE";
-const BUILD_ID = "proto-r513-20261015-overseas-first-tick-trace";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R514-OVERSEAS-SEPARATE-ALARM";
+const BUILD_ID = "proto-r514-20261015-overseas-separate-alarm";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -10967,10 +10967,7 @@ return null;
 }
 }
 await r513Stage('START',true);
-/* R513: overseas odds run first so a slow/failed later source cannot starve them. */
-await settlementCheck('OVERSEAS_ODDS',()=>r507RefreshOverseasOdds(cur,env));
-cur=MEM.state||cur;
-if(Date.now()-Number(MEM.r513OverseasSavedAt||0)>=600000){MEM.r513OverseasSavedAt=Date.now();await r513Stage('OVERSEAS_SAVE');try{await saveState(cur,env,false);}catch(e){MEM.lastAlarmError="R513_OVERSEAS_SAVE:"+String(e?.message||e).slice(0,140);}cur=MEM.state||cur;}
+/* R514: overseas odds run in their own alarm turn (r514OverseasOnly), not inside the main tick. */
 if(!settlementFirst){
 await settlementCheck('LIVE_ODDS_OBSERVATIONS',()=>r485RefreshLiveQuotes(cur,env));
 cur=MEM.state||cur;
@@ -11060,6 +11057,34 @@ try{await saveState(cur,env,!!fiveMinuteDue);}
 catch(e){MEM.lastAlarmError="R400_WATCHDOG_SAVE:"+String(e?.message||e).slice(0,160);}
 await r513Stage('DONE');
 return MEM.state||cur;
+}
+/* R514: every other alarm runs ONLY the overseas refresh, in its own invocation with its own CPU/memory budget.
+   If that turn dies 3 times in a row, overseas is paused for 1 hour so it can never starve settlement/marking. */
+async function r514OverseasTurn(env){
+const ds=doStorage();if(!ds)return false;
+const o=r507Opts(env);if(!o.key||o.disabled)return false;
+let t=null,ov=null;try{t=await ds.get('r514:turn');ov=await ds.get('r514:ov');}catch(_){return false;}
+const n=Number(t?.n||0)+1;try{await ds.put('r514:turn',{n,at:new Date().toISOString()});}catch(_){}
+if(ov&&Number(ov.blockedUntil||0)>Date.now())return false;
+return n%2===0;
+}
+async function r514OverseasOnly(env){
+return serializedOperation(async()=>{
+const ds=doStorage(),now=Date.now(),iso=new Date(now).toISOString();
+let old=null;try{old=ds?await ds.get('r514:ov'):null;}catch(_){}
+const fails=old&&old.stage!=='DONE'&&old.stage!=='SKIP'?Number(old.fails||0)+1:0;
+const rec={start:iso,stage:'RUN',fails,lastDoneAt:old?.lastDoneAt||null,lastResult:old?.lastResult||null,blockedUntil:null};
+if(fails>=3){rec.stage='SKIP';rec.blockedUntil=now+3600000;rec.reason='OVERSEAS_TURN_DIED_3X_PAUSED_1H';rec.fails=0;try{await ds.put('r514:ov',rec);}catch(_){}return {status:'PAUSED'};}
+try{if(ds)await ds.put('r514:ov',rec);}catch(_){}
+const s=await loadState(env);let cur=MEM.state||s;
+const res=await r507RefreshOverseasOdds(cur,env).catch(e=>({status:'ERROR',error:String(e?.message||e).slice(0,120)}));
+cur=MEM.state||cur;
+if(!(res&&res.applied>0)&&Date.now()-Number(MEM.r514OverseasSavedAt||0)>=600000){MEM.r514OverseasSavedAt=Date.now();rec.stage='SAVE';try{if(ds)await ds.put('r514:ov',rec);}catch(_){}
+try{await saveState(cur,env,false);}catch(e){MEM.lastAlarmError="R514_OVERSEAS_SAVE:"+String(e?.message||e).slice(0,140);}}
+rec.stage='DONE';rec.at=new Date().toISOString();rec.lastDoneAt=rec.at;rec.fails=0;rec.lastResult={status:res?.status||null,matched:res?.matched??null,applied:res?.applied??null,error:res?.error||null};
+try{if(ds)await ds.put('r514:ov',rec);}catch(_){}
+return res;
+});
 }
 /* R513: tick breadcrumbs in a tiny DO key, so a tick that dies mid-way shows the last stage it reached. */
 async function r513Stage(stage,start=false){
@@ -11358,7 +11383,7 @@ interpretation:'marketShare is no-vig relative price weight, NOT verified outcom
 async function handleApp(req,env,ctx){
 const u=new URL(req.url);
 if(u.pathname==="/")return html(INDEX);
-if(u.pathname==='/api/overseas-status'&&req.method==='GET'){const st=r508Status(MEM.state||await loadState(env),env);try{const ds=doStorage();st.tick=ds?(await ds.get('r513:tick'))||MEM.r513Tick||null:(MEM.r513Tick||null);}catch(_){st.tick=MEM.r513Tick||null;}return json(st);}
+if(u.pathname==='/api/overseas-status'&&req.method==='GET'){const st=r508Status(MEM.state||await loadState(env),env);try{const ds=doStorage();st.tick=ds?(await ds.get('r513:tick'))||MEM.r513Tick||null:(MEM.r513Tick||null);st.overseasRun=ds?(await ds.get('r514:ov'))||null:null;}catch(_){st.tick=MEM.r513Tick||null;}return json(st);}
 if(u.pathname==='/api/data-odds-analytics'&&req.method==='GET')return json(r477DataPayload(await loadState(env)));
 if(u.pathname==='/api/odds-history'&&req.method==='GET')return r462HandleHistory(req,env);
 if(u.pathname==='/api/manual-odds')return json({error:'MANUAL_ODDS_FEATURE_REMOVED'},410);
@@ -13134,7 +13159,7 @@ return res;
 }
 async alarm(){
 await this.ready;MEM.alarmRuns=(MEM.alarmRuns||0)+1;MEM.lastAlarmAt=Date.now();
-try{await runTick(this.env);}catch(e){MEM.lastAlarmError=String(e?.message||e);}
+try{if(await r514OverseasTurn(this.env))await r514OverseasOnly(this.env);else await runTick(this.env);}catch(e){MEM.lastAlarmError=String(e?.message||e);}
 finally{await this.scheduleAlarm(true);}
 }
 }
