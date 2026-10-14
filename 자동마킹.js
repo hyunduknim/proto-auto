@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R493-CLEAR-SETTLED-KEEP-7967";
-const BUILD_ID = "proto-r493-20261014-keep-7967-win";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R493-KEEP-7967";
+const BUILD_ID = "proto-r493-20261014-keep-7967";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -12289,23 +12289,9 @@ const entries=[...audits.values()].filter(x=>x?.type==='R491_REMOVE_MISTAKEN_797
 .sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
 for(const a of entries.slice(0,4)){
 const backup=await r398GetBackup(ds,a.backupId);if(!backup?.state)continue;
-const st=backup.state,rows=[...(st.markets||[]),...(st.settlementLedger||[]),...(st.settledCards?.rows||[])];
-const original=rows.find(r493Keep7967Win);if(original)return original;
-// Earlier R491 may have hidden the original pick. Restore only if the
-// stored #7967 1.56 price AND a source-verified 3:1 final both exist.
-const priced=rows.find(x=>String(x?.gmTs)==='260121'&&Number(x?.no)===7967&&x.marketFamily==='MONEYLINE'&&
-((x.choices||[]).some(q=>q.label==='승'&&Number(q.odds)===1.56)||Number(x.finalOdds??x.odds)===1.56));
-if(!priced)continue;
-const settledFinal=rows.find(x=>String(x.gmTs)==='260121'&&gameSeed(x)===gameSeed(priced)&&x.resultFinal===true&&
-/^(BETMAN_OFFICIAL|ZENTOTO_|SPOGOD_|ESPN_|FLASHSCORE_VERIFIED|AISCORE_VERIFIED|R48)/.test(String(x.resultSource||''))&&
-(resultScorePairText(x.resultScoreText||x.score)?.home===3&&resultScorePairText(x.resultScoreText||x.score)?.away===1));
-if(!settledFinal)continue;
-const row=r398Clone(priced);
-Object.assign(row,{marked:true,representativeSelected:true,finalPick:'승',finalOdds:1.56,
-resultFinal:true,result:'승',hit:true,settlementStatus:'적중',
-resultSource:'R493_VERIFIED_SAVED_GAME_FINAL',resultVerifiedAt:settledFinal.resultVerifiedAt||settledFinal.resultPublishedAt||null,
-resultScoreText:settledFinal.resultScoreText||settledFinal.score,homeScore:3,awayScore:1});
-return row;
+const st=backup.state;
+const original=[...(st.markets||[]),...(st.settlementLedger||[]),...(st.settledCards?.rows||[])].find(r493Keep7967Win);
+if(original)return original;
 }
 }catch(e){MEM.r493KeeperBackupError=String(e?.message||e).slice(0,180);}
 return null;
@@ -12315,6 +12301,7 @@ if(state.r493SettlementClear?.id===R493_SETTLEMENT_CLEAR_ID)return {changed:fals
 const markets=Array.isArray(state.markets)?state.markets:[],ledger=Array.isArray(state.settlementLedger)?state.settlementLedger:[],cards=Array.isArray(state.settledCards?.rows)?state.settledCards.rows:[];
 const candidates=[...markets,...ledger,...cards],found=candidates.find(r493Keep7967Win);
 const restored=found||backupKeeper;
+if(!restored)return {changed:false,blocked:'7967_VERIFIED_KEEPER_NOT_FOUND_NO_DELETE'};
 const removedKeys=Object.create(null);
 for(const x of candidates)if(x?.resultFinal===true&&!r493Keep7967Win(x))removedKeys[settlementLedgerKey(x)]=true;
 const before={markets:markets.filter(x=>x?.resultFinal===true).length,ledger:ledger.length,cards:cards.length};
