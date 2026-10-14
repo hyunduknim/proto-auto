@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R495-PREGAME-FREEZE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R498-CANCEL-8116-8122";
 const BUILD_ID = "proto-r490-20261014-argon-full-optimized";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4065,7 +4065,75 @@ state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;
 await persistState(env,true);
 return !!audit.changed;
 }
+/* R498: Owner requested the withdrawal of ONLY 260122 #8116 and #8122.
+   Do not confuse the one-per-fixture AUTO policy with a user manual pick.
+   Cancel their selection, not the fixture, original market, or final score.
+   Reapply after auto analysis or manual overlay so removed picks stay removed. */
+const R498_WITHDRAW_ID='R498_OWNER_260122_8116_8122_WITHDRAW';
+function r498Withdrawn(m){return !!m&&String(m.gmTs||'')==='260122'&&[8116,8122].includes(Number(m.no));}
+function r498WithdrawTwo(state){
+if(!state||typeof state!=='object')return {changed:false,cleared:0};
+let cleared=0,ledgerRemoved=0,cardsRemoved=0,manualRemoved=0;
+for(const m of state.markets||[]){
+if(!r498Withdrawn(m))continue;
+const wasMarked=!!(m.marked||m.representativeSelected||m.officialMarked||m.finalPick||m.finalOdds||m.manualOverride||m.r495Frozen);
+if(wasMarked){
+m.marked=false;m.representativeSelected=false;m.officialMarked=false;
+m.finalPick=null;m.finalOdds=null;m.manualOverride=false;m.manualOverrideAt=null;
+m.r495Frozen=null;m.displayGrade='일반';
+m.gradeEvidenceQualified=false;m.gradeEvidenceTier='OWNER_REMOVED';
+m.gradeEvidenceWarning='사용자 요청 · 8116/8122 마킹 삭제';
+m.selectionMode='R498_OWNER_REMOVED';m.selectionStatus='마킹 취소';
+for(const key of ['previousRepresentativeSelected','previousFinalPick','previousFinalOdds','previousMarketSelectionScore','previousDisplayGrade','manualPickLastChange'])delete m[key];
+cleared++;
+}
+}
+if(Array.isArray(state.settlementLedger)){
+const before=state.settlementLedger.length;
+state.settlementLedger=state.settlementLedger.filter(x=>!r498Withdrawn(x));
+ledgerRemoved=before-state.settlementLedger.length;
+}
+if(Array.isArray(state.settledCards?.rows)){
+const before=state.settledCards.rows.length;
+state.settledCards.rows=state.settledCards.rows.filter(x=>!r498Withdrawn(x));
+cardsRemoved=before-state.settledCards.rows.length;
+}
+if(state.manualReviewSelections&&typeof state.manualReviewSelections==='object'){
+for(const [key,row] of Object.entries(state.manualReviewSelections)){
+if(r498Withdrawn(row)){delete state.manualReviewSelections[key];manualRemoved++;}
+}
+}
+const changed=!!(cleared||ledgerRemoved||cardsRemoved||manualRemoved);
+if(changed||state.r498WithdrawAudit?.id!==R498_WITHDRAW_ID){
+const prev=state.r498WithdrawAudit||{};
+state.r498WithdrawAudit={id:R498_WITHDRAW_ID,gmTs:'260122',numbers:[8116,8122],
+  firstAppliedAt:prev.firstAppliedAt||nowIso(),lastAppliedAt:nowIso(),
+  cleared:Number(prev.cleared||0)+cleared,
+  ledgerRemoved:Number(prev.ledgerRemoved||0)+ledgerRemoved,
+  cardsRemoved:Number(prev.cardsRemoved||0)+cardsRemoved,
+  manualRemoved:Number(prev.manualRemoved||0)+manualRemoved,
+  policy:'CANCEL_MARKINGS_ONLY_KEEP_MARKET_RESULT_AND_UNRELATED_PICKS'};
+state.updatedAt=nowIso();
+}
+return {changed,cleared,ledgerRemoved,cardsRemoved,manualRemoved};
+}
+async function r498CommitWithdrawal(env){
+if(!MEM.state)return false;
+const s=MEM.state,candidates=(s.markets||[]).some(x=>r498Withdrawn(x)&&(x.marked||x.representativeSelected||x.finalPick||x.r495Frozen))||
+(s.settlementLedger||[]).some(r498Withdrawn)||(s.settledCards?.rows||[]).some(r498Withdrawn)||
+Object.values(s.manualReviewSelections||{}).some(r498Withdrawn);
+if(!candidates&&s.r498WithdrawAudit?.id===R498_WITHDRAW_ID)return false;
+const next=r398Clone(s);r498WithdrawTwo(next);
+const ds=doStorage();
+if(ds&&typeof ds.transaction==='function'){
+await r398AtomicCommit(ds,s,next,'BEFORE_R498_260122_TWO_PICK_REMOVAL',
+{type:'R498_OWNER_MARKING_WITHDRAWAL',gmTs:'260122',numbers:[8116,8122]});
+}else if(!ds&&!kv(env)){MEM.state=next;MEM.publicCache=null;MEM.publicCacheKey=null;}
+else throw Error('R498_REQUIRES_TRANSACTIONAL_BACKUP');
+return true;
+}
 function markState(state){
+r498WithdrawTwo(state);
 if(state.r398Protocol?.backupPrerequisite==="TRANSACTIONAL_DO_UNAVAILABLE"){state.r398EvidenceAudit={policy:"NO_NEW_MARKING_WITHOUT_RESTORABLE_BACKUP",blocked:true};return state;}
 if(state.r398Protocol?.enforce){for(const m of state.markets||[])if(r398BeforeKickoff(m)&&m.marked&&m.representativeSelected&&!m.manualOverride)r398PreserveSelection(state,m,"BEFORE_PREGAME_REANALYSIS");}
 buildLearningAudit(state);applyLearningContext(state);applyPerformanceContext(state);applyJeongbaedangContext(state);applyDirectionalGuardContext(state);
@@ -4093,6 +4161,8 @@ m.r480Recommendation={model:"R490_4AXIS_INTEGRATED",grade:m.displayGrade||"일�
 }
 }
 r495StampFrozen(state);
+r498WithdrawTwo(state);
+state.oneGameOneMarkAudit=r369SingleMarkAudit(state,true);
 if(state.r398Protocol?.enforce){r398CapturePregameSnapshots(state);r360RefreshMarketAudit(state);}
 }finally{ROW_CACHE=null;}
 return state;}
@@ -4940,6 +5010,7 @@ try{await writeStoredState(env,serializeState(MEM.state));MEM.lastPersistAt=now;
 }
 async function saveState(state,env,force=false){
 state=r428RebaseManualOverlay(state);
+r498WithdrawTwo(state);
 if(state?.r398Protocol?.enforce)force=true;
 state.updatedAt=nowIso();MEM.state=sanitizeState(state);MEM.publicCacheKey=null;MEM.publicCache=null;MEM.state=await archiveSettledDetails(MEM.state,env);await persistState(env,force||MEM.state.cleanupAudit?.archiveDeferred==="CONCURRENT_CHANGE");return MEM.state;
 }
@@ -8961,6 +9032,7 @@ state.updatedAt=m.restoredAt;return {restored:true};
 }
 function r422ApplyManualPick(state,input,now=Date.now()){
 const no=Number(input?.no),gmTs=String(input?.gmTs||''),pick=String(input?.pick||'').trim();
+if(gmTs==='260122'&&[8116,8122].includes(no))throw Error('R498_OWNER_CANCELLED_MARKING');
 if(!Number.isSafeInteger(no)||!/^[0-9]{6}$/.test(gmTs))throw Error('ROUND_OR_NUMBER_INVALID');
 const marketId=String(input?.expectedMarketId||'');
 const matches=(state.markets||[]).filter(m=>Number(m.no)===no&&String(m.gmTs)===gmTs&&marketIdentity(m)===marketId);
@@ -10626,6 +10698,7 @@ if(m.resultFinal&&(!p.resultFinalAtWrite||p.immutableHistorical))continue;
 Object.assign(m,p.values);
 }
 }
+r498WithdrawTwo(state);
 return state;
 }
 function r428CaptureManualOverlay(before,after,result,type,input){
@@ -12362,6 +12435,7 @@ score:'3:3',source:R478_7883_SOURCE,before:fix478.before});
 else if(!ds&&!kv(env))MEM.state=next478;
 else MEM.state.r4787883Audit={status:'BLOCKED_NO_TRANSACTIONAL_BACKUP',at:nowIso()};
 }
+await r498CommitWithdrawal(env);
 return r398EnableProtocol(MEM.state);
 }
 const stored=await readStoredState(env);MEM.storageSource=stored.source;
@@ -12496,6 +12570,7 @@ await r398AtomicCommit(ds,MEM.state,next480,'BEFORE_R480_DATA_RECOMMENDATIONS',
 else if(!stored.state)MEM.state=next480;
 else MEM.state.r480RecommendationAudit={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
 }
+await r498CommitWithdrawal(env);
 MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();return MEM.state;
 }
 async function r398HandleProtocolAdmin(req,env){
