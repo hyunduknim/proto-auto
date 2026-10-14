@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R516-MEMORY-SAFE-ARCHIVE";
-const BUILD_ID = "proto-r516-20261015-memory-safe-archive";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R517-SLIM-STATE";
+const BUILD_ID = "proto-r517-20261015-slim-state";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -2098,6 +2098,30 @@ confidenceScore:best?r3(best.confidenceScore):null,confidence:analysisConfidence
 },choices:compactRows
 };
 }
+/* R517: the stored per-market analysis repeated the full evidence layers inside every choice and the summary
+   (~70% of the whole state, 13M chars). Keep the numbers, drop the repeated layer dumps; screens recompute detail on demand. */
+const R517_SLIM_KEYS=['layers','axisVotes','auxSource','sportRisk','provenanceGroups','provenanceConsensus'];
+function r517Slim(sa){
+if(!sa||typeof sa!=='object'||sa.slim)return sa;
+const cut=o=>{if(o&&typeof o==='object')for(const k of R517_SLIM_KEYS)delete o[k];};
+cut(sa.summary);if(Array.isArray(sa.choices))for(const c of sa.choices)cut(c);
+sa.slim=true;return sa;}
+function r517SlimState(state){
+let n=0;const now=Date.now();
+for(const m of state?.markets||[]){
+if(!m)continue;
+if(m.sharedAnalysis&&!m.sharedAnalysis.slim){r517Slim(m.sharedAnalysis);n++;}
+/* settled markets: drop write-only evidence dumps; keep layer probabilities for learning */
+if(m.resultFinal&&!m.r517Compacted){for(const k of ["jeongbaedangLocalEvidence","performanceFeatures","performanceProbabilities","provenanceConsensus","auxFeatures","deepReviewMissingLayers"])delete m[k];
+m.analysisLayers=compactLayers(m.analysisLayers);m.r517Compacted=true;n++;}
+}
+/* pregame snapshots were never pruned (one per odds/pick change, every round): keep latest head per market + newest 1000 */
+const snaps=state?.r398PregameSnapshots;
+if(snaps&&typeof snaps==='object'){const keys=Object.keys(snaps);
+if(keys.length>1500){const heads=new Set(Object.values(state.r398SnapshotHeads||{}));
+const ts=x=>{const c=x?.capturedAt,v=typeof c==='number'?c:Date.parse(c||'');return Number.isFinite(v)?v:Number(x?.kickoffAt||0);};const recent=keys.filter(k=>!heads.has(k)).sort((a,b)=>ts(snaps[b])-ts(snaps[a])).slice(0,1000);
+const keep=new Set([...heads,...recent]);for(const k of keys)if(!keep.has(k)){delete snaps[k];n++;}}}
+return n;}
 function applySharedAnalysis(state){
 let markets=0,analyzed=0,selectable=0,choiceCount=0;
 const confidence={HIGH:0,MEDIUM:0,LOW:0,NONE:0};
@@ -2106,7 +2130,7 @@ markets++;
 if((started(m)||m.resultFinal)&&m.sharedAnalysis){
 const a=m.sharedAnalysis;if(a.analyzed)analyzed++;if(a.selectable)selectable++;choiceCount+=(a.choices||[]).length;const cf=a.summary?.confidence||m.analysisConfidence||"NONE";confidence[cf]=(confidence[cf]||0)+1;continue;
 }
-const a=analyzeMarket(m);m.sharedAnalysis={engine:a.engine,analyzed:a.analyzed,marketFamily:a.marketFamily??m.marketFamily,line:a.line??m.line??null,selectable:a.selectable,gateCode:a.gateCode||null,reason:a.reason,summary:a.summary||null,choices:a.choices||[]};
+const a=analyzeMarket(m);m.sharedAnalysis=r517Slim({engine:a.engine,analyzed:a.analyzed,marketFamily:a.marketFamily??m.marketFamily,line:a.line??m.line??null,selectable:a.selectable,gateCode:a.gateCode||null,reason:a.reason,summary:a.summary?{...a.summary}:null,choices:(a.choices||[]).map(c=>({...c}))});
 m.analysisEngine=a.engine;m.analysisSelectable=!!a.selectable;m.analysisBestPick=a.summary?.bestPick??null;m.analysisBestOdds=a.summary?.bestOdds??null;
 m.analysisProbability=a.summary?.calibratedProbability??null;m.analysisModelProbability=a.summary?.modelProbability??null;m.analysisMarketProbability=a.summary?.marketProbability??null;
 m.analysisConservativeProbability=a.summary?.conservativeProbability??null;m.analysisModelEdge=a.summary?.modelEdge??null;m.analysisValuePercentage=a.summary?.valuePercentage??null;
@@ -4633,7 +4657,7 @@ return compacted;
 }
 function sanitizeState(s){
 if(!s||typeof s!=="object")return createState();
-s.version=APP_VERSION;s.build=BUILD_ID;purgeMidnightMarkets(s);s.markets=pruneHistoricalMarkets(s);compactHistory(s);repairSetScoreStats(s);ensureSettlementLedger(s);ensureSettledCards(s);
+s.version=APP_VERSION;s.build=BUILD_ID;purgeMidnightMarkets(s);s.markets=pruneHistoricalMarkets(s);compactHistory(s);r517SlimState(s);repairSetScoreStats(s);ensureSettlementLedger(s);ensureSettledCards(s);
 delete s.comboBook;delete s.shadowAudit;for(const m of s.markets||[])delete m.shadowAnalysis;s.sourceAudit=s.sourceAudit||{};s.resultAudit=s.resultAudit||{};s.gradeAudit=s.gradeAudit||{};s.marketMixAudit=s.marketMixAudit||{};s.analysisAudit=s.analysisAudit||{};s.sharedAnalysisAudit=s.sharedAnalysisAudit||{};s.fullMarkAudit=s.fullMarkAudit||{};s.learningAudit=s.learningAudit||{};s.performanceAudit=s.performanceAudit||{};s.fiveApkAudit=s.fiveApkAudit||{};s.jeongbaedangAudit=s.jeongbaedangAudit||{};s.cleanupAudit=s.cleanupAudit||{};ensurePerformanceModel(s);ensureJeongbaedangModel(s);s.auxAudit=s.auxAudit||{};s.resetAudit=s.resetAudit||{};s.settlementRepairAudit=s.settlementRepairAudit||{};return s;
 }
 const DO_CHUNK_CHARS=30000;
@@ -4652,7 +4676,8 @@ const batch=keys.slice(i,i+120),got=await ds.get(batch);
 for(const k of batch){const part=got.get(k);if(typeof part!=="string")throw new Error("DO_STATE_CHUNK_MISSING:"+k);str+=part;}
 }
 if(num(meta.chars)!=null&&str.length!==Number(meta.chars))throw new Error("DO_STATE_LENGTH_MISMATCH");
-return {state:JSON.parse(str),source:"DURABLE_OBJECT"};
+const parsed=JSON.parse(str);str="";if(r517SlimState(parsed))MEM.r517SlimPending=true;
+return {state:parsed,source:"DURABLE_OBJECT"};
 }
 const K=kv(env);if(K){try{const x=await K.get(STATE_KEY,"json");if(x)return {state:x,source:"KV_MIGRATED_TO_DO"};}catch(e){throw e;}}
 return {state:null,source:"EMPTY"};
@@ -6124,7 +6149,7 @@ const out=[];
 for(const ms of groupMarkets((state.markets||[]).filter(m=>isAfterCutoff(m)&&!isPurgedMidnightMarket(m))).values()){
 const first=ms[0];if(!first)continue;
 const marketAnalyses=ms.map(m=>{
-const a=m.sharedAnalysis||analyzeMarket(m);
+const a=(m.sharedAnalysis&&!m.sharedAnalysis.slim)?m.sharedAnalysis:analyzeMarket(m);
 return {no:m.no,market:m.market,marketFamily:m.marketFamily,line:m.line??null,selectionStatus:m.selectionStatus,marked:!!m.marked,finalPick:m.finalPick??null,finalOdds:m.finalOdds??null,analysis:a};
 }).sort((a,b)=>Number(a.no||0)-Number(b.no||0));
 const ranked=marketAnalyses.filter(x=>x.analysis?.analyzed&&x.analysis?.summary).sort((a,b)=>Number(b.analysis.summary.selectionScore||0)-Number(a.analysis.summary.selectionScore||0));
@@ -13124,6 +13149,7 @@ else if(!stored.state)MEM.state=next480;
 else MEM.state.r480RecommendationAudit={blocked:'NO_TRANSACTIONAL_BACKUP',at:nowIso()};
 }
 await r498CommitWithdrawal(env);
+if(MEM.r517SlimPending){MEM.r517SlimPending=false;try{await persistState(env,true);}catch(_){}} /* R517: write the slimmed state back right away */
 MEM.lastPersistSig=persistSignature(MEM.state);MEM.lastPersistAt=Date.now();return MEM.state;
 }
 async function r398HandleProtocolAdmin(req,env){
