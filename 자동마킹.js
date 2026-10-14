@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R495-EVENING-FRESH-RESET";
-const BUILD_ID = "proto-r495-20261014-1800-kst-fresh-start";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R496-PREMIUM-CARD-RESTORE";
+const BUILD_ID = "proto-r496-20261014-preserve-pregame-markings";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -265,7 +265,7 @@ function kstDateFromMs(ms){ const n=Number(ms); if(!Number.isFinite(n)||n<=0)ret
 function kstTimeFromMs(ms){ const n=Number(ms); if(!Number.isFinite(n)||n<=0)return null; return new Date(n+9*3600000).toISOString().slice(11,16); }
 function gameTimeMs(m){ const d=String(m?.date||""),t=String(m?.time||""); const x=Date.parse(`${d}T${t||"00:00"}:00+09:00`); return Number.isFinite(x)?x:null; }
 function started(m){ const t=gameTimeMs(m); return t!=null&&t<=Date.now(); }
-function isAfterCutoff(m){ return String(m?.date||"")>=CUTOFF_DATE&&r495AfterStart(m); }
+function isAfterCutoff(m){ return String(m?.date||"")>=CUTOFF_DATE&&r496VisibleMarket(m); }
 function isPurgedMidnightMarket(m){ return String(m?.date||"")===PURGE_DATE&&String(m?.time||"").startsWith(PURGE_HOUR_PREFIX); }
 function purgeMidnightMarkets(state){
 if(!state||!Array.isArray(state.markets))return 0;
@@ -301,7 +301,7 @@ function isRound119PreResetGame(m){
 const r=Number(m?.sourceRound??roundFromGmTs(m?.gmTs)??0);if(r!==119)return false;
 const t=gameTimeMs(m);return t!=null&&t<ROUND_119_RESULT_CUTOFF_MS;
 }
-function settlementAllowed(m){return !isRound119PreResetGame(m)&&r495AfterStart(m);}
+function settlementAllowed(m){return !isRound119PreResetGame(m)&&r496VisibleMarket(m);}
 function isoMs(v){const n=Date.parse(String(v||""));return Number.isFinite(n)?n:null;}
 function oddsAgeMs(m){const t=isoMs(m?.domesticOddsFetchedAt);return t==null?Infinity:Math.max(0,Date.now()-t);}
 function oddsFresh(m){const t=isoMs(m?.domesticOddsFetchedAt);return t==null?true:Math.max(0,Date.now()-t)<=CFG.maxOddsAgeMs;}
@@ -11442,7 +11442,7 @@ return state;
 Immutable backups and confirmed settlements are NEVER erased. */
 const R401_FROM=Date.parse('2026-10-12T14:00:00+09:00');
 const R401_ID='R401_20261012_1400_ODDS_ONLY_RESET';
-function r401Scope(m){const k=gameTimeMs(m);return k!=null&&k>=R401_FROM&&r495AfterStart(m);}
+function r401Scope(m){const k=gameTimeMs(m);return k!=null&&k>=R401_FROM&&r496VisibleMarket(m);}
 function r404ReferenceMarket(no,family,line,prices,market){
 return {gmTs:'260120',sourceRound:120,no,date:'2026-10-12',time:'14:00',
 sport:'야구',league:'NPB',home:'세이부',away:'닛폰햄',game:'세이부 vs 닛폰햄',
@@ -12208,7 +12208,7 @@ ciMethod:'NORMAL_APPROXIMATION_PAIRED_DISTINCT_FIXTURE',dimensions,blockers,depl
 newModelActive:false,note:'No retrospective reconstruction, quota-fitting, or production model activation. Segment minimums and independent follow-up holdout remain necessary.'};
 }
 function r398CurrentSummary(state){
-const gm=String(state.gmTs||''),markets=(state.markets||[]).filter(m=>(!gm||String(m.gmTs||'')===gm)&&r495AfterStart(m)),map=new Map();
+const gm=String(state.gmTs||''),markets=(state.markets||[]).filter(m=>(!gm||String(m.gmTs||'')===gm)&&r496VisibleMarket(m)),map=new Map();
 for(const r of state.settlementLedger||[])if((!gm||String(r.gmTs||'')===gm)&&r495AfterStart(r))map.set(r398MarketKey(r),r);
 for(const m of markets)if(m.resultFinal&&m.marked&&m.representativeSelected)map.set(r398MarketKey(m),m);
 const done=[...map.values()],open=markets.filter(m=>m.marked&&m.representativeSelected&&!m.resultFinal),h=done.filter(m=>m.hit===true&&m.settlementStatus!=='적특').length,l=done.filter(m=>m.hit===false&&m.settlementStatus!=='적특').length,v=done.filter(m=>m.settlementStatus==='적특').length;
@@ -12304,15 +12304,21 @@ return audit;
 const R495_START_MS=Date.parse('2026-10-14T18:00:00+09:00');
 const R495_RESET_ID='R495_OWNER_20261014_1800_KST_FRESH_START';
 function r495AfterStart(m){const ms=gameTimeMs(m);return ms!=null&&ms>=R495_START_MS;}
+/* R496: evening reset must never erase a still-unstarted marking card.
+   A historical market (started before 18 KST) is never restored or settled. */
+function r496VisibleMarket(m,now=Date.now()){
+  const ms=gameTimeMs(m);
+  return ms!=null&&(ms>=R495_START_MS||(ms>now&&m?.resultFinal!==true));
+}
 function r495PruneOldCards(state){
   if(!state||typeof state!=='object')return {markets:0,ledger:0,cards:0};
   const ms=Array.isArray(state.markets)?state.markets:[];
   const led=Array.isArray(state.settlementLedger)?state.settlementLedger:[];
   const cs=Array.isArray(state.settledCards?.rows)?state.settledCards.rows:[];
-  const removed={markets:ms.filter(m=>!r495AfterStart(m)).length,
+  const removed={markets:ms.filter(m=>!r496VisibleMarket(m)).length,
     ledger:led.filter(m=>!r495AfterStart(m)).length,
     cards:cs.filter(m=>!r495AfterStart(m)).length};
-  state.markets=ms.filter(r495AfterStart);
+  state.markets=ms.filter(r496VisibleMarket);
   state.settlementLedger=led.filter(r495AfterStart);
   state.settledCards={...(state.settledCards||{}),rows:cs.filter(r495AfterStart)};
   return removed;
@@ -12336,7 +12342,7 @@ function r495PrepareFreshStart(state){
   state.settledCards.gmTs=String(state.gmTs||'');
   state.r495FreshStart={id:R495_RESET_ID,at:nowIso(),startAt:'2026-10-14T18:00:00+09:00',
     removed,allEarlierSettlementsCleared:true,allEarlierPendingCleared:true,
-    old7967NotPreserved:true,preserveModels:true,allowNewSettlements:true};
+    old7967NotPreserved:true,preserveModels:true,allowNewSettlements:true,unstartedMarkingsProtected:true};
   state.updatedAt=nowIso();
   return {changed:true,removed};
 }
