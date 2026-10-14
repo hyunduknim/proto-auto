@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R511-HITRATE-UI";
-const BUILD_ID = "proto-r511-20261015-r510-plus-ui";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R512-SETTLEMENT-FAST";
+const BUILD_ID = "proto-r512-20261015-settlement-fast";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -10683,7 +10683,13 @@ pending:cases.length,gradeCounts,reasons,
 unannounced:reasons.OFFICIAL_RESULT_NOT_ANNOUNCED,
 cases:cases.slice(0,50),policy:"OFFICIAL_CONFIRMED_ONLY_NO_GRADE_EXCLUSION"};
 }
-function r450SettlementCadenceMs(state){return pendingSettlementMarkets(state).length?25000:120000;}
+/* R512: Poll trustworthy FINAL sources more often in the active finishing window.
+   Do not increase the expensive retry rate for stale multi-day backlogs. */
+function r450SettlementCadenceMs(state){
+const pending=pendingSettlementMarkets(state);if(!pending.length)return 120000;
+const now=Date.now();
+return pending.some(m=>{const t=gameTimeMs(m);return t!=null&&now-t>=45*60000&&now-t<=12*3600000;})?12000:25000;
+}
 function r450LiveOddsRetryAllowed(state,urgent=false){
 if(!hasLivePending(state)||state.sourceAudit?.ok!==false)return true;
 const attempted=Date.parse(state.sourceAudit?.lastAt||''),age=Date.now()-attempted;
@@ -10997,13 +11003,17 @@ if(!urgentPregame&&!settlementFirst){
 await settlementCheck("ZENTOTO_PREGAME_PRECISION",()=>r410RefreshZenPregame(cur,env));
 cur=MEM.state||cur;
 }
+/* R512: For baseball, run its league-specific FINAL source before the
+   multi-page generic collectors. Other sports keep the original hierarchy. */
+if(r488MlbPending(cur).length)await settlementCheck("ESPN_MLB",()=>r488RefreshMlbFinals(cur,env,fiveMinuteDue));
+else settlementChecks.ESPN_MLB={status:"NOT_APPLICABLE",sourceStatus:"NO_MLB_STARTED_PENDING",durationMs:0,settled:0};
+cur=MEM.state||cur;
+if(r424NpbPending(cur).length)await settlementCheck("NPB_OFFICIAL",()=>r424RefreshNpbFinals(cur,env,fiveMinuteDue));
+else settlementChecks.NPB_OFFICIAL={status:"NOT_APPLICABLE",sourceStatus:"NO_NPB_PENDING",durationMs:0,settled:0};
+cur=MEM.state||cur;
 await settlementCheck("ZENTOTO",()=>r381RefreshCloudflareZentoto(cur,env,fiveMinuteDue));
 cur=MEM.state||cur;
 await settlementCheck("SPOGOD",()=>r384RefreshSpogodResults(cur,env,fiveMinuteDue));
-cur=MEM.state||cur;
-await settlementCheck("ESPN_MLB",()=>r488RefreshMlbFinals(cur,env,fiveMinuteDue));
-cur=MEM.state||cur;
-await settlementCheck("NPB_OFFICIAL",()=>r424RefreshNpbFinals(cur,env,fiveMinuteDue));
 cur=MEM.state||cur;
 await settlementCheck("ESPN_MLS",()=>r385RefreshMlsFinals(cur,env,false));
 cur=MEM.state||cur;
