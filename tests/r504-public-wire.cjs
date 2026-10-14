@@ -1,0 +1,21 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const ctx=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);
+const row={no:8102,marketFamily:'TOTAL',precision:{history:[{at:'2026-10-14',prices:[{label:'언더',odds:1.5}]}]},choices:[{label:'언더',odds:1.5}],sharedAnalysis:{choices:['x'.repeat(100000)]},analysisLayers:{raw:'x'.repeat(100000)}};
+const card={no:8102,pick:'언더',odds:1.5,resultFinal:false,displayGrade:'일반',teamData:{verified:true},analysisLayers:{scorecenter:{probability:.6}},marketRows:[row]};
+const view={round:122,version:'test',markingGames:[card],pastPendingGames:[card],pastGames:[],markingGradeHistory:[],manualPickCatalog:[{marketRows:[{no:8102,choices:row.choices}]}]};
+ctx.VIEW=view;vm.runInContext('publicState=()=>VIEW',ctx);
+(async()=>{
+const response=vm.runInContext("r501FastStateResponse(new Request('https://proto.test/api/state'),{})",ctx);
+const body=await response.text(),wire=JSON.parse(body),out=wire.markingGames[0];
+assert.ok(body.length<5000,'public wire must exclude duplicate internal per-market analysis trees');
+assert.equal(out.marketRows[0].sharedAnalysis,undefined);
+assert.equal(out.marketRows[0].analysisLayers,undefined);
+assert.deepEqual(out.marketRows[0].choices,row.choices);
+assert.deepEqual(out.marketRows[0].precision,row.precision,'odds flow history preserved');
+assert.deepEqual(out.analysisLayers,card.analysisLayers,'card layer strip preserved');
+assert.equal(out.pick,card.pick);assert.equal(out.odds,card.odds);assert.equal(out.resultFinal,false);
+assert.equal(view.markingGames[0].marketRows[0].sharedAnalysis.choices[0].length,100000,'source/export data is not mutated');
+assert.equal(wire.pastPendingGames[0].marketRows[0].sharedAnalysis,undefined);
+console.log('PASS R504: compact wire preserves prices, history, selections, settlement and original data');
+})().catch(e=>{console.error(e);process.exitCode=1});

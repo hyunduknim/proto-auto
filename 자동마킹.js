@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R503-NONBLOCKING-STATE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R504-COMPACT-STATE";
 const BUILD_ID = "proto-r490-20261014-argon-full-optimized";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5813,8 +5813,8 @@ const gm=String(state.gmTs||''),map=new Map();
 for(const x of Array.isArray(state.settlementLedger)?state.settlementLedger:[])if(settlementAllowed(x)&&(!gm||String(x?.gmTs||'')===gm))map.set(settlementLedgerKey(x),x);
 for(const m of markets)if(m.marked&&m.representativeSelected&&m.resultFinal&&settlementAllowed(m))map.set(settlementLedgerKey(m),m);
 const rows=[...map.values()],hits=rows.filter(m=>m.hit===true&&m.settlementStatus!=='적특').length,misses=rows.filter(m=>m.hit===false&&m.settlementStatus!=='적특').length,voids=rows.filter(m=>m.settlementStatus==='적특').length,n=rows.length;
-const o
-... 144700 bytes omitted ...
+const openM
+... 145241 bytes omitted ...
 777",choices:[{label:"승",odds:1.7},{label:"무",odds:3.2},{label:"패",odds:2.4}]};st.markets.push(hist);ingestPerformanceRows(st,[{gmTs:"260777",no:7000,date:"2026-10-02",home:"저표본홈",away:"저표본원정",family:"MONEYLINE",outcome:"승",score:"2:1"}]);
 const pm={no:7999,date:"2099-10-03",time:"18:00",sport:"축구",league:"T",home:"저표본홈",away:"저표본원정",market:"승무패",marketFamily:"MONEYLINE",gmTs:"260777",domesticOddsFetchedAt:nowIso(),choices:[{label:"승",odds:1.75,openingOdds:1.80,betShare:.55},{label:"무",odds:3.2,openingOdds:3.2,betShare:.20},{label:"패",odds:2.3,openingOdds:2.2,betShare:.25}]};st.markets.push(pm);applyPerformanceContext(st);check("one-game performance becomes low-coverage available",pm.performanceAvailable===true&&Number(pm.performanceCoverage)>0&&Number(pm.performanceCoverage)<.30,JSON.stringify({coverage:pm.performanceCoverage,features:pm.performanceFeatures}));
 const rr=analyzeChoiceRows(pm).find(x=>x.pick==='승');check("SC/SN same self DB deduplicated to one provenance group",rr?.provenanceGroups?.scorecenter==="PERFORMANCE_DB"&&(!rr?.provenanceGroups?.sportsnote||rr?.provenanceGroups?.sportsnote==="PERFORMANCE_DB")&&Number(rr?.independentGroupCount)<=2,JSON.stringify({groups:rr?.provenanceGroups,count:rr?.independentGroupCount}));
