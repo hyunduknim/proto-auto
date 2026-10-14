@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R499-HIDE-8116-8122-VIEW";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R500-HIDE-8116-8122-8127";
 const BUILD_ID = "proto-r490-20261014-argon-full-optimized";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4069,8 +4069,8 @@ return !!audit.changed;
    Do not confuse the one-per-fixture AUTO policy with a user manual pick.
    Cancel their selection, not the fixture, original market, or final score.
    Reapply after auto analysis or manual overlay so removed picks stay removed. */
-const R498_WITHDRAW_ID='R498_OWNER_260122_8116_8122_WITHDRAW';
-function r498Withdrawn(m){return !!m&&String(m.gmTs||'')==='260122'&&[8116,8122].includes(Number(m.no));}
+const R498_WITHDRAW_ID='R500_OWNER_260122_8116_8122_8127_WITHDRAW';
+function r498Withdrawn(m){return !!m&&String(m.gmTs||'')==='260122'&&[8116,8122,8127].includes(Number(m.no));}
 function r498WithdrawTwo(state){
 if(!state||typeof state!=='object')return {changed:false,cleared:0};
 let cleared=0,ledgerRemoved=0,cardsRemoved=0,manualRemoved=0;
@@ -4082,7 +4082,7 @@ m.marked=false;m.representativeSelected=false;m.officialMarked=false;
 m.finalPick=null;m.finalOdds=null;m.manualOverride=false;m.manualOverrideAt=null;
 m.r495Frozen=null;m.displayGrade='일반';
 m.gradeEvidenceQualified=false;m.gradeEvidenceTier='OWNER_REMOVED';
-m.gradeEvidenceWarning='사용자 요청 · 8116/8122 마킹 삭제';
+m.gradeEvidenceWarning='사용자 요청 · 8116/8122/8127 마킹 삭제';
 m.selectionMode='R498_OWNER_REMOVED';m.selectionStatus='마킹 취소';
 for(const key of ['previousRepresentativeSelected','previousFinalPick','previousFinalOdds','previousMarketSelectionScore','previousDisplayGrade','manualPickLastChange'])delete m[key];
 cleared++;
@@ -4106,7 +4106,7 @@ if(r498Withdrawn(row)){delete state.manualReviewSelections[key];manualRemoved++;
 const changed=!!(cleared||ledgerRemoved||cardsRemoved||manualRemoved);
 if(changed||state.r498WithdrawAudit?.id!==R498_WITHDRAW_ID){
 const prev=state.r498WithdrawAudit||{};
-state.r498WithdrawAudit={id:R498_WITHDRAW_ID,gmTs:'260122',numbers:[8116,8122],
+state.r498WithdrawAudit={id:R498_WITHDRAW_ID,gmTs:'260122',numbers:[8116,8122,8127],
   firstAppliedAt:prev.firstAppliedAt||nowIso(),lastAppliedAt:nowIso(),
   cleared:Number(prev.cleared||0)+cleared,
   ledgerRemoved:Number(prev.ledgerRemoved||0)+ledgerRemoved,
@@ -4126,8 +4126,8 @@ if(!candidates&&s.r498WithdrawAudit?.id===R498_WITHDRAW_ID)return false;
 const next=r398Clone(s);r498WithdrawTwo(next);
 const ds=doStorage();
 if(ds&&typeof ds.transaction==='function'){
-await r398AtomicCommit(ds,s,next,'BEFORE_R498_260122_TWO_PICK_REMOVAL',
-{type:'R498_OWNER_MARKING_WITHDRAWAL',gmTs:'260122',numbers:[8116,8122]});
+await r398AtomicCommit(ds,s,next,'BEFORE_R500_260122_THREE_PICK_REMOVAL',
+{type:'R500_OWNER_MARKING_WITHDRAWAL',gmTs:'260122',numbers:[8116,8122,8127]});
 }else if(!ds&&!kv(env)){MEM.state=next;MEM.publicCache=null;MEM.publicCacheKey=null;}
 else throw Error('R498_REQUIRES_TRANSACTIONAL_BACKUP');
 return true;
@@ -9037,7 +9037,7 @@ state.updatedAt=m.restoredAt;return {restored:true};
 }
 function r422ApplyManualPick(state,input,now=Date.now()){
 const no=Number(input?.no),gmTs=String(input?.gmTs||''),pick=String(input?.pick||'').trim();
-if(gmTs==='260122'&&[8116,8122].includes(no))throw Error('R498_OWNER_CANCELLED_MARKING');
+if(gmTs==='260122'&&[8116,8122,8127].includes(no))throw Error('R500_OWNER_CANCELLED_MARKING');
 if(!Number.isSafeInteger(no)||!/^[0-9]{6}$/.test(gmTs))throw Error('ROUND_OR_NUMBER_INVALID');
 const marketId=String(input?.expectedMarketId||'');
 const matches=(state.markets||[]).filter(m=>Number(m.no)===no&&String(m.gmTs)===gmTs&&marketIdentity(m)===marketId);
