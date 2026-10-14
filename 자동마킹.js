@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R506-OVERSEAS-PRECISION";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.14-R507-OVERSEAS-ODDS-70";
 const BUILD_ID = "proto-r490-20261014-argon-full-optimized";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -89,6 +89,7 @@ const MIDNIGHT_PURGE_ID = "R223_PURGE_2026-10-02_00XX";
 const REMARK_RESET_ID = "R212_RESET_2026-10-02_1800_KST";
 const SETTLEMENT_REPAIR_ID = "R283_HANDICAP_DECIMAL_SCORE_2026-10-08";
 const MIN_ACTIVE_ROUND = 118;
+const MIN_ACTIVE_GMTS = 260118; // R506: year-aware floor (gmTs = YY+RRRR, rounds restart every year)
 const ROUND_118_RESET_ID = "R255_ROUND118_FRESH_START_2026-10-05";
 const ROUND_119_FRESH_RESET_ID = "R277_ROUND119_FRESH_START_2026-10-07_1720_KST";
 const ROUND_119_RESULT_CUTOFF_MS = Date.parse("2026-10-07T17:20:00+09:00");
@@ -201,7 +202,8 @@ layerMaxCalibrationWeight: 0.78,
 gradeBucketMaxShare: 0.4, // R494: 가장추천/추천 각 등급에서 한 유형(플핸·마핸·언더·오버 등)이 차지할 수 있는 최대 비율
 freezePregame: true, // R495: 한번 공개된 픽·등급은 경기 시작까지 고정
 freezeOddsBand: 0.08, // R495: 픽 배당이 처음 대비 ±8% 넘게 움직이면 다시 판단
-drawInterestTarget: 4, // R492: 축구 일반무/핸디무 관심픽 회차당 목표 경기수 (0이면 끔)
+drawInterestTarget: 0, // R492: 축구 일반무/핸디무 관심픽 회차당 목표 경기수 (0이면 끔) — R506: 적중률 우선으로 끔 (기존 4)
+hitRateFirst: true, // R506: 시장비율(20/20/60) 강제·무승부 노출 강제 없이 경기마다 적중 점수 최고 픽, 등급도 적중확률 순
 drawInterestMinShare: 0.255,
 drawMoneylineMinProbability: 0.265,
 drawMoneylineMinConservative: 0.235,
@@ -1270,11 +1272,20 @@ const dates=(state.markets||[]).filter(m=>String(m.gmTs)===gm&&/^20\d\d-\d\d-\d\
 return !dates.length||dates[0]<today;
 }
 async function r487VerifyNextOfficialRound(state,now=Date.now()){
+// R506: also probe next year's first round (YY+1)0001 around New Year; rounds restart every year
+const first=await r487VerifyNextOfficialRoundFor(state,now,String(Number(String(state?.gmTs||""))+1));
+if(first.round)return first;
+const cur=String(state?.gmTs||""),month=new Date(now+9*3600000).getUTCMonth()+1;
+if(/^\d{6}$/.test(cur)&&(month===12||month===1)){
+const nextYear=String(Number(cur.slice(0,2))+1).padStart(2,"0")+"0001";
+const second=await r487VerifyNextOfficialRoundFor(state,now,nextYear);if(second.round)return second;}
+return first;
+}
+async function r487VerifyNextOfficialRoundFor(state,now,candidate){
 const current=String(state?.gmTs||"");
 const audit={at:new Date(now).toISOString(),source:"BETMAN_OFFICIAL_GAMEINFO",
 status:"SKIPPED",from:current,to:null,markets:0,fixtures:0,priced:0};
 if(!r487SaleRolloverDue(state,now))return {round:null,audit};
-const candidate=String(Number(current)+1);
 if(!/^\d{6}$/.test(candidate)||Number(candidate)<=Number(current))return {round:null,audit};
 audit.to=candidate;audit.status="CHECKING";
 try{
@@ -1654,7 +1665,270 @@ function analyzeChoiceRows(m){
 if(ROW_CACHE&&m&&typeof m==="object"){const hit=ROW_CACHE.get(m);if(hit)return hit.map(r=>({...r}));const rows=analyzeChoiceRowsRaw(m);ROW_CACHE.set(m,rows);return rows.map(r=>({...r}));}
 return analyzeChoiceRowsRaw(m);
 }
-function analyzeChoiceRowsRaw(m){
+/* ===================== R507: OVERSEAS ODDS (The Odds API · free-tier aware) =====================
+   해외 배당(Pinnacle 우선)을 받아 베트맨 확률 기준점과 로그오즈로 섞는다. 기본 해외 70 : 국내 30.
+   - /v4/sports, /v4/sports/{key}/events 는 크레딧 0 → 리그 탐색과 경기 매칭에만 사용
+   - /odds(h2h+totals)는 2크레딧 → 매칭된 리그만, 하루 예산 안에서, 킥오프가 가까운 순서로
+   - 매칭 = 시간(±20분) + 팀 별칭/로마자 골격 + 일반승 배당 모양 검증. 불확실하면 쓰지 않는다(국내 100%).
+   - 핸디·언오버 기준점이 다르면 득점 모형(축구 포아송, 야구 음이항, 농구 정규)으로 베트맨 기준점에 맞춰 변환.
+   설정(Cloudflare 변수): THE_ODDS_API_KEY(필수) · OVERSEAS_WEIGHT(0~0.95, 기본 0.7) ·
+   OVERSEAS_WINDOW_HOURS(기본 6) · OVERSEAS_DAILY_CREDITS(기본: 남은 크레딧/남은 날짜) · OVERSEAS_DISABLED=1 */
+const R507=Object.freeze({host:"https://api.the-odds-api.com",weight:.7,maxAgeMs:18*3600000,windowMs:6*3600000,
+refetchMs:8*3600000,eventsRefreshMs:6*3600000,sportsRefreshMs:24*3600000,eventsPerTick:6,reserve:15,
+toleranceMs:20*60000,horizonMs:48*3600000,minRefetchGapMs:30*60000,maxMlGap:.12,
+bookmakers:"pinnacle,betfair_ex_eu,matchbook,marathonbet,onexbet,williamhill,betsson,nordicbet,unibet_se,tipico_de",
+groups:Object.freeze({"축구":"Soccer","야구":"Baseball","농구":"Basketball"})});
+const R507_ALIAS_TEXT={
+"축구":"아스널=arsenal|애스턴빌라=aston villa|본머스=bournemouth|브렌트퍼드=brentford|브렌트포드=brentford|브라이턴=brighton|첼시=chelsea|크리스털팰리스=crystal palace|크리스탈팰리스=crystal palace|에버턴=everton|풀럼=fulham|리버풀=liverpool|맨체스터시티=manchester city|맨시티=manchester city|맨체스터유나이티드=manchester united|맨유=manchester united|뉴캐슬=newcastle|노팅엄=nottingham|토트넘=tottenham|웨스트햄=west ham|울버햄튼=wolverhampton|울버햄프턴=wolverhampton|번리=burnley|리즈=leeds|선덜랜드=sunderland|사우샘프턴=southampton|레스터=leicester|입스위치=ipswich|포츠머스=portsmouth|밀월=millwall|스완지=swansea|버밍엄=birmingham|프레스턴=preston|찰턴=charlton|렉섬=wrexham|웨스트브로미치=west brom|브리스틀시티=bristol city|블랙번=blackburn|볼턴=bolton|카디프=cardiff|왓포드=watford|스토크=stoke|미들즈브러=middlesbrough|셰필드유나이티드=sheffield united|셰필드웬즈데이=sheffield wednesday|헐시티=hull|코번트리=coventry|노리치=norwich|퀸스파크=queens park|더비카운티=derby|옥스퍼드=oxford|플리머스=plymouth|루턴=luton|레딩=reading|위건=wigan|"+
+"레알마드리드=real madrid|바르셀로나=barcelona|아틀레티코=atletico|세비야=sevilla|비야레알=villarreal|레알소시에다드=real sociedad|레알베티스=real betis|아틀레틱=athletic|빌바오=athletic|발렌시아=valencia|셀타=celta|오사수나=osasuna|헤타페=getafe|마요르카=mallorca|지로나=girona|라요=rayo|알라베스=alaves|에스파뇰=espanyol|레반테=levante|엘체=elche|오비에도=oviedo|라스팔마스=las palmas|레가네스=leganes|바야돌리드=valladolid|"+
+"바이에른=bayern|도르트문트=dortmund|레버쿠젠=leverkusen|라이프치히=leipzig|프랑크푸르트=frankfurt|슈투트가르트=stuttgart|볼프스부르크=wolfsburg|묀헨글라트바흐=monchengladbach|프라이부르크=freiburg|호펜하임=hoffenheim|마인츠=mainz|브레멘=bremen|아우크스부르크=augsburg|우니온베를린=union berlin|하이덴하임=heidenheim|장크트파울리=st pauli|함부르크=hamburg|쾰른=koln|보훔=bochum|"+
+"인테르=inter|ac밀란=ac milan|유벤투스=juventus|나폴리=napoli|as로마=roma|라치오=lazio|아탈란타=atalanta|피오렌티나=fiorentina|볼로냐=bologna|토리노=torino|우디네세=udinese|제노아=genoa|파르마=parma|칼리아리=cagliari|레체=lecce|베로나=verona|사수올로=sassuolo|크레모네세=cremonese|엠폴리=empoli|베네치아=venezia|몬차=monza|"+
+"파리생제르맹=paris saint germain|psg=paris saint germain|마르세유=marseille|리옹=lyon|모나코=monaco|릴osc=lille|rc랑스=lens|ogc니스=nice|스트라스부르=strasbourg|낭트=nantes|툴루즈=toulouse|브레스트=brest|오세르=auxerre|앙제=angers|르아브르=le havre|로리앙=lorient|파리fc=paris fc|"+
+"psv=psv|아약스=ajax|페예노르트=feyenoord|트벤테=twente|벤피카=benfica|fc포르투=porto|스포르팅=sporting|브라가=braga|갈라타사라이=galatasaray|페네르바체=fenerbahce|베식타스=besiktas|트라브존스포르=trabzonspor|셀틱=celtic|레인저스=rangers|브뤼허=brugge|안더레흐트=anderlecht|슬라비아=slavia|잘츠부르크=salzburg|코펜하겐=copenhagen|올림피아코스=olympiacos|샤흐타르=shakhtar|영보이스=young boys|바젤=basel|"+
+"울산=ulsan|전북=jeonbuk|포항=pohang|fc서울=fc seoul|수원fc=suwon fc|수원삼성=bluewings|대구=daegu|대전=daejeon|광주=gwangju|강원=gangwon|제주=jeju|인천=incheon|김천=gimcheon|안양=anyang|부산=busan|부천=bucheon|성남=seongnam|전남=jeonnam|경남=gyeongnam|서울이랜드=seoul e land|"+
+"가시마=kashima|우라와=urawa|가와사키=kawasaki|마리노스=marinos|요코하마fc=yokohama fc|감바=gamba|세레소=cerezo|비셀=vissel|산프레체=sanfrecce|나고야=nagoya|가시와=kashiwa|fc도쿄=fc tokyo|도쿄베르디=verdy|마치다=machida|쇼난=shonan|아비스파=avispa|사간=sagan|교토=kyoto|니가타=niigata|시미즈=shimizu|이와타=iwata|오카야마=okayama|제프=jef|몬테디오=montedio|베갈타=vegalta|v바렌=nagasaki|삿포로=sapporo|도쿠시마=tokushima|오이타=oita|"+
+"갤럭시=galaxy|lafc=los angeles fc|인터마이애미=inter miami|세인트루이스=st louis|시애틀=seattle|포틀랜드=portland|애틀랜타=atlanta|뉴욕시티=new york city|레드불스=red bulls|필라델피아=philadelphia|콜럼버스=columbus|신시내티=cincinnati|내슈빌=nashville|올랜도=orlando|휴스턴=houston|댈러스=dallas|오스틴=austin|밴쿠버=vancouver|토론토=toronto|몬트리올=montreal|시카고파이어=chicago fire|미네소타=minnesota|콜로라도=colorado|솔트레이크=salt lake|캔자스시티=kansas city|샌디에이고=san diego|새너제이=san jose|샬럿=charlotte|뉴잉글랜드=new england|dc유나이티드=d c united|"+
+"알힐랄=al hilal|알나스르=al nassr|알이티하드=al ittihad|알아흘리=al ahli|알사드=al sadd|부리람=buriram|멜버른=melbourne|시드니=sydney",
+"야구":"다이아몬드백스=diamondbacks|브레이브스=braves|오리올스=orioles|레드삭스=red sox|컵스=cubs|화이트삭스=white sox|레즈=reds|가디언스=guardians|로키스=rockies|타이거스=tigers|애스트로스=astros|로열스=royals|에인절스=angels|다저스=dodgers|말린스=marlins|브루어스=brewers|트윈스=twins|메츠=mets|양키스=yankees|애슬레틱스=athletics|필리스=phillies|파이리츠=pirates|파드리스=padres|자이언츠=giants|매리너스=mariners|카디널스=cardinals|레이스=rays|레인저스=rangers|블루제이스=blue jays|내셔널스=nationals|"+
+"두산=doosan|lg=lg twins|기아=kia|kia=kia|삼성=samsung|롯데=lotte|한화=hanwha|ssg=ssg|nc=nc dinos|kt=kt wiz|키움=kiwoom|"+
+"요미우리=yomiuri|한신=hanshin|주니치=chunichi|히로시마=hiroshima|야쿠르트=yakult|요코하마=yokohama|dena=baystars|소프트뱅크=softbank|세이부=seibu|라쿠텐=rakuten|지바롯데=chiba lotte|오릭스=orix|닛폰햄=nippon ham|니혼햄=nippon ham",
+"농구":"호크스=hawks|셀틱스=celtics|네츠=nets|호네츠=hornets|불스=bulls|캐벌리어스=cavaliers|매버릭스=mavericks|너게츠=nuggets|피스톤스=pistons|워리어스=warriors|로키츠=rockets|페이서스=pacers|클리퍼스=clippers|레이커스=lakers|그리즐리스=grizzlies|벅스=bucks|팀버울브스=timberwolves|펠리컨스=pelicans|닉스=knicks|썬더=thunder|선더=thunder|매직=magic|세븐티식서스=76ers|76ers=76ers|선즈=suns|블레이저스=blazers|킹스=kings|스퍼스=spurs|랩터스=raptors|재즈=jazz|위저즈=wizards"};
+const R507_ALIASES=Object.fromEntries(Object.entries(R507_ALIAS_TEXT).map(([s,t])=>[s,t.split("|").map(x=>x.split("=")).filter(x=>x.length===2&&x[0]&&x[1]).map(([k,e])=>[norm(k),r507En(e)])]));
+const R507_CHO=["K","K","N","T","T","R","M","P","P","S","S","","S","S","S","K","T","P",""];
+const R507_JONG=["","K","K","KS","N","NS","N","T","R","RK","RM","RP","RS","RT","RP","R","M","P","PS","S","S","N","S","S","K","T","P",""];
+const R507_AFFIX=/\b(?:fc|sc|ssc|ac|as|rc|rb|cf|fk|sk|osc|afc|sfc|cd|ud|sd|sv|vfb|vfl|tsg|fsv|ogc|losc|bc|hdfc)\b/gi;
+function r507En(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();}
+function r507EnSkeleton(s){
+let x=r507En(s).replace(/[^a-z]/g,"");
+x=x.replace(/r(?![aeiouy])/g,"").replace(/th/g,"s").replace(/ph/g,"p").replace(/tch|ch|sh|ts|tz/g,"s").replace(/ck|qu|q/g,"k").replace(/x/g,"ks").replace(/c(?=[eiy])/g,"s").replace(/c/g,"k").replace(/g(?=[eiy])/g,"s").replace(/[jz]/g,"s");
+let out="";for(const ch of x){const c="bpfv".includes(ch)?"P":"dt".includes(ch)?"T":"gk".includes(ch)?"K":ch==="s"?"S":"lr".includes(ch)?"R":ch==="m"?"M":ch==="n"?"N":"";if(c&&out[out.length-1]!==c)out+=c;}
+return out;}
+function r507KoSkeleton(s){
+let out="";const push=t=>{for(const c of t){if(c&&out[out.length-1]!==c)out+=c;}};let latin="";
+const flush=()=>{if(latin){push(r507EnSkeleton(latin));latin="";}};
+for(const ch of String(s||"")){const code=ch.charCodeAt(0);
+if(code>=0xAC00&&code<=0xD7A3){flush();const i=code-0xAC00;push(R507_CHO[Math.floor(i/588)]);push(R507_JONG[i%28]);}
+else if(/[A-Za-z]/.test(ch))latin+=ch;else flush();}
+flush();return out;}
+function r507Lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let prev=Array.from({length:n+1},(_,j)=>j);
+for(let i=1;i<=m;i++){const cur=[i];for(let j=1;j<=n;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=cur;}return prev[n];}
+function r507AliasScore(store,sport,kr,en){
+const K=norm(kr),E=" "+r507En(en)+" ",learned=store?.aliases?.[sport+"|"+K];
+if(learned)return E.includes(" "+learned+" ")?1:0;
+let seen=false;for(const [k,e] of R507_ALIASES[sport]||[]){if(k&&K.includes(k)){seen=true;if(E.includes(" "+e))return 1;}}
+return seen?0:null;}
+function r507NameSim(store,sport,kr,en){
+const a=r507AliasScore(store,sport,kr,en);if(a!=null)return a;
+const A=r507KoSkeleton(String(kr||"").replace(R507_AFFIX," ")),B=r507EnSkeleton(String(en||"").replace(R507_AFFIX," "));
+if(A.length<2||B.length<2)return 0;
+let s=1-r507Lev(A,B)/Math.max(A.length,B.length);if(A.length>=3&&B.length>=3&&(A.includes(B)||B.includes(A)))s=Math.max(s,.8);
+return clamp(s,0,1);}
+function r507Phi(z){const x=Math.abs(z)/Math.SQRT2,t=1/(1+.3275911*x),y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);return .5*(1+Math.sign(z)*y);}
+function r507InvPhi(p){p=clamp(p,1e-6,1-1e-6);let lo=-8,hi=8;for(let i=0;i<60;i++){const mid=(lo+hi)/2;if(r507Phi(mid)<p)lo=mid;else hi=mid;}return (lo+hi)/2;}
+function r507UsableLine(pt){const v=Number(pt);return Number.isFinite(v)&&Math.abs(v*2-Math.round(v*2))<1e-9;} // .0 or .5 only (no quarter lines)
+/* ---- score models ---- */
+function r507Pois(l,G=11){const p=[Math.exp(-l)];for(let k=1;k<G;k++)p[k]=p[k-1]*l/k;return p;}
+function r507SoccerFit(o){
+const G=11,f=(lh,la)=>{const ph=r507Pois(lh,G),pa=r507Pois(la,G);let H=0,D=0,A=0,ov=0,push=0;const pt=o.total?.pt;
+for(let i=0;i<G;i++)for(let j=0;j<G;j++){const p=ph[i]*pa[j];if(i>j)H+=p;else if(i===j)D+=p;else A+=p;if(pt!=null){if(i+j>pt)ov+=p;else if(i+j===pt)push+=p;}}
+let e=(H-o.h)**2+(D-o.d)**2+(A-o.a)**2;if(pt!=null)e+=(ov/Math.max(1e-9,1-push)-o.total.over)**2;return e;};
+let best={lh:1.3,la:1.1,e:Infinity};
+for(let lh=.1;lh<=4.5;lh+=.1)for(let la=.1;la<=4.5;la+=.1){const e=f(lh,la);if(e<best.e)best={lh,la,e};}
+const c={...best};for(let lh=Math.max(.02,c.lh-.1);lh<=c.lh+.1;lh+=.01)for(let la=Math.max(.02,c.la-.1);la<=c.la+.1;la+=.01){const e=f(lh,la);if(e<best.e)best={lh,la,e};}
+return {type:"SOCCER",lh:best.lh,la:best.la,err:best.e};}
+function r507SoccerMarket(fit,fam,line){
+const G=11,ph=r507Pois(fit.lh,G),pa=r507Pois(fit.la,G);let W=0,D=0,L=0,O=0,U=0;
+for(let i=0;i<G;i++)for(let j=0;j<G;j++){const p=ph[i]*pa[j];
+if(fam==="HANDICAP"){const z=i+line-j;if(z>1e-9)W+=p;else if(z<-1e-9)L+=p;else D+=p;}
+else if(fam==="TOTAL"){if(i+j>line)O+=p;else if(i+j<line)U+=p;}}
+if(fam==="HANDICAP")return {승:W,무:D,패:L};
+if(fam==="TOTAL")return {오버:O,언더:U};
+return null;}
+function r507NB(mu,k=6,N=40){mu=Math.max(.05,mu);const p=k/(k+mu),q=1-p,out=[Math.pow(p,k)];for(let x=1;x<N;x++)out[x]=out[x-1]*q*(x+k-1)/x;return out;}
+function r507BaseballFit(o){
+const N=40,overAt=(muT,pt)=>{const a=r507NB(muT/2),b=r507NB(muT/2);let O=0,P=0;for(let i=0;i<N;i++)for(let j=0;j<N;j++){const p=a[i]*b[j];if(i+j>pt)O+=p;else if(i+j===pt)P+=p;}return O/Math.max(1e-9,1-P);};
+let muT=Number(o.defaultTotal)||8.8;
+if(o.total&&r507UsableLine(o.total.pt)){let lo=2,hi=22;for(let it=0;it<36;it++){const mid=(lo+hi)/2;if(overAt(mid,o.total.pt)<o.total.over)lo=mid;else hi=mid;}muT=(lo+hi)/2;}
+const homeWin=s=>{const a=r507NB(muT*s),b=r507NB(muT*(1-s));let W=0,T=0;for(let i=0;i<N;i++)for(let j=0;j<N;j++){const p=a[i]*b[j];if(i>j)W+=p;else if(i===j)T+=p;}return W+T*s;};
+let lo=.05,hi=.95;for(let it=0;it<36;it++){const mid=(lo+hi)/2;if(homeWin(mid)<o.h)lo=mid;else hi=mid;}
+return {type:"BASEBALL",muT,s:(lo+hi)/2};}
+function r507BaseballMarket(fit,fam,line){
+const N=40,a=r507NB(fit.muT*fit.s),b=r507NB(fit.muT*(1-fit.s));let W=0,L=0,O=0,U=0;
+for(let i=0;i<N;i++)for(let j=0;j<N;j++){const p=a[i]*b[j];
+if(fam==="HANDICAP"){if(i===j){const pw=p*fit.s,pl=p-pw;if(1+line>0)W+=pw;else L+=pw;if(-1+line>0)W+=pl;else L+=pl;}else if(i-j+line>0)W+=p;else L+=p;}
+else if(fam==="TOTAL"){if(i+j>line)O+=p;else if(i+j<line)U+=p;}}
+if(fam==="HANDICAP")return {승:W,패:L};if(fam==="TOTAL")return {오버:O,언더:U};return null;}
+function r507BasketFit(o,league){const nba=/nba/i.test(String(league||"")),sd=nba?12.5:11,st=nba?18:15;
+return {type:"BASKETBALL",md:sd*r507InvPhi(o.h),sd,mt:o.total&&r507UsableLine(o.total.pt)?o.total.pt+st*r507InvPhi(o.total.over):null,st};}
+function r507BasketMarket(fit,fam,line){
+if(fam==="HANDICAP"){const p=r507Phi((fit.md+line)/fit.sd);return {승:p,패:1-p};}
+if(fam==="TOTAL"){if(fit.mt==null)return null;const p=r507Phi((fit.mt-line)/fit.st);return {오버:p,언더:1-p};}
+return null;}
+/* ---- bookmaker probabilities (no-vig) ---- */
+function r507BookProbs(ev){
+const H=ev?.home_team,A=ev?.away_team,books=Array.isArray(ev?.bookmakers)?ev.bookmakers:[];
+const extract=b=>{const h2h=(b.markets||[]).find(x=>x.key==="h2h"),tot=(b.markets||[]).find(x=>x.key==="totals");let ml=null,total=null;
+if(h2h){const get=n=>Number((h2h.outcomes||[]).find(o=>o.name===n)?.price);const ph=get(H),pa=get(A),pd=get("Draw");
+if(ph>1&&pa>1){const ih=1/ph,ia=1/pa,id=pd>1?1/pd:0,s=ih+ia+id;ml={h:ih/s,d:id/s,a:ia/s,draw:pd>1};}}
+if(tot){const ov=(tot.outcomes||[]).find(o=>/^over$/i.test(o.name)),un=ov&&(tot.outcomes||[]).find(o=>/^under$/i.test(o.name)&&Number(o.point)===Number(ov.point));
+if(ov&&un&&Number(ov.price)>1&&Number(un.price)>1){const io=1/Number(ov.price),iu=1/Number(un.price);total={pt:Number(ov.point),over:io/(io+iu)};}}
+return {ml,total,key:b.key};};
+for(const k of ["pinnacle","betfair_ex_eu","matchbook"]){const b=books.find(x=>x.key===k);if(b){const r=extract(b);if(r.ml)return {...r,src:k};}}
+const all=books.map(extract).filter(r=>r.ml);if(!all.length)return null;
+const med=v=>{const s=v.slice().sort((a,b)=>a-b);return s[Math.floor(s.length/2)];};
+const ml={h:med(all.map(r=>r.ml.h)),d:med(all.map(r=>r.ml.d)),a:med(all.map(r=>r.ml.a)),draw:all.some(r=>r.ml.draw)},s=ml.h+ml.d+ml.a;ml.h/=s;ml.d/=s;ml.a/=s;
+return {ml,total:(all.find(r=>r.total)||{}).total||null,src:"median:"+all.length};}
+/* ---- state, budget, API ---- */
+function r507Opts(env){const f=k=>{const raw=String(env?.[k]??"").trim(),v=Number(raw);return raw!==""&&Number.isFinite(v)?v:null;};
+const w=f("OVERSEAS_WEIGHT"),h=f("OVERSEAS_WINDOW_HOURS"),d=f("OVERSEAS_DAILY_CREDITS");
+return {key:String(env?.THE_ODDS_API_KEY||"").trim(),disabled:/^(1|true|on|yes)$/i.test(String(env?.OVERSEAS_DISABLED||"").trim()),
+weight:w!=null?clamp(w>1?w/100:w,0,.95):R507.weight,windowMs:h!=null&&h>0?h*3600000:R507.windowMs,dailyCredits:d!=null&&d>=0?Math.floor(d):null};}
+function r507Store(state){const s=state.r507Overseas||(state.r507Overseas={});
+s.markets=s.markets||{};s.matches=s.matches||{};s.oddsAt=s.oddsAt||{};s.aliases=s.aliases||{};s.budget=s.budget||{};s.audit=s.audit||{};return s;}
+async function r507Get(key,path,params){
+const u=new URL(R507.host+path);u.searchParams.set("apiKey",key);for(const [k,v] of Object.entries(params||{}))if(v!=null&&v!=="")u.searchParams.set(k,String(v));
+const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),9000);
+try{const r=await fetch(u.toString(),{headers:{accept:"application/json"},signal:ac.signal});
+const usage={remaining:num(r.headers.get("x-requests-remaining")),used:num(r.headers.get("x-requests-used")),last:num(r.headers.get("x-requests-last"))};
+const text=await r.text();if(!r.ok)throw new Error(`ODDS_API_HTTP_${r.status}:${text.slice(0,100).replace(/apiKey=[^&\s"]+/gi,"apiKey=***")}`);
+return {data:JSON.parse(text),usage};}
+catch(e){if(ac.signal.aborted)throw new Error("ODDS_API_TIMEOUT");throw e;}finally{clearTimeout(tm);}}
+function r507Spend(store,usage,fallbackCost){const b=store.budget,now=Date.now(),day=kstDateFromMs(now);if(b.day!==day){b.day=day;b.spent=0;}
+const cost=usage?.last!=null?usage.last:fallbackCost;b.spent=Number(b.spent||0)+Number(cost||0);
+// R507: the free quota resets on an unknown day (often the signup day) — detect the reset instead of assuming month end
+if(usage?.used!=null&&Number.isFinite(Number(b.used))&&usage.used+5<Number(b.used))b.periodStart=now;
+if(usage?.remaining!=null&&Number.isFinite(Number(b.remaining))&&usage.remaining>Number(b.remaining)+50)b.periodStart=now;
+if(!Number(b.periodStart))b.periodStart=now;
+if(usage?.remaining!=null)b.remaining=usage.remaining;else if(Number.isFinite(Number(b.remaining)))b.remaining=Number(b.remaining)-Number(cost||0);
+if(usage?.used!=null)b.used=usage.used;b.at=nowIso();}
+function r507Budget(store,now,o){const b=store.budget,day=kstDateFromMs(now);if(b.day!==day){b.day=day;b.spent=0;}
+const rem=Number(b.remaining);let end=Number(b.periodStart||now)+30*86400000;while(end<=now)end+=30*86400000;
+const daysLeft=Math.max(1,Math.ceil((end-now)/86400000));b.periodEnds=new Date(end).toISOString();
+const daily=o.dailyCredits!=null?o.dailyCredits:Number.isFinite(rem)?Math.max(0,Math.floor((rem-R507.reserve)/daysLeft)):4;
+return {day,daily,spent:Number(b.spent||0),remaining:Number.isFinite(rem)?rem:null,canSpend:c=>Number(b.spent||0)+c<=daily&&(!Number.isFinite(rem)||rem-c>=R507.reserve)};}
+function r507Games(state,now){const map=new Map();
+for(const m of state.markets||[]){if(!currentRoundMarket(m,state)||m.resultFinal||!R507.groups[m.sport])continue;const t=gameTimeMs(m);if(t==null||t<=now||t-now>R507.horizonMs)continue;
+const k=gameSeed(m);if(!map.has(k))map.set(k,{key:k,sport:m.sport,league:m.league,home:m.home,away:m.away,kick:t,markets:[]});map.get(k).markets.push(m);}
+return [...map.values()];}
+function r507MatchGames(store,games,mem,keys){
+const taken=new Set(),rows=[];
+const scored=games.map(g=>{const group=R507.groups[g.sport],cands=[];
+for(const s of keys){if(s.group!==group)continue;for(const e of mem.events[s.key]?.list||[])if(Math.abs(e.t-g.kick)<=R507.toleranceMs)cands.push({...e,sportKey:s.key});}
+const ranked=cands.map(e=>{const score=(r507NameSim(store,g.sport,g.home,e.h)+r507NameSim(store,g.sport,g.away,e.a))/2,
+swapped=(r507NameSim(store,g.sport,g.home,e.a)+r507NameSim(store,g.sport,g.away,e.h))/2;return {...e,score,swapped};})
+.filter(e=>!(e.swapped>e.score+.2)).sort((a,b)=>b.score-a.score);
+return {g,ranked,n:cands.length};}).sort((a,b)=>(b.ranked[0]?.score||0)-(a.ranked[0]?.score||0));
+for(const x of scored){const free=x.ranked.filter(e=>!taken.has(e.id)),best=free[0],second=free[1];let method=null;
+if(best){if(best.score>=.75&&(!second||best.score-second.score>=.1))method="NAME";
+else if(best.score>=.5&&(!second||best.score-second.score>=.2))method="NAME_TIME";
+else if(x.n===1&&best.score>=.3)method="TIME_UNIQUE";}
+if(method){taken.add(best.id);rows.push({game:x.g,match:{id:best.id,sportKey:best.sportKey,h:best.h,a:best.a,t:best.t,score:best.score,method}});}
+else rows.push({game:x.g,match:null,candidates:x.n,bestScore:best?r3(best.score):null});}
+return rows;}
+function r507GameFresh(store,g,now){return g.markets.some(m=>{const e=store.markets[`${m.gmTs}:${m.no}`];return e&&now-Number(e.at)<R507.refetchMs&&Number(e.kick)===g.kick;});}
+function r507DueLeague(store,matches,now,o){const byKey=new Map();
+for(const x of matches){if(!x.match)continue;const k=x.match.sportKey;
+if(now-Number(store.oddsAt[k]||0)<R507.minRefetchGapMs)continue;
+const e=byKey.get(k)||{sportKey:k,eventIds:new Set(),first:Infinity,due:false};e.eventIds.add(x.match.id);
+if(x.game.kick-now<=o.windowMs&&!r507GameFresh(store,x.game,now)){e.due=true;e.first=Math.min(e.first,x.game.kick);}byKey.set(k,e);}
+const due=[...byKey.values()].filter(e=>e.due).sort((a,b)=>a.first-b.first)[0];
+return due?{sportKey:due.sportKey,eventIds:[...due.eventIds].slice(0,40)}:null;}
+function r507ApplyEvents(store,due,data,matches,o,now){
+const byId=new Map((data||[]).map(e=>[e.id,e]));let applied=0,rejected=0;const rejects=[];
+for(const x of matches){if(!x.match||x.match.sportKey!==due.sportKey)continue;const ev=byId.get(x.match.id);if(!ev)continue;
+const g=x.game,bp=r507BookProbs(ev);if(!bp?.ml){rejected++;rejects.push({game:`${g.home} vs ${g.away}`,reason:"NO_H2H"});continue;}
+const soccer=g.sport==="축구",ml2=soccer?null:{h:bp.ml.h/(bp.ml.h+bp.ml.a),a:bp.ml.a/(bp.ml.h+bp.ml.a)};
+const bml=g.markets.find(m=>m.marketFamily==="MONEYLINE");
+if(bml){const nv=noVig(validChoices(bml)),bh=Number(nv["승"]),ba=Number(nv["패"]),oh=soccer?bp.ml.h:ml2.h,oa=soccer?bp.ml.a:ml2.a;
+if(Number.isFinite(bh)&&Math.abs(bh-oh)<=R507.maxMlGap){const gp=store.gap||(store.gap={n:0,sumAbs:0,bySport:{}}),sp=gp.bySport[g.sport]||(gp.bySport[g.sport]={n:0,sumAbs:0}),d=Math.abs(bh-oh);
+if(gp.n>=1000){gp.n/=2;gp.sumAbs/=2;}if(sp.n>=1000){sp.n/=2;sp.sumAbs/=2;}gp.n++;gp.sumAbs+=d;sp.n++;sp.sumAbs+=d;}
+if((Number.isFinite(bh)&&Math.abs(bh-oh)>R507.maxMlGap)||(Number.isFinite(ba)&&Math.abs(ba-oa)>R507.maxMlGap)){rejected++;rejects.push({game:`${g.home} vs ${g.away}`,api:`${ev.home_team} vs ${ev.away_team}`,reason:"ODDS_SHAPE_MISMATCH",betman:r3(bh),overseas:r3(oh)});continue;}}
+else if(x.match.score<.75){rejected++;rejects.push({game:`${g.home} vs ${g.away}`,reason:"NO_BETMAN_MONEYLINE_TO_VERIFY"});continue;}
+const btot=g.markets.find(m=>m.marketFamily==="TOTAL"),bnv=btot?noVig(validChoices(btot)):null;
+const domTotal=btot&&Number.isFinite(Number(bnv?.["오버"]))?{pt:Number(btot.line),over:Number(bnv["오버"])}:null;
+const ovTotal=bp.total&&r507UsableLine(bp.total.pt)?bp.total:null;
+let fit;
+if(soccer)fit=r507SoccerFit({h:bp.ml.h,d:bp.ml.d,a:bp.ml.a,total:ovTotal||domTotal});
+else if(g.sport==="야구")fit=r507BaseballFit({h:ml2.h,total:ovTotal||domTotal});
+else fit=r507BasketFit({h:ml2.h,total:ovTotal},g.league);
+for(const m of g.markets){const labels=validChoices(m).map(c=>c.label);let probs=null,method="MODEL";
+if(m.marketFamily==="MONEYLINE"){probs=soccer?{승:bp.ml.h,무:bp.ml.d,패:bp.ml.a}:{승:ml2.h,패:ml2.a};method="DIRECT";}
+else if(m.marketFamily==="TOTAL"&&!ovTotal)continue; // no overseas totals information → keep domestic
+else{const line=Number(m.line);if(!Number.isFinite(line))continue;
+probs=fit.type==="SOCCER"?r507SoccerMarket(fit,m.marketFamily,line):fit.type==="BASEBALL"?r507BaseballMarket(fit,m.marketFamily,line):r507BasketMarket(fit,m.marketFamily,line);}
+if(!probs||!labels.length||!labels.every(l=>Number(probs[l])>0))continue;
+const sum=labels.reduce((s,l)=>s+Number(probs[l]),0),out=Object.fromEntries(labels.map(l=>[l,r3(Number(probs[l])/sum)]));
+store.markets[`${m.gmTs}:${m.no}`]={probs:out,at:now,kick:g.kick,src:bp.src,w:o.weight,eventId:ev.id,sportKey:due.sportKey,method,api:`${ev.home_team} vs ${ev.away_team}`};applied++;}
+if(x.match.score>=.7&&bml){const learn=(kr,en)=>{const k=g.sport+"|"+norm(kr);if(!store.aliases[k])store.aliases[k]=r507En(en);};learn(g.home,ev.home_team);learn(g.away,ev.away_team);}}
+const ak=Object.keys(store.aliases);if(ak.length>1500)for(const k of ak.slice(0,ak.length-1500))delete store.aliases[k];
+return {applied,rejected,rejects:rejects.slice(0,20)};}
+function r507Prune(store,now){for(const [k,e] of Object.entries(store.markets))if(!(Number(e.kick)>now-2*86400000))delete store.markets[k];}
+async function r507RefreshOverseasOdds(state,env){
+const o=r507Opts(env);if(!o.key)return {status:"NOT_CONFIGURED"};if(o.disabled)return {status:"NOT_CONFIGURED",reason:"OVERSEAS_DISABLED"};
+const store=r507Store(state),audit=store.audit,now=Date.now(),games=r507Games(state,now);
+audit.at=nowIso();audit.weight=o.weight;audit.games=games.length;
+if(!games.length){r507Prune(store,now);return {status:"NO_UPCOMING_PENDING"};}
+const mem=MEM.r507||(MEM.r507={sports:null,sportsAt:0,events:{}});
+try{
+if(!mem.sports||now-mem.sportsAt>R507.sportsRefreshMs){const {data,usage}=await r507Get(o.key,"/v4/sports",{});r507Spend(store,usage,0);
+const groups=Object.values(R507.groups);mem.sports=(Array.isArray(data)?data:[]).filter(s=>s&&s.active&&!s.has_outrights&&groups.includes(s.group)).map(s=>({key:s.key,group:s.group}));mem.sportsAt=now;}
+const need=new Set(games.map(g=>R507.groups[g.sport])),keys=mem.sports.filter(s=>need.has(s.group));
+for(const s of keys.filter(s=>!mem.events[s.key]||now-mem.events[s.key].at>R507.eventsRefreshMs).slice(0,R507.eventsPerTick)){
+try{const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(s.key)}/events`,{dateFormat:"iso"});r507Spend(store,usage,0);
+mem.events[s.key]={at:now,list:(Array.isArray(data)?data:[]).map(e=>({id:e.id,t:Date.parse(e.commence_time),h:e.home_team,a:e.away_team})).filter(e=>e.id&&Number.isFinite(e.t)&&e.t>now-3600000&&e.t<now+R507.horizonMs)};}
+catch(e){mem.events[s.key]={at:now,list:[],error:String(e?.message||e).slice(0,100)};}}
+const matches=r507MatchGames(store,games,mem,keys);
+audit.matched=matches.filter(x=>x.match).length;audit.unmatched=matches.length-audit.matched;
+audit.eventKeys=`${keys.filter(s=>mem.events[s.key]).length}/${keys.length}`;
+store.matches=Object.fromEntries(matches.filter(x=>x.match).map(x=>[x.game.key,{betman:`${x.game.home} vs ${x.game.away}`,kick:x.game.kick,eventId:x.match.id,sportKey:x.match.sportKey,api:`${x.match.h} vs ${x.match.a}`,nameScore:r3(x.match.score),method:x.match.method}]));
+store.unmatched=matches.filter(x=>!x.match).slice(0,30).map(x=>({betman:`${x.game.home} vs ${x.game.away}`,kick:x.game.kick,sport:x.game.sport,candidates:x.candidates,bestScore:x.bestScore}));
+const due=r507DueLeague(store,matches,now,o);
+const budget=r507Budget(store,now,o);audit.budget={day:budget.day,daily:budget.daily,spent:budget.spent,remaining:budget.remaining};
+if(!due){r507Prune(store,now);return {status:"OK",matched:audit.matched};}
+if(!budget.canSpend(2)){audit.lastSkip={at:nowIso(),reason:"DAILY_CREDIT_BUDGET",sportKey:due.sportKey};return {status:"BACKOFF",retryAfterMs:3600000};}
+const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(due.sportKey)}/odds`,{bookmakers:R507.bookmakers,markets:"h2h,totals",oddsFormat:"decimal",dateFormat:"iso",eventIds:due.eventIds.join(",")});
+r507Spend(store,usage,2);store.oddsAt[due.sportKey]=now;
+const res=r507ApplyEvents(store,due,Array.isArray(data)?data:[],matches,o,now);
+audit.lastFetch={at:nowIso(),sportKey:due.sportKey,events:Array.isArray(data)?data.length:0,applied:res.applied,rejected:res.rejected,rejects:res.rejects};
+audit.budget={...audit.budget,spent:Number(store.budget.spent||0),remaining:store.budget.remaining??null};audit.lastError=null;
+r507Prune(store,now);
+if(res.applied>0){markState(state);await saveState(state,env,true);}
+return {status:"OK",matched:audit.matched,applied:res.applied};
+}catch(e){audit.lastError=String(e?.message||e).slice(0,160);return {status:"ERROR",error:audit.lastError};}}
+/* ---- engine hooks ---- */
+function r507Attach(state){const store=state?.r507Overseas;
+for(const m of state?.markets||[]){const e=store?.markets?.[`${m.gmTs}:${m.no}`];if(e&&Number(e.kick)===gameTimeMs(m))m.r507Overseas=e;else if(m.r507Overseas)delete m.r507Overseas;}}
+function r507ApplyOverseas(m,rows){
+const ov=m?.r507Overseas;if(!ov||!Array.isArray(rows)||!rows.length)return rows;
+const now=Date.now(),kick=gameTimeMs(m),at=Number(ov.at);
+if(!(now-at<=R507.maxAgeMs)||kick==null||at>=kick)return rows;
+const w=clamp(Number(ov.w??R507.weight),0,.95);if(w<=0)return rows;
+if(!rows.every(r=>Number(ov.probs?.[r.pick])>0&&Number(r.marketP)>0))return rows;
+const lg=p=>{const q=clamp(p,.001,.999);return Math.log(q/(1-q));},sg=z=>1/(1+Math.exp(-z));
+const raw=rows.map(r=>sg(w*lg(Number(ov.probs[r.pick]))+(1-w)*lg(Number(r.marketP)))),sum=raw.reduce((a,b)=>a+b,0)||1;
+return rows.map((r,i)=>{const anchor=raw[i]/sum,shift=anchor-Number(r.marketP),adj=v=>Number.isFinite(Number(v))?clamp(Number(v)+shift,.001,.999):v;
+const calibratedP=adj(r.calibratedP),conservativeP=adj(r.conservativeP);
+return {...r,betmanMarketP:r.marketP,overseasP:Number(ov.probs[r.pick]),overseasSource:ov.src,overseasWeight:w,marketP:anchor,
+calibratedP,aiP:calibratedP,conservativeP,decisionProbability:adj(r.decisionProbability),modelP:adj(r.modelP),
+edge:calibratedP-anchor,valuePct:anchor>0?(calibratedP-anchor)/anchor:0,conservativeValue:conservativeP-anchor,ev:calibratedP*Number(r.odds)-1};});}
+function r507Annotate(state){
+for(const m of state?.markets||[]){if(!m.marked||!m.representativeSelected||!m.r507Overseas||!currentRoundMarket(m,state))continue;
+const ov=m.r507Overseas,p=Number(ov.probs?.[m.finalPick]);if(!(p>0))continue;
+m.overseasProbability=r3(p);m.overseasSource=ov.src;m.overseasWeight=ov.w;
+if(!/해외배당/.test(String(m.analysisReason||"")))m.analysisReason=`${m.analysisReason||""} · 해외배당(${ov.src}) ${(p*100).toFixed(1)}% 반영 · 해외${Math.round(Number(ov.w)*100)}:국내${100-Math.round(Number(ov.w)*100)}`;}}
+function r507Status(state,env){const o=r507Opts(env),s=state?.r507Overseas||{},now=Date.now();
+const priced=Object.values(s.markets||{}).filter(e=>now-Number(e.at)<=R507.maxAgeMs&&Number(e.kick)>now).length;
+return {version:APP_VERSION,configured:!!o.key,disabled:o.disabled,weight:o.weight,domesticWeight:r3(1-o.weight),windowHours:o.windowMs/3600000,
+budget:s.budget||null,audit:s.audit||null,pricedMarkets:priced,
+betmanVsOverseasGap:s.gap?.n?{samples:Math.round(s.gap.n),avgAbsDiffPct:r3(100*s.gap.sumAbs/s.gap.n),bySport:Object.fromEntries(Object.entries(s.gap.bySport||{}).map(([k,v])=>[k,{samples:Math.round(v.n),avgAbsDiffPct:v.n?r3(100*v.sumAbs/v.n):null}])),
+guide:"베트맨과 해외의 일반승 홈팀 확률 차이 평균(시뮬레이션 기준 예상효과): 약 1.5%p→+0.3%p, 2.5%p→+0.7%p, 4%p→+1.2%p, 6%p 이상→+2.5%p 이상"}:null,learnedAliases:Object.keys(s.aliases||{}).length,
+matches:Object.values(s.matches||{}).sort((a,b)=>a.kick-b.kick).slice(0,200).map(x=>({...x,kick:new Date(x.kick).toISOString()})),
+unmatched:(s.unmatched||[]).map(x=>({...x,kick:new Date(x.kick).toISOString()})),
+note:"매칭이 틀린 경기가 보이면 그 경기는 국내 배당만 쓰도록 OVERSEAS_DISABLED=1 또는 알려주세요."};}
+/* ===================== /R507 ===================== */
+
+function analyzeChoiceRowsRaw(m){return r507ApplyOverseas(m,r507AnalyzeChoiceRowsBase(m));}
+function r507AnalyzeChoiceRowsBase(m){
 const sportAux=sportAuxContext(m),choices=validChoices(m),nv=noVig(choices),base=choices.map(c=>choiceSignalBase(m,c,nv));const rawSum=base.reduce((z,x)=>z+Number(x.raw||0),0)||1;const signalRows=base.map(x=>({...x,signalModelP:clamp(Number(x.raw||0)/rawSum,.01,.99)}));
 const scNorm=normalizeLayerP(signalRows,"scorecenter"),psNorm=normalizeLayerP(signalRows,"pickschool"),snNorm=normalizeLayerP(signalRows,"sportsnote"),poNorm=normalizeLayerP(signalRows,"protoodds"),jbNorm=normalizeLayerP(signalRows,"jeongbaedang");
 const modeled=signalRows.map(x=>{
@@ -2126,6 +2400,17 @@ const rows=dedupeMarkets((state?.markets||[]).filter(m=>isAfterCutoff(m)&&!isPur
 if(!state?.gmTs)return rows;
 return rows.filter(m=>currentRoundMarket(m,state)||m.marked||m.representativeSelected||m.resultFinal);
 }
+/* R506: hit-rate first - each game independently takes its highest accuracy-utility option (no family quota). */
+function r506BestPerGame(games){
+const assigned=new Map();
+for(const g of games||[]){
+const opts=Object.values(g.allC||{}).filter(x=>x&&x.m&&x.q&&Number(x.q.odds)>=CFG.minRepOdds);
+if(!opts.length)continue;
+opts.sort((a,b)=>candidateUtility(b)-candidateUtility(a)||Number(b.q.calibratedP||0)-Number(a.q.calibratedP||0)||marketSort(a.m,b.m));
+assigned.set(g.key,opts[0]);
+}
+return {assigned,policy:"R506_HIT_RATE_FIRST_BEST_PER_GAME"};
+}
 function forcedMarketMixAssignment(games,totalTarget,fixedCounts){
 const fams=["MONEYLINE","HANDICAP","TOTAL"],rows=games||[],n=rows.length;
 const fixed=Object.fromEntries(fams.map(k=>[k,Math.max(0,Math.floor(Number(fixedCounts?.[k])||0))]));
@@ -2413,7 +2698,7 @@ const games=[],locked=[],lockedCurrent=[];
 for(const [key,allMs] of groupMarkets(state.markets)){
 const ms=allMs.filter(m=>currentRoundMarket(m,state));
 if(!ms.length)continue;
-const lock=ms.find(m=>m.marked&&m.representativeSelected&&(started(m)||m.resultFinal||r495FrozenValid(m)||(m.r420LastChange&&String(m.finalPick)===String(m.r420LastChange.to?.pick)&&Number(m.finalOdds)===Number(m.r420LastChange.to?.odds)&&validChoices(m).some(c=>String(c.label)===String(m.finalPick)&&Number(c.odds)===Number(m.finalOdds)))));
+const lock=ms.find(m=>m.marked&&m.representativeSelected&&(started(m)||m.resultFinal||m.r506LockedPick||r495FrozenValid(m)||(m.r420LastChange&&String(m.finalPick)===String(m.r420LastChange.to?.pick)&&Number(m.finalOdds)===Number(m.r420LastChange.to?.odds)&&validChoices(m).some(c=>String(c.label)===String(m.finalPick)&&Number(c.odds)===Number(m.finalOdds)))));
 if(lock){if(r495FrozenValid(lock)){const c=validChoices(lock).find(x=>String(x.label)===String(lock.finalPick));if(c)lock.finalOdds=Number(c.odds);}for(const x of ms){if(x!==lock){x.marked=false;x.representativeSelected=false;}}locked.push({key,ms,m:lock});lockedCurrent.push({key,ms,m:lock});continue;}
 const allC=bestCandidateByFamily(ms),allValues=Object.values(allC),bestUtility=allValues.length?Math.max(...allValues.map(candidateUtility)):-Infinity;
 const original=state.fullRepickOverride?.id===R338_FULL_REPICK_ID&&
@@ -2426,7 +2711,7 @@ const forcedAlternate=!!original&&Object.keys(alternatives).length>0;
 const c=forcedAlternate?alternatives:Object.fromEntries(Object.entries(allC).filter(([,x])=>
 candidateUtility(x)+CFG.marketCandidateQualityGap>=bestUtility-1e-12||
 r336TotalQualityBackstop(x,bestUtility)||r360CleanTotalEligible(x,bestUtility)));
-if(Object.keys(c).length)games.push({key,ms,c,allC,bestUtility,original,forcedAlternate});else markUnselected(ms);
+if(Object.keys(CFG.hitRateFirst?allC:c).length)games.push({key,ms,c,allC,bestUtility,original,forcedAlternate});else markUnselected(ms);
 }
 const lockedCounts={MONEYLINE:0,HANDICAP:0,TOTAL:0};for(const x of lockedCurrent)if(lockedCounts[x.m.marketFamily]!=null)lockedCounts[x.m.marketFamily]++;
 const totalN=games.length,totalTarget=targetCounts(totalN,CFG.marketTarget);
@@ -2465,11 +2750,11 @@ state.fullRepickOverride?.id===R338_FULL_REPICK_ID&&
 String(state.fullRepickOverride.gmTs||"")===String(state.gmTs||"")?
 null:applyFirstGameOverOverride(state,games,manualAssigned),manualKeys=new Set(manualAssigned.keys());
 const flexibleGames=games.filter(g=>!manualKeys.has(g.key)),fixedCounts={MONEYLINE:0,HANDICAP:0,TOTAL:0};for(const x of manualAssigned.values())fixedCounts[x.m.marketFamily]=Number(fixedCounts[x.m.marketFamily]||0)+1;
-const allocation=forcedMarketMixAssignment(flexibleGames,totalTarget,fixedCounts);
+const allocation=CFG.hitRateFirst?r506BestPerGame(flexibleGames):forcedMarketMixAssignment(flexibleGames,totalTarget,fixedCounts);
 const effectiveQualityGap=CFG.marketCandidateQualityGap;
 const assigned=new Map([...allocation.assigned,...manualAssigned]);
 let reviewedPlus=0,switchedToTotal=0;
-for(const g of flexibleGames){
+for(const g of (CFG.hitRateFirst?[]:flexibleGames)){
 const current=assigned.get(g.key),alternative=g.c?.TOTAL;
 if(!current||!alternative||current.m.marketFamily!=="HANDICAP"||
 directionForPick(current.m,current.q.pick)!=="PLUS")continue;
@@ -2489,7 +2774,7 @@ assigned.set(g.key,alternative);switchedToTotal++;
 }
 state.plusTotalRepresentativeAudit={at:nowIso(),reviewedPlus,switchedToTotal,
 policy:"R329_EVIDENCE_BACKED_SAME_GAME_TOTAL_NO_FORCED_QUOTA"};
-const drawVisibility=ensureBestSoccerDrawVisible(games,assigned,lockedCurrent);
+const drawVisibility=CFG.hitRateFirst?{skipped:"R506_HIT_RATE_FIRST"}:ensureBestSoccerDrawVisible(games,assigned,lockedCurrent);
 let explicitlyChanged=0,alternateUnavailable=0,qualityLossTotal=0,highRiskAlternates=0;
 for(const g of games){
 if(!g.original)continue;
@@ -2585,7 +2870,7 @@ HANDICAP:lockedCounts.HANDICAP+counts.HANDICAP,TOTAL:lockedCounts.TOTAL+counts.T
 const shortfall=Object.fromEntries(Object.keys(totalTarget).map(k=>[k,Math.max(0,(totalTarget[k]||0)-(totalCounts[k]||0))]));
 const excess=Object.fromEntries(Object.keys(totalTarget).map(k=>[k,Math.max(0,(totalCounts[k]||0)-(totalTarget[k]||0))]));
 const currentReps=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&m.marked&&m.representativeSelected),drawSelections=currentReps.filter(m=>m.sport==="축구"&&m.finalPick==="무").length;
-state.marketMixAudit={at:nowIso(),mode:"FUTURE_RATIO_20_20_60",target:{MONEYLINE:20,HANDICAP:20,TOTAL:60},effectiveFrom:"2026-10-11T03:07:44+09:00",targetPolicy:"R324_GLOBAL_MIN_DEVIATION_THEN_MAX_QUALITY",qualityGapUsed:Number.isFinite(effectiveQualityGap)?effectiveQualityGap:"ALL_VALID_FAMILIES",deviationPenalty:CFG.marketMixDeviationPenalty,drawSelections,drawVisibility,totalDirectionBalance,targetCounts:totalTarget,counts:totalCounts,activeCounts:counts,total:totalN,pct:Object.fromEntries(Object.entries(totalCounts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:allocation.exact,deviation:allocation.deviation,allocationPolicy:allocation.policy,qualityScore:r3(allocation.qualityScore||0),qualityScoreScope:"BASE_ALLOCATION_BEFORE_EVIDENCE_DRAW_CONSTRAINT",postDrawQualityScore:r3([...assigned.values()].reduce((sum,x)=>sum+candidateUtility(x),0)),objective:r3(allocation.objective||0),locked:lockedCurrent.length,lockedCounts,fullRoundCounts,lockedAllRounds:locked.length,candidateAvailability:familyAvailability,scope:"CURRENT_ROUND_FUTURE_REPRESENTATIVES_ONLY"};
+state.marketMixAudit={at:nowIso(),mode:CFG.hitRateFirst?"R506_HIT_RATE_FIRST_BEST_PER_GAME":"FUTURE_RATIO_20_20_60",target:{MONEYLINE:20,HANDICAP:20,TOTAL:60},effectiveFrom:"2026-10-11T03:07:44+09:00",targetPolicy:"R324_GLOBAL_MIN_DEVIATION_THEN_MAX_QUALITY",qualityGapUsed:Number.isFinite(effectiveQualityGap)?effectiveQualityGap:"ALL_VALID_FAMILIES",deviationPenalty:CFG.marketMixDeviationPenalty,drawSelections,drawVisibility,totalDirectionBalance,targetCounts:totalTarget,counts:totalCounts,activeCounts:counts,total:totalN,pct:Object.fromEntries(Object.entries(totalCounts).map(([k,v])=>[k,totalN?r3(v/totalN*100):0])),shortfall,excess,exact:allocation.exact,deviation:allocation.deviation,allocationPolicy:allocation.policy,qualityScore:r3(allocation.qualityScore||0),qualityScoreScope:"BASE_ALLOCATION_BEFORE_EVIDENCE_DRAW_CONSTRAINT",postDrawQualityScore:r3([...assigned.values()].reduce((sum,x)=>sum+candidateUtility(x),0)),objective:r3(allocation.objective||0),locked:lockedCurrent.length,lockedCounts,fullRoundCounts,lockedAllRounds:locked.length,candidateAvailability:familyAvailability,scope:"CURRENT_ROUND_FUTURE_REPRESENTATIVES_ONLY"};
 return state.marketMixAudit;
 }
 function buildFullMarkAudit(state){
@@ -3834,6 +4119,7 @@ const manual=m.manualOverride||/^MANUAL/.test(String(m.selectionMode||""));
 // (raw p systematically favoured low-odds sides: plus-handicaps and unders)
 const mp=clamp(Number(m.marketProbability??p),0,1),edge=clamp(p-mp,-.15,.15),safeEdge=clamp(safe-mp,-.20,.10);
 const fg=r495FrozenValid(m)?m.r495Frozen.grade:null,keep=fg==="가장추천"?.025:fg==="추천"?.018:0; // R495
+if(CFG.hitRateFirst)return p+safe*.35+keep*.2-(manual?0.14:0); // R506: 적중확률 순 등급
 return keep+edge*1.6+safeEdge*.9+clamp(ev,-.25,.15)*.55+quality*.20+integrity*.06+verified-
 (manual?0.14:0)-(m.moneylineRiskFlag?0.08:0)-
 (m.sportRisk?.gradeLimited?0.05:0);
@@ -3854,7 +4140,7 @@ if((fg==="가장추천"||fg==="추천")&&r495Used[fg]<targets[fg]){r495Grade.set
 else if(fg==="일반")r495Grade.set(m,"일반");}
 for(const g of ["가장추천","추천"]){
 let used=r495Used[g];
-const passes=[m=>r494Ok(m,g)&&r356PremiumValueSafety(m,g).ok,
+const passes=CFG.hitRateFirst?[()=>true]:[m=>r494Ok(m,g)&&r356PremiumValueSafety(m,g).ok,
 m=>r494Ok(m,g)&&g==="가장추천"&&r356PremiumValueSafety(m,"추천").ok,
 m=>r494Ok(m,g),
 ()=>true];
@@ -4134,6 +4420,7 @@ return true;
 }
 function markState(state){
 r498WithdrawTwo(state);
+r507Attach(state);
 if(state.r398Protocol?.backupPrerequisite==="TRANSACTIONAL_DO_UNAVAILABLE"){state.r398EvidenceAudit={policy:"NO_NEW_MARKING_WITHOUT_RESTORABLE_BACKUP",blocked:true};return state;}
 if(state.r398Protocol?.enforce){for(const m of state.markets||[])if(r398BeforeKickoff(m)&&m.marked&&m.representativeSelected&&!m.manualOverride)r398PreserveSelection(state,m,"BEFORE_PREGAME_REANALYSIS");}
 buildLearningAudit(state);applyLearningContext(state);applyPerformanceContext(state);applyJeongbaedangContext(state);applyDirectionalGuardContext(state);
@@ -4161,17 +4448,46 @@ m.r480Recommendation={model:"R490_4AXIS_INTEGRATED",grade:m.displayGrade||"일�
 }
 }
 r495StampFrozen(state);
+r507Annotate(state);
 r498WithdrawTwo(state);
 state.oneGameOneMarkAudit=r369SingleMarkAudit(state,true);
 if(state.r398Protocol?.enforce){r398CapturePregameSnapshots(state);r360RefreshMarketAudit(state);}
 }finally{ROW_CACHE=null;}
 return state;}
+/* R506: Betman can move a kickoff after a pick was marked. Re-key the stored record to the official
+   new date/time (instead of keeping a stale twin) and collapse duplicates of one official market. */
+function r506ReconcileReschedules(state,fresh,now=Date.now()){
+const audit={at:nowIso(),moved:[],locked:0,collapsed:0};
+const official=new Map();for(const f of fresh||[])official.set(String(f.gmTs)+":"+Number(f.no)+":"+f.marketFamily,f);
+for(const m of state.markets||[]){
+const f=official.get(String(m.gmTs)+":"+Number(m.no)+":"+m.marketFamily);
+if(!f||m.resultFinal||(m.date===f.date&&m.time===f.time))continue;
+if(norm(m.home)!==norm(f.home)||norm(m.away)!==norm(f.away))continue;
+const oldT=gameTimeMs(m);
+if(m.marked&&m.representativeSelected&&oldT!=null&&oldT<=now){m.r506LockedPick=true;audit.locked++;}
+m.rescheduledFrom=[...(Array.isArray(m.rescheduledFrom)?m.rescheduledFrom:[]),`${m.date} ${m.time}`].slice(-5);
+m.rescheduledAt=nowIso();audit.moved.push({no:m.no,family:m.marketFamily,from:`${m.date} ${m.time}`,to:`${f.date} ${f.time}`});
+m.date=f.date;m.time=f.time;
+}
+const best=new Map(),drop=new Set();
+for(const m of state.markets||[]){
+const k=String(m.gmTs)+":"+Number(m.no)+":"+m.marketFamily,o=best.get(k);
+if(!o){best.set(k,m);continue;}
+const f=official.get(k),fits=x=>!!f&&x.date===f.date&&x.time===f.time;
+const pa=r391FrozenPriority(o),pb=r391FrozenPriority(m);
+if(pb>pa||(pb===pa&&fits(m)&&!fits(o))){drop.add(o);best.set(k,m);}else drop.add(m);
+}
+if(drop.size){state.markets=state.markets.filter(m=>!drop.has(m));audit.collapsed=drop.size;}
+if(audit.moved.length||audit.collapsed)state.r506RescheduleAudit=audit;
+return audit;
+}
 function preserveSettlement(oldMarkets,newMarkets){
 const oldMap=new Map((oldMarkets||[]).map(m=>[officialOddsIdentity(m),m]));
 for(const m of newMarkets){
 const old=oldMap.get(officialOddsIdentity(m)); if(!old)continue;
+for(const k of ["r506LockedPick","rescheduledFrom","rescheduledAt"])if(old[k]!==undefined)m[k]=old[k];
 if(old.resultFinal){ for(const k of ["aggregateRecorded","resultFinal","result","hit","settlementStatus","settlementType","resultSpecialStatus","resultSource","resultStatus","resultVerifiedAt","resultScoreText","homeScore","awayScore"])if(old[k]!==undefined)m[k]=old[k]; }
-if(old.marked&&old.representativeSelected&&(old.resultFinal||started(old))){
+if(old.marked&&old.representativeSelected&&(old.resultFinal||started(old)||old.r506LockedPick)){
 for(const k of ["drawEvidenceQualified","sportAux","sportRisk","decisionProbability","marked","representativeSelected","finalPick","finalOdds","displayGrade","gradeEvidenceQualified","gradeEvidenceTier","gradeEvidenceWarning","gradeRelativeRank","crossMarketUtility","manualOverride","manualOverrideAt","hitProbability","safeHitProbability","marketProbability","modelProbability","calibratedProbability","conservativeProbability","betShare","EV","modelEdge","modelEdgeAvailable","valuePercentage","conservativeValue","oddsMovement","openingOdds","dataReliability","dataCoverage","marketSelectionScore","aiQuality","confidenceScore","confidenceLevel","marketAgreement","crossAgreement","independentEvidence","axisAvailableCount","axisSupportCount","axisOppositionCount","axisSupportRatio","axisUnanimous","axisVotes","independentGroupCount","gradeAxisSupportCount","gradeAxisOppositionCount","provenanceGroups","provenanceConsensus","segmentAdjustment","segmentLearningSamples","evidenceLayers","fiveApkActiveCount","dataIntegrityScore","analysisLayers","representativeGatePassed","selectionMode","deepReviewScore","deepReviewStrength","deepReviewRecommended","deepReviewReason","deepReviewMissingLayers","analysisReason","markingPhase","officialMarked","selectionStatus","auxProbability","auxCoverage","auxSource","performanceProbability","performanceCoverageSnapshot","performanceSourceSnapshot","jeongbaedangLocalEvidence","jeongbaedangLocalAvailable","jeongbaedangLocalCoverage","learningAdjustment","learningSamples"])if(old[k]!==undefined)m[k]=old[k];
 }else if(old.marked&&old.representativeSelected){
 m.previousRepresentativeSelected=true;m.previousFinalPick=old.finalPick;m.previousFinalOdds=old.finalOdds;m.previousMarketSelectionScore=old.marketSelectionScore??old.analysisSelectionScore??0;m.previousDisplayGrade=old.displayGrade||"일반";
@@ -4231,9 +4547,9 @@ function applyRound118FreshStart(state){
 if(!state||typeof state!=="object")return false;
 const audit=state.resetAudit||{};if(audit.roundFreshStartId===ROUND_118_RESET_ID)return false;
 const before=Array.isArray(state.markets)?state.markets.length:0,oldRound=state.round??null,oldGmTs=state.gmTs??null;
-state.markets=(state.markets||[]).filter(m=>{const r=marketRoundNumber(m);return r!=null&&r>=MIN_ACTIVE_ROUND;});
+state.markets=(state.markets||[]).filter(m=>Number(m?.gmTs||0)>=MIN_ACTIVE_GMTS);
 const removed=Math.max(0,before-state.markets.length);
-if(Number(state.round||0)<MIN_ACTIVE_ROUND||Number(roundFromGmTs(state.gmTs)||0)<MIN_ACTIVE_ROUND){state.round=MIN_ACTIVE_ROUND;state.gmTs=null;}
+if(Number(state.gmTs||0)<MIN_ACTIVE_GMTS){state.round=MIN_ACTIVE_ROUND;state.gmTs=null;}
 state.sourceAudit={lastAt:nowIso(),ok:false,reason:"WAITING_FOR_ROUND_118",round:MIN_ACTIVE_ROUND,gmTs:null,markets:0,games:0,pricedMarkets:0,waitingMarkets:0,errors:[]};
 state.resultAudit={lastAt:nowIso(),ok:true,source:"ROUND_118_FRESH_START",rows:0,resultApiRows:0,gameInfoFallbackRows:0,settledNow:0,pending:0,pendingNos:[],errors:[]};
 state.gradeAudit={};state.marketMixAudit={};state.analysisAudit={};state.sharedAnalysisAudit={};state.fullMarkAudit={};state.fiveApkAudit={};state.auxAudit={};
@@ -4292,8 +4608,7 @@ if(Number(String(k).split(':')[0])<minimum)delete state.archivedMarketIds[k];
 if(state.r398PregameSnapshots&&typeof state.r398PregameSnapshots==='object')
 for(const k of Object.keys(state.r398PregameSnapshots))
 if(k.includes('260120'))delete state.r398PregameSnapshots[k];
-if(Number(state.round||0)<121){state.round=121;state.gmTs='260121';}
-if(Number(roundFromGmTs(state.gmTs)||0)<121){state.gmTs='260121';state.round=121;}
+if(Number(state.gmTs||0)<260121){state.round=121;state.gmTs='260121';}
 state.r414PurgeAudit={id:R414_PURGE_ID,at:new Date(now).toISOString(),
 activeRound:state.round,gmTs:state.gmTs,marketsRemoved:beforeMarkets-state.markets.length,
 ledgerRemoved:beforeLedger-state.settlementLedger.length,
@@ -4995,8 +5310,9 @@ return MEM.state;
 }
 function persistSignature(state){
 const parts=[state?.round??"",state?.gmTs??"",(state?.markets||[]).length];
-for(const m of state?.markets||[]){if(m.marked||m.resultFinal)parts.push(`${m.no}:${m.marketFamily}:${m.finalPick||""}:${m.displayGrade||""}:${m.resultFinal?1:0}:${m.settlementStatus||""}`);}
-parts.push(Number(state?.performanceModel&&Object.keys(state.performanceModel.seenGames||{}).length||0),Number(state?.jeongbaedangModel?.settledMarkets||0),Number(state?.settledCards?.rows?.length||0),Number(state?.settlementLedger?.length||0),state?.resetAudit?.roundFreshStartId||"",state?.settlementRepairAudit?.corrected??"");
+for(const m of state?.markets||[]){if(m.marked||m.resultFinal)parts.push(`${m.no}:${m.date}:${m.time}:${m.marketFamily}:${m.finalPick||""}:${m.finalOdds||""}:${m.displayGrade||""}:${m.resultFinal?1:0}:${m.settlementStatus||""}`);}
+parts.push(Number(state?.performanceModel&&Object.keys(state.performanceModel.seenGames||{}).length||0),Number(state?.jeongbaedangModel?.settledMarkets||0),Number(state?.settledCards?.rows?.length||0),Number(state?.settlementLedger?.length||0),state?.resetAudit?.roundFreshStartId||"",state?.settlementRepairAudit?.corrected??"",
+Object.keys(state?.manualReviewSelections||{}).length,(state?.manualPickHistory||[]).length,Object.keys(state?.r398PregameSnapshots||{}).length,(state?.r398SelectionHistory||[]).length,(state?.settlementReviews||[]).length,state?.r507Overseas?.budget?.spent??"",Object.keys(state?.r507Overseas?.markets||{}).length);
 return parts.join("|");
 }
 async function persistState(env,force=false){
@@ -5011,7 +5327,7 @@ try{await writeStoredState(env,serializeState(MEM.state));MEM.lastPersistAt=now;
 async function saveState(state,env,force=false){
 state=r428RebaseManualOverlay(state);
 r498WithdrawTwo(state);
-if(state?.r398Protocol?.enforce)force=true;
+/* R506: no blanket force — unchanged state is persisted by the 5-minute heartbeat, changes immediately */
 state.updatedAt=nowIso();MEM.state=sanitizeState(state);MEM.publicCacheKey=null;MEM.publicCache=null;MEM.state=await archiveSettledDetails(MEM.state,env);await persistState(env,force||MEM.state.cleanupAudit?.archiveDeferred==="CONCURRENT_CHANGE");return MEM.state;
 }
 function officialMarketSpecialStatus(m){
@@ -5065,34 +5381,34 @@ const next=await r487VerifyNextOfficialRound(state,now);
 state.r487OfficialDiscoveryAudit=next.audit;
 if(next.round)r=next.round;
 }
-if(Number(r?.round||0)<121){
+if(Number(r?.gmTs||0)<260121){
 const verified121=await r403Recover121OfficialRound(r,state);
 state.r413RolloverAudit={...verified121.audit,at:nowIso()};
 if(verified121.ok)r=verified121.round;
 }
-if(Number(state?.gmTs||0)>=260121&&Number(r?.round||0)<121){
+if(Number(state?.gmTs||0)>=260121&&Number(r?.gmTs||0)<260121){
 r={active:true,gmTs:String(state.gmTs),round:Number(state.round)||121,listed:(r?.listed||[]).filter(x=>Number(x)>=260121),fallbackKnownRound:true};
 usedKnownRoundFallback=true;
 }
 const knownRound=String(state?.gmTs||"");
 const hasCurrentUpcoming=!!knownRound&&(state.markets||[]).some(m=>
 String(m.gmTs||"")===knownRound&&!started(m)&&!m.resultFinal);
-if((!r.active||Number(r.round||0)<MIN_ACTIVE_ROUND)&&hasCurrentUpcoming){
+if((!r.active||Number(r.gmTs||0)<MIN_ACTIVE_GMTS)&&hasCurrentUpcoming){
 const knownNumber=roundFromGmTs(knownRound);
-if(Number(knownNumber)>=MIN_ACTIVE_ROUND){
+if(Number(knownRound)>=MIN_ACTIVE_GMTS&&Number(knownNumber)>0){
 r={active:true,gmTs:knownRound,round:knownNumber,
 listed:r.listed||[],fallbackKnownRound:true};
 usedKnownRoundFallback=true;
 }
 }
 let r408Recovery={audit:{status:'NOT_NEEDED'}};
-if(!r.active||Number(r.round||0)<MIN_ACTIVE_ROUND){
+if(!r.active||Number(r.gmTs||0)<MIN_ACTIVE_GMTS){
 r408Recovery=await r408VerifyOfficialRound120('G101_NO_ACTIVE');
 if(r408Recovery.round){r=r408Recovery.round;usedKnownRoundFallback=true;}
 }
 const recovery={ok:!!r408Recovery.round,audit:r408Recovery.audit};
-if(!r.active||Number(r.round||0)<MIN_ACTIVE_ROUND){
-recordOddsStability(state,{missing:1,kept:(state.markets||[]).filter(m=>validChoices(m).length>=2).length});if(!state.r398Protocol?.enforce)applyRound118FreshStart(state);if(state.round==null||Number(state.round)<MIN_ACTIVE_ROUND)state.round=MIN_ACTIVE_ROUND;
+if(!r.active||Number(r.gmTs||0)<MIN_ACTIVE_GMTS){
+recordOddsStability(state,{missing:1,kept:(state.markets||[]).filter(m=>validChoices(m).length>=2).length});if(!state.r398Protocol?.enforce)applyRound118FreshStart(state);if(state.round==null||Number(state.gmTs||0)<MIN_ACTIVE_GMTS)state.round=state.gmTs?roundFromGmTs(state.gmTs):MIN_ACTIVE_ROUND;
 state.sourceAudit={...(state.sourceAudit||{}),lastAt:nowIso(),ok:false,
 reason:r.active?"WAITING_FOR_ROUND_118":"NO_ACTIVE_G101",
 error:roundDiscoveryError||null,round:state.round,gmTs:state.gmTs??null,
@@ -5121,6 +5437,7 @@ state.markets=dedupeMarkets([...state.markets.map(m=>original.has(marketIdentity
 r398Clone(original.get(marketIdentity(m))):m),...priorRoundRecords.map(r398Clone)]);
 };
 if(isNewRound)clearForRoundRollover(state,r.round,r.gmTs);
+r506ReconcileReschedules(state,freshMarkets);
 const sameOld=(state.markets||[]).filter(m=>String(m.gmTs||"")===String(r.gmTs));
 preserveSettlement(sameOld,freshMarkets);
 const lastKnown=mergeLastKnownOfficialMarkets(sameOld,freshMarkets),markets=lastKnown.markets;recordOddsStability(state,lastKnown.stability);
@@ -5366,6 +5683,8 @@ return norm(rr.home)===norm(m.home)&&norm(rr.away)===norm(m.away);
 }
 function resultMatchesMarket(rr,m){
 if(rr.gmTs&&m.gmTs&&String(rr.gmTs)!==String(m.gmTs))return false;
+// R506: same round + same official number + same market is authoritative even if the kickoff moved
+if(rr.gmTs&&m.gmTs&&rr.no&&Number(rr.no)===Number(m.no)&&(rr.specialStatus||rr.family===m.marketFamily)&&(!rr.home||!m.home||norm(rr.home)===norm(m.home))&&(!rr.away||!m.away||norm(rr.away)===norm(m.away)))return true;
 if(rr.date&&m.date&&rr.date!==m.date)return false;
 if(rr.time&&m.time&&String(rr.time).slice(0,5)!==String(m.time).slice(0,5))return false;
 if(rr.home&&m.home&&norm(rr.home)!==norm(m.home))return false;
@@ -6686,8 +7005,8 @@ t("R318 Over and Under use the same evidence gate",
 relativeRecommendationFallbackPasses({...base,marketFamily:"TOTAL",finalPick:"오버"})===
 relativeRecommendationFallbackPasses({...base,marketFamily:"TOTAL",finalPick:"언더"}));
 }
-const many=createState();many.round=117;many.gmTs="260117";many.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`H${i}`;x.away=`A${i}`;x.game=`H${i} vs A${i}`;x.date="2099-10-02";many.markets.push(x);}}markState(many);t("19 market mix allocator",many.marketMixAudit.mode==="FUTURE_RATIO_20_20_60"&&many.marketMixAudit.targetPolicy==="R324_GLOBAL_MIN_DEVIATION_THEN_MAX_QUALITY");t("20 market total reps quality-gated",Object.values(many.marketMixAudit.counts).reduce((a,b)=>a+b,0)<=10);t("21 market target retained",many.marketMixAudit.target.MONEYLINE===20&&many.marketMixAudit.target.HANDICAP===20&&many.marketMixAudit.target.TOTAL===60);
-const qfirst=createState();qfirst.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=1000+i*10;x.home=`QH${i}`;x.away=`QA${i}`;x.game=`QH${i} vs QA${i}`;x.date="2099-10-02";if(x.marketFamily==="MONEYLINE"){x.choices[0].openingOdds=2.30;x.choices[0].odds=1.55;}else{for(const c of x.choices)c.openingOdds=c.odds;}qfirst.markets.push(x);}}markState(qfirst);t("22 quality-first under soft quota",qfirst.marketMixAudit.mode==="FUTURE_RATIO_20_20_60"&&Object.values(qfirst.marketMixAudit.counts).reduce((a,b)=>a+b,0)<=10,JSON.stringify(qfirst.marketMixAudit.counts));
+const many=createState();many.round=117;many.gmTs="260117";many.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=i*10;x.home=`H${i}`;x.away=`A${i}`;x.game=`H${i} vs A${i}`;x.date="2099-10-02";many.markets.push(x);}}markState(many);t("19 market mix allocator",["FUTURE_RATIO_20_20_60","R506_HIT_RATE_FIRST_BEST_PER_GAME"].includes(many.marketMixAudit.mode)&&many.marketMixAudit.targetPolicy==="R324_GLOBAL_MIN_DEVIATION_THEN_MAX_QUALITY");t("20 market total reps quality-gated",Object.values(many.marketMixAudit.counts).reduce((a,b)=>a+b,0)<=10);t("21 market target retained",many.marketMixAudit.target.MONEYLINE===20&&many.marketMixAudit.target.HANDICAP===20&&many.marketMixAudit.target.TOTAL===60);
+const qfirst=createState();qfirst.markets=[];for(let i=0;i<10;i++){for(const src of ms){const x=structuredClone(src);x.no+=1000+i*10;x.home=`QH${i}`;x.away=`QA${i}`;x.game=`QH${i} vs QA${i}`;x.date="2099-10-02";if(x.marketFamily==="MONEYLINE"){x.choices[0].openingOdds=2.30;x.choices[0].odds=1.55;}else{for(const c of x.choices)c.openingOdds=c.odds;}qfirst.markets.push(x);}}markState(qfirst);t("22 quality-first under soft quota",["FUTURE_RATIO_20_20_60","R506_HIT_RATE_FIRST_BEST_PER_GAME"].includes(qfirst.marketMixAudit.mode)&&Object.values(qfirst.marketMixAudit.counts).reduce((a,b)=>a+b,0)<=10,JSON.stringify(qfirst.marketMixAudit.counts));
 const settleState=createState(),rep=structuredClone(strong.markets[0]);rep.gmTs="260117";rep.date="2020-01-01";rep.time="09:00";rep.marked=true;rep.representativeSelected=true;rep.finalPick=rep.finalPick||"승";rep.finalOdds=rep.finalOdds||1.75;rep.resultFinal=false;rep.hit=null;settleState.markets=[rep];const rr={GM_SEQ:rep.no,FIX_MCH_DTM:"202001010900",HOME_TEAM:rep.home,AWAY_TEAM:rep.away,BETTYP_NM:rep.marketFamily==="TOTAL"?"언더오버":rep.marketFamily==="HANDICAP"?"핸디캡":"승패",GAME_RESULT:rep.finalPick==="승"?"0":rep.finalPick==="무"?"1":"2",WIN_TXT:rep.marketFamily==="TOTAL"?rep.finalPick:"승",DRAW_TXT:"무",LOSE_TXT:rep.marketFamily==="TOTAL"?(rep.finalPick==="언더"?"오버":"언더"):"패",MCH_SCORE:"3:2"};const parsed=parseBetmanResultRows({detlBody:[rr]});const nestedParsed=parseBetmanResultRows({response:{payload:{detlBody:[rr]}}});const n=applyResults(settleState,parsed);t("23 result parse",parsed.length===1);t("23a nested result parse",nestedParsed.length===1);t("24 settlement",n===1&&rep.resultFinal===true);t("25 hit/miss",typeof rep.hit==="boolean");
 const oldLock=structuredClone(ms[0]);oldLock.date="2026-10-02";oldLock.time="00:01";oldLock.marked=true;oldLock.representativeSelected=true;oldLock.finalPick="승";oldLock.finalOdds=1.65;oldLock.displayGrade="추천";oldLock.selectionStatus="대표픽";oldLock.aiQuality=.58;oldLock.modelEdge=.01;oldLock.oddsMovement=.02;
 const freshLock=structuredClone(ms[0]);freshLock.date="2026-10-02";freshLock.time="00:01";freshLock.marked=false;freshLock.representativeSelected=false;preserveSettlement([oldLock],[freshLock]);const lockState=createState();lockState.markets=[freshLock];markState(lockState);t("26 started rep lock",freshLock.marked&&freshLock.representativeSelected&&freshLock.finalPick==="승");t("27 ai lock",freshLock.aiQuality===.58&&freshLock.modelEdge===.01);
@@ -6751,8 +7070,8 @@ check('balanced market abstains',bestChoiceForMarket(m([1.8,1.8]))===null);
 check('weak three-way abstains',bestChoiceForMarket(m([2.5,2.7,3.1]))===null);
 {const x=m([1.65,2.05],{choices:choices([1.65,2.05],[1.5,2.4],[.45,.55])});const rs=analyzeChoiceRows(x),h=rs.find(q=>q.pick==='승'),a=rs.find(q=>q.pick==='패');check('movement/crowd remains secondary signal',h&&a&&Math.abs(h.signalModelP-h.marketP)<.10&&Math.abs(a.signalModelP-a.marketP)<.10);}
 {const x=m([1.8,1.8],{choices:choices([1.8,1.8],[2,2],[.5,.5])});const n=noVig(x.choices),a=x.choices.map(c=>baseChoiceAnalysis(x,c,n));check('normalized calibrated probability sum',Math.abs(a.reduce((s,q)=>s+q.calibratedP,0)-1)<1e-12);check('balanced signals stay neutral',a.every(q=>Math.abs(q.calibratedP-.5)<1e-12));}
-{const rows=[];for(let i=0;i<10;i++){rows.push(m([1.4,2.6],{no:3*i+1,home:'H'+i,away:'A'+i}));rows.push(m([1.65,2.1],{no:3*i+2,home:'H'+i,away:'A'+i,marketFamily:'HANDICAP',market:'마이너스 핸디캡',line:-1}));rows.push(m([1.7,2.0],{no:3*i+3,home:'H'+i,away:'A'+i,marketFamily:'TOTAL',market:'언더오버'}));}const s=state(rows);check('soft market mix policy',s.marketMixAudit.mode==='FUTURE_RATIO_20_20_60'&&s.marketMixAudit.targetPolicy==='R324_GLOBAL_MIN_DEVIATION_THEN_MAX_QUALITY');}
-{const rows=[];for(let i=0;i<10;i++){rows.push(m([1.45,2.7],{no:300+i*3,home:'LH'+i,away:'LA'+i,gmTs:'260117'}));rows.push(m([1.7,2.0],{no:301+i*3,home:'LH'+i,away:'LA'+i,gmTs:'260117',marketFamily:'HANDICAP',market:'마이너스 핸디캡',line:-1}));rows.push(m([1.72,1.95],{no:302+i*3,home:'LH'+i,away:'LA'+i,gmTs:'260117',marketFamily:'TOTAL',market:'언더오버'}));}const s=createState();s.gmTs='260117';s.markets=rows;for(let i=0;i<2;i++){const ml=s.markets.find(x=>x.home==='LH'+i&&x.marketFamily==='MONEYLINE');ml.marked=true;ml.representativeSelected=true;ml.finalPick='승';ml.finalOdds=1.45;ml.resultFinal=true;ml.settlementStatus='적중';ml.hit=true;}markState(s);check('locked current-round reps preserved under soft mix',s.marketMixAudit.lockedCounts.MONEYLINE>=2&&s.marketMixAudit.mode==='FUTURE_RATIO_20_20_60');}
+{const rows=[];for(let i=0;i<10;i++){rows.push(m([1.4,2.6],{no:3*i+1,home:'H'+i,away:'A'+i}));rows.push(m([1.65,2.1],{no:3*i+2,home:'H'+i,away:'A'+i,marketFamily:'HANDICAP',market:'마이너스 핸디캡',line:-1}));rows.push(m([1.7,2.0],{no:3*i+3,home:'H'+i,away:'A'+i,marketFamily:'TOTAL',market:'언더오버'}));}const s=state(rows);check('soft market mix policy',["FUTURE_RATIO_20_20_60","R506_HIT_RATE_FIRST_BEST_PER_GAME"].includes(s.marketMixAudit.mode)&&s.marketMixAudit.targetPolicy==='R324_GLOBAL_MIN_DEVIATION_THEN_MAX_QUALITY');}
+{const rows=[];for(let i=0;i<10;i++){rows.push(m([1.45,2.7],{no:300+i*3,home:'LH'+i,away:'LA'+i,gmTs:'260117'}));rows.push(m([1.7,2.0],{no:301+i*3,home:'LH'+i,away:'LA'+i,gmTs:'260117',marketFamily:'HANDICAP',market:'마이너스 핸디캡',line:-1}));rows.push(m([1.72,1.95],{no:302+i*3,home:'LH'+i,away:'LA'+i,gmTs:'260117',marketFamily:'TOTAL',market:'언더오버'}));}const s=createState();s.gmTs='260117';s.markets=rows;for(let i=0;i<2;i++){const ml=s.markets.find(x=>x.home==='LH'+i&&x.marketFamily==='MONEYLINE');ml.marked=true;ml.representativeSelected=true;ml.finalPick='승';ml.finalOdds=1.45;ml.resultFinal=true;ml.settlementStatus='적중';ml.hit=true;}markState(s);check('locked current-round reps preserved under soft mix',s.marketMixAudit.lockedCounts.MONEYLINE>=2&&["FUTURE_RATIO_20_20_60","R506_HIT_RATE_FIRST_BEST_PER_GAME"].includes(s.marketMixAudit.mode));}
 {const ml=m([1.55,2.35]),hc=m([2.25,1.55],{no:2,marketFamily:'HANDICAP',market:'마이너스 핸디캡',line:-1});const ma=analyzeMarket(ml),ha=analyzeMarket(hc);check('market families independently analyzed',ma.analyzed&&ha.analyzed&&Number.isFinite(ma.summary?.modelEdge)&&Number.isFinite(ha.summary?.modelEdge));}
 {const s=state([m([1.25,3.6]),m([1.5,2.5],{no:2,marketFamily:'TOTAL',market:'언더오버'})]);const reps=s.markets.filter(x=>x.marked&&x.representativeSelected);check('weak no-independent game still receives one representative',reps.length===1&&reps[0].displayGrade==='일반');}
 {const s=state([m([1.8,1.8])]),r=representativeGames(s)[0];check('balanced weak game deep-review marked general',r?.selectionStatus==='대표픽'&&!!r.pick&&r.displayGrade==='일반'&&r.selectionMode==='DEEP_REVIEW');}
@@ -7719,9 +8038,9 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 #expPanel .r482Venue,#expPanel .r482Line,#expPanel .r482Matches{font-size:13px;line-height:1.7}#expPanel .r482Team footer,#expPanel .r482Note{font-size:11px}
 #expPanel .r477Foot{font-size:12px}#expPanel .r477Foot>b{font-size:13px}#expPanel .r477Foot small{font-size:11px}#expPanel .r474FlowTicks,#expPanel .r474FlowLegend{font-size:12px}
 @media(max-width:480px){#expPanel .r485Prices{grid-template-columns:repeat(2,minmax(0,1fr))}#expPanel .r485Price:last-child:nth-child(odd){grid-column:1/-1}#expPanel .r485Price strong{font-size:24px}#expPanel .r482Metrics{gap:7px}}
-/* R490 Mobile & PC Responsive Optimization */*,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{overflow-x:hidden;scroll-behavior:smooth;-webkit-text-size-adjust:100%}@media (min-width:1100px){.wrap,.container,main{max-width:1380px!important;margin:0 auto!important;padding:18px 24px!important}#gameList,.game-list,.cards-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(560px,1fr))!important;gap:14px!important;align-items:start!important}.game-card,.card{margin-bottom:0!important;transition:transform .15s ease,box-shadow .15s ease}.game-card:hover{transform:translateY(-2px)}}@media (max-width:768px){.wrap,.container,main{padding:10px 10px 72px!important;max-width:100%!important}button,.btn,.tab,select,input{min-height:40px;font-size:13.5px!important;touch-action:manipulation}.tabs,.filter-bar,.nav-tabs{display:flex;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:4px;scrollbar-width:none}.tabs::-webkit-scrollbar,.filter-bar::-webkit-scrollbar{display:none}table{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.game-card,.card{padding:12px!important;border-radius:12px!important}}.r506Header,.r506Market{margin:12px 0;padding:14px;border:1px solid #275a79;border-radius:12px;background:#0c2334;color:#deebf7;min-width:0}.r506Header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}.r506Header p,.r506Market p{margin:7px 0;font-size:13px;line-height:1.6;overflow-wrap:anywhere}.r506Header small{flex-basis:100%;color:#b2c9da;line-height:1.6}.r506Header button{background:#155e75;border:1px solid #4f9bb5;color:#fff;border-radius:9px;padding:10px 14px;cursor:pointer}.r506Header button:disabled{opacity:.6;cursor:wait}.r506Heading{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}.r506Heading span{font-size:12px;color:#9ee4d4}.r506Prices{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;margin:10px 0}.r506Price{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:9px;background:#132f43}.r506Price span{font-size:12px}.r506Price strong{font-size:18px;color:#a5f3d2}.r506Price small,.r506Muted{color:#b2c9da;font-size:12px;line-height:1.6}.r506Details summary{padding:10px 0;cursor:pointer;font-weight:700;font-size:13px}.r506TableWrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.r506Market table{width:100%;min-width:420px;border-collapse:collapse;font-size:12px}.r506Market th,.r506Market td{padding:8px;text-align:left;border-bottom:1px solid #29495e;white-space:nowrap}</style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
+/* R490 Mobile & PC Responsive Optimization */*,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{overflow-x:hidden;scroll-behavior:smooth;-webkit-text-size-adjust:100%}@media (min-width:1100px){.wrap,.container,main{max-width:1380px!important;margin:0 auto!important;padding:18px 24px!important}#gameList,.game-list,.cards-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(560px,1fr))!important;gap:14px!important;align-items:start!important}.game-card,.card{margin-bottom:0!important;transition:transform .15s ease,box-shadow .15s ease}.game-card:hover{transform:translateY(-2px)}}@media (max-width:768px){.wrap,.container,main{padding:10px 10px 72px!important;max-width:100%!important}button,.btn,.tab,select,input{min-height:40px;font-size:13.5px!important;touch-action:manipulation}.tabs,.filter-bar,.nav-tabs{display:flex;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:4px;scrollbar-width:none}.tabs::-webkit-scrollbar,.filter-bar::-webkit-scrollbar{display:none}table{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.game-card,.card{padding:12px!important;border-radius:12px!important}}</style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
-<div class="expIntro"><b>배당 정밀분석 PRO</b> · 국내·해외배당 핵심 비교와 업체별 상세 자료를 확인합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
+<div class="expIntro"><b>배당 정밀분석 PRO</b> · 현재 마킹 확률, 경기 자료 예상치, 각 선택지의 배당을 한눈에 비교합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
 <div class="expControls"><input id="expSearch" type="search" placeholder="팀명 / 리그 / 프로토번호 검색" aria-label="경기 검색"><select id="expSport" aria-label="종목 선택"><option value="all">전체</option><option value="축구">축구</option><option value="야구">야구</option><option value="농구">농구</option><option value="배구">배구</option></select></div>
 <div id="expMeta" class="expInfo">경기 자료 로딩</div><div id="expList"></div></section><div id="markMenu" class="markMenu"><button type="button" data-mode="now">전체 시간순</button><button type="button" data-mode="best">가장추천</button><button type="button" data-mode="rec">추천</button><button type="button" data-mode="normal">일반</button></div><div id="hourlyBar" class="hourlyBar"></div><section id="pastPanel" class="pastPanel"><div class="pastTitle"><span>📂 회차별 정산확인</span><small id="pastMeta">정산 0경기</small></div><div id="settleFilters" class="settleFilters">
 <button type="button" data-mode="all" class="on" onclick="setSettleFilter('all')">전체</button>
@@ -8312,36 +8631,6 @@ infos.push('분석자료 충실도 '+(dReliability*100).toFixed(0)+'%');
 return '<div class="r474Insights r485Insights"><b>데이터 분석</b><div>'+infos.map(x=>'<p>'+e(x)+'</p>').join('')+'</div></div>';
 }
 /* R474: minimal market view with real, observed odds flow only. */
-const r506Client=new Map();
-const r506Messages={UNSUPPORTED_LEAGUE:'이 리그는 현재 해외배당 연결 대상이 아닙니다.',PREGAME_ONLY:'경기 시작 후에는 현재 배당을 경기 전 자료로 조회하지 않습니다.',OUTSIDE_LOOKAHEAD:'7일 이내 경기부터 해외배당을 조회합니다.',EVENT_NOT_FOUND:'같은 리그·홈/원정·시작 시각이 일치하는 해외 경기를 찾지 못했습니다.',AMBIGUOUS_EVENT:'일치하는 경기가 여러 개여서 연결을 보류했습니다.',GAME_NOT_FOUND:'해당 경기 자료를 찾지 못했습니다.',KEY_NOT_CONFIGURED:'해외 API 키가 설정되지 않았습니다.',KEY_REJECTED:'해외 API 인증을 확인해야 합니다.',QUOTA_EXHAUSTED:'해외 API 잔여 크레딧이 없습니다.',QUOTA_LOW:'잔여 크레딧이 부족해 새 조회를 중단했습니다.',DAILY_LIMIT:'오늘 해외조회 한도에 도달했습니다. 저장 자료가 있으면 참고로 표시합니다.',RATE_LIMITED:'제공사가 조회를 제한했습니다. 잠시 후 다시 확인해 주세요.',RETRY_LATER:'재조회 간격을 조절 중입니다.',PROVIDER_ERROR:'해외 제공사 응답 오류입니다.',INVALID_RESPONSE:'해외 자료 형식을 확인할 수 없습니다.',NETWORK_OR_STORAGE_ERROR:'해외 자료 수신 또는 저장에 실패했습니다.',SERVICE_UNAVAILABLE:'해외 조회 서비스에 연결하지 못했습니다.',STORAGE_UNAVAILABLE:'중복 조회를 방지할 저장소에 연결하지 못했습니다.',NO_MARKET:'이 시장의 해외배당이 없습니다.',LINE_OR_OUTCOME_MISMATCH:'같은 기준점·선택지의 해외배당이 없습니다. 국내 3방향 핸디캡과 해외 2방향 핸디캡은 구분합니다.',PERIOD_MISMATCH:'부분경기 시장입니다. 해외 전체경기 배당과 비교하지 않습니다.',PERIOD_UNVERIFIED:'국내 경기 구간 미확인 · 해외 전체경기 가격만 참고',RULES_UNVERIFIED:'연장·무승부 정산규칙 미확인 · 가격 참고',STALE_QUOTES:'30분 이내에 갱신된 해외배당이 없습니다.',INVALID_QUOTES:'해외 배당 값 또는 갱신 시각을 검증하지 못했습니다.'};
-function r506Clock(at,allowFuture=false){const t=Date.parse(at||'');return Number.isFinite(t)&&(allowFuture||t<=Date.now())?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})+' KST':'시각 미확인';}
-function r506OverseasHtml(m,r){
- const entry=r506Client.get(expKey(m)),data=entry?.data;
- if(!entry)return '<div class="r506Market"><b>해외배당</b><p>경기 상단의 해외배당 조회로 업체별 가격을 확인하세요.</p></div>';
- if(entry.loading)return '<div class="r506Market"><b>해외배당</b><p role="status">같은 경기의 해외 가격을 확인하고 있습니다…</p></div>';
- const market=data?.markets?.find(x=>String(x.no)===String(r.no));
- if(!market?.choices?.length)return '<div class="r506Market"><b>해외배당</b><p>'+e(r506Messages[market?.status]||r506Messages[data?.fetchStatus]||r506Messages[data?.status]||'해외배당 자료가 없습니다.')+'</p></div>';
- const receivedAge=Date.now()-Date.parse(data.receivedAt||''),oldest=Date.now()-Date.parse(market.oldestQuoteAt||''),clockFresh=receivedAge>=0&&receivedAge<=10*60000&&oldest>=0&&oldest<=10*60000;
- const domesticAge=Date.now()-Date.parse(market.domesticAt||''),canGap=clockFresh&&domesticAge>=0&&domesticAge<=10*60000&&market.status==='MATCHED';
- const status=market.status==='MATCHED'?'동일 기준점·선택지':(r506Messages[market.status]||'가격 참고');
- const cards=market.choices.map(c=>'<div class="r506Price"><b>'+e(c.label)+'</b><span>국내 <strong>'+e(c.domestic?c.domestic.toFixed(2):'—')+'</strong></span><span>해외 중앙값 <strong>'+e(c.overseas.toFixed(2))+'</strong></span><small>'+(canGap&&c.priceGap!==null?'국내 지급배당 '+e((c.priceGap>=0?'+':'')+(c.priceGap*100).toFixed(1))+'%':'동시각 가격 차이 비교 보류')+'</small></div>').join('');
- const table=market.books.map(b=>'<tr><th scope="row">'+e(b.title)+'</th>'+market.choices.map(c=>{const p=b.prices.find(x=>x.label===c.label);return '<td>'+e(p?.odds?.toFixed(2)||'—')+'</td>';}).join('')+'<td>'+e(r506Clock(b.updatedAt))+'</td></tr>').join('');
- const weights=market.choices.map(c=>e(c.label)+' '+e((c.marketWeight*100).toFixed(1))+'%').join(' · ');
- return '<div class="r506Market"><div class="r506Heading"><b>해외배당 비교</b><span>'+e(market.bookCount)+'개 업체'+(market.smallSample?' · 자료 적음':'')+'</span></div><p>'+e(status)+(r.line==null?'':' · 국내 기준점 '+e(r.line))+'</p><div class="r506Prices">'+cards+'</div><p class="r506Muted">'+(clockFresh?'10분 이내 해외 자료':'저장·지난 해외 자료 · 최신 가격 판단 보류')+' · 업체 갱신 '+e(r506Clock(market.oldestQuoteAt))+' ~ '+e(r506Clock(market.newestQuoteAt))+'</p><details class="r506Details" data-r506-detail="'+e(r.no)+'"><summary>업체별 배당 · 시장 확률 환산 자세히</summary><p>해외 전체경기 · '+e(data.event?.home)+' vs '+e(data.event?.away)+' · '+e(r506Clock(data.event?.kickoff,true))+'</p><div class="r506TableWrap"><table><thead><tr><th scope="col">해외 업체</th>'+market.choices.map(c=>'<th scope="col">'+e(c.label)+'</th>').join('')+'<th scope="col">업체 갱신</th></tr></thead><tbody>'+table+'</tbody></table></div><p><b>마진 제거 시장 비중</b><br>'+weights+'</p><p class="r506Muted">업체별 역배당 비중을 마진 제거 후 중앙값으로 모으고 합계 100%로 조정했습니다. 실제 적중률·독립 예측·보장 수익이 아닙니다. 업체 수는 독립적인 예측 수가 아닙니다.</p><p class="r506Muted">현재 배당 중앙값이며 개장배당이 아닙니다. 전체/부분경기·연장·무승부 정산규칙이 확인되지 않은 국내 자료는 해외와 가격 차이를 계산하지 않습니다.</p><p class="r506Muted">출처 The Odds API · 유럽 지역 일반 업체(거래소 제외) · 서버 수신 '+e(r506Clock(data.receivedAt))+' · 국내 확인 '+e(r506Clock(market.domesticAt))+'</p></details></div>';
-}
-function r506OverseasHeader(m){
- const entry=r506Client.get(expKey(m)),data=entry?.data,fetchMessage=data&&data.fetchStatus!=='OK'?r506Messages[data.fetchStatus]:null;
- return '<div class="r506Header"><div><b>국내 · 해외배당</b><p>같은 경기와 기준점의 실제 해외 가격을 확인합니다.</p></div><button type="button" data-r506-load="'+e(expKey(m))+'"'+(entry?.loading?' disabled':'')+'>'+(entry?.loading?'조회 중…':data?'해외배당 다시 확인':'해외배당 조회')+'</button><small>'+e(fetchMessage||'리그별 30분 공용 캐시 · 전체 하루 최대 30크레딧 · 경기를 처음 펼칠 때 조회 · 화면 갱신에는 API 호출 없음')+(data?.remaining!=null?' · 제공사 잔여 '+e(data.remaining)+'크레딧':'')+'</small></div>';
-}
-async function r506LoadOverseas(key){
- const game=(state?.markingGames||[]).find(g=>expKey(g)===key);if(!game||r506Client.get(key)?.loading)return;
- const old=r506Client.get(key);r506Client.set(key,{...old,loading:true});expLastFingerprint='';renderExperiment();
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),16000);
- try{const u=new URL('/api/overseas-odds',location.origin);u.searchParams.set('gmTs',game.gmTs);u.searchParams.set('no',game.no);const res=await fetch(u,{signal:controller.signal,cache:'no-store'});const data=await res.json();if(!res.ok&&!data.status)throw Error('SERVICE_UNAVAILABLE');r506Client.set(key,{loading:false,data});}
- catch{r506Client.set(key,{loading:false,data:{status:'SERVICE_UNAVAILABLE',markets:[]}});}
- finally{clearTimeout(timeout);expLastFingerprint='';renderExperiment();}
-}
-
 function expDS(m,r){
 const d=expEasyData(m,r),title=String(r.market||({MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'}[r.marketFamily])||'배당')+
 (r.line==null?'':' · 기준값 '+r.line),valid=d.q.valid,
@@ -8349,7 +8638,7 @@ warning=r.oddsSnapshotStatus==='LAST_KNOWN'||r.oddsSnapshotStatus==='SCREENSHOT_
 return '<section class="edBriefMarket r474Market'+(r.marked?' selected':'')+'">'+
 '<div class="edBriefTop"><b>#'+e(r.no)+' · '+e(title)+'</b>'+(r.marked?'<span>현재 마킹</span>':'')+'</div>'+
 (valid?'<div class="r474MarketVerdict">'+e(d.title)+e(warning)+'</div>':'<div class="r474MarketVerdict">배당 확인 중'+e(warning)+'</div>')+
-expEasyPrices(m,r)+r506OverseasHtml(m,r)+r474Insights(m,r)+r485FlowHtml(m,r)+
+expEasyPrices(m,r)+r474Insights(m,r)+r485FlowHtml(m,r)+
 '<details class="edBriefDetails" data-exp-market="'+e(r.no)+'"><summary>지난 결과 · 상세 자료</summary><div class="edBriefInner"></div></details></section>';
 }
 function expDSFull(m,r){
@@ -8530,7 +8819,7 @@ all=[...ordered,...other];
 const cards=all.map(r=>r.marked?expDS(m,r):
 '<details class="r474Other"><summary>#'+e(r.no)+' · '+e(r.market||r.marketFamily||'기타 배당')+
 (r.line==null?'':' '+e(r.line))+' · 다른 시장 보기</summary>'+expDS(m,r)+'</details>').join('');
-return '<div class="expBody edReport">'+r506OverseasHeader(m)+r477SignatureCard(m,chosen)+r482TeamHtml(m)+r473PerformanceHtml(m)+
+return '<div class="expBody edReport">'+r477SignatureCard(m,chosen)+r482TeamHtml(m)+r473PerformanceHtml(m)+
 '<div class="edAllMarketNote">전체 배당 비교 · 확인된 '+all.length+'개 시장'+(chosen?' · 현재 마킹 먼저':'')+'</div>'+
 (cards||'<div class="r474Foot">확인된 시장 배당이 없습니다.</div>')+'</div>';
 }
@@ -8690,7 +8979,7 @@ const all=orderCurrentRows(state.markingGames||[]).filter(m=>Number(m.gmTs)>=260
 const rows=all.filter(m=>(expFilter==='all'||String(m.sport||'')===expFilter)&&(!q||[m.game,m.home,m.away,m.league,m.no,...(m.marketRows||[]).map(r=>r.no)].join(' ').toLowerCase().includes(q)));
 const fp=expFingerprint(rows);
 if(fp===expLastFingerprint)return;
-const host=$('expList'),opened=new Map(),priorY=window.scrollY,overseasOpened=[...host.querySelectorAll('details.r506Details[open]')].map(d=>d.dataset.r506Detail);
+const host=$('expList'),opened=new Map(),priorY=window.scrollY;
 for(const card of host.querySelectorAll('.expCard')){
 const key=card.querySelector('button.expHead[data-expkey]')?.dataset.expkey;
 if(!key)continue;const panels=[];
@@ -8723,7 +9012,6 @@ d.open=true;
 for(const ix of item.nested){const nested=d.querySelectorAll('details.edDeep')[ix];if(nested)nested.open=true;}
 }
 }
-for(const id of overseasOpened){const d=[...host.querySelectorAll('details.r506Details')].find(n=>n.dataset.r506Detail===id);if(d)d.open=true;}
 if(opened.size&&Math.abs(window.scrollY-priorY)>2)window.scrollTo({top:priorY,behavior:'instant'});
 }
 function applyView(){const marking=activeView==='marking',past=activeView==='past',experiment=activeView==='experiment';$('list').style.display=marking?'':'none';$('hourlyBar').style.display=marking?'flex':'none';$('markMenu').style.display=marking?'grid':'none';$('pastPanel').classList.toggle('on',past);$('expPanel').classList.toggle('on',experiment);$('tabMarking')?.classList.toggle('on',marking);$('tabPast')?.classList.toggle('on',past);$('tabExperiment')?.classList.toggle('on',experiment);if(experiment)renderExperiment()}
@@ -8771,7 +9059,7 @@ $('manualPanel').hidden=false;$('manualPanel').scrollIntoView({behavior:'smooth'
 }
 function cancelManualPick(){manualPending=null;$('manualPanel').hidden=true;}
 async function applyManualPick(){if(!manualPending||busy)return;const payload={...manualPending};const ok=await act('/api/manual-pick',$('manualApply'),payload);if(ok)cancelManualPick();}
-function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('exportJson','EXPORT');$('manualMode')?.addEventListener('click',toggleManualMode);$('manualApply')?.addEventListener('click',applyManualPick);$('manualCancel')?.addEventListener('click',cancelManualPick);$('list')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-manual-no]');if(b)chooseManualPick(b);const edit=ev.target.closest('[data-pastedit]');if(edit)showPastManualEditor(edit.dataset.pastedit)});$('pastList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-pastedit]');if(b)showPastManualEditor(b.dataset.pastedit)});$('pastManualPanel')?.addEventListener('click',ev=>{const close=ev.target.closest('[data-pastclose]');if(close){pastManualKey=null;$('pastManualPanel').hidden=true;return;}const pick=ev.target.closest('[data-pastpick]');if(pick)choosePastManualPick(pick)});const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>setMarkMenu('now'));$('tabPast')?.addEventListener('click',()=>setView('past'));$('tabExperiment')?.addEventListener('click',()=>setView('experiment'));$('expSearch')?.addEventListener('input',ev=>{expQuery=ev.target.value||'';expSelectedKey=null;renderExperiment()});$('expSport')?.addEventListener('change',ev=>{expFilter=ev.target.value||'all';expSelectedKey=null;renderExperiment()});$('expList')?.addEventListener('change',ev=>{if(ev.target.matches('[data-history-stage]')){expLoadHistory(ev.target.closest('.edHistory'),ev.target.value);return;}const x=ev.target.closest('[data-history-filter]');if(x)hUpdate(x.closest('.edHistory'),x.dataset.historyFilter,x.value,0)});$('expList')?.addEventListener('input',ev=>{const x=ev.target.closest('[data-history-search]');if(!x)return;const p=x.closest('.edHistory'),a=x.selectionStart,b=x.selectionEnd;hUpdate(p,'search',x.value,0);const replacement=p?.querySelector('[data-history-search]');if(replacement){replacement.focus({preventScroll:true});try{replacement.setSelectionRange(a,b)}catch(_){}}});$('expList')?.addEventListener('click',ev=>{const overseas=ev.target.closest('[data-r506-load]');if(overseas){r506LoadOverseas(overseas.dataset.r506Load);return;}const pg=ev.target.closest('[data-history-page]');if(pg){hUpdate(pg.closest('.edHistory'),'page',null,Number(pg.dataset.historyPage));return;}const history=ev.target.closest('[data-history-load]');if(history){expLoadHistory(history.closest('.edHistory'));return;}const summary=ev.target.closest('details.edBriefDetails > summary');if(summary){const d=summary.parentElement;if(d.dataset.expMarket&&!d.open){const key=d.closest('.expCard')?.querySelector('[data-expkey]')?.dataset.expkey,game=(state?.markingGames||[]).find(g=>expKey(g)===key);expMarketLazy(d,game);}return;}const b=ev.target.closest('button.expHead[data-expkey]');if(!b)return;ev.preventDefault();expSelectedKey=expSelectedKey===b.dataset.expkey?null:b.dataset.expkey;renderExperiment();if(expSelectedKey&&!r506Client.has(expSelectedKey))r506LoadOverseas(expSelectedKey)});$('hourlyBar')?.addEventListener('click',ev=>{const b=ev.target.closest('button[data-hour]');if(b)setHourFilter(b.dataset.date,b.dataset.hour)});document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
+function bindActionButton(id,url){const b=$(id);if(!b)return;b.addEventListener('click',ev=>{ev.preventDefault();if(url==='EXPORT')saveAnalysisJson(b);else act(url,b)},{passive:false})}bindActionButton('exportJson','EXPORT');$('manualMode')?.addEventListener('click',toggleManualMode);$('manualApply')?.addEventListener('click',applyManualPick);$('manualCancel')?.addEventListener('click',cancelManualPick);$('list')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-manual-no]');if(b)chooseManualPick(b);const edit=ev.target.closest('[data-pastedit]');if(edit)showPastManualEditor(edit.dataset.pastedit)});$('pastList')?.addEventListener('click',ev=>{const b=ev.target.closest('[data-pastedit]');if(b)showPastManualEditor(b.dataset.pastedit)});$('pastManualPanel')?.addEventListener('click',ev=>{const close=ev.target.closest('[data-pastclose]');if(close){pastManualKey=null;$('pastManualPanel').hidden=true;return;}const pick=ev.target.closest('[data-pastpick]');if(pick)choosePastManualPick(pick)});const lt=$('layerToggle');if(lt)lt.addEventListener('click',ev=>{ev.preventDefault();toggleLayers()},{passive:false});applyLayerVisibility();const db=$('diagBtn');if(db)db.addEventListener('click',ev=>{ev.preventDefault();$('diag').style.display=$('diag').style.display==='block'?'none':'block'},{passive:false});$('tabMarking')?.addEventListener('click',()=>setMarkMenu('now'));$('tabPast')?.addEventListener('click',()=>setView('past'));$('tabExperiment')?.addEventListener('click',()=>setView('experiment'));$('expSearch')?.addEventListener('input',ev=>{expQuery=ev.target.value||'';expSelectedKey=null;renderExperiment()});$('expSport')?.addEventListener('change',ev=>{expFilter=ev.target.value||'all';expSelectedKey=null;renderExperiment()});$('expList')?.addEventListener('change',ev=>{if(ev.target.matches('[data-history-stage]')){expLoadHistory(ev.target.closest('.edHistory'),ev.target.value);return;}const x=ev.target.closest('[data-history-filter]');if(x)hUpdate(x.closest('.edHistory'),x.dataset.historyFilter,x.value,0)});$('expList')?.addEventListener('input',ev=>{const x=ev.target.closest('[data-history-search]');if(!x)return;const p=x.closest('.edHistory'),a=x.selectionStart,b=x.selectionEnd;hUpdate(p,'search',x.value,0);const replacement=p?.querySelector('[data-history-search]');if(replacement){replacement.focus({preventScroll:true});try{replacement.setSelectionRange(a,b)}catch(_){}}});$('expList')?.addEventListener('click',ev=>{const pg=ev.target.closest('[data-history-page]');if(pg){hUpdate(pg.closest('.edHistory'),'page',null,Number(pg.dataset.historyPage));return;}const history=ev.target.closest('[data-history-load]');if(history){expLoadHistory(history.closest('.edHistory'));return;}const summary=ev.target.closest('details.edBriefDetails > summary');if(summary){const d=summary.parentElement;if(d.dataset.expMarket&&!d.open){const key=d.closest('.expCard')?.querySelector('[data-expkey]')?.dataset.expkey,game=(state?.markingGames||[]).find(g=>expKey(g)===key);expMarketLazy(d,game);}return;}const b=ev.target.closest('button.expHead[data-expkey]');if(!b)return;ev.preventDefault();expSelectedKey=expSelectedKey===b.dataset.expkey?null:b.dataset.expkey;renderExperiment()});$('hourlyBar')?.addEventListener('click',ev=>{const b=ev.target.closest('button[data-hour]');if(b)setHourFilter(b.dataset.date,b.dataset.hour)});document.querySelectorAll('#markMenu button').forEach(b=>b.addEventListener('click',()=>setMarkMenu(b.dataset.mode)));load();
 </script></body></html>`;
 async function bootstrapState(env){
 const s=await loadState(env);
@@ -8782,7 +9070,7 @@ if(!(MEM.state||s).markets.length)await refreshBetmanSource(MEM.state||s,env,tru
 return MEM.state||s;
 }
 function timingSafeEq(a,b){a=String(a||"");b=String(b||"");if(!a||a.length!==b.length)return false;let d=0;for(let i=0;i<a.length;i++)d|=a.charCodeAt(i)^b.charCodeAt(i);return d===0;}
-function adminAuthorized(req,env){const need=String(env?.ADMIN_TOKEN||"").trim();if(!need)return true;return timingSafeEq(req.headers.get("x-admin-token"),need);}
+function adminAuthorized(req,env){const need=String(env?.ADMIN_TOKEN||"").trim();if(!need)return false; /* R506: fail closed */return timingSafeEq(req.headers.get("x-admin-token"),need);}
 const OFFICIAL_RELAY_AUDIENCE="protonumber-official-settlement";
 const OFFICIAL_RELAY_WORKFLOW_REF="hyunduknim/proto-auto/.github/workflows/official-settlement-relay.yml@refs/heads/main";
 let OFFICIAL_RELAY_JWKS=null,OFFICIAL_RELAY_JWKS_AT=0;
@@ -10594,7 +10882,7 @@ game:m.game||m.home+" vs "+m.away}))};
 }
 async function runTickInternal(env){
 const s=await loadState(env);let cur=MEM.state||s;
-if(Number(cur.round||0)<121)r414ApplyOwnerRound121(cur);
+if(Number(cur.gmTs||0)<260121)r414ApplyOwnerRound121(cur);
 const fiveMinuteDue=r394FiveMinuteDue(cur,Date.now());
 const pendingBefore=pendingSettlementMarkets(cur).length;
 const settlementFirst=pendingBefore>0;
@@ -10676,6 +10964,8 @@ else settlementChecks.BETMAN_ODDS={status:'BACKOFF_LIVE_SETTLEMENT_PRIORITY',ret
 cur=MEM.state||cur;
 await settlementCheck('TEAM_FORM_AUTO',()=>r483RefreshTeamForms(cur,env));
 cur=MEM.state||cur;
+await settlementCheck('OVERSEAS_ODDS',()=>r507RefreshOverseasOdds(cur,env));
+cur=MEM.state||cur;
 const pendingAfter=pendingSettlementMarkets(cur);
 const oldestPendingMinutes=pendingAfter.length?Math.max(...pendingAfter.map(m=>{
 const t=gameTimeMs(m);return t==null?0:Math.max(0,(Date.now()-t)/60000);
@@ -10700,6 +10990,7 @@ let STATE_MAINTENANCE=null,SOURCE_REQUEST=null,SOURCE_REQUEST_TASK=null;
 function retainTask(ctx,task){if(ctx&&typeof ctx.waitUntil==="function")ctx.waitUntil(task);else task.catch(()=>{});}
 function queueStateMaintenance(env,ctx){
 if(STATE_MAINTENANCE||SOURCE_REQUEST_TASK)return;
+if(MEM.inDurableObject&&String(env?.DO_ALARM||"on").toLowerCase()!=="off"&&Number(MEM.nextAlarmAt)>0&&Date.now()<Number(MEM.nextAlarmAt)+120000)return; // R506: alarm drives ticks
 const s=MEM.state;
 if(s&&Date.now()-MEM.lastSourceAttempt<CFG.sourcePollMs&&(!hasLivePending(s)||Date.now()-MEM.lastResultAttempt<resultRemoteMinMsForState(s)))return;
 STATE_MAINTENANCE=runTick(env).catch(e=>{MEM.lastAlarmError=String(e?.message||e);}).finally(()=>{STATE_MAINTENANCE=null;});
@@ -11076,6 +11367,7 @@ Number(x.no)===Number(m.no))?.reason||"NOT_YET_SCANNED"}))
 String(a.time).localeCompare(String(b.time))||Number(a.no)-Number(b.no))
 .slice(0,500)});
 }
+if(u.pathname==="/api/overseas-status"&&req.method==="GET"){const s=await loadState(env);return json(r507Status(s,env));}
 if(u.pathname==="/api/diagnostics"){
 const s=await loadState(env);return json({version:APP_VERSION,build:BUILD_ID,cutoff:CUTOFF_DATE,summary:summary(s),gradeAudit:s.gradeAudit,marketMixAudit:s.marketMixAudit,drawInterest:s.r492DrawInterestAudit||null,r360PolicyAudit:s.r360PolicyAudit||null,r368UserVoidAudit:s.r368UserVoidAudit||null,sourceAudit:s.sourceAudit,resultAudit:s.resultAudit,fiveMinuteSettlementAudit:s.fiveMinuteSettlementAudit||null,relayAudit:s.relayAudit||null,zentotoSettlementAudit:s.zentotoSettlementAudit||null,cloudflareSettlementAudit:s.cloudflareSettlementAudit||null,wisetotoSettlementAudit:s.wisetotoSettlementAudit||null,espnSettlementAudit:s.espnSettlementAudit||null,r488MlbFinalAudit:s.r488MlbFinalAudit||null,settlementHealth:settlementHealth(s),r400SettlementContinuity:s.r400SettlementContinuity||null,r4597845Audit:s.r4597845Audit||null,r4607845Audit:s.r4607845Audit||null,r4607845RepairStatus:s.r4607845RepairStatus||null,sharedAnalysisAudit:s.sharedAnalysisAudit,fullMarkAudit:s.fullMarkAudit,learningAudit:s.learningAudit,performanceAudit:s.performanceAudit,fiveApkAudit:s.fiveApkAudit,externalFeedIntegration:feedIntegrationStatus(s,env),jeongbaedangAudit:s.jeongbaedangAudit,cleanupAudit:s.cleanupAudit,auxAudit:s.auxAudit,resetAudit:s.resetAudit,kv:!!kv(env),publicFeedConfigured:!!allowedPublicFeedUrl(env),axisFeedsConfigured:{scorecenter:!!allowedAxisFeedUrl(env,"scorecenter"),pickschool:!!allowedAxisFeedUrl(env,"pickschool"),sportsnote:!!allowedAxisFeedUrl(env,"sportsnote"),protoodds:!!allowedAxisFeedUrl(env,"protoodds"),jeongbaedangAux:!!allowedAxisFeedUrl(env,"jeongbaedang")},storage:{mode:storageMode(env),source:MEM.storageSource||null,lastChunks:MEM.lastPersistChunks||null,lastChars:MEM.lastPersistChars||null,lastError:MEM.lastPersistError||null,nextAlarmAt:MEM.nextAlarmAt?new Date(MEM.nextAlarmAt).toISOString():null,alarmRuns:MEM.alarmRuns||0,lastAlarmError:MEM.lastAlarmError||null},mem:{kvWrites:MEM.persistWrites,kvSkipped:MEM.persistSkipped,lastPersistAt:MEM.lastPersistAt,lastSourceAttempt:MEM.lastSourceAttempt,lastSourceSuccess:MEM.lastSourceSuccess,lastResultAttempt:MEM.lastResultAttempt,lastResultSuccess:MEM.lastResultSuccess,auxLastAttempt:MEM.auxLastAttempt,auxLastSuccess:MEM.auxLastSuccess,axisFeedLastAttempt:MEM.axisFeedLastAttempt,axisFeedLastSuccess:MEM.axisFeedLastSuccess}});
 }
@@ -11670,7 +11962,7 @@ displayGrade:'일반',finalPick:null,finalOdds:null,resultFinal:false,hit:null,
 r404ReferenceOnly:true,selectionStatus:'국내배당 캡처참고 · 실시간 검증 대기'};
 }
 function r404Reconcile14Snapshot(state,now=Date.now()){
-if(Number(state?.round||roundFromGmTs(state?.gmTs)||0)>=121)return {active:false,reason:'R414_120_RETIRED'};
+if(Number(state?.gmTs||0)>=260121||Number(state?.round||0)>=121)return {active:false,reason:'R414_120_RETIRED'};
 const refs=[
 r404ReferenceMarket(7719,'MONEYLINE',null,[['승',1.75],['패',1.77]],'일반승'),
 r404ReferenceMarket(7721,'HANDICAP',-2.5,[['승',4.11],['패',1.12]],'마이너스 핸디캡'),
@@ -12745,7 +13037,6 @@ return this.state.blockConcurrencyWhile(async()=>await r398HandleProtocolAdmin(r
 }
 if(u.pathname==="/__tick"){await runTick(this.env);await this.scheduleAlarm();return json({ok:true,nextAlarmAt:MEM.nextAlarmAt||null});}
 const ctx={waitUntil:p=>{try{this.state.waitUntil?this.state.waitUntil(p):p?.catch?.(()=>{});}catch{}}};
-if(u.pathname==='/api/overseas-odds')return r506Handle(req,this.env,this.state.storage);
 const res=await handleApp(req,this.env,ctx);
 try{await this.scheduleAlarm();}catch{}
 return res;
@@ -12756,133 +13047,11 @@ try{await runTick(this.env);}catch(e){MEM.lastAlarmError=String(e?.message||e);}
 finally{await this.scheduleAlarm(true);}
 }
 }
-/* R506: on-demand overseas reference. Separate storage; never changes marks/results. */
-const R506_LEAGUES={
- 'baseball_mlb':['MLB'], 'baseball_npb':['NPB'], 'baseball_kbo':['KBO'],
- 'basketball_nba':['NBA'], 'basketball_euroleague':['유로리그','유럽 유로리그'],
- 'soccer_epl':['EPL','잉글랜드 프리미어리그'], 'soccer_efl_champ':['잉글랜드 챔피언십'],
- 'soccer_uefa_champs_league':['UEFA 챔피언스리그'], 'soccer_uefa_europa_league':['UEFA 유로파리그'],
- 'soccer_uefa_europa_conference_league':['UEFA 컨퍼런스리그'], 'soccer_uefa_nations_league':['UEFA 네이션스리그','네이션스리그'],
- 'soccer_spain_la_liga':['스페인 라리가','라리가'], 'soccer_germany_bundesliga':['독일 분데스리가','분데스리가'],
- 'soccer_italy_serie_a':['이탈리아 세리에A','세리에A'], 'soccer_france_ligue_one':['프랑스 리그1','리그1'],
- 'soccer_japan_j_league':['일본 J1리그','J리그','J1리그'], 'soccer_korea_kleague1':['K리그1'],
- 'soccer_usa_mls':['미국 메이저리그사커','MLS'], 'soccer_australia_aleague':['호주 A리그'],
- 'soccer_china_superleague':['중국 슈퍼리그'], 'soccer_conmebol_copa_libertadores':['코파 리베르타도레스']
-};
-const R506_TEAMS=[
- ['England','잉글랜드'],['France','프랑스'],['Germany','독일'],['Spain','스페인'],['Italy','이탈리아'],['Portugal','포르투갈'],['Netherlands','네덜란드'],['Belgium','벨기에'],['Croatia','크로아티아'],['Denmark','덴마크'],['Switzerland','스위스'],['Austria','오스트리아'],['Poland','폴란드'],['Scotland','스코틀랜드'],['Wales','웨일스'],['Norway','노르웨이'],['Sweden','스웨덴'],['Finland','핀란드'],['Serbia','세르비아'],['Slovenia','슬로베니아'],['Slovakia','슬로바키아'],['Czech Republic','Czechia','체코'],['Hungary','헝가리'],['Romania','루마니아'],['Greece','그리스'],['Turkey','Turkiye','튀르키예','터키'],['Ukraine','우크라이나'],['Ireland','Republic of Ireland','아일랜드'],['Northern Ireland','북아일랜드'],['Iceland','아이슬란드'],['Albania','알바니아'],['Georgia','조지아'],['Bosnia and Herzegovina','보스니아 헤르체고비나'],['North Macedonia','북마케도니아'],['Montenegro','몬테네그로'],['Kosovo','코소보'],['Bulgaria','불가리아'],['Luxembourg','룩셈부르크'],['Estonia','에스토니아'],['Latvia','라트비아'],['Lithuania','리투아니아'],
- ['Liverpool','리버풀'],['Manchester City','맨체스터 시티','맨체스C'],['Manchester United','맨체스터 유나이티드','맨체스U'],['Arsenal','아스널','아스날'],['Chelsea','첼시'],['Tottenham Hotspur','토트넘','토트넘 홋스퍼'],['Aston Villa','애스턴 빌라'],['Brighton and Hove Albion','브라이턴&호브 앨비언'],['AFC Bournemouth','Bournemouth','AFC본머스'],['Crystal Palace','크리스털 팰리스'],['Sunderland','선덜랜드'],['West Ham United','웨스트햄 유나이티드'],['Norwich City','노리치 시티'],['Southampton','사우샘프턴'],['Portsmouth','포츠머스'],['Sheffield United','셰필드 유나이티드'],['Queens Park Rangers','퀸즈파크 레인저스'],['Derby County','더비 카운티'],['Lincoln City','링컨 시티'],
- ['Real Madrid','레알 마드리드'],['Barcelona','FC Barcelona','바르셀로나'],['Atletico Madrid','아틀레티코 마드리드'],['Real Betis','레알 베티스'],['Real Sociedad','레알 소시에다드'],['Celta Vigo','RC셀타데비고'],['Roma','AS Roma','AS로마'],['Inter Milan','Inter','인테르나치오날레 밀라노','인터밀란'],['AC Milan','AC밀란'],['Juventus','유벤투스'],['Atalanta','아탈란타BC'],['Como','Como 1907','코모1907'],['Bayern Munich','바이에른 뮌헨'],['Borussia Dortmund','도르트문트'],['Bayer Leverkusen','바이어04 레버쿠젠'],['VfB Stuttgart','VfB슈투트가르트'],['SC Freiburg','SC프라이부르크'],['Hoffenheim','TSG1899 호펜하임'],['Paris Saint Germain','Paris Saint-Germain','파리 생제르맹'],['Lyon','올랭피크 리옹'],['Marseille','올림피크 마르세유','올랭피크드 마르세유'],['Rennes','스타드 렌'],
- ['Feyenoord','페예노르트'],['LASK Linz','LASK'],['FC Porto','Porto','포르투'],['Benfica','SL벤피카'],['Sporting Lisbon','Sporting CP','스포르팅CP'],['Celtic','셀틱'],['Fenerbahce','페네르바흐체SK'],['Besiktas','베식타시'],['Bodo/Glimt','Bodø/Glimt','FK보되 글림트'],['Shakhtar Donetsk','샤흐타르 도네츠크'],['AEK Athens','AEK아테네'],['Slovan Bratislava','SK슬로반 브라티슬라바'],['Viktoria Plzen','빅토리아 플젠'],['Ferencvaros','페렌츠바로시TC'],['Dinamo Zagreb','GNK디나모 자그레브'],['Anderlecht','RSC안더레흐트'],['AZ Alkmaar','AZ알크마르'],['Hapoel Beer Sheva','하포엘 베르셰바'],['Union Saint Gilloise','루아얄 위니옹 생질루아즈'],['Red Bull Salzburg','Salzburg','잘츠부르크'],['Sparta Prague','스파르타 프라하'],['Lech Poznan','레흐 포즈난'],['Celje','NK첼레'],['Omonia Nicosia','AC오모니아'],['Sturm Graz','슈투름 그라츠'],['NEC Nijmegen','NEC네이메헌'],['Levski Sofia','레프스키 소피아'],
- ['FC Cincinnati','FC신시내티'],['New England Revolution','뉴잉글랜드 레벌루션'],['Columbus Crew','콜럼버스 크루'],['Charlotte FC','샬럿FC'],['Sydney FC','시드니FC'],['Western Sydney Wanderers','웨스턴시드니 원더러스'],
- ['Yomiuri Giants','요미우리','요미우리 자이언츠'],['Hanshin Tigers','한신','한신 타이거즈'],['Yokohama DeNA BayStars','요코하마 DeNA','요코하마'],['Hiroshima Toyo Carp','히로시마','히로시마 도요 카프'],['Chunichi Dragons','주니치','주니치 드래곤즈'],['Tokyo Yakult Swallows','야쿠르트','야쿠르트 스왈로즈'],['Fukuoka SoftBank Hawks','소프트뱅크','소프트뱅크 호크스'],['Hokkaido Nippon Ham Fighters','닛폰햄','닛폰햄 파이터스'],['Chiba Lotte Marines','지바롯데','지바 롯데'],['Tohoku Rakuten Golden Eagles','라쿠텐'],['Orix Buffaloes','오릭스'],['Saitama Seibu Lions','세이부'],
- ['LG Twins','LG 트윈스','LG'],['Doosan Bears','두산 베어스','두산'],['Kia Tigers','KIA 타이거즈','KIA'],['Samsung Lions','삼성 라이온즈','삼성'],['Lotte Giants','롯데 자이언츠','롯데'],['Hanwha Eagles','한화 이글스','한화'],['SSG Landers','SSG 랜더스','SSG'],['KT Wiz','KT 위즈','KT'],['NC Dinos','NC 다이노스','NC'],['Kiwoom Heroes','키움 히어로즈','키움']
-];
-function r506Name(x){return String(x||'').normalize('NFKC').toLowerCase().replace(/[\s.\-_'’/&]/g,'');}
-function r506TeamSame(a,b,sport){
- const x=r506Name(a),y=r506Name(b);if(!x||!y)return false;if(x===y)return true;
- const groups=sport==='baseball_mlb'?R488_MLB_TEAMS:R506_TEAMS;
- return groups.some(ns=>ns.some(n=>r506Name(n)===x)&&ns.some(n=>r506Name(n)===y));
-}
-function r506Sport(g){const league=r506Name(g?.league);return Object.keys(R506_LEAGUES).find(k=>R506_LEAGUES[k].some(n=>r506Name(n)===league)&&((k.startsWith('soccer_')&&g.sport==='축구')||(k.startsWith('baseball_')&&g.sport==='야구')||(k.startsWith('basketball_')&&g.sport==='농구')))||null;}
-function r506Median(xs){const a=xs.slice().sort((a,b)=>a-b),i=Math.floor(a.length/2);return a.length?(a.length%2?a[i]:(a[i-1]+a[i])/2):null;}
-function r506QuoteAge(at,now){const t=typeof at==='string'?Date.parse(at):NaN;return Number.isFinite(t)&&t<=now?now-t:null;}
-function r506Compare(game,rows,events,now=Date.now()){
- const sport=r506Sport(game),kickoff=gameTimeMs(game),matches=(events||[]).filter(e=>e?.sport_key===sport&&Number.isFinite(kickoff)&&kickoff>now&&Date.parse(e.commence_time)>now&&Number.isFinite(Date.parse(e.commence_time))&&Math.abs(Date.parse(e.commence_time)-kickoff)<=300000&&r506TeamSame(game.home,e.home_team,sport)&&r506TeamSame(game.away,e.away_team,sport));
- if(matches.length!==1)return {status:matches.length?'AMBIGUOUS_EVENT':'EVENT_NOT_FOUND',markets:[]};
- const event=matches[0],markets=rows.map(r=>{
-  const base={no:r.no,family:r.marketFamily,line:r.line??null,status:'NO_MARKET',bookCount:0,books:[],choices:[]};
-  const scopes=[r.period,r.segment,r.domesticOddsSnapshot?.period,r.precision?.period].filter(x=>x!=null&&String(x).trim()!=='');
-  if(/전반|후반|쿼터|이닝|[1-9]회|half|quarter|inning|\b(?:[1-9][HQP]|[HQP][1-9]|F[1-9])\b/i.test([r.market,r.marketLabel,...scopes].join(' ')))return {...base,status:'PERIOD_MISMATCH'};
-  const key={MONEYLINE:'h2h',HANDICAP:'spreads',TOTAL:'totals'}[r.marketFamily];if(!key)return base;
-  const domestic=r.choices||[],labels=domestic.map(c=>c.label),expected=r.marketFamily==='TOTAL'?['언더','오버']:labels.includes('무')?['승','무','패']:['승','패'];
-  const line=r.line,books=[],seen=new Set();let present=false,invalid=0,stale=0;
-  for(const b of event.bookmakers||[]){
-   if(!b?.key||/_lay$/.test(key)||/^betfair_ex|^matchbook$/.test(b.key)||seen.has(b.key))continue;
-   for(const m of b.markets||[]){
-    if(m.key!==key)continue;present=true;
-    const outcomes=m.outcomes||[];if(outcomes.length!==expected.length||labels.length!==expected.length||new Set(labels).size!==labels.length||expected.some(l=>!labels.includes(l)))continue;
-    const prices=expected.map(label=>{
-     const name=label==='언더'?'Under':label==='오버'?'Over':label==='승'?event.home_team:label==='패'?event.away_team:'Draw';
-     const os=outcomes.filter(o=>o.name===name);if(os.length!==1)return null;const o=os[0],price=o.price;
-     if(typeof price!=='number'||!Number.isFinite(price)||price<=1||price>1000)return null;
-     if(key!=='h2h'&&(typeof o.point!=='number'||line===null||line===undefined||!Number.isFinite(Number(line))||Math.abs(o.point-(key==='spreads'&&label==='패'?-Number(line):Number(line)))>1e-8))return null;
-     return {label,odds:price};
-    });
-    if(prices.some(x=>!x))continue;
-    const age=r506QuoteAge(m.last_update,now);if(age===null){invalid++;continue;}if(age>30*60000){stale++;continue;}
-    const inv=prices.reduce((s,c)=>s+1/c.odds,0);if(inv<.85||inv>1.4){invalid++;continue;}
-    seen.add(b.key);books.push({key:b.key,title:String(b.title||b.key).slice(0,100),updatedAt:m.last_update,ageSec:Math.floor(age/1000),prices:prices.map(c=>({...c,marketWeight:1/c.odds/inv})),margin:inv-1});break;
-   }
-  }
-  if(!books.length)return {...base,status:stale?'STALE_QUOTES':invalid?'INVALID_QUOTES':present?'LINE_OR_OUTCOME_MISMATCH':'NO_MARKET'};
-  const source=String(r.domesticOddsSource||r.source||''),scope=String(r.domesticOddsSnapshot?.period||r.period||'').toUpperCase();
-  const verifiedPeriod=/^(FULL|FULLTIME)$/.test(scope)&&scopes.every(x=>/^(FULL|FULLTIME)$/.test(String(x).trim().toUpperCase()))&&!/zentoto|spogod|public|screenshot/i.test(source);
-  const domesticAt=r.domesticOddsFetchedAt||r.precision?.observedAt,domesticAge=r506QuoteAge(domesticAt,now);
-  const rulesComparable=verifiedPeriod&&!(sport==='baseball_npb'||sport==='baseball_kbo');
-  const choices=expected.map(label=>{const odds=books.map(b=>b.prices.find(c=>c.label===label)),dom=domestic.find(c=>c.label===label);return {label,domestic:Number(dom?.odds)>1?Number(dom.odds):null,overseas:r506Median(odds.map(c=>c.odds)),min:Math.min(...odds.map(c=>c.odds)),max:Math.max(...odds.map(c=>c.odds)),marketWeight:r506Median(odds.map(c=>c.marketWeight))};});
-  const sum=choices.reduce((s,c)=>s+c.marketWeight,0);
-  for(const c of choices){c.marketWeight/=sum;c.priceGap=rulesComparable&&domesticAge!==null&&domesticAge<=10*60000&&books.every(b=>b.ageSec<=600)&&c.domestic?c.domestic/c.overseas-1:null;}
-  return {...base,status:!verifiedPeriod?'PERIOD_UNVERIFIED':!rulesComparable?'RULES_UNVERIFIED':'MATCHED',bookCount:books.length,books,choices,domesticAt:domesticAt||null,oldestQuoteAt:books.map(b=>b.updatedAt).sort()[0],newestQuoteAt:books.map(b=>b.updatedAt).sort().at(-1),smallSample:books.length<3};
- });
- return {status:'MATCHED',event:{id:event.id,home:event.home_team,away:event.away_team,kickoff:event.commence_time,sport},markets};
-}
-let R506_QUEUE=Promise.resolve();
-function r506LoadLeague(sport,env,storage,now=Date.now(),fetcher=fetch){
- const work=async()=>{
-  if(!R506_LEAGUES[sport])return {status:'UNSUPPORTED_LEAGUE',events:[]};
-  if(!storage||typeof storage.get!=='function'||typeof storage.put!=='function')return {status:'STORAGE_UNAVAILABLE',events:[]};
-  const key=String(env?.THE_ODDS_API_KEY||'').trim();if(!key)return {status:'KEY_NOT_CONFIGURED',events:[]};
-  const cacheKey='r506:odds:'+sport,cached=await storage.get(cacheKey),cachedAge=r506QuoteAge(cached?.receivedAt,now);
-  if(cachedAge!==null&&cachedAge<30*60000)return {...cached,cacheHit:true};
-  const day=new Date(now+9*3600000).toISOString().slice(0,10),stored=await storage.get('r506:budget'),budget=stored?.day===day?stored:{day,reserved:0};
-  const fallback=status=>({...cached,status,events:cached?.events||[],cacheHit:!!cached,refreshFailed:true});
-  if(budget.reserved+3>30)return fallback('DAILY_LIMIT');
-  if(stored?.retryAt>now)return fallback('RETRY_LATER');
-  if(stored?.remaining!==null&&stored?.remaining!==undefined&&stored.remaining<3&&stored.checkedAt>now-3600000)return fallback('QUOTA_LOW');
-  // Reserve durably before any billable call; failure cannot create an unbounded retry loop.
-  await storage.put('r506:budget',{...budget,reserved:budget.reserved+3,retryAt:now+60000});
-  const u=new URL('https://api.the-odds-api.com/v4/sports/'+sport+'/odds/');
-  for(const [k,v]of Object.entries({apiKey:key,regions:'eu',markets:'h2h,spreads,totals',oddsFormat:'decimal',dateFormat:'iso'}))u.searchParams.set(k,v);
-  const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),9000);
-  try{
-   const res=await fetcher(u.toString(),{signal:ac.signal,headers:{accept:'application/json'}});
-   const raw=res.headers.get('x-requests-remaining'),remaining=raw!==null&&/^\d+$/.test(raw)?Number(raw):null;
-   const body=await res.json();
-   const status=res.ok?'OK':res.status===401?'KEY_REJECTED':res.status===429?'RATE_LIMITED':body?.error_code==='OUT_OF_USAGE_CREDITS'?'QUOTA_EXHAUSTED':'PROVIDER_ERROR';
-   await storage.put('r506:budget',{day,reserved:budget.reserved+3,remaining,checkedAt:now,retryAt:res.ok?0:now+15*60000});
-   if(!res.ok||!Array.isArray(body)||body.length>500)return fallback(res.ok?'INVALID_RESPONSE':status);
-   // Whitelisted fields only: no provider error message or credential can reach the browser.
-   const events=body.filter(e=>e?.sport_key===sport).map(e=>({id:e.id,sport_key:e.sport_key,commence_time:e.commence_time,home_team:e.home_team,away_team:e.away_team,bookmakers:(e.bookmakers||[]).slice(0,80).map(b=>({key:b.key,title:b.title,markets:(b.markets||[]).filter(m=>['h2h','spreads','totals'].includes(m.key)).map(m=>({key:m.key,last_update:m.last_update,outcomes:(m.outcomes||[]).slice(0,3).map(o=>({name:o.name,price:o.price,...(typeof o.point==='number'?{point:o.point}:{})}))}))}))}));
-   const value={status:'OK',receivedAt:new Date(now).toISOString(),remaining,events};await storage.put(cacheKey,value);return {...value,cacheHit:false};
-  }catch{return fallback('NETWORK_OR_STORAGE_ERROR');}finally{clearTimeout(timer);}
- };
- const pending=R506_QUEUE.then(work,work);R506_QUEUE=pending.catch(()=>{});return pending;
-}
-async function r506Handle(req,env,storage){
- if(req.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405);
- const u=new URL(req.url),no=u.searchParams.get('no'),round=u.searchParams.get('gmTs');
- if(!/^\d{1,6}$/.test(no||'')||!/^\d{6}$/.test(round||''))return json({error:'INVALID_GAME_ID'},400);
- const all=MEM.state?.markets||[],row=all.find(m=>String(m.gmTs)===round&&String(m.no)===no);
- if(!row)return json({status:'GAME_NOT_FOUND',markets:[]},404);
- const sport=r506Sport(row);if(!sport)return json({status:'UNSUPPORTED_LEAGUE',markets:[]});
- const now=Date.now(),kickoff=gameTimeMs(row);
- // A past game's current/live quote must never be presented as a pregame observation.
- if(!Number.isFinite(kickoff)||kickoff<=now||row.resultFinal)return json({status:'PREGAME_ONLY',markets:[]});
- if(kickoff>now+7*86400000)return json({status:'OUTSIDE_LOOKAHEAD',markets:[]});
- const rows=all.filter(m=>String(m.gmTs)===round&&m.date===row.date&&m.time===row.time&&m.home===row.home&&m.away===row.away&&m.league===row.league&&m.sport===row.sport);
- try{
-  const data=await r506LoadLeague(sport,env,storage,now),comparison=r506Compare(row,rows,data.events,Date.now());
-  return json({...comparison,provider:'The Odds API',region:'eu',fetchStatus:data.status,receivedAt:data.receivedAt||null,remaining:data.remaining??null,cacheHit:!!data.cacheHit,refreshFailed:!!data.refreshFailed,policy:{cacheMinutes:30,dailyCreditCap:30,priceGapMaxAgeMinutes:10},checkedAt:new Date().toISOString()});
- }catch{return json({status:'SERVICE_UNAVAILABLE',markets:[]},503);}
-}
-
 export default {
 async fetch(req,env,ctx){
 const u=new URL(req.url);
 if(u.pathname.startsWith("/__"))return json({error:"not found"},404); // 내부 경로는 외부에서 호출 불가
 const stub=doStub(env);
-if(u.pathname==='/api/overseas-odds'&&!stub)return json({status:'STORAGE_UNAVAILABLE',markets:[]},503);
 if(stub&&u.pathname==='/api/odds-history'&&req.method==='GET'){
 try{return await r462HandleHistory(req,env,async()=>{
 const res=await stub.fetch(new Request(new URL('/api/state',req.url),{method:'GET'}));
