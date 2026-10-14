@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R512-SETTLEMENT-FAST";
-const BUILD_ID = "proto-r512-20261015-settlement-fast";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R513-OVERSEAS-FIRST-TICK-TRACE";
+const BUILD_ID = "proto-r513-20261015-overseas-first-tick-trace";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -10954,6 +10954,7 @@ const settlementFirst=pendingBefore>0;
 const settlementChecks={};
 async function settlementCheck(name,fn){
 const begun=Date.now();
+await r513Stage(name);
 try{
 const result=await fn();
 settlementChecks[name]=r488ProviderCheck(name,result,MEM.state||cur,Date.now()-begun);
@@ -10965,6 +10966,11 @@ MEM.lastAlarmError="R400_"+name+":"+reason;
 return null;
 }
 }
+await r513Stage('START',true);
+/* R513: overseas odds run first so a slow/failed later source cannot starve them. */
+await settlementCheck('OVERSEAS_ODDS',()=>r507RefreshOverseasOdds(cur,env));
+cur=MEM.state||cur;
+if(Date.now()-Number(MEM.r513OverseasSavedAt||0)>=600000){MEM.r513OverseasSavedAt=Date.now();await r513Stage('OVERSEAS_SAVE');try{await saveState(cur,env,false);}catch(e){MEM.lastAlarmError="R513_OVERSEAS_SAVE:"+String(e?.message||e).slice(0,140);}cur=MEM.state||cur;}
 if(!settlementFirst){
 await settlementCheck('LIVE_ODDS_OBSERVATIONS',()=>r485RefreshLiveQuotes(cur,env));
 cur=MEM.state||cur;
@@ -11033,8 +11039,7 @@ else settlementChecks.BETMAN_ODDS={status:'BACKOFF_LIVE_SETTLEMENT_PRIORITY',ret
 cur=MEM.state||cur;
 await settlementCheck('TEAM_FORM_AUTO',()=>r483RefreshTeamForms(cur,env));
 cur=MEM.state||cur;
-await settlementCheck('OVERSEAS_ODDS',()=>r507RefreshOverseasOdds(cur,env));
-cur=MEM.state||cur;
+await r513Stage('FINALIZE');
 const pendingAfter=pendingSettlementMarkets(cur);
 const oldestPendingMinutes=pendingAfter.length?Math.max(...pendingAfter.map(m=>{
 const t=gameTimeMs(m);return t==null?0:Math.max(0,(Date.now()-t)/60000);
@@ -11050,9 +11055,24 @@ if(fiveMinuteDue){
 cur.fiveMinuteSettlementAudit=r394FiveMinuteAudit(cur,pendingBefore,Date.now());
 cur.fiveMinuteSettlementAudit.providerChecks=settlementChecks;
 }
+await r513Stage('FINAL_SAVE');
 try{await saveState(cur,env,!!fiveMinuteDue);}
 catch(e){MEM.lastAlarmError="R400_WATCHDOG_SAVE:"+String(e?.message||e).slice(0,160);}
+await r513Stage('DONE');
 return MEM.state||cur;
+}
+/* R513: tick breadcrumbs in a tiny DO key, so a tick that dies mid-way shows the last stage it reached. */
+async function r513Stage(stage,start=false){
+const now=Date.now(),iso=new Date(now).toISOString();
+try{
+const ds=doStorage();
+if(start){let old=null;try{old=ds?await ds.get('r513:tick'):null;}catch(_){}
+MEM.r513Tick={start:iso,stage,at:iso,lastDoneAt:old?.lastDoneAt||null,
+previous:old?{start:old.start||null,stage:old.stage||null,at:old.at||null,completed:old.stage==='DONE'}:null,
+diedBefore:old&&old.stage!=='DONE'?Number(old.diedBefore||0)+1:0};}
+else{MEM.r513Tick={...(MEM.r513Tick||{start:iso}),stage,at:iso};if(stage==='DONE'){MEM.r513Tick.lastDoneAt=iso;MEM.r513Tick.diedBefore=0;}}
+if(ds)await ds.put('r513:tick',MEM.r513Tick);
+}catch(_){}
 }
 function doStub(env){const ns=env?.PROTO_DO;if(!ns||typeof ns.idFromName!=="function")return null;return ns.get(ns.idFromName("main"));}
 let STATE_MAINTENANCE=null,SOURCE_REQUEST=null,SOURCE_REQUEST_TASK=null;
@@ -11338,7 +11358,7 @@ interpretation:'marketShare is no-vig relative price weight, NOT verified outcom
 async function handleApp(req,env,ctx){
 const u=new URL(req.url);
 if(u.pathname==="/")return html(INDEX);
-if(u.pathname==='/api/overseas-status'&&req.method==='GET')return json(r508Status(MEM.state||await loadState(env),env));
+if(u.pathname==='/api/overseas-status'&&req.method==='GET'){const st=r508Status(MEM.state||await loadState(env),env);try{const ds=doStorage();st.tick=ds?(await ds.get('r513:tick'))||MEM.r513Tick||null:(MEM.r513Tick||null);}catch(_){st.tick=MEM.r513Tick||null;}return json(st);}
 if(u.pathname==='/api/data-odds-analytics'&&req.method==='GET')return json(r477DataPayload(await loadState(env)));
 if(u.pathname==='/api/odds-history'&&req.method==='GET')return r462HandleHistory(req,env);
 if(u.pathname==='/api/manual-odds')return json({error:'MANUAL_ODDS_FEATURE_REMOVED'},410);
