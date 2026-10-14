@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R509-SETTLEMENT-ROUND-BRIDGE";
-const BUILD_ID = "proto-r509-20261015-settlement-round-bridge";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R510-AUTO-ALARM-RECOVERY";
+const BUILD_ID = "proto-r510-20261015-auto-alarm-recovery";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -13057,7 +13057,7 @@ return Math.max(60000,Number(this.env?.DO_IDLE_ALARM_MS)||10*60000);
 async scheduleAlarm(fromAlarm=false){
 if(String(this.env?.DO_ALARM||"on").toLowerCase()==="off")return null;
 const target=Date.now()+this.alarmIntervalMs(),cur=await this.state.storage.getAlarm();
-if(fromAlarm||cur==null||cur>target){await this.state.storage.setAlarm(target);MEM.nextAlarmAt=target;return target;}
+if(fromAlarm||cur==null||!Number.isFinite(cur)||cur<=Date.now()||cur>target){await this.state.storage.setAlarm(target);MEM.nextAlarmAt=target;return target;}
 MEM.nextAlarmAt=cur;return cur;
 }
 async fetch(req){
