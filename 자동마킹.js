@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R548-ROBOTS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R549-SLOW-BETMAN-ROUND";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1289,7 +1289,7 @@ if(!r487SaleRolloverDue(state,now))return {round:null,audit};
 if(!/^\d{6}$/.test(candidate)||Number(candidate)<=Number(current))return {round:null,audit};
 audit.to=candidate;audit.status="CHECKING";
 try{
-const raw=await fetchGameInfo(candidate,8500);
+const raw=await fetchGameInfo(candidate,15000); /* R549: Betman answers slowly; give new-round discovery 15s */
 const rows=parseBetmanMarkets(raw,candidate);
 const future=rows.filter(m=>String(m.gmTs)===candidate&&gameTimeMs(m)>now&&
 m.date>=new Date(now+9*3600000).toISOString().slice(0,10)&&
