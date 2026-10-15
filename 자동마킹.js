@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R547B-SCORES-AFTER-KICKOFF";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R548-ROBOTS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11750,6 +11750,7 @@ interpretation:'marketShare is no-vig relative price weight, NOT verified outcom
 }
 async function handleApp(req,env,ctx){
 const u=new URL(req.url);
+if(u.pathname==="/robots.txt")return new Response("User-agent: Claude-User\nAllow: /\n\nUser-agent: *\nDisallow: /\n",{headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}}); /* R548: owner's assistant may read status pages; everything else stays out */
 if(u.pathname==="/")return html(INDEX);
 if(u.pathname==='/api/overseas-status'&&req.method==='GET'){const st=r508Status(MEM.state||await loadState(env),env);try{const ds=doStorage();st.tick=ds?(await ds.get('r513:tick'))||MEM.r513Tick||null:(MEM.r513Tick||null);st.overseasRun=ds?(await ds.get('r514:ov'))||null:null;}catch(_){st.tick=MEM.r513Tick||null;}return u.searchParams.get('view')==='html'?new Response('<!doctype html><meta charset="utf-8"><title>해외배당 수집 상태</title><pre>'+esc(JSON.stringify(st,null,2))+'</pre>',{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}}):json(st);}
 if(u.pathname==='/api/data-odds-analytics'&&req.method==='GET')return json(r477DataPayload(await loadState(env)));
@@ -11782,6 +11783,7 @@ return serializedOperation(()=>handleAppInternal(req,env,ctx));
 }
 async function handleAppInternal(req,env,ctx){
 const u=new URL(req.url);
+if(u.pathname==="/robots.txt")return new Response("User-agent: Claude-User\nAllow: /\n\nUser-agent: *\nDisallow: /\n",{headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}}); /* R548: owner's assistant may read status pages; everything else stays out */
 if(u.pathname==="/")return html(INDEX);
 if(req.method==="POST"&&u.pathname.startsWith("/api/")&&!adminAuthorized(req,env))return json({error:"unauthorized"},401);
 if(u.pathname==="/api/manual-pick"&&req.method==="POST"){
