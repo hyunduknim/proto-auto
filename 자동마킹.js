@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R546-CLUBELO-VERIFY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R547-ODDSAPI-SCORES-SETTLEMENT";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -3491,7 +3491,7 @@ function recordSettlementLedger(state,m){
 if(!m?.resultFinal||!m?.marked||!m?.representativeSelected||!settlementAllowed(m))return false;const row=compactSettlementResult(m),ledger=ensureSettlementLedger(state),key=settlementLedgerKey(row),idx=ledger.findIndex(x=>settlementLedgerKey(x)===key);
 if(idx>=0)ledger[idx]=row;else ledger.push(row);ledger.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.time||'').localeCompare(String(a.time||''))||Number(b.no||0)-Number(a.no||0));return true;
 }
-function canArchive(m){return !!(settlementAllowed(m)&&m.resultFinal&&m.marked&&m.representativeSelected&&m.resultVerifiedAt&&(/^(BETMAN_OFFICIAL|BETMAN_GAMEINFO_CONFIRMED_FINAL|ZENTOTO_|SPOGOD_|ESPN_|NPB_OFFICIAL|WISETOTO_|USER_REQUESTED_VOID_NOT_OFFICIAL|FLASHSCORE_VERIFIED_FULLTIME|AISCORE_VERIFIED_FULLTIME|LALIGA_OFFICIAL|R38|R44|R45|R46|R47|R48)/.test(String(m.resultSource||'')))&&(typeof m.hit==='boolean'||m.settlementStatus==='적특'));}
+function canArchive(m){return !!(settlementAllowed(m)&&m.resultFinal&&m.marked&&m.representativeSelected&&m.resultVerifiedAt&&(/^(BETMAN_OFFICIAL|BETMAN_GAMEINFO_CONFIRMED_FINAL|ZENTOTO_|SPOGOD_|ESPN_|ODDSAPI_|NPB_OFFICIAL|WISETOTO_|USER_REQUESTED_VOID_NOT_OFFICIAL|FLASHSCORE_VERIFIED_FULLTIME|AISCORE_VERIFIED_FULLTIME|LALIGA_OFFICIAL|R38|R44|R45|R46|R47|R48)/.test(String(m.resultSource||'')))&&(typeof m.hit==='boolean'||m.settlementStatus==='적특'));}
 function legacySettlementCard(x){
 const family=String(x?.marketFamily||''),line=num(x?.line),pick=x?.pick??x?.finalPick??null,odds=num(x?.odds??x?.finalOdds),eff=num(x?.handicapEffectiveLine)??(family==='HANDICAP'&&line!=null?(String(pick)==='승'?line:String(pick)==='패'?-line:null):null);
 const row={no:x?.no??null,market:String(x?.market||''),marketFamily:family,line,handicapEffectiveLine:eff,choices:pick?[{label:pick,odds}]:[],marked:true,finalPick:pick,finalOdds:odds,selectionStatus:'대표픽'};
@@ -6610,7 +6610,7 @@ if(/^R44[345]_/i.test(src)&&/VERIFIED|YONHAP|CHOSUNBIZ|NEWS/i.test(src))return 9
 if(/^(R459_AS_VERIFIED_FULLTIME|R460_VERIFIED_AS_7845_FULLTIME)$/.test(src))return 9;
 if(/^(NPB_OFFICIAL|KBO_OFFICIAL|FLASHSCORE_VERIFIED|AISCORE_VERIFIED|SPGOD_VERIFIED|ZENTOTO_VERIFIED)/i.test(src))return 7;
 if(/^BETMAN_OFFICIAL/i.test(src))return 6;
-if(/^(ZENTOTO_|SPOGOD_|ESPN_)/i.test(src)&&/FINAL|RESULT|VERIFIED/i.test(src))return 5;
+if(/^(ZENTOTO_|SPOGOD_|ESPN_|ODDSAPI_)/i.test(src)&&/FINAL|RESULT|VERIFIED/i.test(src))return 5;
 return 0;
 }
 function r446RawFinal(m,chosen){
@@ -10459,6 +10459,36 @@ audit.pendingAfter=r532Pending(state).length;audit.status=audit.matched?"VERIFIE
 if(audit.settled)markState(state);}
 catch(e){audit.status="SOURCE_UNAVAILABLE";audit.error=String(e?.message||e).slice(0,160);}
 state.r532EspnSoccerAudit=audit;await saveState(state,env,audit.settled>0);return audit;}
+/* R547: The Odds API /scores as a settlement source for games already matched to an overseas event (exact event id,
+   no name guessing). Used only for picks still pending 150+ min after kickoff (ZENTOTO/SPOGOD/ESPN had their chance),
+   at most once per league per 45 min, 2 credits per call, never below the credit reserve. */
+function r547Pending(state,now=Date.now()){const mt=state?.r507Overseas?.matches||{};
+return pendingSettlementMarkets(state).filter(m=>{const t=gameTimeMs(m),x=mt[gameSeed(m)];return t!=null&&now-t>=150*60000&&now-t<=3*86400000&&x?.eventId&&x?.sportKey;});}
+async function r547RefreshScores(state,env,now=Date.now()){
+const o=r507Opts(env),pending=r547Pending(state,now);if(!pending.length)return {source:"ODDSAPI_SCORES",status:"NO_OVERDUE_MATCHED_PENDING",settled:0};
+if(!o.key||o.disabled)return {source:"ODDSAPI_SCORES",status:"NOT_CONFIGURED",settled:0};
+const store=r507Store(state),mt=store.matches||{},last=store.scoresAt||(store.scoresAt={});
+const keys=[...new Set(pending.map(m=>mt[gameSeed(m)].sportKey))].filter(k=>now-Number(last[k]||0)>=45*60000).slice(0,2);
+const audit={source:"ODDSAPI_SCORES",at:nowIso(),status:"CHECKING",pendingBefore:pending.length,leagues:keys,calls:0,matched:0,settled:0,rejected:0,reasons:{},samples:[],error:null};
+if(!keys.length){audit.status="THROTTLED";state.r547ScoresAudit=audit;return audit;}
+const fail=r=>{audit.rejected++;audit.reasons[r]=(audit.reasons[r]||0)+1;};
+try{for(const k of keys){const rem=Number(store.budget?.remaining);if(Number.isFinite(rem)&&rem-2<R507.reserve){audit.status="CREDIT_RESERVE";break;}
+last[k]=now;const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(k)}/scores`,{daysFrom:2,dateFormat:"iso"});r507Spend(store,usage,2);audit.calls++;
+const byId=new Map((Array.isArray(data)?data:[]).map(e=>[e.id,e]));
+for(const m of pending){const x=mt[gameSeed(m)];if(x.sportKey!==k)continue;const e=byId.get(x.eventId);
+if(!e){fail("EVENT_NOT_IN_SCORES");continue;}if(e.completed!==true){fail("NOT_COMPLETED");continue;}
+const sc=Array.isArray(e.scores)?e.scores:[],hs=sc.find(z=>z.name===e.home_team)?.score,as=sc.find(z=>z.name===e.away_team)?.score;
+if(sc.length!==2||!/^\d{1,3}$/.test(String(hs??""))||!/^\d{1,3}$/.test(String(as??""))){fail("SCORE_MISSING");continue;}
+if(Math.abs(Date.parse(e.commence_time)-gameTimeMs(m))>20*60000){fail("KICKOFF_MISMATCH");continue;}
+const raw={gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,home:m.home,away:m.away,family:"MONEYLINE",score:hs+":"+as,terminal:true,partial:false,specialStatus:null};
+const pair=resultScorePairText(raw.score);if(!pair||scoreUnitMismatch(m,pair)){fail("MARKET_SCORE_UNIT");continue;}
+const res=resolveOfficialOutcome(raw,m);if(!res?.outcome||res.void||!validChoices(m).some(c=>c.label===res.outcome)){fail("UNRESOLVED_MARKET_OR_PUSH");continue;}
+audit.matched++;const n=applyResults({markets:[m]},[raw],"ODDSAPI_VERIFIED_FINAL_SCORE");audit.settled+=n;
+if(audit.samples.length<20)audit.samples.push({no:m.no,game:m.home+" vs "+m.away,api:e.home_team+" vs "+e.away_team,score:raw.score,outcome:res.outcome,settled:n===1});}}
+if(audit.status==="CHECKING")audit.status=audit.matched?"VERIFIED_MATCHES_CHECKED":"NO_MATCHED_FINAL";
+audit.pendingAfter=r547Pending(state).length;if(audit.settled)markState(state);}
+catch(e){audit.status="SOURCE_UNAVAILABLE";audit.error=String(e?.message||e).replace(/apiKey=[^&\s"]+/gi,"apiKey=***").slice(0,140);}
+state.r547ScoresAudit=audit;await saveState(state,env,audit.settled>0||audit.calls>0);return audit;}
 async function r385RefreshMlsFinals(state,env,force=false){
 const pending=pendingSettlementMarkets(state).filter(r385MlsFixtureSpec);
 if(!pending.length)return {source:"ESPN_DIRECT_MLS_FULLTIME",
@@ -11061,7 +11091,7 @@ sourceFresh:cloudflareFresh,matchingRows:Number(cf.candidates||0),
 settledLastCheck:Number(cf.settled||0),pendingAfter:Number(cf.pendingAfter??pending),
 overdueDetails:(cf.pendingDetails||[]).filter(x=>Number(x.ageMinutes)>=240).slice(0,20),
 error:cf.error||null},
-settlementSourcePriority:["ZENTOTO","SPOGOD_VERIFIED_FINAL","ESPN_PUBLIC_MLB_VERIFIED_FINAL","NPB_OFFICIAL_FULLTIME","ESPN_VERIFIED_MLS_FALLBACK","ESPN_VERIFIED_SOCCER_FALLBACK","WISETOTO_OPTIONAL_LICENSED","BETMAN_LAST"],
+settlementSourcePriority:["ZENTOTO","SPOGOD_VERIFIED_FINAL","ESPN_PUBLIC_MLB_VERIFIED_FINAL","NPB_OFFICIAL_FULLTIME","ESPN_VERIFIED_MLS_FALLBACK","ESPN_VERIFIED_SOCCER_FALLBACK","ODDSAPI_MATCHED_EVENT_SCORES","WISETOTO_OPTIONAL_LICENSED","BETMAN_LAST"],
 afternoonRecovery:{at:state?.r389AfternoonAudit?.at||null,
 verifiedFixtures:Number(state?.r389AfternoonAudit?.verifiedFixtures||0),
 settledTotal:Number(state?.r389AfternoonAudit?.totalSettled||0),
@@ -11336,6 +11366,8 @@ cur=MEM.state||cur;
 await settlementCheck("ESPN_MLS",()=>r385RefreshMlsFinals(cur,env,false));
 cur=MEM.state||cur;
 if(r532Pending(cur).length)await settlementCheck("ESPN_SOCCER",()=>r532RefreshEspnSoccer(cur,env,false));
+cur=MEM.state||cur;
+if(r547Pending(cur).length)await settlementCheck("ODDSAPI_SCORES",()=>r547RefreshScores(cur,env));
 cur=MEM.state||cur;
 await settlementCheck("WISETOTO_OPTIONAL",()=>r383RefreshWisetotoResults(cur,env,false));
 cur=MEM.state||cur;
@@ -13137,7 +13169,7 @@ const s=snapshots[id],m=s&&markets.get(s.marketKey);
 if(!s?.complete||!s.baseline?.vector||!s.candidate?.vector){reject('INCOMPLETE_PREGAME_SNAPSHOT');continue;}
 if(!(s.parametersFittedThrough<=s.capturedAt&&s.capturedAt<s.kickoffAt&&s.oddsObservedAt<=s.capturedAt&&s.featureObservedAt<=s.capturedAt)) {reject('TEMPORAL_LEAKAGE');continue;}
 if(!s.protocolId||s.protocolId!==state.r398Protocol?.validationProtocolId){reject('UNFROZEN_VALIDATION_PROTOCOL');continue;}
-if(!m?.resultFinal||m.settlementStatus==='적특'||!m.result||!m.resultVerifiedAt||!/^(BETMAN_OFFICIAL|ZENTOTO_|SPOGOD_|ESPN_|FLASHSCORE_VERIFIED|AISCORE_VERIFIED)/.test(String(m.resultSource||''))){reject('UNVERIFIED_OR_PENDING_OUTCOME');continue;}
+if(!m?.resultFinal||m.settlementStatus==='적특'||!m.result||!m.resultVerifiedAt||!/^(BETMAN_OFFICIAL|ZENTOTO_|SPOGOD_|ESPN_|ODDSAPI_|FLASHSCORE_VERIFIED|AISCORE_VERIFIED)/.test(String(m.resultSource||''))){reject('UNVERIFIED_OR_PENDING_OUTCOME');continue;}
 if(!r398FullScore(s.baseline.vector,m.result)||!r398FullScore(s.candidate.vector,m.result)){reject('OUTCOME_NOT_IN_BOTH_VECTORS');continue;}
 if(seen.has(s.fixtureKey)){reject('DUPLICATE_FIXTURE');continue;}seen.add(s.fixtureKey);paired.push({snapshot:s,outcome:m.result});
 }
