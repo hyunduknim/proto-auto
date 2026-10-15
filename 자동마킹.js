@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R536B-NORMAL-MENU-RESTORED";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R537-REAL-FINAL-SCORE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4547,6 +4547,7 @@ m.r480Recommendation={model:"R490_4AXIS_INTEGRATED",grade:m.displayGrade||"일�
 }
 r495StampFrozen(state);
 r507Annotate(state);
+r537UnifyFinalScores(state);
 r498WithdrawTwo(state);
 state.oneGameOneMarkAudit=r369SingleMarkAudit(state,true);
 if(state.r398Protocol?.enforce){r398CapturePregameSnapshots(state);r360RefreshMarketAudit(state);}
@@ -5833,6 +5834,30 @@ function gameInfoRowUsableForPending(rr,pendingForRound){
 if(rr?.specialStatus)return true;
 return rr?.terminal===true&&!rr?.partial;
 }
+/* R537: every settled market of a game shows the real full-time score (home:away).
+   Sources: a raw moneyline/ESPN-type score, or a handicap-applied score turned back with its line (Betman applies the
+   line to the home side). Totals ("합계 N점") only confirm the sum. Nothing changes unless every source agrees. */
+function r537RawCandidate(m){
+const orig=String(m.resultScoreText||""),adjusted=/^핸디적용/.test(orig)||scoreHasFraction(orig),fam=m.resultMatchedFamily?String(m.resultMatchedFamily):adjusted?"HANDICAP":/^합계/.test(orig)?"TOTAL":m.marketFamily==="HANDICAP"?"UNKNOWN":String(m.marketFamily||""),txt=orig.replace(/^핸디적용\s*/,"").trim();
+if(fam==="UNKNOWN")return null;
+const sc=resultScorePairText(txt);if(!sc)return null;
+if(fam==="HANDICAP"){const line=Number(m.marketFamily==="HANDICAP"?m.line:NaN);if(!Number.isFinite(line))return null;
+const h=sc.home-line,a=sc.away;if(Math.abs(h-Math.round(h))>1e-9||h<0||!Number.isInteger(a))return null;return Math.round(h)+":"+a;}
+if(fam==="TOTAL")return null;
+return Number.isInteger(sc.home)&&Number.isInteger(sc.away)?sc.home+":"+sc.away:null;}
+function r537TotalSum(m){const t=String(m.resultScoreText||"").match(/^합계\s*(\d{1,3})점$/);return t?Number(t[1]):null;}
+function r537UnifyFinalScores(state){
+const groups=new Map();
+for(const m of state?.markets||[]){if(!m?.resultFinal)continue;const k=String(m.gmTs||"")+"|"+gameSeed(m);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(m);}
+let fixed=0;const byCard=new Map();
+for(const ms of groups.values()){
+const raw=new Set(ms.map(r537RawCandidate).filter(Boolean));if(raw.size!==1)continue;
+const full=[...raw][0],[h,a]=full.split(":").map(Number);
+if(ms.some(m=>{const t=r537TotalSum(m);return t!=null&&t!==h+a;}))continue;
+for(const m of ms){if(m.resultScoreText!==full){if(m.resultScoreText&&m.resultScoreText!=="-"&&!m.resultScoreDetail)m.resultScoreDetail=m.resultScoreText;m.resultScoreText=full;fixed++;}
+m.homeScore=h;m.awayScore=a;byCard.set(String(m.gmTs)+":"+String(m.no),full);}}
+for(const c of state?.settledCards?.rows||[]){const f=byCard.get(String(c.gmTs)+":"+String(c.no));if(f&&c.score!==f){c.score=f;fixed++;}}
+if(fixed)state.r537ScoreAudit={at:nowIso(),fixed};return fixed;}
 function applyResults(state,resultRows,source="BETMAN_OFFICIAL_RESULT"){
 if(state?.r398Protocol?.enforce)r398ObserveSettlement(state,resultRows,source);
 let changed=0;
@@ -8263,7 +8288,7 @@ const board=shown.map(r=>{const ch=(r.choices||[]);return '<div class="marketRow
 (m.analysisHoldReason?'<span class="deepBadge">자료·확률 검증 부족 · 경기와 배당은 유지</span>':'')+
 (m.gradeEvidenceWarning?
 '<span class="deepBadge" title="'+e(m.gradeEvidenceWarning||'독립 분석 근거 부족')+'">상대순위 · 근거조건 확인 · 예상EV '+e(m.modelEstimatedEV==null?'미검증':(Number(m.modelEstimatedEV)*100).toFixed(1)+'%')+'</span>':'')+
-'</span></div>'+r507ProbHtml(m)+'<div class="resultLine"><span class="resultLabel">결과</span><strong class="resultValue">'+(m.resultFinal?e(m.settlementStatus||'')+' · '+e(m.result||'')+(m.score?' · '+e(m.score):''):(m.gameStarted?'공식결과 확인중 · 정산대기':'경기전'))+'</strong></div>'+'</article>'}// R392: display-only settlement status filter, NEVER changes markets or resultFinal.
+'</span></div>'+r507ProbHtml(m)+'<div class="resultLine"><span class="resultLabel">결과</span><strong class="resultValue">'+(m.resultFinal?e(m.settlementStatus||'')+' · '+e(m.result||'')+(m.score?' · '+(/^\d+:\d+$/.test(String(m.score))?'최종 ':'')+e(m.score):''):(m.gameStarted?'공식결과 확인중 · 정산대기':'경기전'))+'</strong></div>'+'</article>'}// R392: display-only settlement status filter, NEVER changes markets or resultFinal.
 function r392FilterSettlementRows(rows,mode,nowMs){
 const arr=Array.isArray(rows)?rows:[];
 if(mode==='all')return arr.slice();
