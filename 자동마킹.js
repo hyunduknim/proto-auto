@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R526-DOMESTIC-FLOW-OPEN";
-const BUILD_ID = "proto-r526-20261015-domestic-flow-open";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R527-ODDS-FLOW-CHART";
+const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -8112,7 +8112,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .r507Fin{border-color:rgba(255,217,47,.6);color:var(--yellow);background:rgba(255,217,47,.08)}
 .r507Mix{font-size:11px;color:var(--muted);font-weight:700;margin-left:2px}
 .r507Ver{display:inline-block;margin-top:10px;padding:5px 14px;border-radius:999px;border:1px solid rgba(84,234,255,.55);color:var(--cyan);background:rgba(84,234,255,.07);font-size:13px;font-weight:800;white-space:nowrap}
-.r523Dom{margin:10px 0}.r523Dom>summary{cursor:pointer;padding:10px 12px;border:1px solid #3d5268;border-radius:10px;color:#c7d9eb;font-size:13px;font-weight:700;background:#101c2a}.r523Dom[open]>summary{margin-bottom:8px}.r524OvStat{display:grid;gap:4px;margin:8px 0 10px;padding:10px 12px;border:1px solid #3d5268;border-radius:10px;background:#101c2a;font-size:13px;color:#c7d9eb}.r524OvStat b{color:#54eaff}.r524OvStat ul{margin:6px 0 0;padding-left:18px}.r524OvStat summary{cursor:pointer;color:#8fa3bf}.r518Dual{margin:12px 0;padding:12px;border:1px solid #3d5268;border-radius:10px;background:#101c2a;min-width:0}.r518Fresh{display:grid;gap:5px;font-size:12px;color:#c7d9eb}.r518Timeline{margin:12px 0}.r518Timeline table{width:100%;border-collapse:collapse;white-space:nowrap;font-variant-numeric:tabular-nums}.r518Timeline th,.r518Timeline td{padding:7px 8px;text-align:right;border-bottom:1px solid #33465b;font-size:12px}.r518Timeline th:first-child,.r518Timeline td:first-child{text-align:left}.r518Timeline tbody tr:last-child{background:#27394e;font-weight:700}.r518Up{color:#4ade80}.r518Down{color:#ff7474}.r518Analysis{font-size:13px;line-height:1.6;overflow-wrap:anywhere}.r518Timeline .r506TableWrap{max-height:280px;overflow:auto}.r518Timeline thead{position:sticky;top:0;background:#26384b}.r518Dual p{overflow-wrap:anywhere}@media(max-width:480px){.r518Dual{padding:8px}.r518Timeline th,.r518Timeline td{padding:6px 5px;font-size:11px}}
+.r527Chart{margin:8px 0 10px;padding:8px 10px;border:1px solid #2b3d52;border-radius:10px;background:#0c1622}.r527Chart svg{display:block;width:100%;height:auto;max-height:180px}.r527Title{font-size:12px;color:#9fb3c8;margin-bottom:4px}.r527Legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:4px;font-size:12px;color:#c7d9eb}.r527Leg i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}.r527Leg.up b,.r527Leg.up{color:#ff6b6b}.r527Leg.down b,.r527Leg.down{color:#5aa9ff}.r523Dom{margin:10px 0}.r523Dom>summary{cursor:pointer;padding:10px 12px;border:1px solid #3d5268;border-radius:10px;color:#c7d9eb;font-size:13px;font-weight:700;background:#101c2a}.r523Dom[open]>summary{margin-bottom:8px}.r524OvStat{display:grid;gap:4px;margin:8px 0 10px;padding:10px 12px;border:1px solid #3d5268;border-radius:10px;background:#101c2a;font-size:13px;color:#c7d9eb}.r524OvStat b{color:#54eaff}.r524OvStat ul{margin:6px 0 0;padding-left:18px}.r524OvStat summary{cursor:pointer;color:#8fa3bf}.r518Dual{margin:12px 0;padding:12px;border:1px solid #3d5268;border-radius:10px;background:#101c2a;min-width:0}.r518Fresh{display:grid;gap:5px;font-size:12px;color:#c7d9eb}.r518Timeline{margin:12px 0}.r518Timeline table{width:100%;border-collapse:collapse;white-space:nowrap;font-variant-numeric:tabular-nums}.r518Timeline th,.r518Timeline td{padding:7px 8px;text-align:right;border-bottom:1px solid #33465b;font-size:12px}.r518Timeline th:first-child,.r518Timeline td:first-child{text-align:left}.r518Timeline tbody tr:last-child{background:#27394e;font-weight:700}.r518Up{color:#4ade80}.r518Down{color:#ff7474}.r518Analysis{font-size:13px;line-height:1.6;overflow-wrap:anywhere}.r518Timeline .r506TableWrap{max-height:280px;overflow:auto}.r518Timeline thead{position:sticky;top:0;background:#26384b}.r518Dual p{overflow-wrap:anywhere}@media(max-width:480px){.r518Dual{padding:8px}.r518Timeline th,.r518Timeline td{padding:6px 5px;font-size:11px}}
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div><div id="r507Ver" class="r507Ver">R507</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 국내·해외배당 핵심 비교와 업체별 상세 자료를 확인합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
@@ -8579,6 +8579,22 @@ previousDelta:previous===null?null:current-previous,low:values.length?Math.min(.
 const closed=!!(m?.gameStarted||m?.resultFinal||(r.oddsSnapshotStatus&&r.oddsSnapshotStatus!=='OPEN'));
 return {rows,choices,changeCount,closed,observedAt:Number.isFinite(at)&&at<=now?at:null,source:p.source||r.oddsSource||null,selectionOdds:Number(r.finalOdds)>1?Number(r.finalOdds):null};
 }
+function r527Chart(points,labels,title){
+ const pts=(points||[]).map(p=>({t:typeof p.at==='number'?p.at:Date.parse(p.at||''),v:p.values||{}})).filter(p=>Number.isFinite(p.t)&&labels.every(l=>Number(p.v[l])>1)).sort((a,b)=>a.t-b.t);
+ if(pts.length<2||!labels.length)return '';
+ const W=320,H=132,L=34,R=8,T=10,B=22,all=pts.flatMap(p=>labels.map(l=>Number(p.v[l])));let lo=Math.min(...all),hi=Math.max(...all);
+ if(hi-lo<.1){const c=(hi+lo)/2;lo=c-.05;hi=c+.05;}const pad=(hi-lo)*.12;lo-=pad;hi+=pad;
+ const t0=pts[0].t,t1=pts[pts.length-1].t,x=t=>L+(t1>t0?(t-t0)/(t1-t0):.5)*(W-L-R),y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+ const cols={'승':'#5aa9ff','무':'#c9b458','패':'#ff8a5c','언더':'#5aa9ff','오버':'#ff8a5c'},alt=['#5aa9ff','#c9b458','#ff8a5c'];
+ const col=(l,i)=>cols[l]||alt[i%3],clk=t=>new Date(t+9*3600000).toISOString().slice(11,16);
+ let g='';for(const v of [hi-pad,(hi+lo)/2,lo+pad])g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="#2b3d52" stroke-width="1"/><text x="'+(L-4)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="9" fill="#9fb3c8">'+v.toFixed(2)+'</text>';
+ g+='<text x="'+L+'" y="'+(H-6)+'" font-size="9" fill="#9fb3c8">'+clk(t0)+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end" font-size="9" fill="#9fb3c8">'+clk(t1)+'</text>';
+ labels.forEach((l,i)=>{const c=col(l,i),d=pts.map((p,j)=>(j?'L':'M')+x(p.t).toFixed(1)+' '+y(Number(p.v[l])).toFixed(1)).join(' ');
+  g+='<path d="'+d+'" fill="none" stroke="'+c+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'+pts.map(p=>'<circle cx="'+x(p.t).toFixed(1)+'" cy="'+y(Number(p.v[l])).toFixed(1)+'" r="2.4" fill="'+c+'"/>').join('');});
+ const leg=labels.map((l,i)=>{const a=Number(pts[0].v[l]),b=Number(pts[pts.length-1].v[l]),dv=b-a,cls=dv>.005?'up':dv<-.005?'down':'flat';
+  return '<span class="r527Leg '+cls+'"><i style="background:'+col(l,i)+'"></i>'+e(l)+' '+a.toFixed(2)+' → <b>'+b.toFixed(2)+'</b> '+(cls==='up'?'▲':cls==='down'?'▼':'－')+(cls==='flat'?'':Math.abs(dv).toFixed(2))+'</span>';}).join('');
+ return '<div class="r527Chart"><div class="r527Title">'+e(title)+' · 그래프 ('+pts.length+'회 기록)</div><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+e(title)+' 배당 변화 그래프">'+g+'</svg><div class="r527Legend">'+leg+'</div></div>';
+}
 function r485FlowHtml(m,r){
 const d=r485FlowData(r,m);if(!d)return '';
 const fmt=x=>x==null?'—':x.toFixed(2),diff=x=>x==null?'—':(x>0?'+':'')+x.toFixed(2),clock=x=>x==null?'미확인':expEasyClock(new Date(x).toISOString()),
@@ -8590,7 +8606,7 @@ const labels=d.choices.map(x=>x.label),tail=d.rows.filter((x,i)=>i===0||labels.s
 return '<td class="'+(delta<-.005?'down':delta>.005?'up':'')+'"><b>'+fmt(x.values[l])+'</b><small>'+diff(delta)+'</small></td>';}).join('')+'</tr>').join(''),
 selected=String(m.pick||r.finalPick||''),current=d.choices.find(x=>x.label===selected);
 return '<section class="r485Flow"><div class="r485Head"><b>국내배당 흐름 · 변동 상세</b><span class="'+(d.closed?'closed':'live')+'">'+e(status)+'</span></div>'+
-'<div class="r485Prices">'+cards+'</div><div class="r485Meta">실제 변동 '+d.changeCount+'회 · 확인 '+e(clock(d.observedAt))+'</div>'+
+r527Chart(d.rows,labels,'국내배당')+'<div class="r485Prices">'+cards+'</div><div class="r485Meta">실제 변동 '+d.changeCount+'회 · 확인 '+e(clock(d.observedAt))+'</div>'+
 (current&&d.selectionOdds?'<p class="r485Mark">마킹 당시 '+e(selected)+' '+fmt(d.selectionOdds)+'배 · 현재 확인 '+fmt(current.current)+'배</p>':'')+
 r474FlowHtml(r)+(body?'<details class="r485History"><summary>배당이 바뀐 시점 · '+tail.length+'줄</summary><div><table><thead><tr><th>확인 시각</th>'+labels.map(l=>'<th>'+e(l)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div></details>':'')+
 '<footer>출처 '+e(d.source||'저장된 국내 배당')+' · 최초·직전은 실제 수집 기록 기준</footer></section>';
@@ -8788,7 +8804,7 @@ function r518HistoryTable(title,labels,points,overseas){
 function r518OddsTables(m,r,market){
  const d=r521ForeignSeries(m,r,market);if(d.points.length<2)return '';
  return '<div class="r518Dual"><div class="r518Fresh"><span>'+e(d.source)+' · '+(d.fresh?'최근 10분 이내 원천 갱신':'저장 이력 · 최신 가격 아님')+'</span></div>'+
- r518HistoryTable('해외배당 · '+d.source,d.labels,d.points,d.source!=='피나클')+
+ r527Chart(d.points,d.labels,'해외배당 · '+d.source)+r518HistoryTable('해외배당 · '+d.source,d.labels,d.points,d.source!=='피나클')+
  '<p class="r506Muted">최근 변동 최대 5줄 · ↑ 상승 / ↓ 하락 · KST · 직전 가격과 비교 · 출처 The Odds API</p></div>';
 }
 let r518AutoBusy=false;
