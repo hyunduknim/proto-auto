@@ -40,3 +40,15 @@ assert.equal(spare?.boost,true,'spare credits refresh the nearest league');asser
 assert.equal(run('r528PrecisionBoost({markets:{},oddsAt:{}},BM,BNOW,OPT,r507Budget({budget:{day:"2026-10-15",spent:7,remaining:257}},BNOW,{dailyCredits:14}))'),null,'reserve for later first looks is kept');
 assert.equal(run('r528PrecisionBoost({markets:{},oddsAt:{soccer_uefa_europa_league:BNOW-10*60000}},BM,BNOW,OPT,r507Budget({budget:{day:"2026-10-15",spent:0,remaining:257}},BNOW,{dailyCredits:14}))'),null,'same league is not refreshed again within 30 minutes');
 console.log('R529 precision boost OK');
+
+// R530: grades lean to the side overseas rates higher.
+run(`MK=(pick,ov,odds)=>({finalPick:pick,marketFamily:"HANDICAP",choices:[{label:"승",odds:odds[0]},{label:"패",odds:odds[1]}],r507Overseas:{at:Date.now()-60000,probs:ov}});`);
+assert.equal(run('r530Ov(MK("승",{승:.6,패:.4},[1.7,2.1])).top'),true);
+assert.ok(run('r530Ov(MK("승",{승:.6,패:.4},[1.7,2.1])).gap')>0,'overseas rates the pick above Betman');
+assert.equal(run('r530Against(MK("패",{승:.6,패:.4},[1.7,2.1]))'),true,'pick against the overseas favourite');
+assert.equal(run('r530Against(MK("승",{승:.6,패:.4},[1.7,2.1]))'),false);
+assert.ok(run('r530RankBonus(MK("승",{승:.6,패:.4},[1.7,2.1]))')>run('r530RankBonus({finalPick:"승"})'),'overseas-backed pick outranks a pick without overseas data');
+assert.ok(run('r530RankBonus({finalPick:"승"})')>run('r530RankBonus(MK("패",{승:.6,패:.4},[1.7,2.1]))'),'no data still beats overseas disagreement');
+assert.equal(run('r524BestOk(MK("승",{승:.52,패:.48},[1.6,2.3]))'),false,'best grade refused when overseas rates the pick clearly below Betman');
+assert.equal(run('r524BestOk(MK("승",{승:.62,패:.38},[1.6,2.3]))'),true);
+console.log('R530 overseas-led grades OK');

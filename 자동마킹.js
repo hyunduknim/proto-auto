@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R529-PRECISION-OVERSEAS-BOOST";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R530-OVERSEAS-LED-GRADES";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4178,8 +4178,16 @@ if(f==="MONEYLINE"){const ch=validChoices(m).filter(c=>c.label!=="무"),me=ch.fi
 return "OTHER";
 }
 /* R524: 가장추천 only when overseas odds are attached and both domestic and overseas make the pick the favourite. */
+/* R530: overseas view of the pick — its probability, whether it is the overseas favourite, and how much higher
+   overseas rates it than Betman (gap>0 = overseas likes this side more than the domestic market does). */
+function r530Ov(m){const ov=m?.r507Overseas,pk=String(m?.finalPick||'');if(!ov||!ov.probs||!pk||!(Date.now()-Number(ov.at)<=R507.maxAgeMs))return null;
+const op=ov.probs,mine=Number(op[pk]);if(!(mine>0))return null;const top=!Object.entries(op).some(([k,v])=>k!==pk&&Number(v)>=mine);
+const dp=Number((noVig(validChoices(m))||{})[pk]);return {p:mine,top,gap:dp>0?mine-dp:0};}
+function r530Against(m){const o=r530Ov(m);return !!o&&(!o.top||o.gap<-.03);}
+function r530RankBonus(m){const o=r530Ov(m);if(!o)return -.01;return clamp(o.gap,-.05,.05)+(o.top?.015:-.05);}
 function r524BestOk(m){
 const ov=m?.r507Overseas,pk=String(m?.finalPick||'');if(!ov||!ov.probs||!pk)return false;
+if(Number(r530Ov(m)?.gap)<-.015)return false; /* R530: 가장추천 — overseas must not rate the pick clearly lower than Betman */
 if(!(Date.now()-Number(ov.at)<=R507.maxAgeMs))return false;
 const op=ov.probs,mine=Number(op[pk]);if(!(mine>0))return false;
 if(Object.entries(op).some(([k,v])=>k!==pk&&Number(v)>=mine))return false;
@@ -4206,7 +4214,7 @@ const manual=m.manualOverride||/^MANUAL/.test(String(m.selectionMode||""));
 // (raw p systematically favoured low-odds sides: plus-handicaps and unders)
 const mp=clamp(Number(m.marketProbability??p),0,1),edge=clamp(p-mp,-.15,.15),safeEdge=clamp(safe-mp,-.20,.10);
 const fg=r495FrozenValid(m)?m.r495Frozen.grade:null,keep=fg==="가장추천"?.025:fg==="추천"?.018:0; // R495
-if(CFG.hitRateFirst)return p+safe*.35+keep*.2-(manual?0.14:0); // R506: 적중확률 순 등급
+if(CFG.hitRateFirst)return p+safe*.35+keep*.2-(manual?0.14:0)+r530RankBonus(m); // R506: 적중확률 순 등급 · R530: 해외배당이 더 높게 보는 쪽 우선
 return keep+edge*1.6+safeEdge*.9+clamp(ev,-.25,.15)*.55+quality*.20+integrity*.06+verified-
 (manual?0.14:0)-(m.moneylineRiskFlag?0.08:0)-
 (m.sportRisk?.gradeLimited?0.05:0);
@@ -4224,13 +4232,13 @@ const r494Ok=(m,g)=>(r494Bucket[g][r494PickBucket(m)]||0)<r494Cap(g);
 const r495Used={"가장추천":0,"추천":0};
 const r524Up=new Set();let r524Blocked=0;
 for(const m of ordered){let fg=r495FrozenValid(m)?m.r495Frozen.grade:null;
-if(CFG.hitRateFirst&&fg){if(fg==="가장추천"&&!r524BestOk(m)){fg="추천";r524Blocked++;}else if(fg!=="가장추천"&&r524BestOk(m)){r524Up.add(m);continue;}}
+if(CFG.hitRateFirst&&fg){if(fg==="추천"&&r530Against(m))fg=null;if(!fg){}else if(fg==="가장추천"&&!r524BestOk(m)){fg=r530Against(m)?null:"추천";r524Blocked++;}else if(fg!=="가장추천"&&r524BestOk(m)){r524Up.add(m);continue;}}
 if((fg==="가장추천"||fg==="추천")&&r495Used[fg]<targets[fg]){r495Grade.set(m,fg);r495Used[fg]++;const b=r494PickBucket(m);r494Bucket[fg][b]=(r494Bucket[fg][b]||0)+1;}
 else if(fg==="일반")r495Grade.set(m,"일반");}
 for(const g of ["가장추천","추천"]){
 if(g==="추천"&&CFG.hitRateFirst)for(const m of r524Up){if(r495Grade.has(m))continue;const fg=m.r495Frozen?.grade;if(fg==="추천"&&r495Used["추천"]<targets["추천"]){r495Grade.set(m,"추천");r495Used["추천"]++;}else if(fg==="일반")r495Grade.set(m,"일반");}
 let used=r495Used[g];
-const passes=CFG.hitRateFirst?(g==="가장추천"?[m=>r524BestOk(m)]:[()=>true]):[m=>r494Ok(m,g)&&r356PremiumValueSafety(m,g).ok,
+const passes=CFG.hitRateFirst?(g==="가장추천"?[m=>r524BestOk(m)]:[m=>{const o=r530Ov(m);return !!o&&o.top&&o.gap>=-.03;},m=>!r530Ov(m),()=>true]):[m=>r494Ok(m,g)&&r356PremiumValueSafety(m,g).ok,
 m=>r494Ok(m,g)&&g==="가장추천"&&r356PremiumValueSafety(m,"추천").ok,
 m=>r494Ok(m,g),
 ()=>true];
