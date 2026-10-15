@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R533-AUTO-ONLY-FROM-R123";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R533B-AUTO-ONLY-NOW";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -9256,7 +9256,7 @@ for(const id of overseasOpened){const d=[...host.querySelectorAll('details.r506D
 if(opened.size&&Math.abs(window.scrollY-priorY)>2)window.scrollTo({top:priorY,behavior:'instant'});
 }
 function applyView(){const marking=activeView==='marking',past=activeView==='past',experiment=activeView==='experiment';$('list').style.display=marking?'':'none';$('hourlyBar').style.display=marking?'flex':'none';$('markMenu').style.display=marking?'grid':'none';$('pastPanel').classList.toggle('on',past);$('expPanel').classList.toggle('on',experiment);$('tabMarking')?.classList.toggle('on',marking);$('tabPast')?.classList.toggle('on',past);$('tabExperiment')?.classList.toggle('on',experiment);if(experiment)renderExperiment()}
-function setView(v){activeView=['marking','past','experiment'].includes(v)?v:'marking';applyView()}function r533AutoOnly(){if(!state)return false;const g=Number(state.gmTs)||(Number(state.round)?260000+Number(state.round):0);return g>=260123||(state.markingGames||[]).some(m=>Number(m&&m.gmTs)>=260123);}
+function setView(v){activeView=['marking','past','experiment'].includes(v)?v:'marking';applyView()}function r533AutoOnly(){if(!state)return false;const g=Number(state.gmTs)||(Number(state.round)?260000+Number(state.round):0);return g>=260122||(state.markingGames||[]).some(m=>Number(m&&m.gmTs)>=260122);}
 function r533HideManual(){if(!r533AutoOnly())return;const b=$('manualMode');if(b)b.style.setProperty('display','none','important');document.querySelectorAll('.manualActionHint').forEach(h=>h.style.setProperty('display','none','important'));if(manualMode){manualMode=false;cancelManualPick();}}
 function applyMarkMenu(){if(!state)return;r533HideManual();let rows=orderCurrentRows(state.markingGames||[]),title='날짜 → 시간 → 프로토번호 오름차순 · 전체 경기 보존';const isGrade=['best','rec','normal'].includes(markMenuMode);if(markMenuMode==='marked'){rows=rows.filter(m=>!!m.pick);title='마킹 완료';}else if(isGrade){const grade={best:'가장추천',rec:'추천',normal:'일반'}[markMenuMode],history=state.markingGradeHistory||[],seen=new Map();for(const m of [...rows,...history]){if(!m?.pick)continue;const id=[m.gmTs,m.date,m.time,m.home,m.away].join('|'),prior=seen.get(id);if(!prior||(m.manualReview&&!prior.manualReview))seen.set(id,m);}rows=orderCurrentRows([...seen.values()].filter(m=>m.displayGrade===grade));title=grade+' · 미시작/진행중/지난경기 모두 보기 ('+rows.length+'경기)';}else if(markMenuMode==='time')title='경기 시간순 · 날짜→시간→프로토번호';else if(markMenuMode==='now')title='전체 시간순 · 날짜→시간→프로토번호 (전체 '+rows.length+'경기)';else title='날짜순 자동마킹 · 날짜→시간→프로토번호';if(hourFilterDate&&hourFilterHour){rows=rows.filter(m=>m.date===hourFilterDate&&String(m.time||'').slice(0,2)===hourFilterHour);title+=' · '+hourFilterDate+' '+hourFilterHour+'시 ('+rows.length+'경기)';}document.querySelectorAll('#markMenu button').forEach(b=>b.classList.toggle('on',b.dataset.mode===markMenuMode));const h=document.querySelector('.sectionTitle span');if(h)h.textContent=title;$('list').innerHTML=rows.length?rows.map(m=>m.resultFinal?settledMarkCardHtml(m):gameCardHtml(m)).join(''):'<div class="empty">해당 등급으로 저장된 경기가 없습니다. 현재 마킹과 지난경기를 확인해 주세요.</div>';}function setMarkMenu(mode){hourFilterDate=null;hourFilterHour=null;if(state)renderHourly(state);markMenuMode=['now','date','time','marked','best','rec','normal'].includes(mode)?mode:'now';setView('marking');applyMarkMenu()}function r507Pct(v){return v==null||!isFinite(Number(v))?null:(Number(v)*100).toFixed(1)+'%'}
 function r507ProbHtml(m){if(!m||!m.pick)return '';const dom=r507Pct(m.domesticProbability),ov=r507Pct(m.overseasProbability),fin=r507Pct(m.calibratedProbability);if(!dom&&!ov&&!fin)return '';
@@ -9670,7 +9670,7 @@ originalSelectionAt:a.at,pick:a.pick,odds:a.odds,reason:'CORRECT_WRONG_ROUND_TAG
 sourceIdentity:'Public 260121 row: 2026-10-12 14:00 Seibu vs Nippon-Ham, U/O5.5',retrospectiveSelection:false};
 state.updatedAt=m.restoredAt;return {restored:true};
 }
-const R533_NO_MANUAL_FROM_GMTS=260123;
+const R533_NO_MANUAL_FROM_GMTS=260122;
 function r422ApplyManualPick(state,input,now=Date.now()){
 const no=Number(input?.no),gmTs=String(input?.gmTs||''),pick=String(input?.pick||'').trim();
 if(gmTs==='260122'&&[8116,8122,8127].includes(no))throw Error('R500_OWNER_CANCELLED_MARKING');
