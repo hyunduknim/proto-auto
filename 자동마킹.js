@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R545-NO-CUMULATIVE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R546-CLUBELO-VERIFY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4548,6 +4548,7 @@ m.r480Recommendation={model:"R490_4AXIS_INTEGRATED",grade:m.displayGrade||"일�
 r495StampFrozen(state);
 r507Annotate(state);
 r537UnifyFinalScores(state);
+try{r546Annotate(state);r546Tally(state);}catch(_){}
 r498WithdrawTwo(state);
 state.oneGameOneMarkAudit=r369SingleMarkAudit(state,true);
 if(state.r398Protocol?.enforce){r398CapturePregameSnapshots(state);r360RefreshMarketAudit(state);}
@@ -11405,6 +11406,7 @@ if(fails>=3){rec.stage='SKIP';rec.blockedUntil=now+3600000;rec.reason='OVERSEAS_
 try{if(ds)await ds.put('r514:ov',rec);}catch(_){}
 const s=await loadState(env);let cur=MEM.state||s;
 const res=await r507RefreshOverseasOdds(cur,env).catch(e=>({status:'ERROR',error:String(e?.message||e).slice(0,120)}));
+try{const er=await r546RefreshElo(env);if(er.status==='UPDATED'){cur=MEM.state||cur;if(r546Annotate(cur))markState(cur);}}catch(_){}
 try{await r522CleanupQuotes(ds,Date.now());}catch(_){}
 cur=MEM.state||cur;
 if(!(res&&res.applied>0)&&Date.now()-Number(MEM.r514OverseasSavedAt||0)>=600000){MEM.r514OverseasSavedAt=Date.now();rec.stage='SAVE';try{if(ds)await ds.put('r514:ov',rec);}catch(_){}
@@ -13583,10 +13585,67 @@ async function r508RememberOdds(path,events){
    await r518RememberHistory(storage,event,receivedAt);
  }
 }
+/* ===================== R546: ClubElo team ratings (verification mode) =====================
+   Public CSV API (api.clubelo.com/YYYY-MM-DD: Rank,Club,Country,Level,Elo,From,To), fetched at most every 12h.
+   European club soccer only. Each pregame soccer pick gets an Elo snapshot; at settlement we record how often picks
+   that agree / disagree with the Elo favourite hit. Picks and grades are NOT changed until that record proves useful. */
+const R546={host:"http://api.clubelo.com/",refreshMs:12*3600000,hfa:65,minScore:.8,margin:.1};
+function r546ParseCsv(text){const lines=String(text||"").trim().split(/\r?\n/);if(lines.length<2)return [];
+const head=lines[0].split(",").map(x=>x.trim().toLowerCase()),ci=k=>head.indexOf(k),iC=ci("club"),iE=ci("elo"),iN=ci("country"),iL=ci("level");
+if(iC<0||iE<0)return [];const out=[];for(const ln of lines.slice(1)){const f=ln.split(",");const club=String(f[iC]||"").trim(),elo=Number(f[iE]);
+if(club&&Number.isFinite(elo)&&elo>500&&elo<2600)out.push({club,elo:Math.round(elo),country:iN>=0?String(f[iN]||"").trim():"",level:iL>=0?Number(f[iL])||null:null});}
+return out;}
+async function r546RefreshElo(env,now=Date.now(),force=false){
+const ds=doStorage();if(!MEM.r546Elo&&ds){try{MEM.r546Elo=(await ds.get("r546:elo"))||null;}catch(_){}}
+const cur=MEM.r546Elo;if(!force&&cur&&now-Number(cur.at||0)<R546.refreshMs)return {status:"FRESH",clubs:cur.clubs?.length||0};
+if(!force&&now-Number(MEM.r546TryAt||0)<30*60000)return {status:"WAIT"};MEM.r546TryAt=now;
+const day=new Date(now).toISOString().slice(0,10),ac=new AbortController(),tm=setTimeout(()=>ac.abort(),9000);
+try{const r=await fetch(R546.host+day,{headers:{accept:"text/csv,*/*","user-agent":"protonumber-proto-analysis/1.0 (ClubElo ratings, once per 12h)"},signal:ac.signal});
+if(!r.ok)throw Error("CLUBELO_HTTP_"+r.status);const txt=await r.text();if(txt.length>2000000)throw Error("CLUBELO_TOO_LARGE");
+const clubs=r546ParseCsv(txt);if(clubs.length<100)throw Error("CLUBELO_TOO_FEW_"+clubs.length);
+MEM.r546Elo={at:now,day,clubs};MEM.r546Index=null;if(ds){try{await ds.put("r546:elo",MEM.r546Elo);}catch(_){}}
+return {status:"UPDATED",clubs:clubs.length};}
+catch(e){MEM.r546LastError=String(e?.message||e).slice(0,120);return {status:"ERROR",error:MEM.r546LastError};}finally{clearTimeout(tm);}}
+function r546Index(){const d=MEM.r546Elo;if(!d?.clubs?.length)return null;if(MEM.r546Index&&MEM.r546Index.at===d.at)return MEM.r546Index;
+const rows=d.clubs.map(c=>({...c,names:[c.club,R546_EXPAND[c.club]].filter(Boolean).map(nm=>({nm,n:norm(nm),sk:r507EnSkeleton(String(nm).replace(R507_AFFIX," "))}))}));MEM.r546Index={at:d.at,rows};return MEM.r546Index;}
+const R546_EXPAND={"Man City":"Manchester City","Man United":"Manchester United","Paris SG":"Paris Saint Germain","Wolves":"Wolverhampton Wanderers","Forest":"Nottingham Forest","Gladbach":"Borussia Monchengladbach","Sheffield Utd":"Sheffield United","Atletico":"Atletico Madrid","Bilbao":"Athletic Bilbao","Sociedad":"Real Sociedad","Betis":"Real Betis","Sporting":"Sporting Lisbon","Inter":"Inter Milan","Milan":"AC Milan","Bayern":"Bayern Munich","Spurs":"Tottenham Hotspur","West Ham":"West Ham United","Newcastle":"Newcastle United","Brighton":"Brighton and Hove Albion","Leeds":"Leeds United","Celta":"Celta Vigo","Salzburg":"Red Bull Salzburg","Plzen":"Viktoria Plzen","Leverkusen":"Bayer Leverkusen","Frankfurt":"Eintracht Frankfurt","Dortmund":"Borussia Dortmund","PSV":"PSV Eindhoven","Lyon":"Olympique Lyonnais","Marseille":"Olympique Marseille"};
+function r546EnSim(a,b){const x=norm(a),y=norm(b);if(!x||!y)return 0;if(x===y)return 1;
+if(Math.min(x.length,y.length)>=4&&(x.includes(y)||y.includes(x)))return .9;
+const A=r507EnSkeleton(a),B=r507EnSkeleton(b);if(A.length<2||B.length<2)return 0;return 1-r507Lev(A,B)/Math.max(A.length,B.length);}
+function r546Find(kr,en){const ix=r546Index();if(!ix)return null;const ck=ix.at+"|"+kr+"|"+(en||"");const cache=MEM.r546FindCache||(MEM.r546FindCache=new Map());if(cache.has(ck))return cache.get(ck);if(cache.size>4000)cache.clear();const found=r546FindRaw(ix,kr,en);cache.set(ck,found);return found;}
+function r546SkSim(A,B){if(A.length<2||B.length<2)return 0;return 1-r507Lev(A,B)/Math.max(A.length,B.length);}
+function r546FindRaw(ix,kr,en){
+const K=norm(kr),krSk=r507KoSkeleton(String(kr||"").replace(R507_AFFIX," ")),hints=[];
+if(en)hints.push(String(en).replace(R507_AFFIX," "));
+for(const [k,e] of R507_ALIASES["축구"]||[])if(k&&K.includes(k))hints.push(e);
+const H=hints.map(h=>({n:norm(h),sk:r507EnSkeleton(h)}));
+const scored=ix.rows.map(c=>{let best=0;for(const x of c.names){best=Math.max(best,r546SkSim(krSk,x.sk));
+for(const h of H){if(h.n===x.n){best=1;break;}if(Math.min(h.n.length,x.n.length)>=4&&(h.n.includes(x.n)||x.n.includes(h.n)))best=Math.max(best,.9);else best=Math.max(best,r546SkSim(h.sk,x.sk));}}
+return {c,s:best};}).sort((a,b)=>b.s-a.s);
+const best=scored[0],second=scored[1];if(!best||best.s<R546.minScore||(second&&best.s-second.s<R546.margin))return null;return best.c;}
+function r546Annotate(state,now=Date.now()){if(!r546Index())return 0;let n=0;
+const ovm=state?.r507Overseas?.matches||{};
+for(const m of state?.markets||[]){if(m.sport!=="축구"||!m.marked||!m.representativeSelected||m.resultFinal||started(m)||!currentRoundMarket(m,state))continue;
+const api=String(ovm[gameSeed(m)]?.api||""),[enH,enA]=api.includes(" vs ")?api.split(" vs "):[null,null];
+const h=r546Find(m.home,enH),a=r546Find(m.away,enA);if(!h||!a||h.club===a.club)continue;
+const o=m.r546Elo;if(o&&o.home===h.club&&o.away===a.club&&o.eloH===h.elo&&o.eloA===a.elo)continue;
+const e=1/(1+Math.pow(10,-((h.elo+R546.hfa)-a.elo)/400));m.r546Elo={home:h.club,away:a.club,eloH:h.elo,eloA:a.elo,expHome:r3(e),day:MEM.r546Elo.day,at:now};n++;}
+return n;}
+function r546Tally(state){const st=state.r546EloAudit||(state.r546EloAudit={agree:{n:0,hit:0},disagree:{n:0,hit:0},close:{n:0,hit:0},seen:{}});let changed=0;
+for(const m of state?.markets||[]){const el=m.r546Elo;if(!m.resultFinal||!el||m.settlementStatus==="적특"||typeof m.hit!=="boolean")continue;
+if(!["MONEYLINE","HANDICAP"].includes(m.marketFamily)||!["승","패"].includes(String(m.finalPick)))continue;
+const k=String(m.gmTs)+":"+String(m.no);if(st.seen[k])continue;st.seen[k]=1;
+const e=Number(el.expHome),b=Math.abs(e-.5)<.05?st.close:((e>.5)===(m.finalPick==="승")?st.agree:st.disagree);b.n++;if(m.hit)b.hit++;changed++;}
+const ks=Object.keys(st.seen);if(ks.length>3000)for(const k of ks.slice(0,ks.length-3000))delete st.seen[k];
+if(changed)st.at=nowIso();return changed;}
+function r546Status(state){const d=MEM.r546Elo,a=state?.r546EloAudit||{},pct=b=>b&&b.n?r3(100*b.hit/b.n):null;
+const live=(state?.markets||[]).filter(m=>m.r546Elo&&!m.resultFinal).length;
+return {mode:"VERIFICATION_ONLY_NO_PICK_EFFECT",source:"api.clubelo.com",ratingsDay:d?.day||null,clubs:d?.clubs?.length||0,fetchedAt:d?.at?new Date(d.at).toISOString():null,lastError:MEM.r546LastError||null,
+picksWithElo:live,record:{agreeWithElo:{...(a.agree||{}),hitPct:pct(a.agree)},againstElo:{...(a.disagree||{}),hitPct:pct(a.disagree)},close:{...(a.close||{}),hitPct:pct(a.close)},at:a.at||null}};}
 function r508Status(state,env){
  const raw=state?.r507Overseas,valid=x=>Number.isFinite(Number(x?.kick))&&Number.isFinite(new Date(Number(x.kick)).getTime());
  const safe=raw?{...state,r507Overseas:{...raw,matches:Object.fromEntries(Object.entries(raw.matches||{}).filter(([,v])=>valid(v)).map(([k,v])=>[k,{...v,kick:Number(v.kick)}])),unmatched:(raw.unmatched||[]).filter(valid).map(v=>({...v,kick:Number(v.kick)}))}}:state;
- const status=r507Status(safe,env);status.rawCollection={refetchMinutes:R507.refetchMs/60000,minGapMinutes:R507.minRefetchGapMs/60000,quoteStorageError:!!MEM.r508QuoteStorageError,bookmakers:R507.bookmakers};status.adminConfigured=!!String(env?.ADMIN_TOKEN||'').trim();
+ const status=r507Status(safe,env);status.rawCollection={refetchMinutes:R507.refetchMs/60000,minGapMinutes:R507.minRefetchGapMs/60000,quoteStorageError:!!MEM.r508QuoteStorageError,bookmakers:R507.bookmakers};status.adminConfigured=!!String(env?.ADMIN_TOKEN||'').trim();try{status.clubElo=r546Status(state);}catch(_){}
  // Public diagnostics show status, never the provider's raw error body or credentials.
  if(status.audit?.lastError)status.audit={...status.audit,lastError:String(status.audit.lastError).match(/ODDS_API_(?:HTTP_\d{3}|TIMEOUT)/)?.[0]||'PROVIDER_ERROR'};
  return status;
