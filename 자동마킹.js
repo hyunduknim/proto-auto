@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R522-FLOW-BUDGET-CLEANUP";
-const BUILD_ID = "proto-r522-20261015-flow-budget-cleanup";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R523-OVERSEAS-FLOW-FIRST";
+const BUILD_ID = "proto-r523-20261015-overseas-flow-first";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -8087,7 +8087,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .r507Fin{border-color:rgba(255,217,47,.6);color:var(--yellow);background:rgba(255,217,47,.08)}
 .r507Mix{font-size:11px;color:var(--muted);font-weight:700;margin-left:2px}
 .r507Ver{display:inline-block;margin-top:10px;padding:5px 14px;border-radius:999px;border:1px solid rgba(84,234,255,.55);color:var(--cyan);background:rgba(84,234,255,.07);font-size:13px;font-weight:800;white-space:nowrap}
-.r518Dual{margin:12px 0;padding:12px;border:1px solid #3d5268;border-radius:10px;background:#101c2a;min-width:0}.r518Fresh{display:grid;gap:5px;font-size:12px;color:#c7d9eb}.r518Timeline{margin:12px 0}.r518Timeline table{width:100%;border-collapse:collapse;white-space:nowrap;font-variant-numeric:tabular-nums}.r518Timeline th,.r518Timeline td{padding:7px 8px;text-align:right;border-bottom:1px solid #33465b;font-size:12px}.r518Timeline th:first-child,.r518Timeline td:first-child{text-align:left}.r518Timeline tbody tr:last-child{background:#27394e;font-weight:700}.r518Up{color:#4ade80}.r518Down{color:#ff7474}.r518Analysis{font-size:13px;line-height:1.6;overflow-wrap:anywhere}.r518Timeline .r506TableWrap{max-height:280px;overflow:auto}.r518Timeline thead{position:sticky;top:0;background:#26384b}.r518Dual p{overflow-wrap:anywhere}@media(max-width:480px){.r518Dual{padding:8px}.r518Timeline th,.r518Timeline td{padding:6px 5px;font-size:11px}}
+.r523Dom{margin:10px 0}.r523Dom>summary{cursor:pointer;padding:10px 12px;border:1px solid #3d5268;border-radius:10px;color:#c7d9eb;font-size:13px;font-weight:700;background:#101c2a}.r523Dom[open]>summary{margin-bottom:8px}.r518Dual{margin:12px 0;padding:12px;border:1px solid #3d5268;border-radius:10px;background:#101c2a;min-width:0}.r518Fresh{display:grid;gap:5px;font-size:12px;color:#c7d9eb}.r518Timeline{margin:12px 0}.r518Timeline table{width:100%;border-collapse:collapse;white-space:nowrap;font-variant-numeric:tabular-nums}.r518Timeline th,.r518Timeline td{padding:7px 8px;text-align:right;border-bottom:1px solid #33465b;font-size:12px}.r518Timeline th:first-child,.r518Timeline td:first-child{text-align:left}.r518Timeline tbody tr:last-child{background:#27394e;font-weight:700}.r518Up{color:#4ade80}.r518Down{color:#ff7474}.r518Analysis{font-size:13px;line-height:1.6;overflow-wrap:anywhere}.r518Timeline .r506TableWrap{max-height:280px;overflow:auto}.r518Timeline thead{position:sticky;top:0;background:#26384b}.r518Dual p{overflow-wrap:anywhere}@media(max-width:480px){.r518Dual{padding:8px}.r518Timeline th,.r518Timeline td{padding:6px 5px;font-size:11px}}
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div><div id="r507Ver" class="r507Ver">R507</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 국내·해외배당 핵심 비교와 업체별 상세 자료를 확인합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
@@ -8561,20 +8561,29 @@ status=d.closed?'마감 · 마지막 확인 배당':'판매 중 · 1분 간격 �
 const cards=d.choices.map(x=>'<div class="r485Price '+(x.delta<-.005?'down':x.delta>.005?'up':'flat')+'"><div><b>'+e(x.label)+'</b><strong>'+fmt(x.current)+'<small>배</small></strong></div>'+
 '<p>최초 '+fmt(x.first)+' · 직전 '+fmt(x.previous)+'</p><span>'+diff(x.delta)+'배 · '+(x.percent==null?'비교 기록 없음':(x.percent>0?'+':'')+x.percent.toFixed(1)+'%')+'</span>'+
 '<small>관측 최저 '+fmt(x.low)+' / 최고 '+fmt(x.high)+(x.opening?' · 원천 개장 '+fmt(x.opening):'')+'</small></div>').join('');
-const labels=d.choices.map(x=>x.label),tail=d.rows.slice(-8),body=tail.map((x,i)=>'<tr><td>'+e(clock(x.at))+'</td>'+labels.map(l=>{const prev=i?tail[i-1].values[l]:null,delta=prev===null?null:x.values[l]-prev;
+const labels=d.choices.map(x=>x.label),tail=d.rows.filter((x,i)=>i===0||labels.some(l=>Math.abs(Number(x.values[l])-Number(d.rows[i-1].values[l]))>=.005)).slice(-8),body=tail.map((x,i)=>'<tr><td>'+e(clock(x.at))+'</td>'+labels.map(l=>{const prev=i?tail[i-1].values[l]:null,delta=prev===null?null:x.values[l]-prev;
 return '<td class="'+(delta<-.005?'down':delta>.005?'up':'')+'"><b>'+fmt(x.values[l])+'</b><small>'+diff(delta)+'</small></td>';}).join('')+'</tr>').join(''),
 selected=String(m.pick||r.finalPick||''),current=d.choices.find(x=>x.label===selected);
 return '<section class="r485Flow"><div class="r485Head"><b>국내배당 흐름 · 변동 상세</b><span class="'+(d.closed?'closed':'live')+'">'+e(status)+'</span></div>'+
 '<div class="r485Prices">'+cards+'</div><div class="r485Meta">실제 변동 '+d.changeCount+'회 · 확인 '+e(clock(d.observedAt))+'</div>'+
 (current&&d.selectionOdds?'<p class="r485Mark">마킹 당시 '+e(selected)+' '+fmt(d.selectionOdds)+'배 · 현재 확인 '+fmt(current.current)+'배</p>':'')+
-r474FlowHtml(r)+(body?'<details class="r485History"><summary>시각별 배당 · 최근 '+tail.length+'회</summary><div><table><thead><tr><th>확인 시각</th>'+labels.map(l=>'<th>'+e(l)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div></details>':'')+
+r474FlowHtml(r)+(body?'<details class="r485History"><summary>배당이 바뀐 시점 · '+tail.length+'줄</summary><div><table><thead><tr><th>확인 시각</th>'+labels.map(l=>'<th>'+e(l)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div></details>':'')+
 '<footer>출처 '+e(d.source||'저장된 국내 배당')+' · 최초·직전은 실제 수집 기록 기준</footer></section>';
 }
 function r522ForeignFlowHtml(m,r){
- const market=r519Market(m,r),tables=r518OddsTables(m,r,market);if(!tables)return '';
- const series=r521ForeignSeries(m,r,market);
- return '<section class="r485Flow"><div class="r485Head"><b>해외배당 흐름</b><span class="'+(series.fresh?'live':'closed')+'">'+(series.fresh?'최근 해외 원배당':'저장된 해외 원배당')+'</span></div>'+tables+'</section>';
+ const entry=r506Client.get(expKey(m)),data=entry?.data,market=r519Market(m,r);
+ const head=(sub,cls)=>'<section class="r485Flow r523Ov"><div class="r485Head"><b>해외배당 흐름</b><span class="'+(cls||'closed')+'">'+e(sub)+'</span></div>';
+ if(!entry||(entry.loading&&!data))return head('불러오는 중')+'<p class="r506Muted">해외 업체 배당을 불러오고 있습니다.</p></section>';
+ const tables=r518OddsTables(m,r,market);
+ if(tables){const series=r521ForeignSeries(m,r,market);return head(series.fresh?'최근 해외 원배당':'저장된 해외 원배당',series.fresh?'live':'closed')+tables+'</section>';}
+ if(market?.choices?.length){
+  const cells=market.choices.map(c=>'<td>'+e(Number(c.overseas)>1?Number(c.overseas).toFixed(2):'—')+'</td>').join('');
+  return head('기록 1회 · 흐름 대기')+'<div class="r518Dual"><section class="r518Timeline"><div class="r506TableWrap"><table><thead><tr><th>확인 시간 · KST</th>'+market.choices.map(c=>'<th>'+e(c.label)+'</th>').join('')+'<th>업체</th></tr></thead><tbody><tr><td>'+e(r506Clock(market.newestQuoteAt||data.receivedAt))+'</td>'+cells+'<td>'+e(market.bookCount??'—')+'</td></tr></tbody></table></div></section><p class="r506Muted">해외 업체 중앙값 · 다음 조회부터 오르내림(↑↓)이 표시됩니다 · 보통 경기 시작 3시간 전부터 1시간 간격</p></div></section>';
+ }
+ const st=market?.status||data?.fetchStatus||data?.status;
+ return head('기록 없음')+'<p class="r506Muted">'+e(r506Messages[st]||'해외배당이 아직 수집되지 않았습니다. 경기 시작 6시간 전부터 수집합니다.')+'</p></section>';
 }
+function r523DomesticWrap(m,r){const h=r485FlowHtml(m,r);if(!h)return '';const d=r485FlowData(r,m);return '<details class="r523Dom"><summary>국내배당 흐름 보기 · 실제 변동 '+(d?d.changeCount:0)+'회</summary>'+h+'</details>';}
 function r474FlowData(r){
 const p=r?.precision||{},quoted=Array.isArray(r?.choices)?r.choices:[],
 labels=quoted.filter(c=>Number.isFinite(Number(c.odds))&&Number(c.odds)>1).map(c=>String(c.label)),history=Array.isArray(p.history)?p.history:[];
@@ -8790,7 +8799,7 @@ warning=r.oddsSnapshotStatus==='LAST_KNOWN'||r.oddsSnapshotStatus==='SCREENSHOT_
 return '<section class="edBriefMarket r474Market'+(r.marked?' selected':'')+'">'+
 '<div class="edBriefTop"><b>#'+e(r.no)+' · '+e(title)+'</b>'+(r.marked?'<span>현재 마킹</span>':'')+'</div>'+
 (valid?'<div class="r474MarketVerdict">'+e(d.title)+e(warning)+'</div>':'<div class="r474MarketVerdict">배당 확인 중'+e(warning)+'</div>')+
-expEasyPrices(m,r)+r474Insights(m,r)+r485FlowHtml(m,r)+r522ForeignFlowHtml(m,r)+
+expEasyPrices(m,r)+r474Insights(m,r)+r522ForeignFlowHtml(m,r)+r523DomesticWrap(m,r)+
 '<details class="edBriefDetails" data-exp-market="'+e(r.no)+'"><summary>지난 결과 · 상세 자료</summary><div class="edBriefInner"></div></details></section>';
 }
 function expDSFull(m,r){
