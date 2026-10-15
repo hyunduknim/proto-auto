@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R527-ODDS-FLOW-CHART";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R528-MONTHLY-CREDIT-BUDGET";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1805,7 +1805,8 @@ if(usage?.remaining!=null)b.remaining=usage.remaining;else if(Number.isFinite(Nu
 if(usage?.used!=null)b.used=usage.used;b.at=nowIso();}
 const R522_RESERVE=6; /* credits kept for the first look at games later in the day */
 function r507Budget(store,now,o){const b=store.budget,day=kstDateFromMs(now);if(b.day!==day){b.day=day;b.spent=0;}
-const rem=Number(b.remaining);let end=Number(b.periodStart||now)+30*86400000;while(end<=now)end+=30*86400000;
+/* R528: The Odds API resets credits on the 1st of every month (official FAQ) — spread what is left evenly until then */
+const rem=Number(b.remaining),nd=new Date(now),end=Date.UTC(nd.getUTCFullYear(),nd.getUTCMonth()+1,1);
 const daysLeft=Math.max(1,Math.ceil((end-now)/86400000));b.periodEnds=new Date(end).toISOString();
 const daily=o.dailyCredits!=null?o.dailyCredits:Number.isFinite(rem)?Math.max(0,Math.floor((rem-R507.reserve)/daysLeft)):4;
 return {day,daily,spent:Number(b.spent||0),remaining:Number.isFinite(rem)?rem:null,canSpend:c=>Number(b.spent||0)+c<=daily&&(!Number.isFinite(rem)||rem-c>=R507.reserve)};}
