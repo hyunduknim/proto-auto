@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R531-OVERSEAS-LED-GRADES";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R532-ESPN-SOCCER-SETTLEMENT";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -10373,6 +10373,60 @@ outcome:resolution.outcome,settled:n===1,eventId:String(e.id||"")});
 }
 return audit;
 }
+/* R532: ESPN public soccer scoreboards as a settlement source for any covered league (after ZENTOTO/SPOGOD, before BETMAN).
+   Settles only when ESPN says completed regulation full time (no AET/penalties), kickoff within 15 min, both team names
+   clearly match (alias + romanised skeleton) and no other fixture at that time comes close. */
+const R532_ESPN_SOCCER={"afc.cup":["AFC 챔피언스리그2","AFC챔피언스리그2","ACL2"],"afc.champions":["AFC 챔피언스리그 엘리트","AFC챔피언스리그엘리트","ACLE"],
+"uefa.champions":["UEFA 챔피언스리그"],"uefa.europa":["UEFA 유로파리그"],"uefa.europa.conf":["UEFA 컨퍼런스리그"],
+"eng.1":["EPL","잉글랜드 프리미어리그"],"eng.2":["잉글랜드 챔피언십"],"eng.3":["잉글랜드 리그1"],"eng.4":["잉글랜드 리그2"],"eng.league_cup":["잉글랜드 리그컵","EFL컵"],"eng.fa":["잉글랜드 FA컵","FA컵"],
+"esp.1":["스페인 라리가","라리가"],"ger.1":["독일 분데스리가","분데스리가"],"ita.1":["이탈리아 세리에A","세리에A"],"fra.1":["프랑스 리그1"],
+"ned.1":["네덜란드 에레디비시","에레디비시"],"por.1":["포르투갈 프리메이라리가","포르투갈 리가"],"sco.1":["스코틀랜드 프리미어십"],"bel.1":["벨기에 프로리그"],"tur.1":["튀르키예 쉬페르리그"],
+"usa.1":["미국 메이저리그사커","MLS"],"jpn.1":["일본 J1리그","J1리그","J리그"],"kor.1":["K리그1"],"aus.1":["호주 A리그"],"chn.1":["중국 슈퍼리그"],"ksa.1":["사우디 프로리그"],
+"conmebol.libertadores":["코파 리베르타도레스"],"conmebol.sudamericana":["코파 수다메리카나"],"bra.1":["브라질 세리에A"],"mex.1":["멕시코 리가MX"],
+"fifa.worldq.uefa":["월드컵 유럽예선"],"uefa.nations":["UEFA 네이션스리그","네이션스리그"],"fifa.friendly":["국가대표 친선경기","A매치"]};
+const R532_LEAGUE_SLUG=new Map(Object.entries(R532_ESPN_SOCCER).flatMap(([slug,names])=>names.map(n=>[r506Name(n),slug])));
+function r532Slug(m){return m?.sport==="축구"?R532_LEAGUE_SLUG.get(r506Name(m.league))||null:null;}
+function r532Pending(state,now=Date.now()){return pendingSettlementMarkets(state).filter(m=>{const t=gameTimeMs(m);return r532Slug(m)&&t!=null&&now-t>=115*60000&&now-t<=3*86400000;});}
+function r532Resolve(state,m,events){
+const t=gameTimeMs(m),aliasStore=state?.r507Overseas||{};
+const cands=events.filter(e=>Math.abs(Date.parse(e?.date||"")-t)<=15*60000).map(e=>{const c=e?.competitions?.[0]?.competitors||[],h=c.find(x=>x.homeAway==="home"),a=c.find(x=>x.homeAway==="away");
+const hn=h?.team?.displayName||"",an=a?.team?.displayName||"",sh=r507NameSim(aliasStore,"축구",m.home,hn),sa=r507NameSim(aliasStore,"축구",m.away,an),
+sw=(r507NameSim(aliasStore,"축구",m.home,an)+r507NameSim(aliasStore,"축구",m.away,hn))/2;return {e,h,a,sh,sa,score:(sh+sa)/2,sw};}).sort((x,y)=>y.score-x.score);
+const best=cands[0],second=cands[1];
+if(!best)return {reject:"NO_FIXTURE_AT_KICKOFF"};
+if(best.score<.6||Math.min(best.sh,best.sa)<.4||best.sw>best.score)return {reject:"TEAM_NAMES_NOT_CONFIRMED"};
+if(second&&best.score-second.score<.2)return {reject:"AMBIGUOUS_FIXTURE"};
+const st=best.e?.status?.type||{};if(st.completed!==true||st.name!=="STATUS_FULL_TIME")return {reject:st.completed?"NOT_REGULATION_FULL_TIME":"NOT_FINISHED"};
+const hs=String(best.h?.score??""),as=String(best.a?.score??"");if(!/^\d{1,2}$/.test(hs)||!/^\d{1,2}$/.test(as))return {reject:"SCORE_MISSING"};
+return {event:best.e,score:hs+":"+as,names:(best.h?.team?.displayName||"")+" vs "+(best.a?.team?.displayName||""),nameScore:r3(best.score)};}
+async function r532RefreshEspnSoccer(state,env,force=false){
+const now=Date.now(),pending=r532Pending(state,now);
+if(!pending.length)return {source:"ESPN_DIRECT_SOCCER_FULLTIME",status:"NO_COVERED_SOCCER_PENDING",settled:0};
+const old=state.r532EspnSoccerAudit||{},oldMs=Date.parse(old.at||"");
+if(!force&&Number.isFinite(oldMs)&&now-oldMs<3*60000)return {source:"ESPN_DIRECT_SOCCER_FULLTIME",status:"THROTTLED",settled:0};
+const audit={source:"ESPN_DIRECT_SOCCER_FULLTIME",at:nowIso(),status:"CHECKING",pendingBefore:pending.length,pendingAfter:pending.length,requests:0,events:0,matched:0,settled:0,rejected:0,reasons:{},samples:[],error:null};
+const ymd=ms=>new Date(ms).toISOString().slice(0,10).replace(/-/g,""),jobs=new Map();
+for(const m of pending){const slug=r532Slug(m),t=gameTimeMs(m);for(const d of [ymd(t),ymd(t-86400000)])jobs.set(slug+"|"+d,{slug,d});}
+const list=[...jobs.values()].slice(0,10),bySlug=new Map();
+try{const replies=await Promise.allSettled(list.map(async j=>{const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),8000);
+try{const r=await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${j.slug}/scoreboard?dates=${j.d}&limit=200`,{headers:{accept:"application/json"},signal:ac.signal});
+if(!r.ok)throw Error("ESPN_SOCCER_HTTP_"+r.status);const txt=await r.text();if(txt.length>3000000)throw Error("ESPN_SOCCER_BAD_SIZE");
+const ev=JSON.parse(txt)?.events;if(!Array.isArray(ev))throw Error("ESPN_SOCCER_EVENTS_INVALID");return {slug:j.slug,events:ev};}finally{clearTimeout(tm);}}));
+audit.requests=list.length;
+for(const x of replies)if(x.status==="fulfilled"){const a=bySlug.get(x.value.slug)||new Map();for(const e of x.value.events)if(e?.id)a.set(String(e.id),e);bySlug.set(x.value.slug,a);}
+if(!bySlug.size)throw Error("ESPN_SOCCER_ALL_UNAVAILABLE");
+for(const m of pending){const events=[...(bySlug.get(r532Slug(m))||new Map()).values()];audit.events+=events.length;
+const fail=reason=>{audit.rejected++;audit.reasons[reason]=(audit.reasons[reason]||0)+1;};
+const out=r532Resolve(state,m,events);if(out.reject){fail(out.reject);continue;}
+const raw={gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,home:m.home,away:m.away,family:"MONEYLINE",score:out.score,terminal:true,partial:false,specialStatus:null};
+const pair=resultScorePairText(raw.score);if(!pair||scoreUnitMismatch(m,pair)){fail("MARKET_SCORE_UNIT");continue;}
+const res=resolveOfficialOutcome(raw,m);if(!res?.outcome||res.void||!validChoices(m).some(c=>c.label===res.outcome)){fail("UNRESOLVED_MARKET_OR_PUSH");continue;}
+audit.matched++;const n=applyResults({markets:[m]},[raw],"ESPN_DIRECT_VERIFIED_SOCCER_FULLTIME");audit.settled+=n;
+if(audit.samples.length<15)audit.samples.push({no:m.no,game:m.home+" vs "+m.away,espn:out.names,nameScore:out.nameScore,score:out.score,outcome:res.outcome,settled:n===1});}
+audit.pendingAfter=r532Pending(state).length;audit.status=audit.matched?"VERIFIED_MATCHES_CHECKED":"NO_MATCHED_FULLTIME";
+if(audit.settled)markState(state);}
+catch(e){audit.status="SOURCE_UNAVAILABLE";audit.error=String(e?.message||e).slice(0,160);}
+state.r532EspnSoccerAudit=audit;await saveState(state,env,audit.settled>0);return audit;}
 async function r385RefreshMlsFinals(state,env,force=false){
 const pending=pendingSettlementMarkets(state).filter(r385MlsFixtureSpec);
 if(!pending.length)return {source:"ESPN_DIRECT_MLS_FULLTIME",
@@ -10975,7 +11029,7 @@ sourceFresh:cloudflareFresh,matchingRows:Number(cf.candidates||0),
 settledLastCheck:Number(cf.settled||0),pendingAfter:Number(cf.pendingAfter??pending),
 overdueDetails:(cf.pendingDetails||[]).filter(x=>Number(x.ageMinutes)>=240).slice(0,20),
 error:cf.error||null},
-settlementSourcePriority:["ZENTOTO","SPOGOD_VERIFIED_FINAL","ESPN_PUBLIC_MLB_VERIFIED_FINAL","NPB_OFFICIAL_FULLTIME","ESPN_VERIFIED_MLS_FALLBACK","WISETOTO_OPTIONAL_LICENSED","BETMAN_LAST"],
+settlementSourcePriority:["ZENTOTO","SPOGOD_VERIFIED_FINAL","ESPN_PUBLIC_MLB_VERIFIED_FINAL","NPB_OFFICIAL_FULLTIME","ESPN_VERIFIED_MLS_FALLBACK","ESPN_VERIFIED_SOCCER_FALLBACK","WISETOTO_OPTIONAL_LICENSED","BETMAN_LAST"],
 afternoonRecovery:{at:state?.r389AfternoonAudit?.at||null,
 verifiedFixtures:Number(state?.r389AfternoonAudit?.verifiedFixtures||0),
 settledTotal:Number(state?.r389AfternoonAudit?.totalSettled||0),
@@ -11248,6 +11302,8 @@ cur=MEM.state||cur;
 await settlementCheck("SPOGOD",()=>r384RefreshSpogodResults(cur,env,fiveMinuteDue));
 cur=MEM.state||cur;
 await settlementCheck("ESPN_MLS",()=>r385RefreshMlsFinals(cur,env,false));
+cur=MEM.state||cur;
+if(r532Pending(cur).length)await settlementCheck("ESPN_SOCCER",()=>r532RefreshEspnSoccer(cur,env,false));
 cur=MEM.state||cur;
 await settlementCheck("WISETOTO_OPTIONAL",()=>r383RefreshWisetotoResults(cur,env,false));
 cur=MEM.state||cur;
