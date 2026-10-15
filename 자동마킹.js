@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R524-BEST-NEEDS-OVERSEAS";
-const BUILD_ID = "proto-r524-20261015-best-needs-overseas";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R525-PRECISION-USES-R507-MATCH";
+const BUILD_ID = "proto-r525-20261015-precision-uses-r507-match";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -13391,8 +13391,12 @@ function r506TeamSame(a,b,sport){
 function r506Sport(g){const league=r506Name(g?.league);return Object.keys(R506_LEAGUES).find(k=>R506_LEAGUES[k].some(n=>r506Name(n)===league)&&((k.startsWith('soccer_')&&g.sport==='축구')||(k.startsWith('baseball_')&&g.sport==='야구')||(k.startsWith('basketball_')&&g.sport==='농구')))||null;}
 function r506Median(xs){const a=xs.slice().sort((a,b)=>a-b),i=Math.floor(a.length/2);return a.length?(a.length%2?a[i]:(a[i-1]+a[i])/2):null;}
 function r506QuoteAge(at,now){const t=typeof at==='string'?Date.parse(at):NaN;return Number.isFinite(t)&&t<=now?now-t:null;}
-function r506Compare(game,rows,events,now=Date.now()){
- const sport=r506Sport(game),kickoff=gameTimeMs(game),matches=(events||[]).filter(e=>e?.sport_key===sport&&Number.isFinite(kickoff)&&kickoff>now&&Date.parse(e.commence_time)>now&&Number.isFinite(Date.parse(e.commence_time))&&Math.abs(Date.parse(e.commence_time)-kickoff)<=300000&&r506TeamSame(game.home,e.home_team,sport)&&r506TeamSame(game.away,e.away_team,sport));
+/* R525: the collector (R507) already matched Betman names to API events with fuzzy Korean/English matching.
+   Precision views trust that event id, so teams missing from R506_TEAMS (most Conference/Europa clubs) still show flows. */
+function r525Trust(row,state=MEM.state){const st=state?.r507Overseas||{},refs=[st.matches?.[gameSeed(row)],st.markets?.[String(row?.gmTs)+':'+String(row?.no)],row?.r507Overseas];
+ const x=refs.find(r=>r&&/^[a-zA-Z0-9_-]{1,80}$/.test(String(r.eventId||''))&&/^[a-z0-9_]{1,80}$/.test(String(r.sportKey||'')));return x?{eventId:String(x.eventId),sportKey:String(x.sportKey)}:null;}
+function r506Compare(game,rows,events,now=Date.now(),trust=null){
+ const sport=r506Sport(game)||trust?.sportKey||null,kickoff=gameTimeMs(game),matches=(events||[]).filter(e=>Number.isFinite(kickoff)&&kickoff>now&&Date.parse(e?.commence_time)>now&&Number.isFinite(Date.parse(e?.commence_time))&&(trust&&e?.id===trust.eventId&&e?.sport_key===trust.sportKey?Math.abs(Date.parse(e.commence_time)-kickoff)<=R507.toleranceMs:(e?.sport_key===sport&&Math.abs(Date.parse(e.commence_time)-kickoff)<=300000&&r506TeamSame(game.home,e.home_team,sport)&&r506TeamSame(game.away,e.away_team,sport))));
  if(matches.length!==1)return {status:matches.length?'AMBIGUOUS_EVENT':'EVENT_NOT_FOUND',markets:[]};
  const event=matches[0],markets=rows.map(r=>{
   const base={no:r.no,family:r.marketFamily,line:r.line??null,status:'NO_MARKET',bookCount:0,books:[],choices:[]};
@@ -13429,12 +13433,12 @@ function r506Compare(game,rows,events,now=Date.now()){
   for(const c of choices){c.marketWeight/=sum;c.priceGap=rulesComparable&&domesticAge!==null&&domesticAge<=10*60000&&books.every(b=>b.ageSec<=600)&&c.domestic?c.domestic/c.overseas-1:null;}
   return {...base,status:!verifiedPeriod?'PERIOD_UNVERIFIED':!rulesComparable?'RULES_UNVERIFIED':'MATCHED',bookCount:books.length,books,choices,domesticAt:domesticAt||null,oldestQuoteAt:books.map(b=>b.updatedAt).sort()[0],newestQuoteAt:books.map(b=>b.updatedAt).sort().at(-1),smallSample:books.length<3};
  });
- return {status:'MATCHED',event:{id:event.id,home:event.home_team,away:event.away_team,kickoff:event.commence_time,sport},markets};
+ return {status:'MATCHED',event:{id:event.id,home:event.home_team,away:event.away_team,kickoff:event.commence_time,sport:event.sport_key||sport},markets};
 }
 /* R508: precision reads the existing R507 collection; never spends another API credit. */
 async function r508RememberOdds(path,events){
  const sport=String(path).match(/^\/v4\/sports\/([a-z0-9_]+)\/odds\/?$/)?.[1],storage=doStorage();
- if(!sport||!R506_LEAGUES[sport]||!storage||!Array.isArray(events))return;
+ if(!sport||!(R506_LEAGUES[sport]||Object.values(MEM.state?.r507Overseas?.matches||{}).some(x=>x?.sportKey===sport))||!storage||!Array.isArray(events))return;
  const receivedAt=new Date().toISOString();
  for(const e of events){
   if(e?.sport_key!==sport||!/^[a-zA-Z0-9_-]{1,80}$/.test(String(e.id||'')))continue;
@@ -13456,9 +13460,10 @@ function r518Identity(r){return JSON.stringify([String(r.gmTs),String(r.no),r.da
 async function r518RememberHistory(storage,event,receivedAt){
  const now=Date.parse(receivedAt),state=MEM.state;
  if(!state||!Number.isFinite(now)||!storage)return;
- const rows=(state.markets||[]).filter(r=>!r.resultFinal&&gameTimeMs(r)>now&&r506Sport(r)===event.sport_key&&Math.abs(Date.parse(event.commence_time)-gameTimeMs(r))<=300000&&r506TeamSame(r.home,event.home_team,event.sport_key)&&r506TeamSame(r.away,event.away_team,event.sport_key));
+ const isTrusted=r=>{const t=r525Trust(r,state);return !!t&&t.eventId===event.id&&t.sportKey===event.sport_key;};
+ const rows=(state.markets||[]).filter(r=>!r.resultFinal&&gameTimeMs(r)>now&&(isTrusted(r)||(r506Sport(r)===event.sport_key&&Math.abs(Date.parse(event.commence_time)-gameTimeMs(r))<=300000&&r506TeamSame(r.home,event.home_team,event.sport_key)&&r506TeamSame(r.away,event.away_team,event.sport_key))));
  for(const row of rows){
-  const market=r506Compare(row,[row],[event],now).markets?.[0];if(!market?.choices?.length)continue;
+  const market=r506Compare(row,[row],[event],now,r525Trust(row,state)).markets?.[0];if(!market?.choices?.length)continue;
   const key='r518:history:'+row.gmTs+':'+row.no,identity=r518Identity(row),prior=await storage.get(key),same=prior?.identity===identity&&prior?.eventId===event.id;
   const bookKeys=market.books.map(b=>b.key).sort(),point={at:receivedAt,sourceAt:market.newestQuoteAt,oldestQuoteAt:market.oldestQuoteAt,bookCount:market.bookCount,bookKeys,books:market.books.map(b=>({key:b.key,title:b.title,updatedAt:b.updatedAt,prices:b.prices.map(p=>({label:p.label,odds:p.odds}))})),choices:market.choices.map(c=>({label:c.label,overseas:c.overseas,marketWeight:c.marketWeight}))};
   const signature=JSON.stringify(market.books.slice().sort((a,b)=>a.key.localeCompare(b.key)).map(b=>[b.key,b.updatedAt,b.prices.map(p=>[p.label,p.odds])])),points=same?prior.points.slice():[];
@@ -13478,7 +13483,7 @@ async function r508Precision(req,env,storage){
  const state=MEM.state||await loadState(env),all=state.markets||[],candidates=all.filter(m=>String(m.gmTs)===round&&String(m.no)===no);
  if(!candidates.length)return json({status:'GAME_NOT_FOUND',markets:[]},404);
  if(candidates.length!==1)return json({status:'AMBIGUOUS_EVENT',markets:[]});
- const row=candidates[0],sport=r506Sport(row),o=r507Opts(env),store=state.r507Overseas||{},now=Date.now();
+ const row=candidates[0],trust=r525Trust(row,state),sport=r506Sport(row)||trust?.sportKey||null,o=r507Opts(env),store=state.r507Overseas||{},now=Date.now();
  const meta={provider:'The Odds API',region:'R507 configured bookmakers',checkedAt:new Date(now).toISOString(),configured:!!o.key,disabled:o.disabled,weight:o.weight,remaining:store.budget?.remaining??null,cacheHit:true,extraApiCredits:0};
  const rows=all.filter(m=>String(m.gmTs)===round&&m.date===row.date&&m.time===row.time&&m.home===row.home&&m.away===row.away&&m.league===row.league&&m.sport===row.sport&&['MONEYLINE','HANDICAP','TOTAL'].includes(m.marketFamily));
  const histories=await Promise.all(rows.map(async r=>{const h=await storage?.get('r518:history:'+r.gmTs+':'+r.no);return h?.identity===r518Identity(r)?h:null;}));
@@ -13488,11 +13493,11 @@ async function r508Precision(req,env,storage){
  const kickoff=gameTimeMs(row);if(!Number.isFinite(kickoff)||kickoff<=now||row.resultFinal)return json(archived('PREGAME_ONLY'));
  const refs=[store.matches?.[gameSeed(row)],store.markets?.[String(row.gmTs)+':'+String(row.no)],row.r507Overseas],ids=[...new Set(refs.filter(x=>x?.sportKey===sport&&/^[a-zA-Z0-9_-]{1,80}$/.test(String(x.eventId||''))).map(x=>x.eventId))];
  if(!ids.length)return json({...archived('EVENT_NOT_FOUND'),fetchStatus:'AWAITING_COLLECTOR'});
- const caches=await Promise.all(ids.map(id=>storage?.get('r508:quote:'+sport+':'+id))),valid=caches.filter(c=>c?.event&&r506Compare(row,[],[c.event],now).status==='MATCHED');
+ const caches=await Promise.all(ids.map(id=>storage?.get('r508:quote:'+sport+':'+id))),valid=caches.filter(c=>c?.event&&r506Compare(row,[],[c.event],now,trust).status==='MATCHED');
  if(valid.length>1)return json(archived('AMBIGUOUS_EVENT'));
  const cached=valid[0];if(!cached)return json({...archived(caches.some(c=>c?.event)?'EVENT_NOT_FOUND':'NO_STORED_QUOTES'),fetchStatus:'AWAITING_COLLECTOR'});
  const match={eventId:cached.event.id};
- const result=r506Compare(row,rows,[cached.event],now);
+ const result=r506Compare(row,rows,[cached.event],now,trust);
  if(!result.markets?.length)return json({...archived(result.status),receivedAt:cached.receivedAt});
  for(const m of result.markets){const i=rows.findIndex(r=>String(r.no)===String(m.no)),h=histories[i];m.history=h?.eventId===match.eventId?h.points:[];
   if(!m.history.length&&m.choices.length&&r506QuoteAge(cached.receivedAt,now)!==null)m.history=[{at:cached.receivedAt,sourceAt:m.newestQuoteAt,oldestQuoteAt:m.oldestQuoteAt,bookCount:m.bookCount,bookKeys:m.books.map(b=>b.key).sort(),choices:m.choices.map(c=>({label:c.label,overseas:c.overseas,marketWeight:c.marketWeight}))}];
