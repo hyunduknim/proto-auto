@@ -1,0 +1,33 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+const now=Date.now(),kick=now+7200000,kt=new Date(kick+9*3600000).toISOString();
+c.G={gmTs:'260122',no:8347,date:kt.slice(0,10),time:kt.slice(11,16),sport:'축구',league:'MLS',home:'LAFC',away:'오스틴FC',marketFamily:'MONEYLINE',period:'FULL',choices:[{label:'승',odds:1.37},{label:'무',odds:4.1},{label:'패',odds:5.7}],domesticOddsFetchedAt:new Date(now).toISOString()};
+// Official /sports/{sport}/odds schema: last_update is on the bookmaker, not each market.
+c.E={id:'pinnacle-fixture',sport_key:'soccer_usa_mls',commence_time:new Date(kick).toISOString(),home_team:'Los Angeles FC',away_team:'Austin FC',bookmakers:[{key:'pinnacle',title:'Pinnacle',last_update:new Date(now-60000).toISOString(),markets:[{key:'h2h',outcomes:[{name:'Los Angeles FC',price:1.49},{name:'Draw',price:4.73},{name:'Austin FC',price:5.43}]}]}]};
+const memory=new Map();c.STORAGE={get:async k=>structuredClone(memory.get(k)),put:async(k,v)=>memory.set(k,structuredClone(v))};
+(async()=>{
+ run('MEM.inDurableObject=true;MEM.doStorage=STORAGE;MEM.state={markets:[G],r507Overseas:{matches:{},markets:{},budget:{remaining:259}}}');
+ let cmp=run('r506Compare(G,[G],[E])');assert.equal(cmp.markets[0].bookCount,1,'official bookmaker-level source timestamp must validate actual Pinnacle prices');
+ await run('r508RememberOdds("/v4/sports/soccer_usa_mls/odds",[E])');
+ let cached=memory.get('r508:quote:soccer_usa_mls:pinnacle-fixture');assert.equal(cached.event.bookmakers[0].last_update,c.E.bookmakers[0].last_update,'preserve the original source timestamp');
+ assert.equal(memory.get('r518:history:260122:8347').points.length,1);
+ const request='new Request("https://proto.test/api/overseas-odds?gmTs=260122&no=8347")';
+ run('MEM.state.r507Overseas.markets["260122:8347"]={eventId:E.id,sportKey:E.sport_key,kick:gameTimeMs(G)};globalThis.NETWORK=0;fetch=async()=>{NETWORK++;throw Error("NO_UI_SPEND")};');
+ let result=await (await run('r508Precision('+request+',{THE_ODDS_API_KEY:"private-key"},STORAGE)')).json();assert.equal(result.status,'MATCHED','saved source event remains resolvable if transient match index is missing');assert.equal(result.markets[0].books[0].key,'pinnacle');assert.equal(result.markets[0].choices[0].overseas,1.49);assert.equal(c.NETWORK,0);assert.ok(!JSON.stringify(result).includes('private-key'));
+ run('E.bookmakers[0].markets[0].last_update=new Date(Date.now()-31*60000).toISOString()');cmp=run('r506Compare(G,[G],[E])');assert.equal(cmp.markets[0].status,'STALE_QUOTES','an explicit stale market timestamp takes precedence over a fresh bookmaker timestamp');
+ run('delete E.bookmakers[0].markets[0].last_update;E.bookmakers[0].last_update=new Date(Date.now()+3600000).toISOString()');cmp=run('r506Compare(G,[G],[E])');assert.equal(cmp.markets[0].status,'INVALID_QUOTES','future source time must not be replaced with the receive clock');
+ run('delete E.bookmakers[0].last_update');cmp=run('r506Compare(G,[G],[E])');assert.equal(cmp.markets[0].status,'INVALID_QUOTES','missing source time is not fabricated');
+ c.NOW=now;c.SAVED={markets:{'260122:8347':{at:now-3600000,kick:run('gameTimeMs(G)')}}};c.FIXTURE={kick:run('gameTimeMs(G)'),markets:[c.G]};assert.equal(run('r507GameFresh(SAVED,FIXTURE,NOW)'),false,'an hour-old quote cannot postpone another source poll for eight hours');
+ assert.equal(run('r507Budget({budget:{day:kstDateFromMs(Date.now()),spent:4,remaining:259,periodStart:Date.now()}},Date.now(),{dailyCredits:4}).canSpend(2)'),false,'daily budget is retained');
+ c.LEAGUES={oddsAt:{A:now-6*60000,B:now-4*60000,C:now-2*60000},markets:{}};c.MATCHES=['A','B','C','D'].map((key,i)=>({match:{id:key,sportKey:key},game:{kick:now+(i+1)*3600000,markets:[]}}));
+ assert.equal(run('r507DueLeague(LEAGUES,MATCHES,NOW,{windowMs:6*3600000}).sportKey'),'D','uncollected league gets a turn before repeated early kickoff leagues');
+ const html=run('INDEX'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1],ui=vm.createContext({Date,Math,JSON,Number,Intl,Map,Set,console,setTimeout,clearTimeout,setInterval(){},document:{getElementById(){return {textContent:"",classList:{toggle(){}}}}},localStorage:{setItem(){}}});vm.runInContext(script.slice(0,script.indexOf('function bindActionButton')),ui);
+ ui.POINTS=Array.from({length:8},(_,i)=>({at:new Date(now-80000+i*1000).toISOString(),values:{'승':2-i*.05,'패':2+i*.05}}));
+ let table=vm.runInContext('r518HistoryTable("test",["승","패"],POINTS,false)',ui);assert.equal((table.match(/<tbody>([\s\S]*?)<\/tbody>/)||[])[1].match(/<tr>/g).length,5);assert.match(table,/1.65/);assert.doesNotMatch(table,/>2.00</,'old rows are omitted');
+ ui.POINTS=Array.from({length:20},(_,i)=>({at:new Date(now-80000+i*1000).toISOString(),values:{'승':2,'패':2}}));table=vm.runInContext('r518HistoryTable("test",["승","패"],POINTS,false)',ui);assert.equal(table.match(/<tbody>([\s\S]*?)<\/tbody>/)[1].match(/<tr>/g).length,1,'unchanged repeats are not fake changes');
+ ui.G=c.G;ui.R={...c.G,marked:true,finalPick:'승',precision:{observedAt:new Date(now).toISOString(),history:[{at:new Date(now-60000).toISOString(),prices:c.G.choices}]}};
+ const analysis=vm.runInContext('r474Insights(G,R)',ui);assert.ok((analysis.match(/<p>/g)||[]).length<=5,'data analysis stays within five concise lines');
+ const resp=await run('handleApp(new Request("https://proto.test/api/overseas-status?view=html"),{THE_ODDS_API_KEY:"private-key"},{})');assert.match(resp.headers.get('content-type'),/text\/html/);assert.ok(!(await resp.text()).includes('private-key'));
+ console.log('PASS R520: official Pinnacle timestamp schema, raw/history persistence, exact saved-event lookup, stale/future/missing source rejection, 5-minute freshness, no paid UI fetch and budget guard');
+})().catch(e=>{console.error(e);process.exitCode=1});
