@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R528B-SAFE-TIME-MATCH";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R529-PRECISION-OVERSEAS-BOOST";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1841,6 +1841,23 @@ const e=byKey.get(k)||{sportKey:k,eventIds:new Set(),first:Infinity,due:false};e
 if(x.game.kick-now<=o.windowMs&&!r507GameFresh(store,x.game,now)){e.due=true;e.first=Math.min(e.first,x.game.kick);if(!x.game.markets.some(m=>store.markets[`${m.gmTs}:${m.no}`]))e.fresh0=true;}byKey.set(k,e);}
 const due=[...byKey.values()].filter(e=>e.due).sort((a,b)=>(b.fresh0?1:0)-(a.fresh0?1:0)||Number(store.oddsAt[a.sportKey]||0)-Number(store.oddsAt[b.sportKey]||0)||a.first-b.first)[0];
 return due?{sportKey:due.sportKey,eventIds:[...due.eventIds].slice(0,40),refetch:!due.fresh0}:null;}
+/* R528: precision boost — when today's credits have room after every regular collection, refresh the league
+   with the nearest kickoff (h2h+totals+handicap) so 배당 정밀분석 gets fresher overseas quotes and real handicap books.
+   Credits still needed for first looks at later games today are never touched. */
+const R528_BOOST_GAP_MS=30*60000;
+function r528PrecisionBoost(store,matches,now,o,budget){
+const today=kstDateFromMs(now),firstLookKeys=new Set();
+for(const x of matches){if(!x.match)continue;const g=x.game;
+if(kstDateFromMs(g.kick)===today&&g.kick-now>o.windowMs&&!g.markets.some(m=>store.markets[`${m.gmTs}:${m.no}`]))firstLookKeys.add(x.match.sportKey);}
+const keep=Math.max(R522_RESERVE,firstLookKeys.size*2);
+const byKey=new Map();
+for(const x of matches){if(!x.match)continue;const g=x.game,k=x.match.sportKey,left=g.kick-now;
+if(left<=0||left>o.windowMs||now-Number(store.oddsAt[k]||0)<R528_BOOST_GAP_MS)continue;
+const e=byKey.get(k)||{sportKey:k,eventIds:new Set(),first:Infinity,handicap:false};e.eventIds.add(x.match.id);e.first=Math.min(e.first,g.kick);
+if(g.markets.some(m=>m.marketFamily==='HANDICAP'&&validChoices(m).length===2))e.handicap=true;byKey.set(k,e);}
+const pick=[...byKey.values()].sort((a,b)=>a.first-b.first)[0];if(!pick)return null;
+const cost=pick.handicap?3:2;if(!budget.canSpend(cost+keep))return null;
+return {sportKey:pick.sportKey,eventIds:[...pick.eventIds].slice(0,40),refetch:false,boost:true,handicap:pick.handicap};}
 function r507ApplyEvents(store,due,data,matches,o,now){
 const byId=new Map((data||[]).map(e=>[e.id,e]));let applied=0,rejected=0;const rejects=[];
 for(const x of matches){if(!x.match||x.match.sportKey!==due.sportKey)continue;const ev=byId.get(x.match.id);if(!ev)continue;
@@ -1895,18 +1912,20 @@ store.matches=Object.fromEntries(matches.filter(x=>x.match).map(x=>[x.game.key,{
 /* R528: overseas numbers saved under a wrong match are removed once the game is re-matched elsewhere or is definitely unmatched */
 for(const x of matches){const id=x.match?.id||null;if(!id&&!x.complete)continue;for(const m of x.game.markets){const k=`${m.gmTs}:${m.no}`,e=store.markets[k];if(e&&e.eventId!==id)delete store.markets[k];}}
 store.unmatched=matches.filter(x=>!x.match).slice(0,30).map(x=>({betman:`${x.game.home} vs ${x.game.away}`,kick:x.game.kick,sport:x.game.sport,candidates:x.candidates,bestScore:x.bestScore}));
-const due=r507DueLeague(store,matches,now,o);
+let due=r507DueLeague(store,matches,now,o);
 const budget=r507Budget(store,now,o);audit.budget={day:budget.day,daily:budget.daily,spent:budget.spent,remaining:budget.remaining};
+if(!due)due=r528PrecisionBoost(store,matches,now,o,budget);
 if(!due){r507Prune(store,now);return {status:"OK",matched:audit.matched};}
 const requestedMarkets=['h2h','totals'];
-if(matches.some(x=>x.match?.sportKey===due.sportKey&&x.game.markets.some(m=>m.marketFamily==='HANDICAP'&&validChoices(m).length===2))&&budget.canSpend(3+R522_RESERVE))requestedMarkets.push('spreads');
+if(due.boost?due.handicap:(matches.some(x=>x.match?.sportKey===due.sportKey&&x.game.markets.some(m=>m.marketFamily==='HANDICAP'&&validChoices(m).length===2))&&budget.canSpend(3+R522_RESERVE)))requestedMarkets.push('spreads');
 const requestCost=requestedMarkets.length;
 if(due.refetch&&!budget.canSpend(requestCost+R522_RESERVE)){audit.lastSkip={at:nowIso(),reason:"REFETCH_HELD_FOR_LATER_GAMES",sportKey:due.sportKey};store.oddsAt[due.sportKey]=now;r507Prune(store,now);return {status:"OK",matched:audit.matched,held:true};}
 if(!budget.canSpend(requestCost)){audit.lastSkip={at:nowIso(),reason:"DAILY_CREDIT_BUDGET",sportKey:due.sportKey};return {status:"BACKOFF",retryAfterMs:3600000};}
 const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(due.sportKey)}/odds`,{bookmakers:R507.bookmakers,markets:requestedMarkets.join(","),oddsFormat:"decimal",dateFormat:"iso",eventIds:due.eventIds.join(",")});
 r507Spend(store,usage,requestCost);store.oddsAt[due.sportKey]=now;
 const res=r507ApplyEvents(store,due,Array.isArray(data)?data:[],matches,o,now);
-audit.lastFetch={at:nowIso(),sportKey:due.sportKey,events:Array.isArray(data)?data.length:0,applied:res.applied,rejected:res.rejected,rejects:res.rejects};
+audit.lastFetch={at:nowIso(),sportKey:due.sportKey,events:Array.isArray(data)?data.length:0,applied:res.applied,rejected:res.rejected,rejects:res.rejects,markets:requestedMarkets.join(","),boost:!!due.boost};
+if(due.boost)audit.lastBoost={at:nowIso(),sportKey:due.sportKey,markets:requestedMarkets.join(","),applied:res.applied};
 audit.budget={...audit.budget,spent:Number(store.budget.spent||0),remaining:store.budget.remaining??null};audit.lastError=null;
 r507Prune(store,now);
 if(res.applied>0){markState(state);await saveState(state,env,true);}

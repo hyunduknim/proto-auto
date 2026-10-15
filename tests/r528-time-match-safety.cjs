@@ -30,3 +30,13 @@ for(const x of matches){const id=x.match?.id||null;if(!id&&!x.complete)continue;
 return Object.keys(store.markets).length})()`);
 assert.equal(purge,0,'wrongly matched overseas probabilities are dropped');
 console.log('R528 monthly credit budget + safe time match OK');
+
+// R529 precision boost: spend only today's spare credits, never the ones later first looks need.
+c.BNOW=Date.parse('2026-10-15T14:00:00Z'); // 23:00 KST
+run(`BG={key:"b1",sport:"축구",home:"A",away:"B",kick:BNOW+2*3600000,markets:[{gmTs:"260122",no:9,marketFamily:"HANDICAP",line:1,choices:[{label:"승",odds:1.9},{label:"패",odds:1.9}]}]};
+BM=[{game:BG,match:{id:"e1",sportKey:"soccer_uefa_europa_league"}}];OPT={windowMs:6*3600000};`);
+const spare=run('r528PrecisionBoost({markets:{},oddsAt:{}},BM,BNOW,OPT,r507Budget({budget:{day:"2026-10-15",spent:4,remaining:257}},BNOW,{dailyCredits:14}))');
+assert.equal(spare?.boost,true,'spare credits refresh the nearest league');assert.equal(spare.handicap,true,'handicap books requested for precision view');
+assert.equal(run('r528PrecisionBoost({markets:{},oddsAt:{}},BM,BNOW,OPT,r507Budget({budget:{day:"2026-10-15",spent:7,remaining:257}},BNOW,{dailyCredits:14}))'),null,'reserve for later first looks is kept');
+assert.equal(run('r528PrecisionBoost({markets:{},oddsAt:{soccer_uefa_europa_league:BNOW-10*60000}},BM,BNOW,OPT,r507Budget({budget:{day:"2026-10-15",spent:0,remaining:257}},BNOW,{dailyCredits:14}))'),null,'same league is not refreshed again within 30 minutes');
+console.log('R529 precision boost OK');
