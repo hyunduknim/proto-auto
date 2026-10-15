@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R547-ODDSAPI-SCORES-SETTLEMENT";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R547B-SCORES-AFTER-KICKOFF";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -10462,20 +10462,26 @@ state.r532EspnSoccerAudit=audit;await saveState(state,env,audit.settled>0);retur
 /* R547: The Odds API /scores as a settlement source for games already matched to an overseas event (exact event id,
    no name guessing). Used only for picks still pending 150+ min after kickoff (ZENTOTO/SPOGOD/ESPN had their chance),
    at most once per league per 45 min, 2 credits per call, never below the credit reserve. */
-function r547Pending(state,now=Date.now()){const mt=state?.r507Overseas?.matches||{};
-return pendingSettlementMarkets(state).filter(m=>{const t=gameTimeMs(m),x=mt[gameSeed(m)];return t!=null&&now-t>=150*60000&&now-t<=3*86400000&&x?.eventId&&x?.sportKey;});}
+/* the live match index only keeps upcoming games, so after kickoff the event id is read from the stored overseas
+   probabilities of this market or any market of the same game (kept until 2 days after kickoff) */
+function r547Ref(state,m){const st=state?.r507Overseas||{},ok=x=>x&&x.eventId&&x.sportKey&&Math.abs(Number(x.kick)-gameTimeMs(m))<60000;
+const own=st.markets?.[String(m.gmTs)+":"+String(m.no)];if(ok(own))return own;if(ok(m.r507Overseas))return m.r507Overseas;
+const seed=gameSeed(m);for(const x of state?.markets||[]){if(String(x.gmTs)!==String(m.gmTs)||gameSeed(x)!==seed)continue;const e=st.markets?.[String(x.gmTs)+":"+String(x.no)];if(ok(e))return e;}
+const mt=st.matches?.[seed];return ok(mt)?mt:null;}
+function r547Pending(state,now=Date.now()){
+return pendingSettlementMarkets(state).filter(m=>{const t=gameTimeMs(m);return t!=null&&now-t>=150*60000&&now-t<=3*86400000&&!!r547Ref(state,m);});}
 async function r547RefreshScores(state,env,now=Date.now()){
 const o=r507Opts(env),pending=r547Pending(state,now);if(!pending.length)return {source:"ODDSAPI_SCORES",status:"NO_OVERDUE_MATCHED_PENDING",settled:0};
 if(!o.key||o.disabled)return {source:"ODDSAPI_SCORES",status:"NOT_CONFIGURED",settled:0};
-const store=r507Store(state),mt=store.matches||{},last=store.scoresAt||(store.scoresAt={});
-const keys=[...new Set(pending.map(m=>mt[gameSeed(m)].sportKey))].filter(k=>now-Number(last[k]||0)>=45*60000).slice(0,2);
+const store=r507Store(state),last=store.scoresAt||(store.scoresAt={}),refOf=new Map(pending.map(m=>[m,r547Ref(state,m)]));
+const keys=[...new Set(pending.map(m=>refOf.get(m).sportKey))].filter(k=>now-Number(last[k]||0)>=45*60000).slice(0,2);
 const audit={source:"ODDSAPI_SCORES",at:nowIso(),status:"CHECKING",pendingBefore:pending.length,leagues:keys,calls:0,matched:0,settled:0,rejected:0,reasons:{},samples:[],error:null};
 if(!keys.length){audit.status="THROTTLED";state.r547ScoresAudit=audit;return audit;}
 const fail=r=>{audit.rejected++;audit.reasons[r]=(audit.reasons[r]||0)+1;};
 try{for(const k of keys){const rem=Number(store.budget?.remaining);if(Number.isFinite(rem)&&rem-2<R507.reserve){audit.status="CREDIT_RESERVE";break;}
 last[k]=now;const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(k)}/scores`,{daysFrom:2,dateFormat:"iso"});r507Spend(store,usage,2);audit.calls++;
 const byId=new Map((Array.isArray(data)?data:[]).map(e=>[e.id,e]));
-for(const m of pending){const x=mt[gameSeed(m)];if(x.sportKey!==k)continue;const e=byId.get(x.eventId);
+for(const m of pending){const x=refOf.get(m);if(x.sportKey!==k)continue;const e=byId.get(x.eventId);
 if(!e){fail("EVENT_NOT_IN_SCORES");continue;}if(e.completed!==true){fail("NOT_COMPLETED");continue;}
 const sc=Array.isArray(e.scores)?e.scores:[],hs=sc.find(z=>z.name===e.home_team)?.score,as=sc.find(z=>z.name===e.away_team)?.score;
 if(sc.length!==2||!/^\d{1,3}$/.test(String(hs??""))||!/^\d{1,3}$/.test(String(as??""))){fail("SCORE_MISSING");continue;}
