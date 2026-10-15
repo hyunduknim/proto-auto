@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R521-OVERSEAS-FLOW";
-const BUILD_ID = "proto-r521-20261015-overseas-flow";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R522-FLOW-BUDGET-CLEANUP";
+const BUILD_ID = "proto-r522-20261015-flow-budget-cleanup";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -1674,8 +1674,8 @@ return analyzeChoiceRowsRaw(m);
    설정(Cloudflare 변수): THE_ODDS_API_KEY(필수) · OVERSEAS_WEIGHT(0~0.95, 기본 0.7) ·
    OVERSEAS_WINDOW_HOURS(기본 6) · OVERSEAS_DAILY_CREDITS(기본: 남은 크레딧/남은 날짜) · OVERSEAS_DISABLED=1 */
 const R507=Object.freeze({host:"https://api.the-odds-api.com",weight:.7,maxAgeMs:18*3600000,windowMs:6*3600000,
-refetchMs:5*60000,eventsRefreshMs:30*60000,sportsRefreshMs:24*3600000,eventsPerTick:6,reserve:15,
-toleranceMs:20*60000,horizonMs:48*3600000,minRefetchGapMs:2*60000,maxMlGap:.12,
+refetchMs:60*60000,eventsRefreshMs:30*60000,sportsRefreshMs:24*3600000,eventsPerTick:6,reserve:15,
+toleranceMs:20*60000,horizonMs:48*3600000,minRefetchGapMs:20*60000,maxMlGap:.12,
 bookmakers:"pinnacle,betfair_ex_eu,matchbook,marathonbet,onexbet,williamhill,betsson,nordicbet,unibet_se,tipico_de",
 groups:Object.freeze({"축구":"Soccer","야구":"Baseball","농구":"Basketball"})});
 const R507_ALIAS_TEXT={
@@ -1803,6 +1803,7 @@ if(usage?.remaining!=null&&Number.isFinite(Number(b.remaining))&&usage.remaining
 if(!Number(b.periodStart))b.periodStart=now;
 if(usage?.remaining!=null)b.remaining=usage.remaining;else if(Number.isFinite(Number(b.remaining)))b.remaining=Number(b.remaining)-Number(cost||0);
 if(usage?.used!=null)b.used=usage.used;b.at=nowIso();}
+const R522_RESERVE=6; /* credits kept for the first look at games later in the day */
 function r507Budget(store,now,o){const b=store.budget,day=kstDateFromMs(now);if(b.day!==day){b.day=day;b.spent=0;}
 const rem=Number(b.remaining);let end=Number(b.periodStart||now)+30*86400000;while(end<=now)end+=30*86400000;
 const daysLeft=Math.max(1,Math.ceil((end-now)/86400000));b.periodEnds=new Date(end).toISOString();
@@ -1827,14 +1828,16 @@ else if(x.n===1&&best.score>=.3)method="TIME_UNIQUE";}
 if(method){taken.add(best.id);rows.push({game:x.g,match:{id:best.id,sportKey:best.sportKey,h:best.h,a:best.a,t:best.t,score:best.score,method}});}
 else rows.push({game:x.g,match:null,candidates:x.n,bestScore:best?r3(best.score):null});}
 return rows;}
-function r507GameFresh(store,g,now){return g.markets.some(m=>{const e=store.markets[`${m.gmTs}:${m.no}`];return e&&now-Number(e.at)<R507.refetchMs&&Number(e.kick)===g.kick;});}
+function r507GameFresh(store,g,now){/* R522: free plan ~16 credits/day. Re-check 2h apart, 60min within 3h, 30min within 90min of kickoff */
+const left=g.kick-now,maxAge=left<=90*60000?30*60000:left<=3*3600000?R507.refetchMs:2*3600000;
+return g.markets.some(m=>{const e=store.markets[`${m.gmTs}:${m.no}`];return e&&now-Number(e.at)<maxAge&&Number(e.kick)===g.kick;});}
 function r507DueLeague(store,matches,now,o){const byKey=new Map();
 for(const x of matches){if(!x.match)continue;const k=x.match.sportKey;
 if(now-Number(store.oddsAt[k]||0)<R507.minRefetchGapMs)continue;
 const e=byKey.get(k)||{sportKey:k,eventIds:new Set(),first:Infinity,due:false};e.eventIds.add(x.match.id);
-if(x.game.kick-now<=o.windowMs&&!r507GameFresh(store,x.game,now)){e.due=true;e.first=Math.min(e.first,x.game.kick);}byKey.set(k,e);}
-const due=[...byKey.values()].filter(e=>e.due).sort((a,b)=>Number(store.oddsAt[a.sportKey]||0)-Number(store.oddsAt[b.sportKey]||0)||a.first-b.first)[0];
-return due?{sportKey:due.sportKey,eventIds:[...due.eventIds].slice(0,40)}:null;}
+if(x.game.kick-now<=o.windowMs&&!r507GameFresh(store,x.game,now)){e.due=true;e.first=Math.min(e.first,x.game.kick);if(!x.game.markets.some(m=>store.markets[`${m.gmTs}:${m.no}`]))e.fresh0=true;}byKey.set(k,e);}
+const due=[...byKey.values()].filter(e=>e.due).sort((a,b)=>(b.fresh0?1:0)-(a.fresh0?1:0)||Number(store.oddsAt[a.sportKey]||0)-Number(store.oddsAt[b.sportKey]||0)||a.first-b.first)[0];
+return due?{sportKey:due.sportKey,eventIds:[...due.eventIds].slice(0,40),refetch:!due.fresh0}:null;}
 function r507ApplyEvents(store,due,data,matches,o,now){
 const byId=new Map((data||[]).map(e=>[e.id,e]));let applied=0,rejected=0;const rejects=[];
 for(const x of matches){if(!x.match||x.match.sportKey!==due.sportKey)continue;const ev=byId.get(x.match.id);if(!ev)continue;
@@ -1888,8 +1891,9 @@ const due=r507DueLeague(store,matches,now,o);
 const budget=r507Budget(store,now,o);audit.budget={day:budget.day,daily:budget.daily,spent:budget.spent,remaining:budget.remaining};
 if(!due){r507Prune(store,now);return {status:"OK",matched:audit.matched};}
 const requestedMarkets=['h2h','totals'];
-if(matches.some(x=>x.match?.sportKey===due.sportKey&&x.game.markets.some(m=>m.marketFamily==='HANDICAP'&&validChoices(m).length===2))&&budget.canSpend(3))requestedMarkets.push('spreads');
+if(matches.some(x=>x.match?.sportKey===due.sportKey&&x.game.markets.some(m=>m.marketFamily==='HANDICAP'&&validChoices(m).length===2))&&budget.canSpend(3+R522_RESERVE))requestedMarkets.push('spreads');
 const requestCost=requestedMarkets.length;
+if(due.refetch&&!budget.canSpend(requestCost+R522_RESERVE)){audit.lastSkip={at:nowIso(),reason:"REFETCH_HELD_FOR_LATER_GAMES",sportKey:due.sportKey};store.oddsAt[due.sportKey]=now;r507Prune(store,now);return {status:"OK",matched:audit.matched,held:true};}
 if(!budget.canSpend(requestCost)){audit.lastSkip={at:nowIso(),reason:"DAILY_CREDIT_BUDGET",sportKey:due.sportKey};return {status:"BACKOFF",retryAfterMs:3600000};}
 const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(due.sportKey)}/odds`,{bookmakers:R507.bookmakers,markets:requestedMarkets.join(","),oddsFormat:"decimal",dateFormat:"iso",eventIds:due.eventIds.join(",")});
 r507Spend(store,usage,requestCost);store.oddsAt[due.sportKey]=now;
@@ -2119,6 +2123,7 @@ if(m.resultFinal&&!m.r517Compacted){for(const k of ["jeongbaedangLocalEvidence",
 m.analysisLayers=compactLayers(m.analysisLayers);m.r517Compacted=true;n++;}
 }
 /* pregame snapshots were never pruned (one per odds/pick change, every round): keep latest head per market + newest 1000 */
+if(Array.isArray(state?.settlementLedger)&&state.settlementLedger.length>800){state.settlementLedger.splice(800);n++;} /* R522: ledger is newest-first; totals live in the summary model */
 const snaps=state?.r398PregameSnapshots;
 if(snaps&&typeof snaps==='object'){const keys=Object.keys(snaps);
 if(keys.length>1500){const heads=new Set(Object.values(state.r398SnapshotHeads||{}));
@@ -8334,12 +8339,17 @@ const d=expEasyData(m,r);
 if(!d.cs.length)return '<div class="edFlowEmpty">선택지 배당 미확인</div>';
 const colors=['#6bd5f4','#f9c477','#cba8ff'];
 const cards=d.cs.map((c,i)=>{
-const pick=r.marked&&String(c.label)===String(r.finalPick),rate=d.q.valid?100/Number(c.odds)/d.q.sum:null;
+const pick=r.marked&&String(c.label)===String(r.finalPick),rate=d.q.valid?100/Number(c.odds)/d.q.sum:null,
+prior=(r.precision?.choices||[]).find(x=>String(x.label)===String(c.label))||{},
+opening=Number(prior.openingOdds),first=Number(prior.firstObservedOdds),previous=opening>1?opening:first>1?first:null,
+diff=previous!==null?Number(c.odds)-previous:null,
+movement=diff===null?'이전 기록 없음':Math.abs(diff)<.005?'변화 없음':Math.abs(diff).toFixed(2)+'배 '+(diff<0?'내려감':'올라감'),
+priorText=previous===null?'':(opening>1?'시작 배당 ':'처음 확인 ')+expDOdds(previous)+' · ';
 return '<div class="edPriceCard edTone'+i+(pick?' picked':'')+'"><div class="edPriceLabel"><b>'+e(c.label)+'</b>'+
 (pick?'<span>현재 마킹</span>':'')+'</div><strong class="edPriceBig">'+e(expDOdds(c.odds))+'</strong>'+
 '<div class="edPriceShare">배당으로 본 가능성 <b>'+(rate===null?'확인 중':rate.toFixed(1)+'%')+'</b></div>'+
 (rate===null?'':'<div class="r474Track"><i style="width:'+rate.toFixed(1)+'%;background:'+colors[i%3]+'"></i></div>')+
-'</div>';
+'<small class="r474Change">'+e(priorText+movement)+'</small></div>';
 }).join('');
 return '<div class="edPrices r474Choices"><div class="edDomVizHead">선택지별 배당 비교</div>'+
 '<div class="edPriceGrid">'+cards+'</div></div>';
@@ -8545,6 +8555,22 @@ const closed=!!(m?.gameStarted||m?.resultFinal||(r.oddsSnapshotStatus&&r.oddsSna
 return {rows,choices,changeCount,closed,observedAt:Number.isFinite(at)&&at<=now?at:null,source:p.source||r.oddsSource||null,selectionOdds:Number(r.finalOdds)>1?Number(r.finalOdds):null};
 }
 function r485FlowHtml(m,r){
+const d=r485FlowData(r,m);if(!d)return '';
+const fmt=x=>x==null?'—':x.toFixed(2),diff=x=>x==null?'—':(x>0?'+':'')+x.toFixed(2),clock=x=>x==null?'미확인':expEasyClock(new Date(x).toISOString()),
+status=d.closed?'마감 · 마지막 확인 배당':'판매 중 · 1분 간격 자동 조회';
+const cards=d.choices.map(x=>'<div class="r485Price '+(x.delta<-.005?'down':x.delta>.005?'up':'flat')+'"><div><b>'+e(x.label)+'</b><strong>'+fmt(x.current)+'<small>배</small></strong></div>'+
+'<p>최초 '+fmt(x.first)+' · 직전 '+fmt(x.previous)+'</p><span>'+diff(x.delta)+'배 · '+(x.percent==null?'비교 기록 없음':(x.percent>0?'+':'')+x.percent.toFixed(1)+'%')+'</span>'+
+'<small>관측 최저 '+fmt(x.low)+' / 최고 '+fmt(x.high)+(x.opening?' · 원천 개장 '+fmt(x.opening):'')+'</small></div>').join('');
+const labels=d.choices.map(x=>x.label),tail=d.rows.slice(-8),body=tail.map((x,i)=>'<tr><td>'+e(clock(x.at))+'</td>'+labels.map(l=>{const prev=i?tail[i-1].values[l]:null,delta=prev===null?null:x.values[l]-prev;
+return '<td class="'+(delta<-.005?'down':delta>.005?'up':'')+'"><b>'+fmt(x.values[l])+'</b><small>'+diff(delta)+'</small></td>';}).join('')+'</tr>').join(''),
+selected=String(m.pick||r.finalPick||''),current=d.choices.find(x=>x.label===selected);
+return '<section class="r485Flow"><div class="r485Head"><b>국내배당 흐름 · 변동 상세</b><span class="'+(d.closed?'closed':'live')+'">'+e(status)+'</span></div>'+
+'<div class="r485Prices">'+cards+'</div><div class="r485Meta">실제 변동 '+d.changeCount+'회 · 확인 '+e(clock(d.observedAt))+'</div>'+
+(current&&d.selectionOdds?'<p class="r485Mark">마킹 당시 '+e(selected)+' '+fmt(d.selectionOdds)+'배 · 현재 확인 '+fmt(current.current)+'배</p>':'')+
+r474FlowHtml(r)+(body?'<details class="r485History"><summary>시각별 배당 · 최근 '+tail.length+'회</summary><div><table><thead><tr><th>확인 시각</th>'+labels.map(l=>'<th>'+e(l)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div></details>':'')+
+'<footer>출처 '+e(d.source||'저장된 국내 배당')+' · 최초·직전은 실제 수집 기록 기준</footer></section>';
+}
+function r522ForeignFlowHtml(m,r){
  const market=r519Market(m,r),tables=r518OddsTables(m,r,market);if(!tables)return '';
  const series=r521ForeignSeries(m,r,market);
  return '<section class="r485Flow"><div class="r485Head"><b>해외배당 흐름</b><span class="'+(series.fresh?'live':'closed')+'">'+(series.fresh?'최근 해외 원배당':'저장된 해외 원배당')+'</span></div>'+tables+'</section>';
@@ -8653,6 +8679,8 @@ const form=t=>t.n?t.wins+'승 '+t.draws+'무 '+t.losses+'패 · 득/실 '+Number
 infos.push('홈 '+form(teams.home)+' / 원정 '+form(teams.away));
 }
 const flowInfos=r519FlowInsights(m,r,r519Market(m,r));
+const flow=r485FlowData(r,m),movement=flow?.choices.find(x=>x.label===String(pick.label));
+if(movement&&movement.first!==null)infos.push('국내 '+pick.label+' 배당 '+movement.first.toFixed(2)+' → '+movement.current.toFixed(2)+' · '+(movement.percent>0?'+':'')+movement.percent.toFixed(1)+'%');
 
 const dReliability=Number(m?.dataReliability);
 if(r.marked&&Number.isFinite(dReliability)&&dReliability>0&&dReliability<=1)
@@ -8728,7 +8756,7 @@ let r518AutoBusy=false;
 function r518ScheduleOverseas(games){
  if(r518AutoBusy||activeView!=='experiment'||document.visibilityState==='hidden')return;
  const now=Date.now(),unique=new Map(games.map(g=>[expKey(g),g]));
- const keys=[...unique.keys()].filter(k=>!r506Client.get(k)?.loading&&now-Number(r506Client.get(k)?.requestedAt||0)>=60000);if(!keys.length)return;
+ const keys=[...unique.keys()].filter(k=>!r506Client.get(k)?.loading&&now-Number(r506Client.get(k)?.requestedAt||0)>=300000);if(!keys.length)return;
  r518AutoBusy=true;
  Promise.resolve().then(async()=>{let i=0;await Promise.all([0,1,2].map(async()=>{while(i<keys.length&&activeView==='experiment'&&document.visibilityState!=='hidden'){const key=keys[i++];await r506LoadOverseas(key);}}));}).finally(()=>{r518AutoBusy=false;});
 }
@@ -8762,7 +8790,7 @@ warning=r.oddsSnapshotStatus==='LAST_KNOWN'||r.oddsSnapshotStatus==='SCREENSHOT_
 return '<section class="edBriefMarket r474Market'+(r.marked?' selected':'')+'">'+
 '<div class="edBriefTop"><b>#'+e(r.no)+' · '+e(title)+'</b>'+(r.marked?'<span>현재 마킹</span>':'')+'</div>'+
 (valid?'<div class="r474MarketVerdict">'+e(d.title)+e(warning)+'</div>':'<div class="r474MarketVerdict">배당 확인 중'+e(warning)+'</div>')+
-expEasyPrices(m,r)+r474Insights(m,r)+r485FlowHtml(m,r)+
+expEasyPrices(m,r)+r474Insights(m,r)+r485FlowHtml(m,r)+r522ForeignFlowHtml(m,r)+
 '<details class="edBriefDetails" data-exp-market="'+e(r.no)+'"><summary>지난 결과 · 상세 자료</summary><div class="edBriefInner"></div></details></section>';
 }
 function expDSFull(m,r){
@@ -11181,6 +11209,17 @@ const n=Number(t?.n||0)+1;try{await ds.put('r514:turn',{n,at:new Date().toISOStr
 if(ov&&Number(ov.blockedUntil||0)>Date.now())return false;
 return n%2===0;
 }
+/* R522: raw quote copies (r508:quote:*) and flow histories (r518:history:*) were never deleted. Walk 64 keys per prefix every 30 min. */
+async function r522CleanupQuotes(ds,now){
+if(!ds||typeof ds.list!=='function'||now-Number(MEM.r522CleanAt||0)<30*60000)return;MEM.r522CleanAt=now;
+const cur=(await ds.get('r522:cleanCursor'))||{},next={},cut=now-3*86400000,audit={at:new Date(now).toISOString(),deleted:0};
+for(const prefix of ['r508:quote:','r518:history:']){
+const opts={prefix,limit:64};if(cur[prefix])opts.startAfter=cur[prefix];
+const got=await ds.list(opts),drop=[];let last=null;
+for(const [k,v] of got){last=k;const t=Math.max(Date.parse(v?.lastReceivedAt||'')||0,Date.parse(v?.receivedAt||'')||0,Date.parse(v?.event?.commence_time||'')||0);if(!(t>cut))drop.push(k);}
+if(drop.length){await ds.delete(drop);audit.deleted+=drop.length;}
+next[prefix]=got.size<64?null:last;}
+await ds.put('r522:cleanCursor',{...next,audit});}
 async function r514OverseasOnly(env){
 return serializedOperation(async()=>{
 const ds=doStorage(),now=Date.now(),iso=new Date(now).toISOString();
@@ -11191,6 +11230,7 @@ if(fails>=3){rec.stage='SKIP';rec.blockedUntil=now+3600000;rec.reason='OVERSEAS_
 try{if(ds)await ds.put('r514:ov',rec);}catch(_){}
 const s=await loadState(env);let cur=MEM.state||s;
 const res=await r507RefreshOverseasOdds(cur,env).catch(e=>({status:'ERROR',error:String(e?.message||e).slice(0,120)}));
+try{await r522CleanupQuotes(ds,Date.now());}catch(_){}
 cur=MEM.state||cur;
 if(!(res&&res.applied>0)&&Date.now()-Number(MEM.r514OverseasSavedAt||0)>=600000){MEM.r514OverseasSavedAt=Date.now();rec.stage='SAVE';try{if(ds)await ds.put('r514:ov',rec);}catch(_){}
 try{await saveState(cur,env,false);}catch(e){MEM.lastAlarmError="R514_OVERSEAS_SAVE:"+String(e?.message||e).slice(0,140);}}
