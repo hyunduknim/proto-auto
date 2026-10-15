@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R517-SLIM-STATE";
-const BUILD_ID = "proto-r517-20261015-slim-state";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R518-REALTIME-ODDS";
+const BUILD_ID = "proto-r518-20261015-realtime-odds";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -1887,9 +1887,12 @@ store.unmatched=matches.filter(x=>!x.match).slice(0,30).map(x=>({betman:`${x.gam
 const due=r507DueLeague(store,matches,now,o);
 const budget=r507Budget(store,now,o);audit.budget={day:budget.day,daily:budget.daily,spent:budget.spent,remaining:budget.remaining};
 if(!due){r507Prune(store,now);return {status:"OK",matched:audit.matched};}
-if(!budget.canSpend(2)){audit.lastSkip={at:nowIso(),reason:"DAILY_CREDIT_BUDGET",sportKey:due.sportKey};return {status:"BACKOFF",retryAfterMs:3600000};}
-const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(due.sportKey)}/odds`,{bookmakers:R507.bookmakers,markets:"h2h,totals",oddsFormat:"decimal",dateFormat:"iso",eventIds:due.eventIds.join(",")});
-r507Spend(store,usage,2);store.oddsAt[due.sportKey]=now;
+const requestedMarkets=['h2h','totals'];
+if(matches.some(x=>x.match?.sportKey===due.sportKey&&x.game.markets.some(m=>m.marketFamily==='HANDICAP'&&validChoices(m).length===2))&&budget.canSpend(3))requestedMarkets.push('spreads');
+const requestCost=requestedMarkets.length;
+if(!budget.canSpend(requestCost)){audit.lastSkip={at:nowIso(),reason:"DAILY_CREDIT_BUDGET",sportKey:due.sportKey};return {status:"BACKOFF",retryAfterMs:3600000};}
+const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(due.sportKey)}/odds`,{bookmakers:R507.bookmakers,markets:requestedMarkets.join(","),oddsFormat:"decimal",dateFormat:"iso",eventIds:due.eventIds.join(",")});
+r507Spend(store,usage,requestCost);store.oddsAt[due.sportKey]=now;
 const res=r507ApplyEvents(store,due,Array.isArray(data)?data:[],matches,o,now);
 audit.lastFetch={at:nowIso(),sportKey:due.sportKey,events:Array.isArray(data)?data.length:0,applied:res.applied,rejected:res.rejected,rejects:res.rejects};
 audit.budget={...audit.budget,spent:Number(store.budget.spent||0),remaining:store.budget.remaining??null};audit.lastError=null;
@@ -8079,6 +8082,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .r507Fin{border-color:rgba(255,217,47,.6);color:var(--yellow);background:rgba(255,217,47,.08)}
 .r507Mix{font-size:11px;color:var(--muted);font-weight:700;margin-left:2px}
 .r507Ver{display:inline-block;margin-top:10px;padding:5px 14px;border-radius:999px;border:1px solid rgba(84,234,255,.55);color:var(--cyan);background:rgba(84,234,255,.07);font-size:13px;font-weight:800;white-space:nowrap}
+.r518Dual{margin:12px 0;padding:12px;border:1px solid #3d5268;border-radius:10px;background:#101c2a;min-width:0}.r518Fresh{display:grid;gap:5px;font-size:12px;color:#c7d9eb}.r518Timeline{margin:12px 0}.r518Timeline table{width:100%;border-collapse:collapse;white-space:nowrap;font-variant-numeric:tabular-nums}.r518Timeline th,.r518Timeline td{padding:7px 8px;text-align:right;border-bottom:1px solid #33465b;font-size:12px}.r518Timeline th:first-child,.r518Timeline td:first-child{text-align:left}.r518Timeline tbody tr:last-child{background:#27394e;font-weight:700}.r518Up{color:#4ade80}.r518Down{color:#ff7474}.r518Analysis{font-size:13px;line-height:1.6;overflow-wrap:anywhere}.r518Timeline .r506TableWrap{max-height:280px;overflow:auto}.r518Timeline thead{position:sticky;top:0;background:#26384b}.r518Dual p{overflow-wrap:anywhere}@media(max-width:480px){.r518Dual{padding:8px}.r518Timeline th,.r518Timeline td{padding:6px 5px;font-size:11px}}
 </style></head><body><div class="app"><div class="topbar"><div class="brand">PROTO <b>AUTO MARKING</b></div><div class="sourcePill">Betman 공식 G101</div></div><section class="hero"><div class="heroTitle"><span>PROTO</span> <em>FINAL</em></div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div><div id="r507Ver" class="r507Ver">R507</div></div></section><section class="scoreWrap"><div class="scoreTitle">📊 자동마킹 현황</div><div id="scoreGrid" class="scoreGrid"></div></section><div class="actions"><button type="button" id="manualMode" aria-pressed="false">✏️ 수동 재마킹</button><div class="manualActionHint">픽 선택 → 수동 선택 적용</div><button type="button" id="exportJson">JSON 저장</button></div><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">수동 선택 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button></div>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 국내·해외배당 핵심 비교와 업체별 상세 자료를 확인합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
@@ -8673,32 +8677,65 @@ return '<div class="r474Insights r485Insights"><b>데이터 분석</b><div>'+inf
 }
 /* R474: minimal market view with real, observed odds flow only. */
 const r506Client=new Map();
-const r506Messages={AWAITING_COLLECTOR:'해외 자동수집 대기 · 업체 원배당이 저장되면 표시됩니다. 기존 수집 간격·예산을 따릅니다.',NO_STORED_QUOTES:'해외 업체 원배당 저장 대기입니다.',OVERSEAS_DISABLED:'해외배당 수집이 꺼져 있습니다.',UNSUPPORTED_LEAGUE:'이 리그는 현재 해외배당 연결 대상이 아닙니다.',PREGAME_ONLY:'경기 시작 후에는 현재 배당을 경기 전 자료로 조회하지 않습니다.',OUTSIDE_LOOKAHEAD:'7일 이내 경기부터 해외배당을 조회합니다.',EVENT_NOT_FOUND:'같은 리그·홈/원정·시작 시각이 일치하는 해외 경기를 찾지 못했습니다.',AMBIGUOUS_EVENT:'일치하는 경기가 여러 개여서 연결을 보류했습니다.',GAME_NOT_FOUND:'해당 경기 자료를 찾지 못했습니다.',KEY_NOT_CONFIGURED:'해외 API 키가 설정되지 않았습니다.',KEY_REJECTED:'해외 API 인증을 확인해야 합니다.',QUOTA_EXHAUSTED:'해외 API 잔여 크레딧이 없습니다.',QUOTA_LOW:'잔여 크레딧이 부족해 새 조회를 중단했습니다.',DAILY_LIMIT:'오늘 해외조회 한도에 도달했습니다. 저장 자료가 있으면 참고로 표시합니다.',RATE_LIMITED:'제공사가 조회를 제한했습니다. 잠시 후 다시 확인해 주세요.',RETRY_LATER:'재조회 간격을 조절 중입니다.',PROVIDER_ERROR:'해외 제공사 응답 오류입니다.',INVALID_RESPONSE:'해외 자료 형식을 확인할 수 없습니다.',NETWORK_OR_STORAGE_ERROR:'해외 자료 수신 또는 저장에 실패했습니다.',SERVICE_UNAVAILABLE:'해외 조회 서비스에 연결하지 못했습니다.',STORAGE_UNAVAILABLE:'중복 조회를 방지할 저장소에 연결하지 못했습니다.',NO_MARKET:'이 시장의 해외배당이 없습니다.',LINE_OR_OUTCOME_MISMATCH:'같은 기준점·선택지의 해외배당이 없습니다. 국내 3방향 핸디캡과 해외 2방향 핸디캡은 구분합니다.',PERIOD_MISMATCH:'부분경기 시장입니다. 해외 전체경기 배당과 비교하지 않습니다.',PERIOD_UNVERIFIED:'국내 경기 구간 미확인 · 해외 전체경기 가격만 참고',RULES_UNVERIFIED:'연장·무승부 정산규칙 미확인 · 가격 참고',STALE_QUOTES:'30분 이내에 갱신된 해외배당이 없습니다.',INVALID_QUOTES:'해외 배당 값 또는 갱신 시각을 검증하지 못했습니다.'};
+setInterval(()=>{if(activeView==='experiment'){r518ScheduleOverseas(state?.markingGames||[]);expLastFingerprint='';renderExperiment();}},60000);
+const r506Messages={ARCHIVED_QUOTES:'경기 시작·마감 후에는 실제 저장된 경기 전 배당 이력을 표시합니다.',AWAITING_COLLECTOR:'해외 자동수집 대기 · 업체 원배당이 저장되면 표시됩니다. 기존 수집 간격·예산을 따릅니다.',NO_STORED_QUOTES:'해외 업체 원배당 저장 대기입니다.',OVERSEAS_DISABLED:'해외배당 수집이 꺼져 있습니다.',UNSUPPORTED_LEAGUE:'이 리그는 현재 해외배당 연결 대상이 아닙니다.',PREGAME_ONLY:'경기 시작 후에는 현재 배당을 경기 전 자료로 조회하지 않습니다.',OUTSIDE_LOOKAHEAD:'7일 이내 경기부터 해외배당을 조회합니다.',EVENT_NOT_FOUND:'같은 리그·홈/원정·시작 시각이 일치하는 해외 경기를 찾지 못했습니다.',AMBIGUOUS_EVENT:'일치하는 경기가 여러 개여서 연결을 보류했습니다.',GAME_NOT_FOUND:'해당 경기 자료를 찾지 못했습니다.',KEY_NOT_CONFIGURED:'해외 API 키가 설정되지 않았습니다.',KEY_REJECTED:'해외 API 인증을 확인해야 합니다.',QUOTA_EXHAUSTED:'해외 API 잔여 크레딧이 없습니다.',QUOTA_LOW:'잔여 크레딧이 부족해 새 조회를 중단했습니다.',DAILY_LIMIT:'오늘 해외조회 한도에 도달했습니다. 저장 자료가 있으면 참고로 표시합니다.',RATE_LIMITED:'제공사가 조회를 제한했습니다. 잠시 후 다시 확인해 주세요.',RETRY_LATER:'재조회 간격을 조절 중입니다.',PROVIDER_ERROR:'해외 제공사 응답 오류입니다.',INVALID_RESPONSE:'해외 자료 형식을 확인할 수 없습니다.',NETWORK_OR_STORAGE_ERROR:'해외 자료 수신 또는 저장에 실패했습니다.',SERVICE_UNAVAILABLE:'해외 조회 서비스에 연결하지 못했습니다.',STORAGE_UNAVAILABLE:'중복 조회를 방지할 저장소에 연결하지 못했습니다.',NO_MARKET:'이 시장의 해외배당이 없습니다.',LINE_OR_OUTCOME_MISMATCH:'같은 기준점·선택지의 해외배당이 없습니다. 국내 3방향 핸디캡과 해외 2방향 핸디캡은 구분합니다.',PERIOD_MISMATCH:'부분경기 시장입니다. 해외 전체경기 배당과 비교하지 않습니다.',PERIOD_UNVERIFIED:'국내 경기 구간 미확인 · 해외 전체경기 가격만 참고',RULES_UNVERIFIED:'연장·무승부 정산규칙 미확인 · 가격 참고',STALE_QUOTES:'30분 이내에 갱신된 해외배당이 없습니다.',INVALID_QUOTES:'해외 배당 값 또는 갱신 시각을 검증하지 못했습니다.'};
 function r506Clock(at,allowFuture=false){const t=Date.parse(at||'');return Number.isFinite(t)&&(allowFuture||t<=Date.now())?new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})+' KST':'시각 미확인';}
+function r518HistoryTable(title,labels,points,overseas){
+ const rows=points.map((p,i)=>'<tr><td>'+e(r506Clock(p.at))+'</td>'+labels.map(label=>{
+  const price=p.values[label],prev=i?points[i-1].values[label]:null,delta=price!=null&&prev!=null?price-prev:null;
+  return '<td class="'+(delta>.005?'r518Up':delta<-.005?'r518Down':'')+'">'+(price==null?'—':e(price.toFixed(2)))+(delta>.005?' ↑':delta<-.005?' ↓':'')+'</td>';
+ }).join('')+(overseas?'<td>'+e(p.bookCount)+'</td>':'')+'</tr>').join('');
+ return '<section class="r518Timeline"><b>'+e(title)+'</b><div class="r506TableWrap"><table><thead><tr><th>확인 시간 · KST</th>'+labels.map(l=>'<th>'+e(l)+'</th>').join('')+(overseas?'<th>업체</th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table></div></section>';
+}
+function r518OddsTables(m,r,market){
+ const d=r485FlowData(r,m),labels=(r.choices||[]).filter(c=>Number(c.odds)>1).map(c=>String(c.label));if(!labels.length)return '';
+ const history=(market?.history||[]).filter(p=>Number.isFinite(Date.parse(p.at))&&Date.parse(p.at)<=Date.now()&&labels.every(l=>p.choices.some(c=>c.label===l&&Number.isFinite(c.overseas)&&c.overseas>1))).slice().sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+ const points=history.map(p=>({at:p.at,bookCount:p.bookCount,bookKeys:p.bookKeys,values:Object.fromEntries(p.choices.map(c=>[c.label,c.overseas]))}));
+ const domestic=(d?.rows||[]).slice(),at=d?.observedAt,kick=Date.parse(String(m.date||'')+'T'+String(m.time||'').slice(0,5)+':00+09:00'),closed=!!(d?.closed||m.gameStarted||m.resultFinal||(Number.isFinite(kick)&&kick<=Date.now())),age=at==null?null:Date.now()-at,domFresh=age!=null&&age>=0&&age<=120000&&!closed;
+ if(at!=null&&(!domestic.length||at>domestic.at(-1).at))domestic.push({at,values:Object.fromEntries((r.choices||[]).map(c=>[String(c.label),Number(c.odds)]))});
+ const sourceAge=history.length?Date.now()-Date.parse(history.at(-1).oldestQuoteAt||history.at(-1).sourceAt):null;
+ const ovFresh=sourceAge!=null&&sourceAge>=0&&sourceAge<=600000&&!closed&&market?.choices?.length>0;
+ let text='해외 변동 비교에는 실제 수신 기록 2개 이상이 필요합니다.';
+ if(points.length>=2){const first=points[0],last=points.at(-1),same=JSON.stringify(first.bookKeys)===JSON.stringify(last.bookKeys);
+  text=labels.map(l=>{const a=first.values[l],b=last.values[l],v=(b/a-1)*100;return l+' '+a.toFixed(2)+' → '+b.toFixed(2)+' ('+(v>0?'+':'')+v.toFixed(1)+'%)';}).join(' · ')+(same?'':' · 집계 업체 구성이 바뀌어 순수 가격 변동과 구분해야 합니다.');
+ }
+ return '<div class="r518Dual"><div class="r518Fresh"><span>국내 '+(domFresh?'최근 2분 이내 수신':closed?'마감 · 저장 배당':'갱신 지연 / 시각 미확인')+' · '+e(at==null?'시각 미확인':r506Clock(new Date(at).toISOString()))+'</span><span>해외 '+(ovFresh?'최근 10분 이내 원천 갱신':'저장 자료 / 최신 여부 확인 필요')+' · '+e(history.at(-1)?.sourceAt?r506Clock(history.at(-1).sourceAt):market?.newestQuoteAt?r506Clock(market.newestQuoteAt):'시각 미확인')+'</span></div>'+
+ (domestic.length?r518HistoryTable('국내배당 · 실제 관측 이력',labels,domestic.map(p=>({...p,at:new Date(p.at).toISOString()})),false):'<p>국내배당 이력 미수신</p>')+
+ (points.length?r518HistoryTable('해외배당 · 업체 중앙값 이력',labels,points,true):'<p>해외배당 이력 미수신 · 실제 수집 이후부터 누적됩니다.</p>')+
+ '<p class="r518Analysis"><b>해외 배당흐름 분석</b><br>'+e(text)+'</p><p class="r506Muted">최초 행은 수집 후 첫 관측값입니다. 상승 ↑ · 하락 ↓ · 시각은 한국시간(KST). 해외 표는 업체 중앙값이며 개장배당·실제 구매율·구매금액은 미제공입니다. 자료가 없는 경기는 수치를 생성하지 않습니다.</p></div>';
+}
+let r518AutoBusy=false;
+function r518ScheduleOverseas(games){
+ if(r518AutoBusy||activeView!=='experiment'||document.visibilityState==='hidden')return;
+ const now=Date.now(),unique=new Map(games.map(g=>[expKey(g),g]));
+ const keys=[...unique.keys()].filter(k=>!r506Client.get(k)?.loading&&now-Number(r506Client.get(k)?.requestedAt||0)>=60000);if(!keys.length)return;
+ r518AutoBusy=true;
+ Promise.resolve().then(async()=>{let i=0;await Promise.all([0,1,2].map(async()=>{while(i<keys.length&&activeView==='experiment'&&document.visibilityState!=='hidden'){const key=keys[i++];await r506LoadOverseas(key);}}));}).finally(()=>{r518AutoBusy=false;});
+}
 function r506OverseasHtml(m,r){
  const entry=r506Client.get(expKey(m)),data=entry?.data;
- if(!entry)return '<div class="r506Market"><b>해외배당</b><p>경기 상단의 해외배당 조회로 업체별 가격을 확인하세요.</p></div>';
- if(entry.loading)return '<div class="r506Market"><b>해외배당</b><p role="status">같은 경기의 해외 가격을 확인하고 있습니다…</p></div>';
+ if(!entry)return r518OddsTables(m,r,null)+'<div class="r506Market"><p>해외배당 자동 확인 대기</p></div>';
+ if(entry.loading&&!data)return r518OddsTables(m,r,null)+'<div class="r506Market"><p role="status">해외배당 자동 확인 중…</p></div>';
  const market=data?.markets?.find(x=>String(x.no)===String(r.no));
- if(!market?.choices?.length)return '<div class="r506Market"><b>해외배당</b><p>'+e(r506Messages[market?.status]||r506Messages[data?.fetchStatus]||r506Messages[data?.status]||'해외배당 자료가 없습니다.')+'</p></div>';
+ if(!market?.choices?.length)return r518OddsTables(m,r,market)+'<div class="r506Market"><b>해외배당</b><p>'+e(r506Messages[market?.status]||r506Messages[data?.fetchStatus]||r506Messages[data?.status]||'해외배당 자료가 없습니다.')+'</p></div>';
  const receivedAge=Date.now()-Date.parse(data.receivedAt||''),oldest=Date.now()-Date.parse(market.oldestQuoteAt||''),clockFresh=receivedAge>=0&&receivedAge<=10*60000&&oldest>=0&&oldest<=10*60000;
  const domesticAge=Date.now()-Date.parse(market.domesticAt||''),canGap=clockFresh&&domesticAge>=0&&domesticAge<=10*60000&&market.status==='MATCHED';
  const status=market.status==='MATCHED'?'동일 기준점·선택지':(r506Messages[market.status]||'가격 참고');
  const cards=market.choices.map(c=>'<div class="r506Price"><b>'+e(c.label)+'</b><span>국내 <strong>'+e(c.domestic?c.domestic.toFixed(2):'—')+'</strong></span><span>해외 중앙값 <strong>'+e(c.overseas.toFixed(2))+'</strong></span><small>'+(canGap&&c.priceGap!==null?'국내 지급배당 '+e((c.priceGap>=0?'+':'')+(c.priceGap*100).toFixed(1))+'%':'동시각 가격 차이 비교 보류')+'</small></div>').join('');
  const table=market.books.map(b=>'<tr><th scope="row">'+e(b.title)+'</th>'+market.choices.map(c=>{const p=b.prices.find(x=>x.label===c.label);return '<td>'+e(p?.odds?.toFixed(2)||'—')+'</td>';}).join('')+'<td>'+e(r506Clock(b.updatedAt))+'</td></tr>').join('');
  const weights=market.choices.map(c=>e(c.label)+' '+e((c.marketWeight*100).toFixed(1))+'%').join(' · ');
- return '<div class="r506Market"><div class="r506Heading"><b>해외배당 비교</b><span>'+e(market.bookCount)+'개 업체'+(market.smallSample?' · 자료 적음':'')+'</span></div><p>'+e(status)+(r.line==null?'':' · 국내 기준점 '+e(r.line))+'</p><div class="r506Prices">'+cards+'</div><p class="r506Muted">'+(clockFresh?'10분 이내 해외 자료':'저장·지난 해외 자료 · 최신 가격 판단 보류')+' · 업체 갱신 '+e(r506Clock(market.oldestQuoteAt))+' ~ '+e(r506Clock(market.newestQuoteAt))+'</p><details class="r506Details" data-r506-detail="'+e(r.no)+'"><summary>업체별 배당 · 시장 확률 환산 자세히</summary><p>해외 전체경기 · '+e(data.event?.home)+' vs '+e(data.event?.away)+' · '+e(r506Clock(data.event?.kickoff,true))+'</p><div class="r506TableWrap"><table><thead><tr><th scope="col">해외 업체</th>'+market.choices.map(c=>'<th scope="col">'+e(c.label)+'</th>').join('')+'<th scope="col">업체 갱신</th></tr></thead><tbody>'+table+'</tbody></table></div><p><b>마진 제거 시장 비중</b><br>'+weights+'</p><p class="r506Muted">업체별 역배당 비중을 마진 제거 후 중앙값으로 모으고 합계 100%로 조정했습니다. 실제 적중률·독립 예측·보장 수익이 아닙니다. 업체 수는 독립적인 예측 수가 아닙니다.</p><p class="r506Muted">현재 배당 중앙값이며 개장배당이 아닙니다. 전체/부분경기·연장·무승부 정산규칙이 확인되지 않은 국내 자료는 해외와 가격 차이를 계산하지 않습니다.</p><p class="r506Muted">출처 The Odds API · R507 지정 일반 업체(거래소 제외) · 서버 수신 '+e(r506Clock(data.receivedAt))+' · 국내 확인 '+e(r506Clock(market.domesticAt))+'</p></details></div>';
+ return r518OddsTables(m,r,market)+'<div class="r506Market"><div class="r506Heading"><b>해외배당 비교</b><span>'+e(market.bookCount)+'개 업체'+(market.smallSample?' · 자료 적음':'')+'</span></div><p>'+e(status)+(r.line==null?'':' · 국내 기준점 '+e(r.line))+'</p><div class="r506Prices">'+cards+'</div><p class="r506Muted">'+(clockFresh?'10분 이내 해외 자료':'저장·지난 해외 자료 · 최신 가격 판단 보류')+' · 업체 갱신 '+e(r506Clock(market.oldestQuoteAt))+' ~ '+e(r506Clock(market.newestQuoteAt))+'</p><details class="r506Details" data-r506-detail="'+e(r.no)+'"><summary>업체별 배당 · 시장 확률 환산 자세히</summary><p>해외 전체경기 · '+e(data.event?.home)+' vs '+e(data.event?.away)+' · '+e(r506Clock(data.event?.kickoff,true))+'</p><div class="r506TableWrap"><table><thead><tr><th scope="col">해외 업체</th>'+market.choices.map(c=>'<th scope="col">'+e(c.label)+'</th>').join('')+'<th scope="col">업체 갱신</th></tr></thead><tbody>'+table+'</tbody></table></div><p><b>마진 제거 시장 비중</b><br>'+weights+'</p><p class="r506Muted">업체별 역배당 비중을 마진 제거 후 중앙값으로 모으고 합계 100%로 조정했습니다. 실제 적중률·독립 예측·보장 수익이 아닙니다. 업체 수는 독립적인 예측 수가 아닙니다.</p><p class="r506Muted">현재 배당 중앙값이며 개장배당이 아닙니다. 전체/부분경기·연장·무승부 정산규칙이 확인되지 않은 국내 자료는 해외와 가격 차이를 계산하지 않습니다.</p><p class="r506Muted">출처 The Odds API · R507 지정 일반 업체(거래소 제외) · 서버 수신 '+e(r506Clock(data.receivedAt))+' · 국내 확인 '+e(r506Clock(market.domesticAt))+'</p></details></div>';
 }
 function r506OverseasHeader(m){
- const entry=r506Client.get(expKey(m)),data=entry?.data,fetchMessage=data&&data.fetchStatus!=='OK'?r506Messages[data.fetchStatus]:null;
- return '<div class="r506Header"><div><b>국내 · 해외배당</b><p>같은 경기와 기준점의 실제 해외 가격을 확인합니다.</p></div><button type="button" data-r506-load="'+e(expKey(m))+'"'+(entry?.loading?' disabled':'')+'>'+(entry?.loading?'조회 중…':data?'해외배당 다시 확인':'해외배당 조회')+'</button><small>'+e(fetchMessage||'R507 자동수집 자료 재사용 · 화면 조회는 추가 API 호출 없음')+(data?.remaining!=null?' · 제공사 잔여 '+e(data.remaining)+'크레딧':'')+'</small></div>';
+ const entry=r506Client.get(expKey(m)),data=entry?.data,fetchMessage=entry?.error?'최근 조회 실패 · 저장 자료 표시 중':data&&data.fetchStatus!=='OK'?r506Messages[data.fetchStatus]:null;
+ return '<div class="r506Header"><div><b>국내 · 해외배당</b><p>전체 경기 자동 확인 · 국내·해외 실제 수신시각을 각각 표시합니다.</p></div><button type="button" data-r506-load="'+e(expKey(m))+'"'+(entry?.loading?' disabled':'')+'>'+(entry?.loading?'조회 중…':data?'해외배당 다시 확인':'해외배당 조회')+'</button><small>'+e(fetchMessage||'1분 간격 자동 확인 · R507 자동수집 자료 재사용 · 화면 조회는 추가 API 호출 없음')+(data?.remaining!=null?' · 제공사 잔여 '+e(data.remaining)+'크레딧':'')+'</small></div>';
 }
 async function r506LoadOverseas(key){
  const game=(state?.markingGames||[]).find(g=>expKey(g)===key);if(!game||r506Client.get(key)?.loading)return;
- const old=r506Client.get(key);r506Client.set(key,{...old,loading:true});expLastFingerprint='';renderExperiment();
+ const old=r506Client.get(key);r506Client.set(key,{...old,loading:true,requestedAt:Date.now()});expLastFingerprint='';renderExperiment();
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),16000);
- try{const u=new URL('/api/overseas-odds',location.origin);u.searchParams.set('gmTs',game.gmTs);u.searchParams.set('no',game.no);const res=await fetch(u,{signal:controller.signal,cache:'no-store'});const data=await res.json();if(!res.ok&&!data.status)throw Error('SERVICE_UNAVAILABLE');r506Client.set(key,{loading:false,data});}
- catch{r506Client.set(key,{loading:false,data:{status:'SERVICE_UNAVAILABLE',markets:[]}});}
+ try{const u=new URL('/api/overseas-odds',location.origin);u.searchParams.set('gmTs',game.gmTs);u.searchParams.set('no',game.no);const res=await fetch(u,{signal:controller.signal,cache:'no-store'});const data=await res.json();if(!res.ok&&!data.status)throw Error('SERVICE_UNAVAILABLE');r506Client.set(key,{loading:false,data,requestedAt:Date.now()});}
+ catch{r506Client.set(key,{loading:false,data:old?.data||{status:'SERVICE_UNAVAILABLE',markets:[]},requestedAt:Date.now(),error:true});}
  finally{clearTimeout(timeout);expLastFingerprint='';renderExperiment();}
 }
 
@@ -9046,7 +9083,8 @@ r.precision?.historyCount,r.precision?.sampleObservedAt,r.precision?.lastChanged
 }
 function renderExperiment(){
 if(!state||activeView!=='experiment')return;
-const all=orderCurrentRows(state.markingGames||[]).filter(m=>Number(m.gmTs)>=260121),q=expQuery.toLowerCase().trim();
+const all=orderCurrentRows(state.markingGames||[]),q=expQuery.toLowerCase().trim();
+r518ScheduleOverseas(all);
 const rows=all.filter(m=>(expFilter==='all'||String(m.sport||'')===expFilter)&&(!q||[m.game,m.home,m.away,m.league,m.no,...(m.marketRows||[]).map(r=>r.no)].join(' ').toLowerCase().includes(q)));
 const fp=expFingerprint(rows);
 if(fp===expLastFingerprint)return;
@@ -13246,7 +13284,7 @@ const R506_TEAMS=[
  ['Liverpool','리버풀'],['Manchester City','맨체스터 시티','맨체스C'],['Manchester United','맨체스터 유나이티드','맨체스U'],['Arsenal','아스널','아스날'],['Chelsea','첼시'],['Tottenham Hotspur','토트넘','토트넘 홋스퍼'],['Aston Villa','애스턴 빌라'],['Brighton and Hove Albion','브라이턴&호브 앨비언'],['AFC Bournemouth','Bournemouth','AFC본머스'],['Crystal Palace','크리스털 팰리스'],['Sunderland','선덜랜드'],['West Ham United','웨스트햄 유나이티드'],['Norwich City','노리치 시티'],['Southampton','사우샘프턴'],['Portsmouth','포츠머스'],['Sheffield United','셰필드 유나이티드'],['Queens Park Rangers','퀸즈파크 레인저스'],['Derby County','더비 카운티'],['Lincoln City','링컨 시티'],
  ['Real Madrid','레알 마드리드'],['Barcelona','FC Barcelona','바르셀로나'],['Atletico Madrid','아틀레티코 마드리드'],['Real Betis','레알 베티스'],['Real Sociedad','레알 소시에다드'],['Celta Vigo','RC셀타데비고'],['Roma','AS Roma','AS로마'],['Inter Milan','Inter','인테르나치오날레 밀라노','인터밀란'],['AC Milan','AC밀란'],['Juventus','유벤투스'],['Atalanta','아탈란타BC'],['Como','Como 1907','코모1907'],['Bayern Munich','바이에른 뮌헨'],['Borussia Dortmund','도르트문트'],['Bayer Leverkusen','바이어04 레버쿠젠'],['VfB Stuttgart','VfB슈투트가르트'],['SC Freiburg','SC프라이부르크'],['Hoffenheim','TSG1899 호펜하임'],['Paris Saint Germain','Paris Saint-Germain','파리 생제르맹'],['Lyon','올랭피크 리옹'],['Marseille','올림피크 마르세유','올랭피크드 마르세유'],['Rennes','스타드 렌'],
  ['Feyenoord','페예노르트'],['LASK Linz','LASK'],['FC Porto','Porto','포르투'],['Benfica','SL벤피카'],['Sporting Lisbon','Sporting CP','스포르팅CP'],['Celtic','셀틱'],['Fenerbahce','페네르바흐체SK'],['Besiktas','베식타시'],['Bodo/Glimt','Bodø/Glimt','FK보되 글림트'],['Shakhtar Donetsk','샤흐타르 도네츠크'],['AEK Athens','AEK아테네'],['Slovan Bratislava','SK슬로반 브라티슬라바'],['Viktoria Plzen','빅토리아 플젠'],['Ferencvaros','페렌츠바로시TC'],['Dinamo Zagreb','GNK디나모 자그레브'],['Anderlecht','RSC안더레흐트'],['AZ Alkmaar','AZ알크마르'],['Hapoel Beer Sheva','하포엘 베르셰바'],['Union Saint Gilloise','루아얄 위니옹 생질루아즈'],['Red Bull Salzburg','Salzburg','잘츠부르크'],['Sparta Prague','스파르타 프라하'],['Lech Poznan','레흐 포즈난'],['Celje','NK첼레'],['Omonia Nicosia','AC오모니아'],['Sturm Graz','슈투름 그라츠'],['NEC Nijmegen','NEC네이메헌'],['Levski Sofia','레프스키 소피아'],
- ['FC Cincinnati','FC신시내티'],['New England Revolution','뉴잉글랜드 레벌루션'],['Columbus Crew','콜럼버스 크루'],['Charlotte FC','샬럿FC'],['Sydney FC','시드니FC'],['Western Sydney Wanderers','웨스턴시드니 원더러스'],
+ ['Colorado Rapids','콜로라도 래피즈'],['Minnesota United FC','Minnesota United','미네소타 유나이티드FC'],['Real Salt Lake','레알 솔트레이크'],['San Jose Earthquakes','새너제이 어스퀘이크스'],['LA Galaxy','Los Angeles Galaxy','LA 갤럭시'],['Portland Timbers','포틀랜드 팀버스'],['Los Angeles FC','Los Angeles Football Club','LAFC'],['Austin FC','오스틴FC'],['San Diego FC','샌디에이고FC'],['Houston Dynamo','Houston Dynamo FC','휴스턴 다이너모FC'],['Chicago Fire','Chicago Fire FC','시카고 파이어FC'],['Philadelphia Union','필라델피아 유니언'],['FC Dallas','FC댈러스'],['Seattle Sounders','Seattle Sounders FC','시애틀 사운더스FC'],['Nashville SC','내슈빌SC'],['Sporting Kansas City','스포팅 캔자스시티'],['St Louis City SC','St. Louis City SC','St. Louis City','세인트루이스 시티SC'],['Vancouver Whitecaps','Vancouver Whitecaps FC','밴쿠버 화이트캡스FC'],['D.C. United','DC United','DC유나이티드'],['New York Red Bulls','뉴욕 레드불스'],['Inter Miami','Inter Miami CF','인터 마이애미CF'],['New York City FC','New York City','뉴욕 시티FC'],['CF Montreal','CF Montréal','몬트리올','CF몽레알'],['Atlanta United','Atlanta United FC','애틀랜타 유나이티드FC'],['Toronto FC','토론토FC'],['Orlando City','Orlando City SC','올랜도 시티SC'],['FC Cincinnati','FC신시내티'],['New England Revolution','뉴잉글랜드 레벌루션'],['Columbus Crew','콜럼버스 크루'],['Charlotte FC','샬럿FC'],['Sydney FC','시드니FC'],['Western Sydney Wanderers','웨스턴시드니 원더러스'],
  ['Yomiuri Giants','요미우리','요미우리 자이언츠'],['Hanshin Tigers','한신','한신 타이거즈'],['Yokohama DeNA BayStars','요코하마 DeNA','요코하마'],['Hiroshima Toyo Carp','히로시마','히로시마 도요 카프'],['Chunichi Dragons','주니치','주니치 드래곤즈'],['Tokyo Yakult Swallows','야쿠르트','야쿠르트 스왈로즈'],['Fukuoka SoftBank Hawks','소프트뱅크','소프트뱅크 호크스'],['Hokkaido Nippon Ham Fighters','닛폰햄','닛폰햄 파이터스'],['Chiba Lotte Marines','지바롯데','지바 롯데'],['Tohoku Rakuten Golden Eagles','라쿠텐'],['Orix Buffaloes','오릭스'],['Saitama Seibu Lions','세이부'],
  ['LG Twins','LG 트윈스','LG'],['Doosan Bears','두산 베어스','두산'],['Kia Tigers','KIA 타이거즈','KIA'],['Samsung Lions','삼성 라이온즈','삼성'],['Lotte Giants','롯데 자이언츠','롯데'],['Hanwha Eagles','한화 이글스','한화'],['SSG Landers','SSG 랜더스','SSG'],['KT Wiz','KT 위즈','KT'],['NC Dinos','NC 다이노스','NC'],['Kiwoom Heroes','키움 히어로즈','키움']
 ];
@@ -13304,10 +13342,11 @@ async function r508RememberOdds(path,events){
  const sport=String(path).match(/^\/v4\/sports\/([a-z0-9_]+)\/odds\/?$/)?.[1],storage=doStorage();
  if(!sport||!R506_LEAGUES[sport]||!storage||!Array.isArray(events))return;
  const receivedAt=new Date().toISOString();
- for(const e of events.slice(0,40)){
+ for(const e of events){
   if(e?.sport_key!==sport||!/^[a-zA-Z0-9_-]{1,80}$/.test(String(e.id||'')))continue;
   const event={id:String(e.id),sport_key:sport,commence_time:e.commence_time,home_team:String(e.home_team||'').slice(0,160),away_team:String(e.away_team||'').slice(0,160),bookmakers:(Array.isArray(e.bookmakers)?e.bookmakers:[]).slice(0,40).map(b=>({key:String(b.key||'').slice(0,80),title:String(b.title||'').slice(0,100),markets:(Array.isArray(b.markets)?b.markets:[]).filter(m=>['h2h','spreads','totals'].includes(m.key)).slice(0,3).map(m=>({key:m.key,last_update:m.last_update,outcomes:(Array.isArray(m.outcomes)?m.outcomes:[]).slice(0,3).map(o=>({name:String(o.name||'').slice(0,160),price:o.price,...(typeof o.point==='number'?{point:o.point}:{})}))}))}))};
   await storage.put('r508:quote:'+sport+':'+event.id,{receivedAt,event});
+   await r518RememberHistory(storage,event,receivedAt);
  }
 }
 function r508Status(state,env){
@@ -13318,6 +13357,26 @@ function r508Status(state,env){
  if(status.audit?.lastError)status.audit={...status.audit,lastError:String(status.audit.lastError).match(/ODDS_API_(?:HTTP_\d{3}|TIMEOUT)/)?.[0]||'PROVIDER_ERROR'};
  return status;
 }
+/* R518 histories use exact round/market identity and validated pregame source prices. */
+function r518Identity(r){return JSON.stringify([String(r.gmTs),String(r.no),r.date,r.time,r.sport,r.league,r.home,r.away,r.marketFamily,r.line??null,[r.period,r.segment,r.market,r.marketLabel,r.domesticOddsSnapshot?.period,r.precision?.period].map(x=>String(x??'').trim().toUpperCase()),(r.choices||[]).map(c=>String(c.label)).sort()]);}
+async function r518RememberHistory(storage,event,receivedAt){
+ const now=Date.parse(receivedAt),state=MEM.state;
+ if(!state||!Number.isFinite(now)||!storage)return;
+ const rows=(state.markets||[]).filter(r=>!r.resultFinal&&gameTimeMs(r)>now&&r506Sport(r)===event.sport_key&&Math.abs(Date.parse(event.commence_time)-gameTimeMs(r))<=300000&&r506TeamSame(r.home,event.home_team,event.sport_key)&&r506TeamSame(r.away,event.away_team,event.sport_key));
+ for(const row of rows){
+  const market=r506Compare(row,[row],[event],now).markets?.[0];if(!market?.choices?.length)continue;
+  const key='r518:history:'+row.gmTs+':'+row.no,identity=r518Identity(row),prior=await storage.get(key),same=prior?.identity===identity&&prior?.eventId===event.id;
+  const bookKeys=market.books.map(b=>b.key).sort(),point={at:receivedAt,sourceAt:market.newestQuoteAt,oldestQuoteAt:market.oldestQuoteAt,bookCount:market.bookCount,bookKeys,choices:market.choices.map(c=>({label:c.label,overseas:c.overseas,marketWeight:c.marketWeight}))};
+  const signature=JSON.stringify(market.books.slice().sort((a,b)=>a.key.localeCompare(b.key)).map(b=>[b.key,b.updatedAt,b.prices.map(p=>[p.label,p.odds])])),points=same?prior.points.slice():[];
+  if(same&&prior.signature===signature)continue;
+  // Colliding receive timestamps keep the newest real response, never an invented timestamp.
+  if(points.at(-1)?.at===receivedAt)points.pop();points.push(point);
+  const bounded=points.length>96?[points[0],...points.slice(-95)]:points;
+  const record={identity,eventId:event.id,points:bounded,signature,firstObservedAt:bounded[0].at,lastReceivedAt:receivedAt};
+  while(record.points.length>2&&new TextEncoder().encode(JSON.stringify(record)).length>100000)record.points.splice(1,1);
+  await storage.put(key,record);
+ }
+}
 async function r508Precision(req,env,storage){
  if(req.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405);
  const u=new URL(req.url),no=u.searchParams.get('no'),round=u.searchParams.get('gmTs');
@@ -13327,15 +13386,22 @@ async function r508Precision(req,env,storage){
  if(candidates.length!==1)return json({status:'AMBIGUOUS_EVENT',markets:[]});
  const row=candidates[0],sport=r506Sport(row),o=r507Opts(env),store=state.r507Overseas||{},now=Date.now();
  const meta={provider:'The Odds API',region:'R507 configured bookmakers',checkedAt:new Date(now).toISOString(),configured:!!o.key,disabled:o.disabled,weight:o.weight,remaining:store.budget?.remaining??null,cacheHit:true,extraApiCredits:0};
- if(!o.key||o.disabled)return json({...meta,status:'OVERSEAS_DISABLED',fetchStatus:'KEY_NOT_CONFIGURED',markets:[]});
- if(!sport)return json({...meta,status:'UNSUPPORTED_LEAGUE',markets:[]});
- const kickoff=gameTimeMs(row);if(!Number.isFinite(kickoff)||kickoff<=now||row.resultFinal)return json({...meta,status:'PREGAME_ONLY',markets:[]});
+ const rows=all.filter(m=>String(m.gmTs)===round&&m.date===row.date&&m.time===row.time&&m.home===row.home&&m.away===row.away&&m.league===row.league&&m.sport===row.sport&&['MONEYLINE','HANDICAP','TOTAL'].includes(m.marketFamily));
+ const histories=await Promise.all(rows.map(async r=>{const h=await storage?.get('r518:history:'+r.gmTs+':'+r.no);return h?.identity===r518Identity(r)?h:null;}));
+ const archived=status=>({...meta,status,fetchStatus:status,markets:rows.map((r,i)=>({no:r.no,family:r.marketFamily,line:r.line??null,status:histories[i]?.points?.length?'ARCHIVED_QUOTES':status,choices:[],books:[],history:histories[i]?.points||[]}))});
+ if(!sport)return json(archived('UNSUPPORTED_LEAGUE'));
+ if(!o.key||o.disabled)return json(archived(o.disabled?'OVERSEAS_DISABLED':'KEY_NOT_CONFIGURED'));
+ const kickoff=gameTimeMs(row);if(!Number.isFinite(kickoff)||kickoff<=now||row.resultFinal)return json(archived('PREGAME_ONLY'));
  const match=store.matches?.[gameSeed(row)];
- if(!match?.eventId||match.sportKey!==sport)return json({...meta,status:'EVENT_NOT_FOUND',fetchStatus:'AWAITING_COLLECTOR',markets:[]});
+ if(!match?.eventId||match.sportKey!==sport)return json({...archived('EVENT_NOT_FOUND'),fetchStatus:'AWAITING_COLLECTOR'});
  const cached=await storage?.get('r508:quote:'+sport+':'+match.eventId);
- if(!cached?.event)return json({...meta,status:'NO_STORED_QUOTES',fetchStatus:'AWAITING_COLLECTOR',markets:[]});
- const rows=all.filter(m=>String(m.gmTs)===round&&m.date===row.date&&m.time===row.time&&m.home===row.home&&m.away===row.away&&m.league===row.league&&m.sport===row.sport);
- return json({...r506Compare(row,rows,[cached.event],Date.now()),...meta,receivedAt:cached.receivedAt,fetchStatus:'OK'});
+ if(!cached?.event)return json({...archived('NO_STORED_QUOTES'),fetchStatus:'AWAITING_COLLECTOR'});
+ const result=r506Compare(row,rows,[cached.event],now);
+ if(!result.markets?.length)return json({...archived(result.status),receivedAt:cached.receivedAt});
+ for(const m of result.markets){const i=rows.findIndex(r=>String(r.no)===String(m.no)),h=histories[i];m.history=h?.eventId===match.eventId?h.points:[];
+  if(!m.history.length&&m.choices.length&&r506QuoteAge(cached.receivedAt,now)!==null)m.history=[{at:cached.receivedAt,sourceAt:m.newestQuoteAt,oldestQuoteAt:m.oldestQuoteAt,bookCount:m.bookCount,bookKeys:m.books.map(b=>b.key).sort(),choices:m.choices.map(c=>({label:c.label,overseas:c.overseas,marketWeight:c.marketWeight}))}];
+ }
+ return json({...result,...meta,receivedAt:cached.receivedAt,fetchStatus:'OK'});
 }
 
 /* R509: verified full-time fixture scores bridge stale stored rounds without changing bet identity. */
@@ -13410,3 +13476,4 @@ const work=stub?stub.fetch("https://proto-do.internal/__tick",{method:"POST"}):r
 if(ctx?.waitUntil)ctx.waitUntil(work);else await work;
 }
 };
+
