@@ -28,6 +28,7 @@ const memory=new Map();c.STORAGE={get:async k=>structuredClone(memory.get(k)),pu
  ui.POINTS=Array.from({length:20},(_,i)=>({at:new Date(now-80000+i*1000).toISOString(),values:{'승':2,'패':2}}));table=vm.runInContext('r518HistoryTable("test",["승","패"],POINTS,false)',ui);assert.equal(table.match(/<tbody>([\s\S]*?)<\/tbody>/)[1].match(/<tr>/g).length,1,'unchanged repeats are not fake changes');
  ui.G=c.G;ui.R={...c.G,marked:true,finalPick:'승',precision:{observedAt:new Date(now).toISOString(),history:[{at:new Date(now-60000).toISOString(),prices:c.G.choices}]}};
  const analysis=vm.runInContext('r474Insights(G,R)',ui);assert.ok((analysis.match(/<p>/g)||[]).length<=5,'data analysis stays within five concise lines');
+ run('MEM.state.r507Overseas.audit={at:new Date().toISOString(),lastSkip:{reason:"DAILY_CREDIT_BUDGET"},budget:{daily:8,spent:8,remaining:259}}');const diagnostics=run('r507PublicSummary(MEM.state)');assert.equal(diagnostics.collection.lastSkip.reason,'DAILY_CREDIT_BUDGET');assert.equal(diagnostics.collection.budget.daily,8);
  const resp=await run('handleApp(new Request("https://proto.test/api/overseas-status?view=html"),{THE_ODDS_API_KEY:"private-key"},{})');assert.match(resp.headers.get('content-type'),/text\/html/);assert.ok(!(await resp.text()).includes('private-key'));
  console.log('PASS R520: official Pinnacle timestamp schema, raw/history persistence, exact saved-event lookup, stale/future/missing source rejection, 5-minute freshness, no paid UI fetch and budget guard');
 })().catch(e=>{console.error(e);process.exitCode=1});
