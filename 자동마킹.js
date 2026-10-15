@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R531-WISE-PROBE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R531-OVERSEAS-LED-GRADES";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11624,20 +11624,6 @@ interpretation:'marketShare is no-vig relative price weight, NOT verified outcom
 async function handleApp(req,env,ctx){
 const u=new URL(req.url);
 if(u.pathname==="/")return html(INDEX);
-if(u.pathname==='/api/wise-probe'&&req.method==='GET'){/* R531: read-only look at Wisetoto's public proto page structure (no state change, cached 10 min) */
-if(MEM.r531Probe&&Date.now()-MEM.r531Probe.at<600000&&!u.search.includes('path')&&!u.searchParams.get('q')&&!u.searchParams.has('off'))return json(MEM.r531Probe.data);
-const base='https://www.wisetoto.com',path=String(u.searchParams.get('path')||'/index.htm?tab_type=proto&game_type=pt1&game_category=pt1&game_year=2026&game_round=122');
-if(!/^\/[A-Za-z0-9_\/.\-]+(\?[A-Za-z0-9_=&%.\-]*)?$/.test(path))return json({error:'BAD_PATH'},400);
-try{const r=await fetch(base+path,{headers:{'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36','accept':'text/html,*/*','referer':base+'/index.htm?tab_type=proto'},signal:AbortSignal.timeout(9000)});
-const buf=await r.arrayBuffer();let text=new TextDecoder('utf-8').decode(buf);if(/\uFFFD{3,}/.test(text.slice(0,4000))){try{text=new TextDecoder('euc-kr').decode(buf);}catch(_){}}
-const scripts=[...text.matchAll(/<script[^>]*src=["']([^"']+)["']/gi)].map(x=>x[1]).slice(0,40);
-const urls=[...new Set([...text.matchAll(/["'`]((?:https?:\/\/[^"'`\s]*wisetoto[^"'`\s]*|\/[A-Za-z0-9_\/.\-]+\.(?:htm|html|php|jsp|asp|json)(?:\?[^"'`\s]*)?))["'`]/gi)].map(x=>x[1]))].slice(0,120);
-const near=[];for(const k of ['game_round','ajax','$.post','$.get','.load(','fetch(','gameinfo','result']){let i=text.indexOf(k),n=0;while(i>=0&&n<3){near.push({k,s:text.slice(Math.max(0,i-160),i+220)});i=text.indexOf(k,i+k.length);n++;}}
-const q=String(u.searchParams.get('q')||''),off=Math.max(0,Number(u.searchParams.get('off'))||0),len=Math.min(6000,Math.max(200,Number(u.searchParams.get('n'))||3000));
-const hits=[];if(q){let i=text.indexOf(q);while(i>=0&&hits.length<8){hits.push({at:i,s:text.slice(Math.max(0,i-250),i+450)});i=text.indexOf(q,i+q.length);}}
-const data={at:new Date().toISOString(),path,status:r.status,type:r.headers.get('content-type'),length:text.length,scripts,urls,near:q?[]:near.slice(0,30),hits,slice:(u.searchParams.has('off')||!path.includes('index.htm'))?text.slice(off,off+len):null};
-if(!u.searchParams.get('path'))MEM.r531Probe={at:Date.now(),data};return json(data);}
-catch(e){return json({error:String(e?.message||e).slice(0,120)},502);}}
 if(u.pathname==='/api/overseas-status'&&req.method==='GET'){const st=r508Status(MEM.state||await loadState(env),env);try{const ds=doStorage();st.tick=ds?(await ds.get('r513:tick'))||MEM.r513Tick||null:(MEM.r513Tick||null);st.overseasRun=ds?(await ds.get('r514:ov'))||null:null;}catch(_){st.tick=MEM.r513Tick||null;}return u.searchParams.get('view')==='html'?new Response('<!doctype html><meta charset="utf-8"><title>해외배당 수집 상태</title><pre>'+esc(JSON.stringify(st,null,2))+'</pre>',{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}}):json(st);}
 if(u.pathname==='/api/data-odds-analytics'&&req.method==='GET')return json(r477DataPayload(await loadState(env)));
 if(u.pathname==='/api/odds-history'&&req.method==='GET')return r462HandleHistory(req,env);
