@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R525-PRECISION-USES-R507-MATCH";
-const BUILD_ID = "proto-r525-20261015-precision-uses-r507-match";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R526-DOMESTIC-FLOW-OPEN";
+const BUILD_ID = "proto-r526-20261015-domestic-flow-open";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -8608,7 +8608,7 @@ function r522ForeignFlowHtml(m,r){
  const st=market?.status||data?.fetchStatus||data?.status;
  return head('기록 없음')+'<p class="r506Muted">'+e(r506Messages[st]||'해외배당이 아직 수집되지 않았습니다. 경기 시작 6시간 전부터 수집합니다.')+'</p></section>';
 }
-function r523DomesticWrap(m,r){const h=r485FlowHtml(m,r);if(!h)return '';const d=r485FlowData(r,m);return '<details class="r523Dom"><summary>국내배당 흐름 보기 · 실제 변동 '+(d?d.changeCount:0)+'회</summary>'+h+'</details>';}
+function r523DomesticWrap(m,r){const h=r485FlowHtml(m,r);if(!h)return '';const d=r485FlowData(r,m);return '<details class="r523Dom" open><summary>국내배당 흐름 · 실제 변동 '+(d?d.changeCount:0)+'회</summary>'+h+'</details>';}
 function r474FlowData(r){
 const p=r?.precision||{},quoted=Array.isArray(r?.choices)?r.choices:[],
 labels=quoted.filter(c=>Number.isFinite(Number(c.odds))&&Number(c.odds)>1).map(c=>String(c.label)),history=Array.isArray(p.history)?p.history:[];
