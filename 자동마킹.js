@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R528-MONTHLY-CREDIT-BUDGET";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R528B-SAFE-TIME-MATCH";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1816,18 +1816,20 @@ const k=gameSeed(m);if(!map.has(k))map.set(k,{key:k,sport:m.sport,league:m.leagu
 return [...map.values()];}
 function r507MatchGames(store,games,mem,keys){
 const taken=new Set(),rows=[];
+/* R528: "only game at that time" means nothing while some leagues' event lists are still missing (e.g. right after a restart) */
+const complete=grp=>keys.filter(s=>s.group===grp).every(s=>mem.events[s.key]&&!mem.events[s.key].error);
 const scored=games.map(g=>{const group=R507.groups[g.sport],cands=[];
 for(const s of keys){if(s.group!==group)continue;for(const e of mem.events[s.key]?.list||[])if(Math.abs(e.t-g.kick)<=R507.toleranceMs)cands.push({...e,sportKey:s.key});}
 const ranked=cands.map(e=>{const score=(r507NameSim(store,g.sport,g.home,e.h)+r507NameSim(store,g.sport,g.away,e.a))/2,
 swapped=(r507NameSim(store,g.sport,g.home,e.a)+r507NameSim(store,g.sport,g.away,e.h))/2;return {...e,score,swapped};})
 .filter(e=>!(e.swapped>e.score+.2)).sort((a,b)=>b.score-a.score);
-return {g,ranked,n:cands.length};}).sort((a,b)=>(b.ranked[0]?.score||0)-(a.ranked[0]?.score||0));
+return {g,ranked,n:cands.length,complete:complete(group)};}).sort((a,b)=>(b.ranked[0]?.score||0)-(a.ranked[0]?.score||0));
 for(const x of scored){const free=x.ranked.filter(e=>!taken.has(e.id)),best=free[0],second=free[1];let method=null;
 if(best){if(best.score>=.75&&(!second||best.score-second.score>=.1))method="NAME";
 else if(best.score>=.5&&(!second||best.score-second.score>=.2))method="NAME_TIME";
-else if(x.n===1&&best.score>=.3)method="TIME_UNIQUE";}
+else if(x.n===1&&x.complete&&best.score>=.3)method="TIME_UNIQUE";}
 if(method){taken.add(best.id);rows.push({game:x.g,match:{id:best.id,sportKey:best.sportKey,h:best.h,a:best.a,t:best.t,score:best.score,method}});}
-else rows.push({game:x.g,match:null,candidates:x.n,bestScore:best?r3(best.score):null});}
+else rows.push({game:x.g,match:null,complete:x.complete,candidates:x.n,bestScore:best?r3(best.score):null});}
 return rows;}
 function r507GameFresh(store,g,now){/* R522: free plan ~16 credits/day. Re-check 2h apart, 60min within 3h, 30min within 90min of kickoff */
 const left=g.kick-now,maxAge=left<=90*60000?30*60000:left<=3*3600000?R507.refetchMs:2*3600000;
@@ -1849,8 +1851,9 @@ const bml=g.markets.find(m=>m.marketFamily==="MONEYLINE");
 if(bml){const nv=noVig(validChoices(bml)),bh=Number(nv["승"]),ba=Number(nv["패"]),oh=soccer?bp.ml.h:ml2.h,oa=soccer?bp.ml.a:ml2.a;
 if(Number.isFinite(bh)&&Math.abs(bh-oh)<=R507.maxMlGap){const gp=store.gap||(store.gap={n:0,sumAbs:0,bySport:{}}),sp=gp.bySport[g.sport]||(gp.bySport[g.sport]={n:0,sumAbs:0}),d=Math.abs(bh-oh);
 if(gp.n>=1000){gp.n/=2;gp.sumAbs/=2;}if(sp.n>=1000){sp.n/=2;sp.sumAbs/=2;}gp.n++;gp.sumAbs+=d;sp.n++;sp.sumAbs+=d;}
-if((Number.isFinite(bh)&&Math.abs(bh-oh)>R507.maxMlGap)||(Number.isFinite(ba)&&Math.abs(ba-oa)>R507.maxMlGap)){rejected++;rejects.push({game:`${g.home} vs ${g.away}`,api:`${ev.home_team} vs ${ev.away_team}`,reason:"ODDS_SHAPE_MISMATCH",betman:r3(bh),overseas:r3(oh)});continue;}}
-else if(x.match.score<.75){rejected++;rejects.push({game:`${g.home} vs ${g.away}`,reason:"NO_BETMAN_MONEYLINE_TO_VERIFY"});continue;}
+const gapMax=x.match.method==="TIME_UNIQUE"?.05:R507.maxMlGap;/* R528 */
+if((Number.isFinite(bh)&&Math.abs(bh-oh)>gapMax)||(Number.isFinite(ba)&&Math.abs(ba-oa)>gapMax)){rejected++;rejects.push({game:`${g.home} vs ${g.away}`,api:`${ev.home_team} vs ${ev.away_team}`,reason:"ODDS_SHAPE_MISMATCH",betman:r3(bh),overseas:r3(oh)});continue;}}
+else if(x.match.score<.75||x.match.method==="TIME_UNIQUE"){rejected++;rejects.push({game:`${g.home} vs ${g.away}`,reason:"NO_BETMAN_MONEYLINE_TO_VERIFY"});continue;}
 const btot=g.markets.find(m=>m.marketFamily==="TOTAL"),bnv=btot?noVig(validChoices(btot)):null;
 const domTotal=btot&&Number.isFinite(Number(bnv?.["오버"]))?{pt:Number(btot.line),over:Number(bnv["오버"])}:null;
 const ovTotal=bp.total&&r507UsableLine(bp.total.pt)?bp.total:null;
@@ -1889,6 +1892,8 @@ const matches=r507MatchGames(store,games,mem,keys);
 audit.matched=matches.filter(x=>x.match).length;audit.unmatched=matches.length-audit.matched;
 audit.eventKeys=`${keys.filter(s=>mem.events[s.key]).length}/${keys.length}`;
 store.matches=Object.fromEntries(matches.filter(x=>x.match).map(x=>[x.game.key,{betman:`${x.game.home} vs ${x.game.away}`,kick:x.game.kick,eventId:x.match.id,sportKey:x.match.sportKey,api:`${x.match.h} vs ${x.match.a}`,nameScore:r3(x.match.score),method:x.match.method}]));
+/* R528: overseas numbers saved under a wrong match are removed once the game is re-matched elsewhere or is definitely unmatched */
+for(const x of matches){const id=x.match?.id||null;if(!id&&!x.complete)continue;for(const m of x.game.markets){const k=`${m.gmTs}:${m.no}`,e=store.markets[k];if(e&&e.eventId!==id)delete store.markets[k];}}
 store.unmatched=matches.filter(x=>!x.match).slice(0,30).map(x=>({betman:`${x.game.home} vs ${x.game.away}`,kick:x.game.kick,sport:x.game.sport,candidates:x.candidates,bestScore:x.bestScore}));
 const due=r507DueLeague(store,matches,now,o);
 const budget=r507Budget(store,now,o);audit.budget={day:budget.day,daily:budget.daily,spent:budget.spent,remaining:budget.remaining};
