@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R549-SLOW-BETMAN-ROUND";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R550-GENTLE-BETMAN";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1219,17 +1219,32 @@ return {
 "pragma":"no-cache"
 };
 }
+/* R550: be gentle with Betman. Betman started answering our server in 7s+ (likely rate limiting), so:
+   - the same request (endpoint + round) goes out at most every 5 min (buyable list 10 min); in between the last
+     good answer is reused,
+   - a timeout / 429 / 5xx pauses ALL Betman requests for 10 min (doubling up to 40 min); a success resets it.
+   ZENTOTO, SPOGOD, ESPN and the Odds API carry on meanwhile. */
+const R550={gap:{buyable:10*60000,game:5*60000,result:5*60000},pause:10*60000,maxPause:40*60000,cacheMax:20};
+function r550Kind(url){return url===BETMAN.buyableApi?"buyable":url===BETMAN.resultApi?"result":"game";}
 async function postBetman(url,payload,referer,timeoutMs=Number(CFG.fetchTimeoutMs)){
+const now=Date.now(),kind=r550Kind(url),key=kind+"|"+String(payload?.gmTs||""),cache=MEM.r550Cache||(MEM.r550Cache=new Map()),hit=cache.get(key),gate=MEM.r550Gate||(MEM.r550Gate={until:0,pause:0,fails:0,ok:0,reused:0,skipped:0});
+if(hit&&now-hit.at<R550.gap[kind]){gate.reused++;return hit.data;}
+if(now<gate.until){if(hit&&now-hit.at<30*60000){gate.reused++;return hit.data;}gate.skipped++;throw new Error("BETMAN_PAUSED_"+Math.ceil((gate.until-now)/60000)+"MIN_"+kind.toUpperCase());}
+if(hit&&now-Number(hit.tried||0)<R550.gap[kind]){gate.reused++;return hit.data;}
 const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),timeoutMs);
 try{
 const res=await fetch(url,{method:"POST",headers:betmanHeaders(referer),body:JSON.stringify(payload),signal:ac.signal,redirect:"follow"});
 const text=await res.text();
-if(!res.ok)throw new Error(`BETMAN_HTTP_${res.status}`);
+if(!res.ok){if(res.status===429||res.status>=500)r550Trip(gate,"HTTP_"+res.status);throw new Error(`BETMAN_HTTP_${res.status}`);}
 let data; try{ data=JSON.parse(text); }catch{ throw new Error("BETMAN_JSON_PARSE"); }
+gate.pause=0;gate.ok++;gate.lastOkAt=new Date().toISOString();
+cache.set(key,{at:Date.now(),tried:Date.now(),data});if(cache.size>R550.cacheMax)cache.delete(cache.keys().next().value);
 return data;
-}catch(e){if(ac.signal.aborted)throw new Error(`BETMAN_TIMEOUT_${timeoutMs}MS_${url===BETMAN.resultApi?"RESULT":url===BETMAN.gameApi?"GAMEINFO":"SOURCE"}`);throw e;}
+}catch(e){if(ac.signal.aborted){r550Trip(gate,"TIMEOUT");throw new Error(`BETMAN_TIMEOUT_${timeoutMs}MS_${url===BETMAN.resultApi?"RESULT":url===BETMAN.gameApi?"GAMEINFO":"SOURCE"}`);}throw e;}
 finally{ clearTimeout(timer); }
 }
+function r550Trip(gate,why){gate.fails++;gate.pause=Math.min(R550.maxPause,gate.pause?gate.pause*2:R550.pause);gate.until=Date.now()+gate.pause;gate.lastTrip={at:new Date().toISOString(),why,pauseMin:gate.pause/60000};}
+function r550Status(){const g=MEM.r550Gate||{};return {policy:"BETMAN_GENTLE_5MIN_GAP_AND_PAUSE_ON_TIMEOUT",pausedUntil:g.until>Date.now()?new Date(g.until).toISOString():null,ok:g.ok||0,fails:g.fails||0,reusedAnswers:g.reused||0,skipped:g.skipped||0,lastOkAt:g.lastOkAt||null,lastTrip:g.lastTrip||null};}
 function nestedObjects(root,maxDepth=5){
 const out=[],queue=[{value:root,depth:0}],seen=new Set();
 while(queue.length){const {value,depth}=queue.shift();if(!value||typeof value!=="object"||seen.has(value)||depth>maxDepth)continue;seen.add(value);out.push(value);
@@ -13685,7 +13700,7 @@ picksWithElo:live,record:{agreeWithElo:{...(a.agree||{}),hitPct:pct(a.agree)},ag
 function r508Status(state,env){
  const raw=state?.r507Overseas,valid=x=>Number.isFinite(Number(x?.kick))&&Number.isFinite(new Date(Number(x.kick)).getTime());
  const safe=raw?{...state,r507Overseas:{...raw,matches:Object.fromEntries(Object.entries(raw.matches||{}).filter(([,v])=>valid(v)).map(([k,v])=>[k,{...v,kick:Number(v.kick)}])),unmatched:(raw.unmatched||[]).filter(valid).map(v=>({...v,kick:Number(v.kick)}))}}:state;
- const status=r507Status(safe,env);status.rawCollection={refetchMinutes:R507.refetchMs/60000,minGapMinutes:R507.minRefetchGapMs/60000,quoteStorageError:!!MEM.r508QuoteStorageError,bookmakers:R507.bookmakers};status.adminConfigured=!!String(env?.ADMIN_TOKEN||'').trim();try{status.clubElo=r546Status(state);}catch(_){}
+ const status=r507Status(safe,env);status.rawCollection={refetchMinutes:R507.refetchMs/60000,minGapMinutes:R507.minRefetchGapMs/60000,quoteStorageError:!!MEM.r508QuoteStorageError,bookmakers:R507.bookmakers};status.adminConfigured=!!String(env?.ADMIN_TOKEN||'').trim();try{status.clubElo=r546Status(state);status.betman=r550Status();}catch(_){}
  // Public diagnostics show status, never the provider's raw error body or credentials.
  if(status.audit?.lastError)status.audit={...status.audit,lastError:String(status.audit.lastError).match(/ODDS_API_(?:HTTP_\d{3}|TIMEOUT)/)?.[0]||'PROVIDER_ERROR'};
  return status;
