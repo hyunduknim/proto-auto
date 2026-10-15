@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R550-GENTLE-BETMAN";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R550B-SAFE-REUSE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1228,9 +1228,9 @@ const R550={gap:{buyable:10*60000,game:5*60000,result:5*60000},pause:10*60000,ma
 function r550Kind(url){return url===BETMAN.buyableApi?"buyable":url===BETMAN.resultApi?"result":"game";}
 async function postBetman(url,payload,referer,timeoutMs=Number(CFG.fetchTimeoutMs)){
 const now=Date.now(),kind=r550Kind(url),key=kind+"|"+String(payload?.gmTs||""),cache=MEM.r550Cache||(MEM.r550Cache=new Map()),hit=cache.get(key),gate=MEM.r550Gate||(MEM.r550Gate={until:0,pause:0,fails:0,ok:0,reused:0,skipped:0});
-if(hit&&now-hit.at<R550.gap[kind]){gate.reused++;return hit.data;}
-if(now<gate.until){if(hit&&now-hit.at<30*60000){gate.reused++;return hit.data;}gate.skipped++;throw new Error("BETMAN_PAUSED_"+Math.ceil((gate.until-now)/60000)+"MIN_"+kind.toUpperCase());}
-if(hit&&now-Number(hit.tried||0)<R550.gap[kind]){gate.reused++;return hit.data;}
+if(hit&&now-hit.at<R550.gap[kind]){gate.reused++;return structuredClone(hit.data);}
+if(now<gate.until){if(hit&&now-hit.at<30*60000){gate.reused++;return structuredClone(hit.data);}gate.skipped++;throw new Error("BETMAN_PAUSED_"+Math.ceil((gate.until-now)/60000)+"MIN_"+kind.toUpperCase());}
+if(hit&&now-Number(hit.tried||0)<R550.gap[kind]){gate.reused++;return structuredClone(hit.data);}
 const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),timeoutMs);
 try{
 const res=await fetch(url,{method:"POST",headers:betmanHeaders(referer),body:JSON.stringify(payload),signal:ac.signal,redirect:"follow"});
@@ -1238,7 +1238,7 @@ const text=await res.text();
 if(!res.ok){if(res.status===429||res.status>=500)r550Trip(gate,"HTTP_"+res.status);throw new Error(`BETMAN_HTTP_${res.status}`);}
 let data; try{ data=JSON.parse(text); }catch{ throw new Error("BETMAN_JSON_PARSE"); }
 gate.pause=0;gate.ok++;gate.lastOkAt=new Date().toISOString();
-cache.set(key,{at:Date.now(),tried:Date.now(),data});if(cache.size>R550.cacheMax)cache.delete(cache.keys().next().value);
+cache.set(key,{at:Date.now(),tried:Date.now(),data:structuredClone(data)});if(cache.size>R550.cacheMax)cache.delete(cache.keys().next().value);
 return data;
 }catch(e){if(ac.signal.aborted){r550Trip(gate,"TIMEOUT");throw new Error(`BETMAN_TIMEOUT_${timeoutMs}MS_${url===BETMAN.resultApi?"RESULT":url===BETMAN.gameApi?"GAMEINFO":"SOURCE"}`);}throw e;}
 finally{ clearTimeout(timer); }
