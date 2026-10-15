@@ -15,14 +15,18 @@ const now=Date.now(),stamp=t=>new Date(t).toISOString(),choices=[{label:'승',od
 client.M={key:'fixture',pick:'승',gameStarted:false};client.R={no:8291,choices,precision:{observedAt:stamp(now-20000),history:[{at:stamp(now-60000),prices:[{label:'승',odds:1.9},{label:'패',odds:2.0}]}]}};
 client.OV={no:8291,status:'MATCHED',choices:[{label:'승',overseas:1.9,priceGap:1.8/1.9-1},{label:'패',overseas:2.0,priceGap:2.1/2-1}],history:[{at:stamp(now-50000),sourceAt:stamp(now-50000),oldestQuoteAt:stamp(now-50000),bookCount:3,bookKeys:['a','b','c'],choices:[{label:'승',overseas:2.0},{label:'패',overseas:1.9}]},{at:stamp(now-10000),sourceAt:stamp(now-10000),oldestQuoteAt:stamp(now-10000),bookCount:3,bookKeys:['a','b','c'],choices:[{label:'승',overseas:1.9},{label:'패',overseas:2.0}]}]};
 vm.runInContext('r506Client.set("fixture",{data:{markets:[OV]}})',client);
-let html=vm.runInContext('r485FlowHtml(M,R)',client);assert.match(html,/배당흐름/);assert.match(html,/국내배당/);assert.match(html,/해외배당/);assert.match(html,/↓/);assert.ok(html.indexOf('r518Dual')>html.indexOf('r485Flow'));
-let insights=vm.runInContext('r519FlowInsights(M,R,OV)',client);assert.ok(insights.some(x=>/국내.*1.90.*1.80/.test(x)));assert.ok(insights.some(x=>/해외.*2.00.*1.90/.test(x)));assert.ok(insights.some(x=>/같은 방향/.test(x)));
-vm.runInContext('OV.choices[0].priceGap=2.0/1.9-1',client);
-insights=vm.runInContext('r519FlowInsights(M,R,OV)',client);assert.ok(insights.some(x=>/국내 지급배당.*-5\.3%/.test(x)),'analysis uses current domestic odds, not cached gap');
+let html=vm.runInContext('r485FlowHtml(M,R)',client);assert.match(html,/해외배당 흐름/);assert.doesNotMatch(html,/국내/);assert.match(html,/해외배당/);assert.match(html,/↓/);assert.ok(html.indexOf('r518Dual')>html.indexOf('r485Flow'));
+let insights=vm.runInContext('r519FlowInsights(M,R,OV)',client);assert.ok(insights.some(x=>/해외.*2.00.*1.90.*하락/.test(x)));assert.ok(!insights.some(x=>/국내|같은 방향|지급배당/.test(x)));
 client.SINGLE={no:8291,choices,precision:{observedAt:stamp(now-20000),history:[]}};
 vm.runInContext('r506Client.clear()',client);assert.equal(vm.runInContext('r485FlowHtml(M,SINGLE)',client),'','no time series means no empty flow block');
-html=vm.runInContext('r485FlowHtml(M,R)',client);assert.match(html,/국내배당/);assert.doesNotMatch(html,/해외배당|미수신|수집.*대기/,'absent overseas flow is silently skipped');
-vm.runInContext('OV.history=OV.history.slice(0,1);r506Client.set("fixture",{data:{markets:[OV]}})',client);assert.doesNotMatch(vm.runInContext('r485FlowHtml(M,R)',client),/해외배당/,'one foreign observation is not a flow');
-vm.runInContext('OV.history.push({...OV.history[0],at:new Date(Date.now()+3600000).toISOString()})',client);assert.doesNotMatch(vm.runInContext('r485FlowHtml(M,R)',client),/해외배당/,'future observations cannot produce a flow');
-vm.runInContext('OV.history.push({...OV.history[0],at:new Date(Date.now()-10000).toISOString(),bookKeys:["changed"]})',client);insights=vm.runInContext('r519FlowInsights(M,R,OV)',client);assert.ok(insights.some(x=>/업체.*변경/.test(x)));assert.ok(!insights.some(x=>/같은 방향/.test(x)),'changed bookmaker cohorts cannot imply corroboration');
-console.log('PASS R519: integrated source timelines, no menu, missing/single/future series skipped, source-based data analysis and cohort guard');
+assert.equal(vm.runInContext('r485FlowHtml(M,R)',client),'','domestic history never substitutes for missing overseas flow');
+vm.runInContext('OV.history=OV.history.slice(0,1);r506Client.set("fixture",{data:{markets:[OV]}})',client);assert.equal(vm.runInContext('r485FlowHtml(M,R)',client),'','one foreign observation is not a flow');
+vm.runInContext('OV.history.push({...OV.history[0],at:new Date(Date.now()+3600000).toISOString()})',client);assert.equal(vm.runInContext('r485FlowHtml(M,R)',client),'','future observations cannot produce a flow');
+vm.runInContext('OV.history.push({...OV.history[0],at:new Date(Date.now()-10000).toISOString(),bookKeys:["changed"]})',client);assert.equal(vm.runInContext('r485FlowHtml(M,R)',client),'','different bookmaker cohorts cannot imply price movement');
+// A named bookmaker can fall even when the median rises. Never swap these series.
+client.PIN=[1.50,1.51,1.55,1.58,1.57,1.56,1.52].map((price,i)=>({at:stamp(now-70000+i*1000),sourceAt:stamp(now-70000+i*1000),bookKeys:['a','pinnacle'],choices:[{label:'승',overseas:2+i*.02},{label:'패',overseas:2}],books:[{key:'pinnacle',updatedAt:stamp(now-70000+i*1000),prices:[{label:'승',odds:price},{label:'패',odds:5+i*.03}]}]}));
+vm.runInContext('OV.history=PIN',client);
+html=vm.runInContext('r485FlowHtml(M,R)',client);assert.match(html,/피나클/);assert.doesNotMatch(html,/국내|중앙값/);assert.equal(html.match(/<tbody>([\s\S]*?)<\/tbody>/)[1].match(/<tr>/g).length,5);
+insights=vm.runInContext('r519FlowInsights(M,R,OV)',client);assert.ok(insights.some(x=>/피나클 승 1.56 → 1.52.*하락.*-2.6%/.test(x)),'use previous change, not opening odds or the median');assert.ok(insights.length<=5);
+vm.runInContext('OV.history=PIN.map(p=>({...p,books:p.books.map(b=>({...b,updatedAt:new Date(Date.now()+3600000).toISOString()}))}))',client);assert.doesNotMatch(vm.runInContext('r485FlowHtml(M,R)',client),/피나클/,'invalid future bookmaker timestamps cannot create Pinnacle movement');
+console.log('PASS R521: overseas-only flow, named Pinnacle direction, no domestic fallback, stable median cohort, five rows, missing/single/future skipped');

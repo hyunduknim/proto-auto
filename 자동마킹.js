@@ -1,5 +1,5 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R520-PINNACLE-FEED";
-const BUILD_ID = "proto-r520-20261015-pinnacle-feed";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.15-R521-OVERSEAS-FLOW";
+const BUILD_ID = "proto-r521-20261015-overseas-flow";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
 function r360FutureEligible(m){const t=gameTimeMs(m);return t!=null&&t>=R360_EFFECTIVE_FROM_MS&&!started(m)&&!m.resultFinal;}
@@ -8334,17 +8334,12 @@ const d=expEasyData(m,r);
 if(!d.cs.length)return '<div class="edFlowEmpty">선택지 배당 미확인</div>';
 const colors=['#6bd5f4','#f9c477','#cba8ff'];
 const cards=d.cs.map((c,i)=>{
-const pick=r.marked&&String(c.label)===String(r.finalPick),rate=d.q.valid?100/Number(c.odds)/d.q.sum:null,
-prior=(r.precision?.choices||[]).find(x=>String(x.label)===String(c.label))||{},
-opening=Number(prior.openingOdds),first=Number(prior.firstObservedOdds),previous=opening>1?opening:first>1?first:null,
-diff=previous!==null?Number(c.odds)-previous:null,
-movement=diff===null?'이전 기록 없음':Math.abs(diff)<.005?'변화 없음':Math.abs(diff).toFixed(2)+'배 '+(diff<0?'내려감':'올라감'),
-priorText=previous===null?'':(opening>1?'시작 배당 ':'처음 확인 ')+expDOdds(previous)+' · ';
+const pick=r.marked&&String(c.label)===String(r.finalPick),rate=d.q.valid?100/Number(c.odds)/d.q.sum:null;
 return '<div class="edPriceCard edTone'+i+(pick?' picked':'')+'"><div class="edPriceLabel"><b>'+e(c.label)+'</b>'+
 (pick?'<span>현재 마킹</span>':'')+'</div><strong class="edPriceBig">'+e(expDOdds(c.odds))+'</strong>'+
 '<div class="edPriceShare">배당으로 본 가능성 <b>'+(rate===null?'확인 중':rate.toFixed(1)+'%')+'</b></div>'+
 (rate===null?'':'<div class="r474Track"><i style="width:'+rate.toFixed(1)+'%;background:'+colors[i%3]+'"></i></div>')+
-'<small class="r474Change">'+e(priorText+movement)+'</small></div>';
+'</div>';
 }).join('');
 return '<div class="edPrices r474Choices"><div class="edDomVizHead">선택지별 배당 비교</div>'+
 '<div class="edPriceGrid">'+cards+'</div></div>';
@@ -8551,9 +8546,8 @@ return {rows,choices,changeCount,closed,observedAt:Number.isFinite(at)&&at<=now?
 }
 function r485FlowHtml(m,r){
  const market=r519Market(m,r),tables=r518OddsTables(m,r,market);if(!tables)return '';
- const flow=r519FlowData(m,r,market),live=flow.domFresh||flow.ovFresh;
- return '<section class="r485Flow"><div class="r485Head"><b>배당흐름 · 국내·해외</b><span class="'+(live?'live':'closed')+'">'+(live?'최근 수신 자료 · 1분 간격 확인':'저장 배당흐름')+'</span></div>'+(flow.domestic.length>=2?r474FlowHtml(r):'')+tables+
- (flow.overseas.length>=2?r506OverseasHtml(m,r):'')+'</section>';
+ const series=r521ForeignSeries(m,r,market);
+ return '<section class="r485Flow"><div class="r485Head"><b>해외배당 흐름</b><span class="'+(series.fresh?'live':'closed')+'">'+(series.fresh?'최근 해외 원배당':'저장된 해외 원배당')+'</span></div>'+tables+'</section>';
 }
 function r474FlowData(r){
 const p=r?.precision||{},quoted=Array.isArray(r?.choices)?r.choices:[],
@@ -8689,22 +8683,32 @@ function r519FlowData(m,r,market){
  const overseas=[...seen.values()].filter(Boolean).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)),age=at==null?null:now-at,last=overseas.at(-1),sourceAge=now-Date.parse(last?.oldestQuoteAt||last?.sourceAt||'');
  return {labels,domestic,overseas,at,closed,domFresh:domestic.length>=2&&age!==null&&age>=0&&age<=120000&&!closed,ovFresh:overseas.length>=2&&sourceAge>=0&&sourceAge<=600000&&!closed&&!!market?.choices?.length};
 }
-function r519FlowInsights(m,r,market){
- const d=r519FlowData(m,r,market),out=[],candidate=String(r.finalPick||(r.marked?m.pick:'')||''),label=d.labels.includes(candidate)?candidate:d.labels[0],delta=points=>points.length>=2?points.at(-1).values[label]-points[0].values[label]:null;
- const describe=(name,points,fresh)=>{if(points.length<2)return;const a=points[0].values[label],b=points.at(-1).values[label];if(!(a>1&&b>1))return;const pct=(b/a-1)*100;out.push(name+' '+label+' '+a.toFixed(2)+' → '+b.toFixed(2)+'배 · '+(pct>0?'+':'')+pct.toFixed(1)+'%'+(fresh?' · 최근 수신':' · 저장 이력'));};
- describe('국내 배당흐름',d.domestic,d.domFresh);describe('해외 배당흐름',d.overseas,d.ovFresh);
- const pinnacle=market?.books?.find(b=>b.key==='pinnacle'),pin=pinnacle?.prices?.find(c=>c.label===label),pinAge=Date.now()-Date.parse(pinnacle?.updatedAt||'');
- if(pin&&Number.isFinite(pin.odds)&&pin.odds>1&&pinAge>=0&&pinAge<=600000&&!d.closed)out.push('피나클 '+label+' '+pin.odds.toFixed(2)+'배 · '+r506Clock(pinnacle.updatedAt));
- const first=d.overseas[0],last=d.overseas.at(-1),cohort=d.overseas.length>=2&&d.overseas.every(p=>Array.isArray(p.bookKeys)&&p.bookKeys.length>0&&JSON.stringify(p.bookKeys.slice().sort())===JSON.stringify(first.bookKeys.slice().sort()));
- if(d.overseas.length>=2&&!cohort)out.push('해외 업체 구성 변경/미확인 · 방향 비교 보류');
- const dd=delta(d.domestic),od=delta(d.overseas);
- if(cohort&&d.domFresh&&d.ovFresh&&market?.status==='MATCHED'&&dd!==null&&od!==null&&Math.abs(dd)>=.005&&Math.abs(od)>=.005){
-  const overlap=Math.max(d.domestic[0].at,Date.parse(first.at))<=Math.min(d.domestic.at(-1).at,Date.parse(last.at));
-  if(overlap)out.push('국내·해외 '+label+' 배당이 '+(Math.sign(dd)===Math.sign(od)?'같은 방향':'서로 반대 방향')+' · 관측 구간은 서로 다릅니다.');
+function r521ForeignSeries(m,r,market){
+ const d=r519FlowData(m,r,market),points=[];
+ // Compare one named bookmaker across time; never treat a changing median as Pinnacle.
+ for(const p of d.overseas){
+  const book=p.books?.find(b=>b.key==='pinnacle'),t=Date.parse(book?.updatedAt||'');
+  if(!book||!Number.isFinite(t)||t>Date.now()||t<946684800000||!Array.isArray(book.prices)||book.prices.length!==d.labels.length||new Set(book.prices.map(x=>x.label)).size!==d.labels.length||!d.labels.every(l=>book.prices.some(x=>x.label===l&&Number.isFinite(x.odds)&&x.odds>1)))continue;
+  const values=Object.fromEntries(book.prices.map(x=>[x.label,x.odds])),prev=points.at(-1);
+  if(prev&&Date.parse(prev.at)>=t)continue;
+  points.push({at:book.updatedAt,sourceAt:book.updatedAt,values,bookCount:1});
  }
- const choice=market?.choices?.find(c=>c.label===label),domestic=Number((r.choices||[]).find(c=>c.label===label)?.odds),overseas=Number(choice?.overseas);
- if(d.domFresh&&d.ovFresh&&market?.status==='MATCHED'&&Number.isFinite(domestic)&&domestic>1&&Number.isFinite(overseas)&&overseas>1){const gap=domestic/overseas-1;out.push('동일 시장 '+label+' 국내 지급배당은 해외 중앙값 대비 '+(gap>0?'+':'')+(gap*100).toFixed(1)+'% · 각 확인시각 기준');}
- return out;
+ let source='피나클',series=points;
+ if(points.length<2){
+  source='해외 업체 중앙값';series=[];
+  const last=d.overseas.at(-1),cohort=p=>Array.isArray(p?.bookKeys)&&p.bookKeys.length>0?JSON.stringify(p.bookKeys.slice().sort()):null,key=cohort(last);
+  if(key)for(let i=d.overseas.length-1;i>=0&&cohort(d.overseas[i])===key;i--)series.unshift(d.overseas[i]);
+ }
+ const usable=series.length>=2,changes=usable?series.filter((p,i)=>!i||d.labels.some(l=>Math.abs(p.values[l]-series[i-1].values[l])>=.005)):[],age=Date.now()-Date.parse(series.at(-1)?.oldestQuoteAt||series.at(-1)?.sourceAt||'');
+ return {labels:d.labels,points:usable?series:[],changes,source,fresh:usable&&!d.closed&&age>=0&&age<=600000};
+}
+function r519FlowInsights(m,r,market){
+ const d=r521ForeignSeries(m,r,market);if(d.points.length<2)return [];
+ const b=d.changes.at(-1),a=d.changes.at(-2)||b;
+ const out=d.labels.map(label=>{const from=a.values[label],to=b.values[label],delta=to-from,pct=(to/from-1)*100;return d.source+' '+label+' '+from.toFixed(2)+' → '+to.toFixed(2)+' · '+(delta>.005?'상승 ↑':delta<-.005?'하락 ↓':'유지 →')+' ('+(pct>0?'+':'')+pct.toFixed(1)+'%)';});
+ out.push('직전 변동 → 최근 가격 · '+r506Clock(b.at)+(d.fresh?' · 최근 원천 갱신':' · 저장 이력'));
+ if(d.source!=='피나클')out.push('같은 업체 구성의 중앙값 비교 · 피나클 단독 배당과 다릅니다.');
+ return out.slice(0,5);
 }
 function r518HistoryTable(title,labels,points,overseas){
  const changes=points.filter((p,i)=>!i||labels.some(l=>Math.abs(p.values[l]-points[i-1].values[l])>=.005)),tail=changes.slice(-5);
@@ -8715,13 +8719,10 @@ function r518HistoryTable(title,labels,points,overseas){
  return '<section class="r518Timeline"><b>'+e(title)+'</b><div class="r506TableWrap"><table><thead><tr><th>확인 시간 · KST</th>'+labels.map(l=>'<th>'+e(l)+'</th>').join('')+(overseas?'<th>업체</th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table></div></section>';
 }
 function r518OddsTables(m,r,market){
- const d=r519FlowData(m,r,market),dom=d.domestic.length>=2,ov=d.overseas.length>=2;if(!dom&&!ov)return '';
- return '<div class="r518Dual"><div class="r518Fresh">'+
- (dom?'<span>국내 '+(d.domFresh?'최근 2분 이내 수신':d.closed?'마감 · 저장 배당':'저장 이력 · 갱신 지연')+' · '+e(r506Clock(new Date(d.at??d.domestic.at(-1).at).toISOString()))+'</span>':'')+
- (ov?'<span>해외 '+(d.ovFresh?'최근 10분 이내 원천 갱신':'저장 이력 · 최신 여부 확인 필요')+' · '+e(r506Clock(d.overseas.at(-1).sourceAt))+'</span>':'')+'</div>'+
- (dom?r518HistoryTable('국내배당 · 실제 관측 이력',d.labels,d.domestic.map(p=>({...p,at:new Date(p.at).toISOString()})),false):'')+
- (ov?r518HistoryTable('해외배당 · 업체 중앙값 이력',d.labels,d.overseas,true):'')+
- '<p class="r506Muted">최근 가격 변동 최대 5줄 · ↑ 상승 / ↓ 하락 · KST. 해외는 업체 중앙값 · 실제 구매율 미제공 · 승률과 다릅니다.</p></div>';
+ const d=r521ForeignSeries(m,r,market);if(d.points.length<2)return '';
+ return '<div class="r518Dual"><div class="r518Fresh"><span>'+e(d.source)+' · '+(d.fresh?'최근 10분 이내 원천 갱신':'저장 이력 · 최신 가격 아님')+'</span></div>'+
+ r518HistoryTable('해외배당 · '+d.source,d.labels,d.points,d.source!=='피나클')+
+ '<p class="r506Muted">최근 변동 최대 5줄 · ↑ 상승 / ↓ 하락 · KST · 직전 가격과 비교 · 출처 The Odds API</p></div>';
 }
 let r518AutoBusy=false;
 function r518ScheduleOverseas(games){
@@ -8889,8 +8890,7 @@ return '<section class="r477Shell" aria-label="DATA 픽스쿨 스타일 핵심 �
 '<div class="r477Kpi sample"><small>동일배당 지난 결과</small><strong>'+(sample?format(sample.rate*100):'—')+'</strong><span>'+(sample?sample.n+'경기 · '+sample.k+'회':'미확보')+'</span></div>'+forecast+'</div>'+
 '<div class="r477SectionTitle"><b>선택지별 배당 비중</b><small>합계 100% · 실제 승률 아님</small></div>'+
 '<div class="r477Bars">'+bars+'</div>'+
-'<div class="r477Move '+moveTone+'"><span>배당 변화</span><strong>'+e(movementText)+'</strong></div>'+
-'<div class="r477Foot"><b>'+e(verifiedLine)+'</b><span>'+e(sampleSub)+'</span>'+
+'<div class="r477Foot"><span>'+e(sampleSub)+'</span>'+
 '<small>출처 '+e(source)+' · '+e(stamp)+'</small></div>'+
 '</section>';
 }
@@ -13381,7 +13381,7 @@ async function r518RememberHistory(storage,event,receivedAt){
  for(const row of rows){
   const market=r506Compare(row,[row],[event],now).markets?.[0];if(!market?.choices?.length)continue;
   const key='r518:history:'+row.gmTs+':'+row.no,identity=r518Identity(row),prior=await storage.get(key),same=prior?.identity===identity&&prior?.eventId===event.id;
-  const bookKeys=market.books.map(b=>b.key).sort(),point={at:receivedAt,sourceAt:market.newestQuoteAt,oldestQuoteAt:market.oldestQuoteAt,bookCount:market.bookCount,bookKeys,choices:market.choices.map(c=>({label:c.label,overseas:c.overseas,marketWeight:c.marketWeight}))};
+  const bookKeys=market.books.map(b=>b.key).sort(),point={at:receivedAt,sourceAt:market.newestQuoteAt,oldestQuoteAt:market.oldestQuoteAt,bookCount:market.bookCount,bookKeys,books:market.books.map(b=>({key:b.key,title:b.title,updatedAt:b.updatedAt,prices:b.prices.map(p=>({label:p.label,odds:p.odds}))})),choices:market.choices.map(c=>({label:c.label,overseas:c.overseas,marketWeight:c.marketWeight}))};
   const signature=JSON.stringify(market.books.slice().sort((a,b)=>a.key.localeCompare(b.key)).map(b=>[b.key,b.updatedAt,b.prices.map(p=>[p.label,p.odds])])),points=same?prior.points.slice():[];
   if(same&&prior.signature===signature)continue;
   // Colliding receive timestamps keep the newest real response, never an invented timestamp.

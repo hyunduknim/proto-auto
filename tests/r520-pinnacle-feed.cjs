@@ -11,7 +11,7 @@ const memory=new Map();c.STORAGE={get:async k=>structuredClone(memory.get(k)),pu
  let cmp=run('r506Compare(G,[G],[E])');assert.equal(cmp.markets[0].bookCount,1,'official bookmaker-level source timestamp must validate actual Pinnacle prices');
  await run('r508RememberOdds("/v4/sports/soccer_usa_mls/odds",[E])');
  let cached=memory.get('r508:quote:soccer_usa_mls:pinnacle-fixture');assert.equal(cached.event.bookmakers[0].last_update,c.E.bookmakers[0].last_update,'preserve the original source timestamp');
- assert.equal(memory.get('r518:history:260122:8347').points.length,1);
+ assert.equal(memory.get('r518:history:260122:8347').points.length,1);assert.equal(memory.get('r518:history:260122:8347').points[0].books[0].prices[0].odds,1.49,'retain actual named-bookmaker prices for overseas movement');
  const request='new Request("https://proto.test/api/overseas-odds?gmTs=260122&no=8347")';
  run('MEM.state.r507Overseas.markets["260122:8347"]={eventId:E.id,sportKey:E.sport_key,kick:gameTimeMs(G)};globalThis.NETWORK=0;fetch=async()=>{NETWORK++;throw Error("NO_UI_SPEND")};');
  let result=await (await run('r508Precision('+request+',{THE_ODDS_API_KEY:"private-key"},STORAGE)')).json();assert.equal(result.status,'MATCHED','saved source event remains resolvable if transient match index is missing');assert.equal(result.markets[0].books[0].key,'pinnacle');assert.equal(result.markets[0].choices[0].overseas,1.49);assert.equal(c.NETWORK,0);assert.ok(!JSON.stringify(result).includes('private-key'));

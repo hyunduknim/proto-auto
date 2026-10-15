@@ -33,7 +33,7 @@ const data=new Map();c.STORAGE={get:async k=>structuredClone(data.get(k)),put:as
  assert.ok(start>=0,'new history renderer must be available');vm.runInContext('const e=x=>String(x??"").replace(/</g,"&lt;");const r506Clock=x=>String(x);'+script.slice(start,end),client);
  client.R={no:8291,marketFamily:'MONEYLINE',choices:c.G.choices,precision:{observedAt:new Date(now).toISOString(),history:[{at:new Date(now-60000).toISOString(),prices:c.G.choices}]}};client.M={};client.OV={history:h.points};
  vm.runInContext('function r485FlowData(r){return {rows:r.precision.history.map(h=>({at:Date.parse(h.at),values:Object.fromEntries(h.prices.map(p=>[p.label,p.odds]))})),observedAt:Date.parse(r.precision.observedAt),closed:false}}',client);
- const html=vm.runInContext('r518OddsTables(M,R,OV)',client);assert.match(html,/국내배당/);assert.match(html,/해외배당/);assert.match(html,/업체/);assert.match(html,/↓/);assert.match(html,/2.08/);assert.match(html,/실제 구매율.*미제공/);
+ const html=vm.runInContext('r518OddsTables(M,R,OV)',client);assert.doesNotMatch(html,/국내/);assert.match(html,/해외배당/);assert.match(html,/피나클/);assert.match(html,/↓/);assert.match(html,/2.08/);assert.match(html,/최대 5줄/);
  run('G.period="FULL";E.home_team="FC Cincinnati";E.away_team="New England Revolution"');
  const firstAt=h.points[0].at;
  for(let i=0;i<105;i++){await new Promise(r=>setTimeout(r,1));c.RECEIVED=new Date().toISOString();run('E.bookmakers[0].markets[0].last_update=RECEIVED');await run('r518RememberHistory(STORAGE,E,RECEIVED)');}
