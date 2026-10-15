@@ -29,7 +29,7 @@ const data=new Map();c.STORAGE={get:async k=>structuredClone(data.get(k)),put:as
  const script=run('INDEX').match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(script);
  const client=vm.createContext({console,Date,Map,Set,URL,AbortController,setTimeout,clearTimeout,setInterval:()=>0,document:{getElementById:()=>null},localStorage:{setItem(){}},location:{origin:'https://proto.test'},fetch:async()=>{}});
  // Evaluate only pure UI helpers to assert actual generated table and source freshness states.
- const start=script.indexOf('function r518HistoryTable'),end=script.indexOf('function r506OverseasHtml',start);
+ const start=script.indexOf('function r519Market'),end=script.indexOf('function r506OverseasHtml',start);
  assert.ok(start>=0,'new history renderer must be available');vm.runInContext('const e=x=>String(x??"").replace(/</g,"&lt;");const r506Clock=x=>String(x);'+script.slice(start,end),client);
  client.R={no:8291,marketFamily:'MONEYLINE',choices:c.G.choices,precision:{observedAt:new Date(now).toISOString(),history:[{at:new Date(now-60000).toISOString(),prices:c.G.choices}]}};client.M={};client.OV={history:h.points};
  vm.runInContext('function r485FlowData(r){return {rows:r.precision.history.map(h=>({at:Date.parse(h.at),values:Object.fromEntries(h.prices.map(p=>[p.label,p.odds]))})),observedAt:Date.parse(r.precision.observedAt),closed:false}}',client);

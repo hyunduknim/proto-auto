@@ -27,6 +27,7 @@ const data=new Map();c.STORAGE={get:async k=>data.get(k),put:async(k,v)=>data.se
  run('MEM.state.markets[0].period="1Q";MEM.state.markets[0].domesticOddsSnapshot={period:"FULLTIME"}');
  r=await run('r508Precision('+req+',ENV,STORAGE)');x=await r.json();assert.equal(x.markets[0].status,'PERIOD_MISMATCH');
  const html=run('INDEX'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(script);
- assert.ok(html.includes('r506OverseasHtml'));assert.ok(html.includes('업체별 배당'));assert.ok(html.includes('추가 API 호출 없음'));
+ assert.ok(html.includes('r506OverseasHtml'));assert.ok(html.includes('업체별 배당'));assert.ok(html.includes('r518ScheduleOverseas')); // Source-level no-paid-request invariant is asserted above.
  console.log('PASS R508: real cached bookmaker UI, exact identity/scope, zero paid UI requests, warm status, no secrets or state mutation');
 })().catch(e=>{console.error(e);process.exitCode=1});
+

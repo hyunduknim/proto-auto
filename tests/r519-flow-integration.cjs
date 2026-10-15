@@ -1,0 +1,28 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const ctx=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),ctx);
+const script=vm.runInContext('INDEX',ctx).match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(script);
+// Removing the independent menu must not require a click before automatic history loads.
+const body=script.slice(script.indexOf('function expBody('),script.indexOf('function expDReview('));
+assert.ok(!body.includes('r506OverseasHeader(m)'),'standalone domestic/overseas menu is removed');
+const client=vm.createContext({Date,Map,Set,console,Promise,setTimeout,clearTimeout});
+vm.runInContext('const e=x=>String(x??"").replace(/</g,"&lt;");const expKey=m=>m.key;const r506Clock=x=>String(x);const r506Client=new Map();',client);
+const dataStart=script.indexOf('function r485FlowData('),dataEnd=script.indexOf('function r485FlowHtml(',dataStart);vm.runInContext(script.slice(dataStart,dataEnd),client);
+const helperStart=script.indexOf('function r519Market('),helperEnd=script.indexOf('let r518AutoBusy',helperStart);assert.ok(helperStart>=0);vm.runInContext(script.slice(helperStart,helperEnd),client);
+const flowStart=script.indexOf('function r485FlowHtml('),flowEnd=script.indexOf('function r474FlowData(',flowStart);vm.runInContext(script.slice(flowStart,flowEnd),client);
+vm.runInContext('function r474FlowHtml(){return "";}function r506OverseasHtml(){return "<div class=bookmakers>bookmakers</div>";}',client);
+const now=Date.now(),stamp=t=>new Date(t).toISOString(),choices=[{label:'승',odds:1.8},{label:'패',odds:2.1}];
+client.M={key:'fixture',pick:'승',gameStarted:false};client.R={no:8291,choices,precision:{observedAt:stamp(now-20000),history:[{at:stamp(now-60000),prices:[{label:'승',odds:1.9},{label:'패',odds:2.0}]}]}};
+client.OV={no:8291,status:'MATCHED',choices:[{label:'승',overseas:1.9,priceGap:1.8/1.9-1},{label:'패',overseas:2.0,priceGap:2.1/2-1}],history:[{at:stamp(now-50000),sourceAt:stamp(now-50000),oldestQuoteAt:stamp(now-50000),bookCount:3,bookKeys:['a','b','c'],choices:[{label:'승',overseas:2.0},{label:'패',overseas:1.9}]},{at:stamp(now-10000),sourceAt:stamp(now-10000),oldestQuoteAt:stamp(now-10000),bookCount:3,bookKeys:['a','b','c'],choices:[{label:'승',overseas:1.9},{label:'패',overseas:2.0}]}]};
+vm.runInContext('r506Client.set("fixture",{data:{markets:[OV]}})',client);
+let html=vm.runInContext('r485FlowHtml(M,R)',client);assert.match(html,/배당흐름/);assert.match(html,/국내배당/);assert.match(html,/해외배당/);assert.match(html,/↓/);assert.ok(html.indexOf('r518Dual')>html.indexOf('r485Flow'));
+let insights=vm.runInContext('r519FlowInsights(M,R,OV)',client);assert.ok(insights.some(x=>/국내.*1.90.*1.80/.test(x)));assert.ok(insights.some(x=>/해외.*2.00.*1.90/.test(x)));assert.ok(insights.some(x=>/같은 방향/.test(x)));
+vm.runInContext('OV.choices[0].priceGap=2.0/1.9-1',client);
+insights=vm.runInContext('r519FlowInsights(M,R,OV)',client);assert.ok(insights.some(x=>/국내 지급배당.*-5\.3%/.test(x)),'analysis uses current domestic odds, not cached gap');
+client.SINGLE={no:8291,choices,precision:{observedAt:stamp(now-20000),history:[]}};
+vm.runInContext('r506Client.clear()',client);assert.equal(vm.runInContext('r485FlowHtml(M,SINGLE)',client),'','no time series means no empty flow block');
+html=vm.runInContext('r485FlowHtml(M,R)',client);assert.match(html,/국내배당/);assert.doesNotMatch(html,/해외배당|미수신|수집.*대기/,'absent overseas flow is silently skipped');
+vm.runInContext('OV.history=OV.history.slice(0,1);r506Client.set("fixture",{data:{markets:[OV]}})',client);assert.doesNotMatch(vm.runInContext('r485FlowHtml(M,R)',client),/해외배당/,'one foreign observation is not a flow');
+vm.runInContext('OV.history.push({...OV.history[0],at:new Date(Date.now()+3600000).toISOString()})',client);assert.doesNotMatch(vm.runInContext('r485FlowHtml(M,R)',client),/해외배당/,'future observations cannot produce a flow');
+vm.runInContext('OV.history.push({...OV.history[0],at:new Date(Date.now()-10000).toISOString(),bookKeys:["changed"]})',client);insights=vm.runInContext('r519FlowInsights(M,R,OV)',client);assert.ok(insights.some(x=>/업체.*변경/.test(x)));assert.ok(!insights.some(x=>/같은 방향/.test(x)),'changed bookmaker cohorts cannot imply corroboration');
+console.log('PASS R519: integrated source timelines, no menu, missing/single/future series skipped, source-based data analysis and cohort guard');
