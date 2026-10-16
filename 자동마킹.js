@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R555B-MANUAL-KEEP";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R555C-FORM-COVERAGE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4210,7 +4210,8 @@ const b=t.flags[f]||(t.flags[f]={n:0,hits:0,sumP:0});b.n++;if(m.hit)b.hits++;b.s
 if(t.seen.length>4000)t.seen=t.seen.slice(-4000);if(added)t.at=nowIso();return t;}
 function r555Adj(state,flag){const b=state?.r555Track?.flags?.[flag];if(!flag||!b||b.n<R555.minN)return {adj:0,n:b?.n||0};const imp=b.sumP/b.n,hit=b.hits/b.n,se=Math.sqrt(Math.max(imp*(1-imp),1e-6)/b.n),z=(hit-imp)/se;
 const adj=Math.abs(z)>=R555.z?clamp((hit-imp)*b.n/(b.n+R555.shrinkK),-R555.maxAdj,R555.maxAdj):0;return {adj,n:b.n,z:r3(z),hitPct:r3(hit*100),impPct:r3(imp*100)};}
-function r555Status(state){const t=state?.r555Track,out={};for(const f of ["with","neutral","against"]){const b=t?.flags?.[f];const a=r555Adj(state,f);out[f]=b?{n:b.n,hitPct:r3(b.hits/b.n*100),modelPct:r3(b.sumP/b.n*100),adjPctPoint:r3(a.adj*100),active:a.adj!==0}:{n:0};}return {mode:"DATA_DRIVEN_FORM_CORRECTION",minN:R555.minN,flags:out,at:t?.at||null};}
+function r555Status(state){const t=state?.r555Track,out={};for(const f of ["with","neutral","against"]){const b=t?.flags?.[f];const a=r555Adj(state,f);out[f]=b?{n:b.n,hitPct:r3(b.hits/b.n*100),modelPct:r3(b.sumP/b.n*100),adjPctPoint:r3(a.adj*100),active:a.adj!==0}:{n:0};}const cov={};for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||!m.marked||!m.representativeSelected||m.resultFinal||started(m))continue;const sp=m.sport||"기타",c=cov[sp]||(cov[sp]={games:0,withForm:0});c.games++;if(m.r555?.home?.n>=3&&m.r555?.away?.n>=3)c.withForm++;}
+return {mode:"DATA_DRIVEN_FORM_CORRECTION",minN:R555.minN,coverage:cov,flags:out,at:t?.at||null};}
 function r554Apply(state){let marked=0,best=0,pass=0;
 for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||!m.marked||!m.representativeSelected||started(m)||m.resultFinal||m.manualOverride)continue;
 const p=Number(m.hitProbability??m.calibratedProbability);if(!Number.isFinite(p))continue;
