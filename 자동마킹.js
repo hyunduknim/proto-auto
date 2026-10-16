@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R552-CURRENT-ROUND-FRESH-GRADES";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R553-HISTORY-ODDS-TABLE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11469,6 +11469,7 @@ if(fails>=3){rec.stage='SKIP';rec.blockedUntil=now+3600000;rec.reason='OVERSEAS_
 try{if(ds)await ds.put('r514:ov',rec);}catch(_){}
 const s=await loadState(env);let cur=MEM.state||s;
 const res=await r507RefreshOverseasOdds(cur,env).catch(e=>({status:'ERROR',error:String(e?.message||e).slice(0,120)}));
+try{await r553Step(MEM.state||cur);}catch(_){}
 try{const er=await r546RefreshElo(env);if(er.status==='UPDATED'){cur=MEM.state||cur;if(r546Annotate(cur))markState(cur);}}catch(_){}
 try{await r522CleanupQuotes(ds,Date.now());}catch(_){}
 cur=MEM.state||cur;
@@ -13707,10 +13708,58 @@ function r546Status(state){const d=MEM.r546Elo,a=state?.r546EloAudit||{},pct=b=>
 const live=(state?.markets||[]).filter(m=>m.r546Elo&&!m.resultFinal).length;
 return {mode:"VERIFICATION_ONLY_NO_PICK_EFFECT",source:"api.clubelo.com",ratingsDay:d?.day||null,clubs:d?.clubs?.length||0,fetchedAt:d?.at?new Date(d.at).toISOString():null,lastError:MEM.r546LastError||null,
 picksWithElo:live,record:{agreeWithElo:{...(a.agree||{}),hitPct:pct(a.agree)},againstElo:{...(a.disagree||{}),hitPct:pct(a.disagree)},close:{...(a.close||{}),hitPct:pct(a.close)},at:a.at||null}};}
+/* ===================== R553: Betman historical odds vs results (ZENTOTO past proto rounds) =====================
+   Collects finished games of past rounds slowly (one round page every 3 min) and builds a table:
+   sport · market · choice · odds bucket → how often that price actually won vs. what the price implied.
+   Verification only: shown in /api/overseas-status → history; probabilities are not changed until proven. */
+const R553={gapMs:3*60000,firstRound:260001,maxPerStep:1,
+patterns:[r=>"https://v1.zentoto.com/proto/game?proto_round="+r,r=>"https://v1.zentoto.com/proto/game?round="+r,r=>"https://v1.zentoto.com/proto/game?game_round="+r,r=>"https://v1.zentoto.com/proto/game/"+r],
+buckets:[1.2,1.3,1.4,1.5,1.6,1.8,2.0,2.5,3.5,99]};
+function r553Bucket(o){const b=R553.buckets.find(x=>o<x);return b?("<"+b):"99+";}
+function r553Sport(block){return /(KBO|NPB|MLB)/i.test(block)?"야구":/(KBL|WKBL|NBA)/i.test(block)?"농구":/(KOVO|VOLLEY|V리그)/i.test(block)?"배구":/(축구|SOCCER|ACLE|ACL2|UCL|UEL|EPL|J1|J2|K리그|분데스|라리가|세리에|리그1)/i.test(block)?"축구":"기타";}
+function r553ParseRound(html,gmTs){const rows=[];if(typeof html!=="string"||html.length<5000)return {title:null,rows};
+const title=r381ZenStrip(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]||""),pageGmTs=title.match(/\b(\d{6})\s*회차/)?.[1]||null;
+if(pageGmTs!==String(gmTs))return {title:pageGmTs,rows};
+for(const block of html.split(/<div\s+class=["']game row col-xs-12["']\s*>/i).slice(1)){
+const noTag=block.match(/<p\s+class=["']proto_uid["'][^>]*>\s*(\d{3,6})\s*<\/p>/i),st=block.match(/<p\s+class=["']game_state([^"']*)["'][^>]*>([\s\S]*?)<\/p>/i),
+homeTag=block.match(/<p\s+class=["']home["'][^>]*>([\s\S]*?)<\/p>/i),scoreTag=block.match(/<p\s+class=["']vs["'][^>]*>([\s\S]*?)<\/p>/i);
+if(!noTag||!st||!homeTag||!scoreTag||r381ZenStrip(st[2])!=="경기종료")continue;
+const hand=homeTag[1].match(/\(H\s*([+-]?\d+(?:\.\d+)?)\)/i),total=homeTag[1].match(/\(U\s*\/\s*O\s*(\d+(?:\.\d+)?)\)/i);
+const family=total?"TOTAL":hand?"HANDICAP":"MONEYLINE",line=total?Number(total[1]):hand?Number(hand[1]):null;
+const flat=r381ZenStrip(block),p=flat.indexOf("배당율"),q=flat.indexOf("배당승률",p+3);if(p<0||q<=p||q-p>240)continue;
+if(family==="MONEYLINE"&&r515OddEvenText(block,flat.slice(0,p)))continue;
+const slots=(flat.slice(p+3,q).match(/(?:\d{1,2}\.\d{1,2}|-)/g)||[]).slice(0,3);if(slots.length!==3)continue;
+const labels=family==="TOTAL"?["언더",null,"오버"]:["승","무","패"],choices=slots.flatMap((v,i)=>v!=="-"&&labels[i]&&Number(v)>1.01?[{label:labels[i],odds:Number(v)}]:[]);
+if(choices.length<2)continue;const implied=choices.reduce((a,c)=>a+1/c.odds,0);if(implied<.95||implied>1.35)continue;
+const sc=r381ZenStrip(scoreTag[1]).replace(/\s+/g,"");let win=null;
+if(family==="TOTAL"){if(!/^\d{1,3}$/.test(sc))continue;const t=Number(sc);if(t===line)continue;win=t<line?"언더":"오버";}
+else{const x=sc.match(/^(-?\d{1,3}(?:\.\d+)?):(-?\d{1,3}(?:\.\d+)?)$/);if(!x)continue;const h=Number(x[1]),a=Number(x[2]);win=h>a?"승":h<a?"패":"무";}
+if(!choices.some(c=>c.label===win))continue;
+rows.push({no:Number(noTag[1]),sport:r553Sport(block),family,line,choices:choices.map(c=>({...c,p:r3(1/c.odds/implied)})),win});}
+return {title:pageGmTs,rows};}
+function r553Add(store,rows){for(const r of rows)for(const c of r.choices){const k=[r.sport,r.family,c.label,r553Bucket(c.odds)].join("|"),b=store.buckets[k]||(store.buckets[k]={n:0,hits:0,sumP:0,sumOdds:0});
+b.n++;if(c.label===r.win)b.hits++;b.sumP+=c.p;b.sumOdds+=c.odds;}}
+async function r553Fetch(url){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),9000);try{const r=await fetch(url,{headers:{accept:"text/html","user-agent":"Mozilla/5.0 (compatible; ProtoPublicPregameOdds/1.0)"},redirect:"manual",signal:ac.signal});
+if(!r.ok)return null;return await r.text();}catch(_){return null;}finally{clearTimeout(tm);}}
+async function r553Step(state,now=Date.now()){const ds=doStorage();if(!ds)return {status:"NO_STORAGE"};
+const st=MEM.r553||(MEM.r553=(await ds.get("r553:hist"))||{done:{},buckets:{},pattern:null,games:0,rounds:0,fails:{}});
+if(now-Number(st.at||0)<R553.gapMs)return {status:"WAIT"};st.at=now;
+const cur=Number(state?.gmTs||0);if(!cur)return {status:"NO_ROUND"};let target=null;
+for(let r=cur-1;r>=R553.firstRound;r--){if(!st.done[r]&&Number(st.fails[r]||0)<3){target=r;break;}}
+if(!target){st.status="COMPLETE";await ds.put("r553:hist",st);return {status:"COMPLETE"};}
+const pats=st.pattern!=null?[st.pattern]:R553.patterns.map((_,i)=>i);let got=null;
+for(const i of pats){const html=await r553Fetch(R553.patterns[i](target));const out=r553ParseRound(html,target);if(out.title===String(target)){got=out;st.pattern=i;break;}}
+if(!got){st.fails[target]=Number(st.fails[target]||0)+1;st.status=st.pattern==null?"NO_PAST_ROUND_URL_FOUND":"ROUND_PAGE_UNAVAILABLE";st.lastError={round:target,at:new Date(now).toISOString()};await ds.put("r553:hist",st);return {status:st.status};}
+r553Add(st,got.rows);st.done[target]=got.rows.length;st.rounds++;st.games+=got.rows.length;st.status="COLLECTING";st.last={round:target,rows:got.rows.length,at:new Date(now).toISOString()};
+await ds.put("r553:hist",st);return {status:"ADDED",round:target,rows:got.rows.length};}
+function r553Status(){const st=MEM.r553;if(!st)return {mode:"VERIFICATION_ONLY",status:"NOT_STARTED"};
+const table=Object.entries(st.buckets).filter(([,b])=>b.n>=30).map(([k,b])=>{const [sport,family,label,bucket]=k.split("|");return {sport,family,label,odds:bucket,n:b.n,hitPct:r3(100*b.hits/b.n),impliedPct:r3(100*b.sumP/b.n),edgePct:r3(100*(b.hits/b.n-b.sumP/b.n))};}).sort((a,b)=>b.edgePct-a.edgePct);
+return {mode:"VERIFICATION_ONLY_NO_PICK_EFFECT",source:"ZENTOTO past proto rounds (Betman odds)",status:st.status||null,rounds:st.rounds,games:st.games,urlPattern:st.pattern,last:st.last||null,lastError:st.lastError||null,
+bestSegments:table.slice(0,15),worstSegments:table.slice(-15).reverse()};}
 function r508Status(state,env){
  const raw=state?.r507Overseas,valid=x=>Number.isFinite(Number(x?.kick))&&Number.isFinite(new Date(Number(x.kick)).getTime());
  const safe=raw?{...state,r507Overseas:{...raw,matches:Object.fromEntries(Object.entries(raw.matches||{}).filter(([,v])=>valid(v)).map(([k,v])=>[k,{...v,kick:Number(v.kick)}])),unmatched:(raw.unmatched||[]).filter(valid).map(v=>({...v,kick:Number(v.kick)}))}}:state;
- const status=r507Status(safe,env);status.rawCollection={refetchMinutes:R507.refetchMs/60000,minGapMinutes:R507.minRefetchGapMs/60000,quoteStorageError:!!MEM.r508QuoteStorageError,bookmakers:R507.bookmakers};status.adminConfigured=!!String(env?.ADMIN_TOKEN||'').trim();try{status.clubElo=r546Status(state);status.betman=r550Status();}catch(_){}
+ const status=r507Status(safe,env);status.rawCollection={refetchMinutes:R507.refetchMs/60000,minGapMinutes:R507.minRefetchGapMs/60000,quoteStorageError:!!MEM.r508QuoteStorageError,bookmakers:R507.bookmakers};status.adminConfigured=!!String(env?.ADMIN_TOKEN||'').trim();try{status.clubElo=r546Status(state);status.betman=r550Status();status.history=r553Status();}catch(_){}
  // Public diagnostics show status, never the provider's raw error body or credentials.
  if(status.audit?.lastError)status.audit={...status.audit,lastError:String(status.audit.lastError).match(/ODDS_API_(?:HTTP_\d{3}|TIMEOUT)/)?.[0]||'PROVIDER_ERROR'};
  return status;
