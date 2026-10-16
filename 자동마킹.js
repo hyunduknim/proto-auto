@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R554H-MANUAL-BACK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R554I-MANUAL-SAVE-FIX";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -9792,7 +9792,7 @@ function r422ApplyManualPick(state,input,now=Date.now()){
 const no=Number(input?.no),gmTs=String(input?.gmTs||''),pick=String(input?.pick||'').trim();
 if(gmTs==='260122'&&[8116,8122,8127].includes(no))throw Error('R500_OWNER_CANCELLED_MARKING');
 if(!Number.isSafeInteger(no)||!/^[0-9]{6}$/.test(gmTs))throw Error('ROUND_OR_NUMBER_INVALID');
-if(Number(gmTs)>=R533_NO_MANUAL_FROM_GMTS)throw Error('MANUAL_REMARKING_REMOVED_AUTO_ONLY'); /* R533: owner — from round 123 picks are automatic only */
+/* R554I: owner restored manual marking (R533 auto-only block removed) */
 const marketId=String(input?.expectedMarketId||'');
 const matches=(state.markets||[]).filter(m=>Number(m.no)===no&&String(m.gmTs)===gmTs&&marketIdentity(m)===marketId);
 if(matches.length!==1)throw Error('MARKET_NOT_UNIQUE');
