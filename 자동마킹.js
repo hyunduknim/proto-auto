@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R556B-PAST-PROBABILITY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R556C-COMPARE-LEG-RESULTS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4237,7 +4237,7 @@ function r554Leg(o){const m=o.m;return {k:o.k,gmTs:String(m.gmTs||""),no:m.no,da
 function r554FindMarket(state,leg){const m=(state?.markets||[]).find(x=>r554LegKey(x)===leg.k);if(m&&m.resultFinal)return m;const c=(state?.settledCards?.rows||[]).find(x=>r554LegKey(x)===leg.k);return c||m||null;}
 function r554GameScore(state,leg){const seed=leg.seed||gameSeed(leg);let voided=null,sum=null;for(const x of state?.markets||[]){if(!x.resultFinal||String(x.gmTs||"")!==String(leg.gmTs)||gameSeed(x)!==seed)continue;if(Number.isFinite(Number(x.homeScore))&&Number.isFinite(Number(x.awayScore))&&x.homeScore!==null&&x.awayScore!==null)return {full:Number(x.homeScore)+":"+Number(x.awayScore)};const t=r537TotalSum(x);if(t!=null)sum=t;if((x.settlementType==="VOID"||x.settlementStatus==="적특")&&x.resultSpecialStatus!=="PUSH")voided=x;}return {sum,voided};}
 function r554LegStatus(state,leg){const m=r554FindMarket(state,leg);if(m&&m.date&&m.time){leg.date=m.date;leg.time=m.time;}const t=gameTimeMs(leg);if(m&&m.resultFinal){const st=String(m.settlementStatus||"");if(m.settlementType==="VOID"||st==="적특")return {status:"void",score:m.resultScoreText||m.score||null};if(m.result!=null&&String(m.result)!=="")return {status:String(m.result)===leg.pick?"hit":"miss",score:m.resultScoreText||m.score||null,result:String(m.result)};if(typeof m.hit==="boolean"&&String(m.finalPick??m.pick)===leg.pick)return {status:m.hit?"hit":"miss",score:m.resultScoreText||m.score||null};}
-if(t!=null&&t<=Date.now()){const g=r554GameScore(state,leg),lm={marketFamily:leg.marketFamily,line:leg.line,sport:leg.sport};if(g.full){const out=deriveOutcomeFromOfficialScore({score:g.full},lm);if(out==null&&leg.marketFamily==="TOTAL")return {status:"void",score:g.full};if(out)return {status:out===leg.pick?"hit":"miss",score:g.full,result:out};}if(leg.marketFamily==="TOTAL"&&g.sum!=null&&leg.line!=null){const z=g.sum-Number(leg.line);return z===0?{status:"void",score:"합계 "+g.sum+"점"}:{status:(z>0?"오버":"언더")===leg.pick?"hit":"miss",score:"합계 "+g.sum+"점",result:z>0?"오버":"언더"};}if(g.voided)return {status:"void",score:null};return {status:"live",score:null};}return {status:"pre",score:null};}
+if(t!=null&&t<=Date.now()){const lr=state?.r556LegResults?.[leg.k];if(lr){if(lr.outcome==="void")return {status:"void",score:lr.score||null};return {status:lr.outcome===leg.pick?"hit":"miss",score:lr.score||null,result:lr.outcome};}const g=r554GameScore(state,leg),lm={marketFamily:leg.marketFamily,line:leg.line,sport:leg.sport};if(g.full){const out=deriveOutcomeFromOfficialScore({score:g.full},lm);const pr=String(g.full).split(":").map(Number);if(out==null&&leg.marketFamily==="TOTAL"&&!scoreUnitMismatch(lm,{home:pr[0],away:pr[1]})&&pr[0]+pr[1]===Number(leg.line))return {status:"void",score:g.full};if(out)return {status:out===leg.pick?"hit":"miss",score:g.full,result:out};}if(leg.marketFamily==="TOTAL"&&g.sum!=null&&leg.line!=null){const z=g.sum-Number(leg.line);return z===0?{status:"void",score:"합계 "+g.sum+"점"}:{status:(z>0?"오버":"언더")===leg.pick?"hit":"miss",score:"합계 "+g.sum+"점",result:z>0?"오버":"언더"};}if(g.voided)return {status:"void",score:null};return {status:"live",score:null};}return {status:"pre",score:null};}
 function r554ComboSettle(state){const box=state?.r554Combos;if(!box||!Array.isArray(box.list))return;for(const c of box.list){let hit=0,miss=0,vd=0,live=0,odds=1;for(const leg of c.legs){const r=r554LegStatus(state,leg);leg.status=r.status;leg.score=r.score;if(r.result)leg.result=r.result;if(r.status==="hit"){hit++;odds*=Number(leg.odds)||1;}else if(r.status==="miss")miss++;else if(r.status==="void")vd++;else if(r.status==="live")live++;}
 const n=c.legs.length,prev=c.status;c.hits=hit;c.misses=miss;c.voids=vd;c.status=miss?"miss":(hit+vd===n?(vd===n?"void":"hit"):(live||hit||vd?"live":"pre"));c.finalOdds=c.status==="hit"?r3(odds):null;if(c.status!=="pre"&&!c.locked){c.locked=true;c.lockedAt=nowIso();}if((c.status==="hit"||c.status==="miss"||c.status==="void")&&prev!==c.status)c.settledAt=nowIso();}}
 function r554ComboStep(state){if(!state)return null;if(!state.r554Combos||String(state.r554Combos.gmTs||"")!==String(state.gmTs||""))state.r554Combos={gmTs:String(state.gmTs||""),list:[]};const box=state.r554Combos;r554ComboSettle(state);
@@ -4250,7 +4250,8 @@ function r554ManualCompare(state){if(!state)return null;const log=state.r554Manu
 for(const h of state.manualPickHistory||[]){if(!h||h.source!=="USER_MANUAL_CHOICE"||!h.to)continue;const tgt=byKey.get(String(h.gmTs)+":"+String(h.to.no));if(!tgt)continue;const gk=String(h.gmTs)+"|"+gameSeed(tgt);let row=log[gk];
 if(!row){const fm=h.from?byKey.get(String(h.gmTs)+":"+String(h.from.no)):null;row=log[gk]={key:gk,at:h.at,auto:fm&&h.from.pick?r554MkLeg(fm,h.from.pick,h.from.odds):null};}
 if(!row.final){row.manual=r554MkLeg(tgt,h.to.pick,h.to.odds);row.changedAt=h.at;}}
-for(const row of Object.values(log)){if(row.final)continue;for(const side of ["auto","manual"]){const l=row[side];if(!l)continue;const r=r554LegStatus(state,l);l.status=r.status;l.score=r.score||l.score||null;}
+if(!state.r556VoidReopen){state.r556VoidReopen=nowIso();for(const row of Object.values(log))if(row.final&&(row.auto?.status==="void"||row.manual?.status==="void")){row.final=false;for(const side of ["auto","manual"])if(row[side]?.status==="void"){row[side].status="live";row[side].recheck=true;}}}
+for(const row of Object.values(log)){if(row.final)continue;for(const side of ["auto","manual"]){const l=row[side];if(!l)continue;const r=r554LegStatus(state,l);l.status=r.status;l.score=r.score||l.score||null;if(["hit","miss"].includes(r.status))delete l.recheck;}
 const done=x=>!x||["hit","miss","void"].includes(x.status);if(done(row.auto)&&done(row.manual)&&row.manual)row.final=true;}
 const keys=Object.keys(log).sort((a,b)=>String(log[a].changedAt||"").localeCompare(String(log[b].changedAt||"")));if(keys.length>200)for(const k of keys.slice(0,keys.length-200))delete log[k];
 const rows=Object.values(log).sort((a,b)=>String(b.manual?.date+b.manual?.time).localeCompare(String(a.manual?.date+a.manual?.time))),t={manualHit:0,manualMiss:0,autoHit:0,autoMiss:0,same:0};
@@ -5971,8 +5972,19 @@ for(const m of ms){if(m.resultScoreText!==full){if(m.resultScoreText&&m.resultSc
 m.homeScore=h;m.awayScore=a;byCard.set(String(m.gmTs)+":"+String(m.no),full);}}
 for(const c of state?.settledCards?.rows||[]){const f=byCard.get(String(c.gmTs)+":"+String(c.no));if(f&&c.score!==f){c.score=f;fixed++;}}
 if(fixed)state.r537ScoreAudit={at:nowIso(),fixed};return fixed;}
+/* R556C: comparison legs (original auto pick or a manual pick that is no longer marked) are settled from the official
+   result rows of their own market; a points total is never called "적특" just because only a set score is known. */
+function r556CaptureLegResults(state,rows,source){const log=state?.r554ManualLog;if(!log||!Array.isArray(rows)||!rows.length)return 0;const byKey=new Map((state.markets||[]).map(m=>[r554LegKey(m),m]));let n=0;
+const out=state.r556LegResults||(state.r556LegResults={});
+for(const row of Object.values(log)){for(const side of ["auto","manual"]){const l=row[side];if(!l||["hit","miss","void"].includes(l.status)&&!l.recheck)continue;const m=byKey.get(l.k);if(!m||!started(m))continue;
+const cands=rows.filter(x=>!x.partial&&!(x.terminal!==true&&/예정|경기중|진행중|\blive\b|\bin[ -]?progress\b|\bscheduled\b|\bnot[ -]?started\b/i.test(String(x.statusText||"")))&&resultMatchesMarket(x,m)).sort((a,b)=>Number(b.family===m.marketFamily)-Number(a.family===m.marketFamily)||Number(Number(b.no)===Number(m.no))-Number(Number(a.no)===Number(m.no)));
+const rr=cands.find(x=>x.specialStatus||resolveOfficialOutcome(x,m).outcome);if(!rr)continue;
+if(rr.specialStatus){out[l.k]={outcome:"void",score:rr.score||null,source,at:nowIso()};n++;continue;}
+const res=resolveOfficialOutcome(rr,m);if(!res?.outcome)continue;out[l.k]={outcome:res.void?"void":res.outcome,score:rr.score||null,source,at:nowIso()};n++;}}
+const keys=Object.keys(out);if(keys.length>300)for(const k of keys.slice(0,keys.length-300))delete out[k];return n;}
 function applyResults(state,resultRows,source="BETMAN_OFFICIAL_RESULT"){
 if(state?.r398Protocol?.enforce)r398ObserveSettlement(state,resultRows,source);
+try{r556CaptureLegResults(state,resultRows,source);}catch(_){}
 let changed=0;
 const selectedCounts=new Map();
 for(const row of state.markets||[])if(row.marked&&row.representativeSelected){

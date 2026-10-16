@@ -13,3 +13,13 @@ x=run('r554ManualCompare(S)');
 assert.equal(x.rows[0].manual.status,'miss');assert.equal(x.rows[0].auto.status,'hit');
 assert.equal(x.totals.manualMiss,1);assert.equal(x.totals.autoHit,1);assert.equal(run('S.r554ManualLog[Object.keys(S.r554ManualLog)[0]].final'),true,'row frozen once both sides settle');
 console.log('R554K manual vs auto comparison OK');
+// R556C: volleyball points total must not become 적특 from a set score; official row of the leg's own market settles it.
+run(`V={gmTs:"260123",date:"2026-10-16",time:"19:00",sport:"배구",home:"현대건설",away:"GS칼텍스"};
+VH={...V,no:8639,marketFamily:"HANDICAP",line:1.5,marked:true,representativeSelected:true,finalPick:"패",resultFinal:true,result:"패",homeScore:3,awayScore:1,resultScoreText:"3:1"};
+VT={...V,no:8640,marketFamily:"TOTAL",line:178.5,marked:false};
+S2={gmTs:"260123",markets:[VH,VT],manualPickHistory:[{at:"2026-10-16T09:23:00Z",gmTs:"260123",no:8640,source:"USER_MANUAL_CHOICE",from:{no:8639,pick:"패",odds:1.52},to:{no:8640,pick:"오버",odds:1.61}}]};`);
+x=run('r554ManualCompare(S2)');
+assert.notEqual(x.rows[0].manual.status,'void','set score never voids a points total');
+run('S2.r556LegResults={"260123:8640":{outcome:"언더",score:"합계 171점"}}');
+x=run('r554ManualCompare(S2)');assert.equal(x.rows[0].manual.status,'miss','official under settles manual over as 낙첨');
+console.log('R556C comparison legs settle from their own official result OK');
