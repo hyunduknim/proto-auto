@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R550B-SAFE-REUSE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R551-ONE-CARD-PER-MATCH";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -6808,7 +6808,11 @@ for(const card of [...originalActive,...originalPending,...originalPast]){
 const applied=r443ShowAppliedManual(state,card),id=String(applied.gmTs)+'|'+gameSeed(applied),old=joined.get(id);
 if(!old||(!old.resultFinal&&applied.resultFinal)||(!old.manualReview&&applied.manualReview))joined.set(id,applied);
 }
-const all=r501SuppressCancelledFixtureCards(state,r499PublicVisible([...joined.values()])),
+/* R551: Betman can carry a match that has not started into the next round with the same number. Show it once:
+   a settled copy wins, otherwise the newest round (the one on sale). Both copies still settle as before. */
+const r551=new Map();for(const card of joined.values()){const k=gameSeed(card)+'|'+String(card.no||''),o=r551.get(k);
+if(!o||(!o.resultFinal&&card.resultFinal)||(!!o.resultFinal===!!card.resultFinal&&Number(card.gmTs||0)>Number(o.gmTs||0)))r551.set(k,card);}
+const all=r501SuppressCancelledFixtureCards(state,r499PublicVisible([...r551.values()])),
 activeGames=all.filter(m=>!m.resultFinal).sort(marketSort),
 pastGames=all.filter(m=>m.resultFinal).sort((a,b)=>marketSort(b,a)),
 pastPendingGames=all.filter(m=>!m.resultFinal&&(m.gameStarted||m.originalAuto?.settlementStatus||((gameTimeMs(m)||Infinity)<=Date.now()))).sort((a,b)=>marketSort(b,a));
