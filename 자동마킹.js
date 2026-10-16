@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R558-PRECISION-SUMMARY-DARK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R558B-NORMAL-WHY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -9225,6 +9225,7 @@ return '<section class="r482Shell" data-version="R482_TEAM_FORM"><div class="r48
 function r558Pct(v){return isFinite(Number(v))&&v!==null?(Number(v)*100).toFixed(1)+'%':'-'}
 function r558Adj(v){const n=Number(v);if(!isFinite(n)||Math.abs(n)<.0005)return '<span class="z0">±0.0%p</span>';return '<span class="'+(n>0?'zUp':'zDn')+'">'+(n>0?'+':'')+(n*100).toFixed(1)+'%p</span>'}
 function r558Seg(r){if(!r||!r.seg)return '';const p=String(r.seg).split('|'),fam={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'}[p[1]]||p[1],b=String(p[3]||'').replace('<','~')+'배 구간';return e(p[0]+' '+fam+' '+p[2]+' · '+b)+(r.segN?' · 과거 <b>'+e(r.segN)+'</b>경기 실제 <b class="zY">'+e(Number(r.segHitPct).toFixed(1))+'%</b> vs 배당 '+e(Number(r.segImpliedPct).toFixed(1))+'%':'')}
+function r558Why(m,ps,g){if(g!=='일반')return '';const w=m.r554&&m.r554.why;if(w==='해외배당 반대')return '<b class="zDn">해외배당이 반대쪽을 더 높게 봐서 일반</b><br>';if(w==='과거 배당구간 약세')return '<b class="zDn">과거 이 배당구간이 배당보다 덜 맞아서 일반</b><br>';if(w==='배당 부족')return '<b class="zDn">배당이 최소 기준(1.31배)보다 낮아서 일반</b><br>';if(ps!=null&&ps<.62)return '<b class="zDn">62%에 '+((.62-ps)*100).toFixed(1)+'%p 모자라서 일반</b><br>';return '<b class="z0">추천 기준을 못 넘어서 일반</b><br>'}
 function r558Summary(m){const rows=Array.isArray(m.marketRows)?m.marketRows:[],row=rows.find(x=>String(x.no)===String(m.no))||rows[0];if(!row||!m.pick)return '<div class="r558Box"><div class="r558Empty">아직 마킹 전이거나 배당이 없습니다.</div></div>';
 const ch=(row.choices||[]).filter(c=>Number(c.odds)>1),inv=ch.map(c=>1/Number(c.odds)),sum=inv.reduce((a,b)=>a+b,0)||1,dom=Object.fromEntries(ch.map((c,i)=>[c.label,inv[i]/sum])),ov=m.r507Probs||null,r=m.r554||{},ps=r554Ps(m),odds=Number(m.odds),g=r554Manual(m)?'수동':(m.displayGrade||'일반'),gc=g==='가장추천'?'best':g==='추천'?'rec':g==='수동'?'man':'norm',ev=ps!=null&&odds>1?ps*odds-1:null,be=odds>1?1/odds:null,f=m.r555;
 const line=(probs,cls)=>ch.map(c=>{const v=probs&&probs[c.label],on=String(c.label)===String(m.pick);return '<span class="r558Ch'+(on?' on':'')+'"><em>'+e(c.label)+'</em><b class="'+cls+'">'+(v!=null?r558Pct(v):'-')+'</b><small>'+e(Number(c.odds).toFixed(2))+'배</small></span>'}).join('');
@@ -9239,7 +9240,7 @@ return '<div class="r558Box">'+
 '<div class="r558S"><span class="n">3</span><div><b class="zW">기본 확률 '+r558Pct(r.p)+'</b><small>'+(ov?'해외 70 : 국내 30으로 섞음':'국내배당 기준 분석')+'</small></div></div>'+
 '<div class="r558S"><span class="n">4</span><div><b class="zP">과거 배당구간 보정 '+r558Adj(r.adj)+'</b><small>'+(r558Seg(r)||'비교할 과거 기록 없음')+'</small></div></div>'+
 '<div class="r558S"><span class="n">5</span><div><b class="zO">최근 흐름 보정 '+r558Adj(r.formAdj)+'</b><small>'+(f?'최근5 · '+e(m.home)+' '+ft(f.home)+' · '+e(m.away)+' '+ft(f.away)+(f.flag==='against'?' · <b class="zDn">흐름 반대</b>':f.flag==='with'?' · <b class="zUp">흐름 같은 편</b>':''):'최근 경기 기록 없음')+'<br>결과가 40경기 이상 쌓여 효과가 확인되면 자동으로 켜집니다</small></div></div>'+
-'<div class="r558S last"><span class="n">✓</span><div><b class="zG">최종 '+(ps!=null?r558Pct(ps):'-')+' → '+e(g)+'</b><small>62% 이상 추천 · 66% 이상 + 해외도 같은 쪽 1순위면 가장추천</small></div></div>'+
+'<div class="r558S last"><span class="n">✓</span><div><b class="zG">최종 '+(ps!=null?r558Pct(ps):'-')+' → '+e(g)+'</b><small>'+r558Why(m,ps,g)+'62% 이상 추천 · 66% 이상 + 해외도 같은 쪽 1순위면 가장추천</small></div></div>'+
 '</div></div>'}
 function expBody(m){
 const raw=Array.isArray(m.marketRows)?m.marketRows:[],
