@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R555-RECENT-FORM";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R555B-MANUAL-KEEP";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -2779,7 +2779,7 @@ const games=[],locked=[],lockedCurrent=[];
 for(const [key,allMs] of groupMarkets(state.markets)){
 const ms=allMs.filter(m=>currentRoundMarket(m,state));
 if(!ms.length)continue;
-const lock=ms.find(m=>m.marked&&m.representativeSelected&&(started(m)||m.resultFinal||m.r506LockedPick||r495FrozenValid(m)||(!CFG.hitRateFirst&&m.r420LastChange&&String(m.finalPick)===String(m.r420LastChange.to?.pick)&&Number(m.finalOdds)===Number(m.r420LastChange.to?.odds)&&validChoices(m).some(c=>String(c.label)===String(m.finalPick)&&Number(c.odds)===Number(m.finalOdds)))));
+const lock=ms.find(m=>m.marked&&m.representativeSelected&&(m.manualOverride||started(m)||m.resultFinal||m.r506LockedPick||r495FrozenValid(m)||(!CFG.hitRateFirst&&m.r420LastChange&&String(m.finalPick)===String(m.r420LastChange.to?.pick)&&Number(m.finalOdds)===Number(m.r420LastChange.to?.odds)&&validChoices(m).some(c=>String(c.label)===String(m.finalPick)&&Number(c.odds)===Number(m.finalOdds)))));
 if(lock){if(r495FrozenValid(lock)){const c=validChoices(lock).find(x=>String(x.label)===String(lock.finalPick));if(c)lock.finalOdds=Number(c.odds);}for(const x of ms){if(x!==lock){x.marked=false;x.representativeSelected=false;}}locked.push({key,ms,m:lock});lockedCurrent.push({key,ms,m:lock});continue;}
 const allC=bestCandidateByFamily(ms),allValues=Object.values(allC),bestUtility=allValues.length?Math.max(...allValues.map(candidateUtility)):-Infinity;
 const original=state.fullRepickOverride?.id===R338_FULL_REPICK_ID&&
