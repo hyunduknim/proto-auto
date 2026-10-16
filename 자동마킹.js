@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R555I-MENU-COUNTS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R556-CACHE-CLEANUP";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4825,10 +4825,20 @@ const old=(s.markets||[]).filter(m=>cur&&String(m.gmTs||"")!==cur&&m.resultFinal
 for(const m of old){if(m.historyCompacted)continue;for(const k of ["sharedAnalysis","jeongbaedangLocalEvidence","performanceFeatures","performanceProbabilities","axisVotes","provenanceConsensus","auxFeatures","deepReviewMissingLayers"])delete m[k];m.analysisLayers=compactLayers(m.analysisLayers);m.historyCompacted=true;compacted++;}
 return compacted;
 }
+/* R556: drop dead or oversized caches — removed features, unbounded history lists and other rounds' team-form caches. */
+function r556Cleanup(s){if(!s||typeof s!=="object")return 0;let n=0;const cur=Number(s.gmTs||0),min=cur?cur-1:0;
+for(const k of ["r554Combos","comboBook"])if(k in s){delete s[k];n++;}
+if(s.r507Overseas&&"r555ScoresFix" in s.r507Overseas&&s.r507Overseas.budget?.day!=="2026-10-16"){delete s.r507Overseas.r555ScoresFix;n++;}
+if(Array.isArray(s.r398SelectionHistory)){const before=s.r398SelectionHistory.length;s.r398SelectionHistory=s.r398SelectionHistory.filter(x=>!min||Number(String(x.marketKey||"").split(":")[0])>=min).slice(-600);n+=before-s.r398SelectionHistory.length;}
+const snaps=s.r398PregameSnapshots;if(snaps&&typeof snaps==="object"){const keys=Object.keys(snaps);if(keys.length>500){const heads=new Set(Object.values(s.r398SnapshotHeads||{}));const ts=x=>{const c=x?.capturedAt,v=typeof c==="number"?c:Date.parse(c||"");return Number.isFinite(v)?v:Number(x?.kickoffAt||0);};
+const recent=keys.filter(k=>!heads.has(k)).sort((a,b)=>ts(snaps[b])-ts(snaps[a])).slice(0,400),keep=new Set([...heads,...recent]);for(const k of keys)if(!keep.has(k)){delete snaps[k];n++;}}}
+for(const box of ["r483TeamForms","r483TeamAttempts","r483TeamLinks","r483SpogodLinks"]){const o=s[box];if(!o||typeof o!=="object"||!cur)continue;for(const k of Object.keys(o)){let g=null;try{g=Number(JSON.parse(k)[0]);}catch(_){}if(g&&g<min){delete o[k];n++;}}}
+if(s.r555Track&&Array.isArray(s.r555Track.seen)&&s.r555Track.seen.length>2000){n+=s.r555Track.seen.length-2000;s.r555Track.seen=s.r555Track.seen.slice(-2000);}
+if(n)s.r556CleanupAudit={at:nowIso(),removed:n+(s.r556CleanupAudit?.removed||0)};return n;}
 function sanitizeState(s){
 if(!s||typeof s!=="object")return createState();
 s.version=APP_VERSION;s.build=BUILD_ID;purgeMidnightMarkets(s);s.markets=pruneHistoricalMarkets(s);compactHistory(s);r517SlimState(s);repairSetScoreStats(s);ensureSettlementLedger(s);ensureSettledCards(s);
-delete s.comboBook;delete s.shadowAudit;for(const m of s.markets||[])delete m.shadowAnalysis;s.sourceAudit=s.sourceAudit||{};s.resultAudit=s.resultAudit||{};s.gradeAudit=s.gradeAudit||{};s.marketMixAudit=s.marketMixAudit||{};s.analysisAudit=s.analysisAudit||{};s.sharedAnalysisAudit=s.sharedAnalysisAudit||{};s.fullMarkAudit=s.fullMarkAudit||{};s.learningAudit=s.learningAudit||{};s.performanceAudit=s.performanceAudit||{};s.fiveApkAudit=s.fiveApkAudit||{};s.jeongbaedangAudit=s.jeongbaedangAudit||{};s.cleanupAudit=s.cleanupAudit||{};ensurePerformanceModel(s);ensureJeongbaedangModel(s);s.auxAudit=s.auxAudit||{};s.resetAudit=s.resetAudit||{};s.settlementRepairAudit=s.settlementRepairAudit||{};return s;
+try{r556Cleanup(s);}catch(_){}delete s.comboBook;delete s.shadowAudit;for(const m of s.markets||[])delete m.shadowAnalysis;s.sourceAudit=s.sourceAudit||{};s.resultAudit=s.resultAudit||{};s.gradeAudit=s.gradeAudit||{};s.marketMixAudit=s.marketMixAudit||{};s.analysisAudit=s.analysisAudit||{};s.sharedAnalysisAudit=s.sharedAnalysisAudit||{};s.fullMarkAudit=s.fullMarkAudit||{};s.learningAudit=s.learningAudit||{};s.performanceAudit=s.performanceAudit||{};s.fiveApkAudit=s.fiveApkAudit||{};s.jeongbaedangAudit=s.jeongbaedangAudit||{};s.cleanupAudit=s.cleanupAudit||{};ensurePerformanceModel(s);ensureJeongbaedangModel(s);s.auxAudit=s.auxAudit||{};s.resetAudit=s.resetAudit||{};s.settlementRepairAudit=s.settlementRepairAudit||{};return s;
 }
 const DO_CHUNK_CHARS=30000;
 function doStorage(){return MEM.doStorage||null;}
