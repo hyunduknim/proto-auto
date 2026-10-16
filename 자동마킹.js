@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R551-ONE-CARD-PER-MATCH";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R552-CURRENT-ROUND-FRESH-GRADES";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4174,6 +4174,11 @@ const c=validChoices(m).find(x=>String(x.label)===String(f.pick));if(!c)return f
 const o=Number(c.odds),base=Number(f.odds);
 return o>=CFG.minRepOdds&&base>0&&Math.abs(o/base-1)<=CFG.freezeOddsBand;
 }
+/* R552: owner asked for a fresh 가장추천/추천/일반 split of the current round once (round 123). */
+const R552_REGRADE_ID="R552_FRESH_GRADES_260123";
+function r552RegradeOnce(state){if(state.r552RegradeId===R552_REGRADE_ID||String(state.gmTs)!=="260123")return 0;let n=0;
+for(const m of state.markets||[]){if(!currentRoundMarket(m,state)||started(m)||m.resultFinal||m.manualOverride)continue;if(m.r495Frozen){delete m.r495Frozen;n++;}}
+state.r552RegradeId=R552_REGRADE_ID;state.r552RegradeAudit={at:nowIso(),gmTs:state.gmTs,unfrozen:n};return n;}
 function r495StampFrozen(state){
 let stamped=0,kept=0;
 for(const m of state.markets||[]){
@@ -4539,6 +4544,7 @@ if(state.r398Protocol?.enforce){for(const m of state.markets||[])if(r398BeforeKi
 buildLearningAudit(state);applyLearningContext(state);applyPerformanceContext(state);applyJeongbaedangContext(state);applyDirectionalGuardContext(state);
 ROW_CACHE=new WeakMap();
 try{
+try{r552RegradeOnce(state);}catch(_){}
 applySharedAnalysis(state);
 assignRepresentativeMarkets(state);
 buildFullMarkAudit(state);
@@ -6800,8 +6806,8 @@ settlementLedger:r499PublicVisible(state.settlementLedger).filter(m=>currentRoun
 const originalActive=representativeGames(cur).filter(g=>r401Scope(g)&&!g.resultFinal).sort(marketSort),
 savedSettled=r499PublicVisible(state.markets).filter(m=>Number(m.gmTs)>=260121&&m.marked&&m.representativeSelected&&m.resultFinal&&settlementAllowed(m))
 .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean),
-originalPast=r499PublicVisible(mergeCurrentPastCards(state,savedSettled)).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m)),
-originalPending=r499PublicVisible(pendingSettlementMarkets(state)).filter(m=>Number(m.gmTs)>=260121&&r401Scope(m))
+originalPast=r499PublicVisible(mergeCurrentPastCards(state,savedSettled)).filter(m=>String(m.gmTs)===String(state.gmTs)&&r401Scope(m)), /* R552: current round only */
+originalPending=r499PublicVisible(pendingSettlementMarkets(state)).filter(m=>String(m.gmTs)===String(state.gmTs)&&r401Scope(m))
 .map(m=>representativeGames({markets:[m]})[0]).filter(Boolean),
 joined=new Map();
 for(const card of [...originalActive,...originalPending,...originalPast]){
