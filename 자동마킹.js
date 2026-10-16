@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R555D-SOCCER-DRAWS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R555E-SCORES-BUDGET";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4204,7 +4204,7 @@ const pk=String(m.finalPick||""),side=m.marketFamily==="TOTAL"?null:pk==="승"?"
 if(side&&home&&away&&home.n>=3&&away.n>=3){const me=side==="home"?home:away,op=side==="home"?away:home,gap=me.rate-op.rate;
 flag=(gap<=-R555.gap||(op.sk==="승"&&op.sn>=R555.streak&&me.sk==="패"))?"against":(gap>=R555.gap||(me.sk==="승"&&me.sn>=R555.streak&&op.sk==="패"))?"with":"neutral";}
 return {home,away,side,flag};}
-function r555Track(state){const t=state.r555Track||(state.r555Track={flags:{},seen:[]});const seen=new Set(t.seen);let added=0;
+function r555Track(state){const t=state.r555Track||(state.r555Track={flags:{},seen:[]});const seen=new Set(t.seen);let added=0;for(const m of state.markets||[]){if(m.r555!==undefined||!currentRoundMarket(m,state)||!m.marked||!m.representativeSelected||m.resultFinal)continue;let fm=null;try{fm=r555Form(state,m);}catch(_){}m.r555=fm?{...fm,adj:0,late:true}:null;}
 for(const m of state.markets||[]){if(!m.resultFinal||!m.marked||!m.representativeSelected||typeof m.hit!=="boolean"||m.manualOverride)continue;if(m.r555===undefined){let fm=null;try{fm=r555Form(state,m);}catch(_){}m.r555=fm?{...fm,adj:0,backfill:true}:null;}const f=m.r555?.flag,ps=Number(m.r554?.psBase??m.r554?.ps??m.hitProbability);if(!f||!(ps>0))continue;const k=r554LegKey(m);if(seen.has(k))continue;seen.add(k);t.seen.push(k);
 const b=t.flags[f]||(t.flags[f]={n:0,hits:0,sumP:0});b.n++;if(m.hit)b.hits++;b.sumP+=ps;added++;}
 if(t.seen.length>4000)t.seen=t.seen.slice(-4000);if(added)t.at=nowIso();return t;}
@@ -4615,6 +4615,7 @@ return true;
 }
 function markState(state){
 r498WithdrawTwo(state);
+try{r555FixScoresDay(state);}catch(_){}
 r507Attach(state);
 if(state.r398Protocol?.backupPrerequisite==="TRANSACTIONAL_DO_UNAVAILABLE"){state.r398EvidenceAudit={policy:"NO_NEW_MARKING_WITHOUT_RESTORABLE_BACKUP",blocked:true};return state;}
 if(state.r398Protocol?.enforce){for(const m of state.markets||[])if(r398BeforeKickoff(m)&&m.marked&&m.representativeSelected&&!m.manualOverride)r398PreserveSelection(state,m,"BEFORE_PREGAME_REANALYSIS");}
@@ -10599,16 +10600,22 @@ const seed=gameSeed(m);for(const x of state?.markets||[]){if(String(x.gmTs)!==St
 const mt=st.matches?.[seed];return ok(mt)?mt:null;}
 function r547Pending(state,now=Date.now()){
 return pendingSettlementMarkets(state).filter(m=>{const t=gameTimeMs(m);return t!=null&&now-t>=150*60000&&now-t<=3*86400000&&!!r547Ref(state,m);});}
+/* R555S: Odds API score checks no longer eat the daily odds allowance (they used all of 10/16's credits so no overseas
+   odds were fetched). Scores have their own cap of 4 credits/day and each league is re-checked at most every 3 hours. */
+const R555S={scoresDaily:4,scoresGapMs:3*3600000};
+function r555FixScoresDay(state){const st=state?.r507Overseas,b=st?.budget;if(!b||st.r555ScoresFix)return false;st.r555ScoresFix=nowIso();
+if(b.day==="2026-10-16"){b.spent=Math.min(Number(b.spent||0),3);return true;}return false;} /* only one odds fetch (≤3 credits) happened on 10/16; the rest were score checks */
 async function r547RefreshScores(state,env,now=Date.now()){
 const o=r507Opts(env),pending=r547Pending(state,now);if(!pending.length)return {source:"ODDSAPI_SCORES",status:"NO_OVERDUE_MATCHED_PENDING",settled:0};
 if(!o.key||o.disabled)return {source:"ODDSAPI_SCORES",status:"NOT_CONFIGURED",settled:0};
 const store=r507Store(state),last=store.scoresAt||(store.scoresAt={}),refOf=new Map(pending.map(m=>[m,r547Ref(state,m)]));
-const keys=[...new Set(pending.map(m=>refOf.get(m).sportKey))].filter(k=>now-Number(last[k]||0)>=45*60000).slice(0,2);
+const keys=[...new Set(pending.map(m=>refOf.get(m).sportKey))].filter(k=>now-Number(last[k]||0)>=R555S.scoresGapMs).slice(0,2);
 const audit={source:"ODDSAPI_SCORES",at:nowIso(),status:"CHECKING",pendingBefore:pending.length,leagues:keys,calls:0,matched:0,settled:0,rejected:0,reasons:{},samples:[],error:null};
 if(!keys.length){audit.status="THROTTLED";state.r547ScoresAudit=audit;return audit;}
 const fail=r=>{audit.rejected++;audit.reasons[r]=(audit.reasons[r]||0)+1;};
 try{for(const k of keys){const rem=Number(store.budget?.remaining);if(Number.isFinite(rem)&&rem-2<R507.reserve){audit.status="CREDIT_RESERVE";break;}
-last[k]=now;const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(k)}/scores`,{daysFrom:2,dateFormat:"iso"});r507Spend(store,usage,2);audit.calls++;
+const sd=kstDateFromMs(now),sb=store.scoresBudget&&store.scoresBudget.day===sd?store.scoresBudget:(store.scoresBudget={day:sd,spent:0});if(sb.spent+2>R555S.scoresDaily){audit.status="SCORES_DAILY_CAP";break;}
+last[k]=now;const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(k)}/scores`,{daysFrom:2,dateFormat:"iso"});const before=Number(store.budget?.spent||0);r507Spend(store,usage,2);const used=Math.max(0,Number(store.budget?.spent||0)-before);store.budget.spent=before;sb.spent+=used||2;audit.calls++;
 const byId=new Map((Array.isArray(data)?data:[]).map(e=>[e.id,e]));
 for(const m of pending){const x=refOf.get(m);if(x.sportKey!==k)continue;const e=byId.get(x.eventId);
 if(!e){fail("EVENT_NOT_IN_SCORES");continue;}if(e.completed!==true){fail("NOT_COMPLETED");continue;}
