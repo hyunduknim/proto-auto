@@ -28,3 +28,18 @@ box=run('r554ComboStep(S2)');assert.equal(box.list[0].status,'hit');assert.equal
 run(`S2.markets[1].settlementType="VOID";S2.markets[1].settlementStatus="적특";`);box=run('(r554ComboSettle(S2),S2.r554Combos)');
 assert.equal(box.list[0].status,'hit');assert.equal(box.list[0].finalOdds,1.8,'void leg pays 1.0');
 console.log('R554E combo fixed at kickoff + live settlement OK');
+// R554F: combos mix 일반승/핸디캡/언더오버 when the recommended games allow it.
+run(`O=(no,fam,odds,ps)=>({m:{gmTs:"260123",no,marketFamily:fam,date:"2026-10-17",time:"19:00",home:"H"+no,away:"A"+no},k:"260123:"+no,fam,pick:"승",odds,ps,alt:false});
+GS=[{opts:[O(1,"HANDICAP",1.45,.7),O(11,"MONEYLINE",1.7,.64)]},{opts:[O(2,"HANDICAP",1.45,.7)]},{opts:[O(3,"HANDICAP",1.5,.69),O(13,"TOTAL",1.6,.65)]}];`);
+const mixed=run('r554ComboSearch(GS,true)');
+assert.ok(mixed.length>0,'mixed combo exists');
+assert.ok(mixed.every(f=>run('r554Mixed')(f.g)),'no family takes more than half the legs');
+assert.ok(mixed[0].g.some(o=>o.fam!=='HANDICAP'),'best combo is not all handicap');
+assert.equal(run('r554Mixed([O(1,"HANDICAP",1,1),O(2,"HANDICAP",1,1),O(3,"HANDICAP",1,1)])'),false);
+// alternative-market leg settles from the game's real score
+run(`S3={gmTs:"260123",markets:[{gmTs:"260123",no:5,date:"2026-10-16",time:"10:00",home:"X",away:"Y",marketFamily:"HANDICAP",line:-1.5,marked:true,representativeSelected:true,resultFinal:true,result:"패",homeScore:2,awayScore:1}]};
+LEG=n=>({k:"260123:"+n,gmTs:"260123",no:n,date:"2026-10-16",time:"10:00",seed:gameSeed({date:"2026-10-16",time:"10:00",home:"X",away:"Y"}),home:"X",away:"Y"});`);
+assert.equal(run('r554LegStatus(S3,{...LEG(6),marketFamily:"MONEYLINE",pick:"승"}).status'),'hit','moneyline alt leg from 2:1');
+assert.equal(run('r554LegStatus(S3,{...LEG(7),marketFamily:"TOTAL",line:2.5,pick:"언더"}).status'),'miss','total alt leg 3 goals over 2.5');
+assert.equal(run('r554LegStatus(S3,{...LEG(8),marketFamily:"TOTAL",line:3.5,pick:"언더"}).status'),'hit');
+console.log('R554F mixed-family combos + alt-leg settlement OK');
