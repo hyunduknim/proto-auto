@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R565B-CSL-ALIAS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R566-KEEP-OTHER-MARKETS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -9466,7 +9466,7 @@ r518ScheduleOverseas(all);
 const rows=all.filter(m=>(expFilter==='all'||String(m.sport||'')===expFilter)&&(!q||[m.game,m.home,m.away,m.league,m.no,...(m.marketRows||[]).map(r=>r.no)].join(' ').toLowerCase().includes(q)));
 const fp=expFingerprint(rows);
 if(fp===expLastFingerprint)return;
-$('expList')?.querySelectorAll('details.r558Old').forEach(d=>{if(d.open)r558OldOpen.add(d.dataset.k);else r558OldOpen.delete(d.dataset.k)});const host=$('expList'),opened=new Map(),priorY=window.scrollY,overseasOpened=[...host.querySelectorAll('details.r506Details[open]')].map(d=>d.dataset.r506Detail);
+$('expList')?.querySelectorAll('details.r558Old').forEach(d=>{if(d.open)r558OldOpen.add(d.dataset.k);else r558OldOpen.delete(d.dataset.k)});const r566Other=new Map();try{$('expList')?.querySelectorAll('.expCard').forEach(c=>{const k=c.querySelector('button.expHead[data-expkey]')?.dataset.expkey;if(!k)return;const ix=[...c.querySelectorAll('details.r474Other')].flatMap((d,i)=>d.open?[i]:[]);if(ix.length)r566Other.set(k,ix)})}catch(_){}const host=$('expList'),opened=new Map(),priorY=window.scrollY,overseasOpened=[...host.querySelectorAll('details.r506Details[open]')].map(d=>d.dataset.r506Detail);
 for(const card of host.querySelectorAll('.expCard')){
 const key=card.querySelector('button.expHead[data-expkey]')?.dataset.expkey;
 if(!key)continue;const panels=[];
@@ -9500,7 +9500,9 @@ for(const ix of item.nested){const nested=d.querySelectorAll('details.edDeep')[i
 }
 }
 for(const id of overseasOpened){const d=[...host.querySelectorAll('details.r506Details')].find(n=>n.dataset.r506Detail===id);if(d)d.open=true;}
-if(opened.size&&Math.abs(window.scrollY-priorY)>2)window.scrollTo({top:priorY,behavior:'instant'});
+/* R566: other-market panels stay open across the 1-minute refresh */
+try{host.querySelectorAll('.expCard').forEach(c=>{const k=c.querySelector('button.expHead[data-expkey]')?.dataset.expkey,ix=k&&r566Other.get(k);if(!ix)return;const ds=[...c.querySelectorAll('details.r474Other')];for(const i of ix)if(ds[i])ds[i].open=true})}catch(_){}
+if((opened.size||r566Other.size)&&Math.abs(window.scrollY-priorY)>2)window.scrollTo({top:priorY,behavior:'instant'});
 }
 function applyView(){const marking=activeView==='marking',past=activeView==='past',experiment=activeView==='experiment';$('list').style.display=marking?'':'none';$('hourlyBar').style.display=marking?'flex':'none';$('markMenu').style.display=marking?'grid':'none';$('pastPanel').classList.toggle('on',past);$('expPanel').classList.toggle('on',experiment);$('tabMarking')?.classList.toggle('on',marking);$('tabPast')?.classList.toggle('on',past);$('tabExperiment')?.classList.toggle('on',experiment);if(experiment)renderExperiment()}
 function setView(v){activeView=['marking','past','experiment'].includes(v)?v:'marking';applyView()}function r533AutoOnly(){return false;if(!state)return false;const g=Number(state.gmTs)||(Number(state.round)?260000+Number(state.round):0);return g>=260122||(state.markingGames||[]).some(m=>Number(m&&m.gmTs)>=260122);}
