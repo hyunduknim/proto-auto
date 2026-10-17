@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R564F-WORKER-KEY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R564G-PAID-KEY-VAR";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1796,7 +1796,7 @@ return {ml,total:(all.find(r=>r.total)||{}).total||null,src:"median:"+all.length
 /* ---- state, budget, API ---- */
 function r507Opts(env){const f=k=>{const raw=String(env?.[k]??"").trim(),v=Number(raw);return raw!==""&&Number.isFinite(v)?v:null;};
 const w=f("OVERSEAS_WEIGHT"),h=f("OVERSEAS_WINDOW_HOURS"),d=f("OVERSEAS_DAILY_CREDITS");
-return {key:String(MEM.r564WorkerKey||env?.THE_ODDS_API_KEY||"").trim(),disabled:/^(1|true|on|yes)$/i.test(String(env?.OVERSEAS_DISABLED||"").trim()),
+return {key:String(MEM.r564WorkerKey||env?.ODDS_PAID_KEY||env?.THE_ODDS_API_KEY||"").trim(),disabled:/^(1|true|on|yes)$/i.test(String(env?.OVERSEAS_DISABLED||"").trim()),
 weight:w!=null?clamp(w>1?w/100:w,0,.95):R507.weight,windowMs:h!=null&&h>0?h*3600000:R507.windowMs,dailyCredits:d!=null&&d>=0?Math.floor(d):null};}
 function r507Store(state){const s=state.r507Overseas||(state.r507Overseas={});
 s.markets=s.markets||{};s.matches=s.matches||{};s.oddsAt=s.oddsAt||{};s.aliases=s.aliases||{};s.budget=s.budget||{};s.audit=s.audit||{};return s;}
@@ -1977,7 +1977,7 @@ return {weight:Number(s.audit.weight??R507.weight),matched:Number(s.audit.matche
 priced:Object.values(s.markets||{}).filter(e=>now-Number(e.at)<=R507.maxAgeMs&&Number(e.kick)>now).length,lastError:s.audit.lastError||null,at:s.audit.at,collection:{lastFetch:s.audit.lastFetch||null,lastSkip:s.audit.lastSkip||null,budget:s.audit.budget||null,refetchMinutes:R507.refetchMs/60000,quoteStorageError:!!MEM.r508QuoteStorageError}};}
 function r507Status(state,env){const o=r507Opts(env),s=state?.r507Overseas||{},now=Date.now();
 const priced=Object.values(s.markets||{}).filter(e=>now-Number(e.at)<=R507.maxAgeMs&&Number(e.kick)>now).length;
-return {version:APP_VERSION,configured:!!o.key,keyTail:o.key?'…'+o.key.slice(-4):null,keyLength:o.key?o.key.length:0,keySource:MEM.r564WorkerKey?'worker':'durable-object',doEnvKeyTail:env?.THE_ODDS_API_KEY?'…'+String(env.THE_ODDS_API_KEY).trim().slice(-4):null,disabled:o.disabled,weight:o.weight,domesticWeight:r3(1-o.weight),windowHours:o.windowMs/3600000,
+return {version:APP_VERSION,configured:!!o.key,keyTail:o.key?'…'+o.key.slice(-4):null,keyLength:o.key?o.key.length:0,keySource:MEM.r564WorkerKey?'worker':'durable-object',keyName:String(env?.ODDS_PAID_KEY||'').trim()?'ODDS_PAID_KEY':'THE_ODDS_API_KEY',paidKeySet:!!String(env?.ODDS_PAID_KEY||'').trim(),doEnvKeyTail:env?.THE_ODDS_API_KEY?'…'+String(env.THE_ODDS_API_KEY).trim().slice(-4):null,disabled:o.disabled,weight:o.weight,domesticWeight:r3(1-o.weight),windowHours:o.windowMs/3600000,
 budget:s.budget||null,audit:s.audit||null,pricedMarkets:priced,
 betmanVsOverseasGap:s.gap?.n?{samples:Math.round(s.gap.n),avgAbsDiffPct:r3(100*s.gap.sumAbs/s.gap.n),bySport:Object.fromEntries(Object.entries(s.gap.bySport||{}).map(([k,v])=>[k,{samples:Math.round(v.n),avgAbsDiffPct:v.n?r3(100*v.sumAbs/v.n):null}])),
 guide:"베트맨과 해외의 일반승 홈팀 확률 차이 평균(시뮬레이션 기준 예상효과): 약 1.5%p→+0.3%p, 2.5%p→+0.7%p, 4%p→+1.2%p, 6%p 이상→+2.5%p 이상"}:null,learnedAliases:Object.keys(s.aliases||{}).length,
@@ -14081,7 +14081,7 @@ async function r509Initialize(env){
 }
 
 /* R564F: pass the Worker's current odds key to the Durable Object on internal calls only (any client-sent copy is dropped) */
-function r564Fwd(req,env){const h=new Headers(req.headers);h.delete('x-r564-k');const k=String(env?.THE_ODDS_API_KEY||'').trim();if(k)h.set('x-r564-k',k);return new Request(req,{headers:h});}
+function r564Fwd(req,env){const h=new Headers(req.headers);h.delete('x-r564-k');const k=String(env?.ODDS_PAID_KEY||env?.THE_ODDS_API_KEY||'').trim();if(k)h.set('x-r564-k',k);return new Request(req,{headers:h});}
 export default {
 async fetch(req,env,ctx){
 const u=new URL(req.url);
