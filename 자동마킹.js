@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R558F-OLD-DETAIL-BLACK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R559-TAMPA-POSTPONED-VOID";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4627,8 +4627,19 @@ await r398AtomicCommit(ds,s,next,'BEFORE_R500_260122_THREE_PICK_REMOVAL',
 else throw Error('R498_REQUIRES_TRANSACTIONAL_BACKUP');
 return true;
 }
+/* R559: owner reported 260123 Cleveland vs Tampa Bay (10/17 MLB) postponed → void the marked pick of that fixture once. */
+function r559PostponedVoid(state,at=nowIso()){if(!state||state.r559VoidAudit?.done)return 0;
+const ms=(state.markets||[]).filter(m=>String(m.gmTs||"")==="260123"&&/클리블랜드/.test(String(m.home||""))&&/탬파베이/.test(String(m.away||"")));if(!ms.length)return 0;
+let n=0;const lr=state.r556LegResults||(state.r556LegResults={});
+for(const m of ms){lr[r554LegKey(m)]={outcome:"void",score:null,source:"USER_REPORTED_POSTPONED",at};
+if(!m.marked||!m.representativeSelected||m.resultFinal)continue;
+m.result="경기 연기 · 사용자 요청 적특";m.resultFinal=true;m.hit=null;m.settlementStatus="적특";m.settlementType="USER_REQUESTED_VOID";m.resultSpecialStatus="연기";
+m.resultSource="USER_REQUESTED_VOID_NOT_OFFICIAL";m.resultResolutionSource="USER_REPORTED_POSTPONEMENT";m.resultStatus="경기 연기 · 사용자 요청 적특";m.resultVerifiedAt=at;m.manualVoidAt=at;m.resultScoreText=null;
+try{recordSettlementLedger(state,m);upsertSettledCard(state,m);}catch(_){}n++;}
+state.r559VoidAudit={done:true,at,gmTs:"260123",fixture:ms[0].home+" vs "+ms[0].away,date:ms[0].date,voided:n,reason:"OWNER_REPORTED_POSTPONED"};return n;}
 function markState(state){
 r498WithdrawTwo(state);
+try{r559PostponedVoid(state);}catch(_){}
 try{r555FixScoresDay(state);}catch(_){}
 r507Attach(state);
 if(state.r398Protocol?.backupPrerequisite==="TRANSACTIONAL_DO_UNAVAILABLE"){state.r398EvidenceAudit={policy:"NO_NEW_MARKING_WITHOUT_RESTORABLE_BACKUP",blocked:true};return state;}

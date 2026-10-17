@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+run(`B={gmTs:"260123",date:"2026-10-17",time:"09:00",sport:"야구",home:"클리블랜드 가디언스",away:"탬파베이 레이스"};
+S={gmTs:"260123",markets:[{...B,no:8651,marketFamily:"MONEYLINE",marked:true,representativeSelected:true,finalPick:"패",manualOverride:true},{...B,no:8652,marketFamily:"HANDICAP",line:-1.5},{...B,home:"다른팀",no:9000,marked:true,representativeSelected:true}]};`);
+assert.equal(run('r559PostponedVoid(S)'),1);
+assert.equal(run('S.markets[0].settlementStatus'),'적특');assert.equal(run('S.markets[2].resultFinal'),undefined,'other games untouched');
+assert.equal(run('r559PostponedVoid(S)'),0,'applied once');
+assert.equal(run('S.r556LegResults["260123:8652"].outcome'),'void','comparison legs of that game void too');
+console.log('R559 postponed void OK');
