@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R564B-RELOAD-ENV";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R564C-CREDIT-PROBE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1915,7 +1915,8 @@ audit.at=nowIso();audit.weight=o.weight;audit.games=games.length;
 if(!games.length){r507Prune(store,now);return {status:"NO_UPCOMING_PENDING"};}
 const mem=MEM.r507||(MEM.r507={sports:null,sportsAt:0,events:{}});
 try{
-if(!mem.sports||now-mem.sportsAt>R507.sportsRefreshMs){const {data,usage}=await r507Get(o.key,"/v4/sports",{});r507Spend(store,usage,0);
+/* R564C: the sports list is free — re-read it every 30 min so the credit balance (and a newly paid key) is seen even when no odds call is due */
+if(!mem.sports||now-mem.sportsAt>R507.sportsRefreshMs||now-Number(store.budget?.probeAt||0)>30*60000){const {data,usage}=await r507Get(o.key,"/v4/sports",{});r507Spend(store,usage,0);if(store.budget)store.budget.probeAt=now;
 const groups=Object.values(R507.groups);mem.sports=(Array.isArray(data)?data:[]).filter(s=>s&&s.active&&!s.has_outrights&&groups.includes(s.group)).map(s=>({key:s.key,group:s.group}));mem.sportsAt=now;}
 const need=new Set(games.map(g=>R507.groups[g.sport])),keys=mem.sports.filter(s=>need.has(s.group));
 for(const s of keys.filter(s=>!mem.events[s.key]||now-mem.events[s.key].at>R507.eventsRefreshMs).slice(0,R507.eventsPerTick)){
