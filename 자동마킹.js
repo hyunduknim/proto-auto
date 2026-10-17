@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R560-NAMES-TIME-FIXES";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R561-REMOVE-8959";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4640,8 +4640,16 @@ state.r559VoidAudit={done:true,at,gmTs:"260123",fixture:ms[0].home+" vs "+ms[0].
 /* R560: owner-confirmed result — 260123 #8640 (현대건설 vs GS칼텍스 언더오버 178.5) ended 언더, so the manual 오버 is 낙첨. */
 function r560FixManual8640(state){if(!state||state.r560Fix8640)return 0;const lr=state.r556LegResults||(state.r556LegResults={});lr["260123:8640"]={outcome:"언더",score:null,source:"OWNER_CONFIRMED_RESULT",at:nowIso()};
 for(const row of Object.values(state.r554ManualLog||{})){for(const side of ["auto","manual"]){const l=row[side];if(l&&l.k==="260123:8640"){l.status="miss";l.result="언더";delete l.recheck;}}}state.r560Fix8640=nowIso();return 1;}
+/* R561: owner says proto #8959 (round 260123) does not exist on Betman — drop it everywhere, every pass. */
+const R561_REMOVED=[["260123",8959]];
+function r561Gone(m){return !!m&&R561_REMOVED.some(([g,n])=>String(m.gmTs||"")===g&&Number(m.no)===n);}
+function r561RemovePhantom(state){if(!state)return 0;let n=0;const keep=a=>{const b=a.filter(x=>!r561Gone(x));n+=a.length-b.length;return b;};
+if(Array.isArray(state.markets))state.markets=keep(state.markets);if(Array.isArray(state.settlementLedger))state.settlementLedger=keep(state.settlementLedger);
+if(state.settledCards&&Array.isArray(state.settledCards.rows))state.settledCards.rows=keep(state.settledCards.rows);if(Array.isArray(state.markingGradeHistory))state.markingGradeHistory=keep(state.markingGradeHistory);
+if(n)state.r561Audit={at:nowIso(),removed:n+(state.r561Audit?.removed||0),targets:R561_REMOVED};return n;}
 function markState(state){
 r498WithdrawTwo(state);
+try{r561RemovePhantom(state);}catch(_){}
 try{r559PostponedVoid(state);}catch(_){}
 try{r560FixManual8640(state);}catch(_){}
 try{r555FixScoresDay(state);}catch(_){}
@@ -4868,7 +4876,7 @@ if(n)s.r556CleanupAudit={at:nowIso(),removed:n+(s.r556CleanupAudit?.removed||0)}
 function sanitizeState(s){
 if(!s||typeof s!=="object")return createState();
 s.version=APP_VERSION;s.build=BUILD_ID;purgeMidnightMarkets(s);s.markets=pruneHistoricalMarkets(s);compactHistory(s);r517SlimState(s);repairSetScoreStats(s);ensureSettlementLedger(s);ensureSettledCards(s);
-try{r556Cleanup(s);}catch(_){}delete s.comboBook;delete s.shadowAudit;for(const m of s.markets||[])delete m.shadowAnalysis;s.sourceAudit=s.sourceAudit||{};s.resultAudit=s.resultAudit||{};s.gradeAudit=s.gradeAudit||{};s.marketMixAudit=s.marketMixAudit||{};s.analysisAudit=s.analysisAudit||{};s.sharedAnalysisAudit=s.sharedAnalysisAudit||{};s.fullMarkAudit=s.fullMarkAudit||{};s.learningAudit=s.learningAudit||{};s.performanceAudit=s.performanceAudit||{};s.fiveApkAudit=s.fiveApkAudit||{};s.jeongbaedangAudit=s.jeongbaedangAudit||{};s.cleanupAudit=s.cleanupAudit||{};ensurePerformanceModel(s);ensureJeongbaedangModel(s);s.auxAudit=s.auxAudit||{};s.resetAudit=s.resetAudit||{};s.settlementRepairAudit=s.settlementRepairAudit||{};return s;
+try{r556Cleanup(s);}catch(_){}try{r561RemovePhantom(s);}catch(_){}delete s.comboBook;delete s.shadowAudit;for(const m of s.markets||[])delete m.shadowAnalysis;s.sourceAudit=s.sourceAudit||{};s.resultAudit=s.resultAudit||{};s.gradeAudit=s.gradeAudit||{};s.marketMixAudit=s.marketMixAudit||{};s.analysisAudit=s.analysisAudit||{};s.sharedAnalysisAudit=s.sharedAnalysisAudit||{};s.fullMarkAudit=s.fullMarkAudit||{};s.learningAudit=s.learningAudit||{};s.performanceAudit=s.performanceAudit||{};s.fiveApkAudit=s.fiveApkAudit||{};s.jeongbaedangAudit=s.jeongbaedangAudit||{};s.cleanupAudit=s.cleanupAudit||{};ensurePerformanceModel(s);ensureJeongbaedangModel(s);s.auxAudit=s.auxAudit||{};s.resetAudit=s.resetAudit||{};s.settlementRepairAudit=s.settlementRepairAudit||{};return s;
 }
 const DO_CHUNK_CHARS=30000;
 function doStorage(){return MEM.doStorage||null;}
@@ -6950,7 +6958,7 @@ if(!old||(!old.resultFinal&&applied.resultFinal)||(!old.manualReview&&applied.ma
    a settled copy wins, otherwise the newest round (the one on sale). Both copies still settle as before. */
 const r551=new Map();for(const card of joined.values()){const k=gameSeed(card)+'|'+String(card.no||''),o=r551.get(k);
 if(!o||(!o.resultFinal&&card.resultFinal)||(!!o.resultFinal===!!card.resultFinal&&Number(card.gmTs||0)>Number(o.gmTs||0)))r551.set(k,card);}
-const all=r501SuppressCancelledFixtureCards(state,r499PublicVisible([...r551.values()])),
+const all=r501SuppressCancelledFixtureCards(state,r499PublicVisible([...r551.values()])).filter(m=>!r561Gone(m)),
 activeGames=all.filter(m=>!m.resultFinal).sort(marketSort),
 pastGames=[...all.filter(m=>m.resultFinal).reduce((mp,m)=>{const k=String(m.gmTs||'')+'|'+String(m.no||''),o=mp.get(k);if(!o||String(m.resultVerifiedAt||'')>String(o.resultVerifiedAt||''))mp.set(k,m);return mp;},new Map()).values()].sort((a,b)=>marketSort(b,a)),
 pastPendingGames=all.filter(m=>!m.resultFinal&&(m.gameStarted||m.originalAuto?.settlementStatus||((gameTimeMs(m)||Infinity)<=Date.now()))).sort((a,b)=>marketSort(b,a));
