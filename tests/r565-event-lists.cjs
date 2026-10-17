@@ -1,0 +1,24 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+const k=l=>run('r565Key('+JSON.stringify(l)+')');
+assert.equal(k('K리그1'),'soccer_korea_kleague1');assert.equal(k('K리그2'),'soccer_korea_kleague2');assert.equal(k('프랑스 리그1'),'soccer_france_ligue_one');
+assert.equal(k('미국 메이저리그사커'),'soccer_usa_mls');assert.equal(k('잉글랜드 챔피언십'),'soccer_efl_champ');assert.equal(k('UEFA 챔피언스리그'),'soccer_uefa_champs_league');
+assert.equal(k('일본 J1리그'),'soccer_japan_j_league');assert.equal(k('중국 슈퍼리그'),'soccer_china_superleague');assert.equal(k('KBL'),null);assert.equal(k('MLB'),'baseball_mlb');
+console.log('R565 league keys OK');
+(async()=>{
+const calls=[];const store=new Map();
+c.fetch=async(u)=>{const url=new URL(String(u));calls.push(url.pathname);const h={'x-requests-remaining':'19000','x-requests-used':'1000','x-requests-last':'0'};
+if(url.pathname==='/v4/sports')return new Response(JSON.stringify(Array.from({length:40},(_,i)=>({key:i===33?'soccer_usa_mls':'soccer_x'+i,group:'Soccer',active:true,has_outrights:false}))),{headers:h});
+if(url.pathname.endsWith('/events'))return new Response('[]',{headers:h});
+return new Response('[]',{headers:h});};
+c.STORE={get:async k=>store.get(k),put:async(k,v)=>{store.set(k,v);}};run('MEM.doStorage=STORE');
+const t=new Date(Date.now()+3*3600000+9*3600000);const date=t.toISOString().slice(0,10),time=t.toISOString().slice(11,16);
+c.ST={gmTs:'260124',round:124,markets:[{gmTs:'260124',no:1,sport:'축구',league:'미국 메이저리그사커',home:'A',away:'B',date,time,marketFamily:'MONEYLINE',choices:[{label:'승',odds:2},{label:'무',odds:3},{label:'패',odds:3}]}],r507Overseas:{budget:{day:'x',spent:0,remaining:19000}}};
+const r=await run('r507RefreshOverseasOdds(ST,{THE_ODDS_API_KEY:"k".repeat(32)})');
+const ev=calls.filter(p=>p.endsWith('/events'));
+assert.ok(ev.length>0,'event lists fetched: '+JSON.stringify(r)+' '+JSON.stringify(calls.slice(0,3)));
+assert.equal(ev[0],'/v4/sports/soccer_usa_mls/events','league with games loaded first');
+assert.equal(ev.length,12,'rich plan loads 12 lists per run');
+assert.ok(store.get('r565:ev')!==undefined,'event lists saved');
+console.log('R565 event priority OK',r.status);})().catch(e=>{console.error(e);process.exit(1);});

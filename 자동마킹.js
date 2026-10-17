@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R564H-KEY-FORM";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R565-EVENT-LISTS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1829,6 +1829,9 @@ function r507Games(state,now){const map=new Map();
 for(const m of state.markets||[]){if(!currentRoundMarket(m,state)||m.resultFinal||!R507.groups[m.sport])continue;const t=gameTimeMs(m);if(t==null||t<=now||t-now>R507.horizonMs)continue;
 const k=gameSeed(m);if(!map.has(k))map.set(k,{key:k,sport:m.sport,league:m.league,home:m.home,away:m.away,kick:t,markets:[]});map.get(k).markets.push(m);}
 return [...map.values()];}
+/* R565: Korean league name → Odds API sport key (only used to load those event lists first) */
+const R565_LEAGUE=[['K리그1','soccer_korea_kleague1'],['K리그2','soccer_korea_kleague2'],['메이저리그사커','soccer_usa_mls'],['챔피언십','soccer_efl_champ'],['리그원','soccer_england_league1'],['프리미어리그','soccer_epl'],['J1','soccer_japan_j_league'],['J리그','soccer_japan_j_league'],['분데스리가2','soccer_germany_bundesliga2'],['2.분데스','soccer_germany_bundesliga2'],['분데스리가','soccer_germany_bundesliga'],['라리가2','soccer_spain_segunda_division'],['세군다','soccer_spain_segunda_division'],['라리가','soccer_spain_la_liga'],['에레디비시','soccer_netherlands_eredivisie'],['리그2','soccer_france_ligue_two'],['리그1','soccer_france_ligue_one'],['세리에B','soccer_italy_serie_b'],['세리에A','soccer_italy_serie_a'],['슈퍼리그','soccer_china_superleague'],['A리그','soccer_australia_aleague'],['리베르타도레스','soccer_conmebol_copa_libertadores'],['챔피언스리그','soccer_uefa_champs_league'],['유로파','soccer_uefa_europa_league'],['컨퍼런스','soccer_uefa_europa_conference_league'],['프리메이라','soccer_portugal_primeira_liga'],['스코틀랜드','soccer_spl'],['벨기에','soccer_belgium_first_div'],['쉬페르리그','soccer_turkey_super_league'],['MLB','baseball_mlb'],['NPB','baseball_npb'],['KBO','baseball_kbo'],['NBA','basketball_nba']];
+function r565Key(league){const t=String(league||'');for(const [k,v] of R565_LEAGUE)if(t.includes(k))return v;return null;}
 function r507MatchGames(store,games,mem,keys){
 const taken=new Set(),rows=[];
 /* R528: "only game at that time" means nothing while some leagues' event lists are still missing (e.g. right after a restart) */
@@ -1919,10 +1922,15 @@ try{
 if(!mem.sports||now-mem.sportsAt>R507.sportsRefreshMs||now-Number(store.budget?.probeAt||0)>30*60000){const {data,usage}=await r507Get(o.key,"/v4/sports",{});r507Spend(store,usage,0);if(store.budget)store.budget.probeAt=now;
 const groups=Object.values(R507.groups);mem.sports=(Array.isArray(data)?data:[]).filter(s=>s&&s.active&&!s.has_outrights&&groups.includes(s.group)).map(s=>({key:s.key,group:s.group}));mem.sportsAt=now;}
 const need=new Set(games.map(g=>R507.groups[g.sport])),keys=mem.sports.filter(s=>need.has(s.group));
-for(const s of keys.filter(s=>!mem.events[s.key]||now-mem.events[s.key].at>R507.eventsRefreshMs).slice(0,R507.eventsPerTick)){
+/* R565: event lists (free calls) survive restarts and the leagues we actually have games in are loaded first, so matches no longer wait for all ~50 keys */
+const evDs=doStorage();if(!mem.evLoaded){mem.evLoaded=true;try{const sv=evDs?await evDs.get('r565:ev'):null;if(sv&&typeof sv==='object')for(const [k,v] of Object.entries(sv))if(!mem.events[k]&&v&&Array.isArray(v.list))mem.events[k]=v;}catch(_){}}
+const pref=new Set(games.map(g=>r565Key(g.league)).filter(Boolean)),evDue=keys.filter(s=>!mem.events[s.key]||now-mem.events[s.key].at>R507.eventsRefreshMs).sort((a,b)=>(pref.has(b.key)-pref.has(a.key))||(!!mem.events[a.key]-!!mem.events[b.key]));let evFetched=0;
+for(const s of evDue.slice(0,r564Rich(store)?12:R507.eventsPerTick)){evFetched++;
 try{const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(s.key)}/events`,{dateFormat:"iso"});r507Spend(store,usage,0);
 mem.events[s.key]={at:now,list:(Array.isArray(data)?data:[]).map(e=>({id:e.id,t:Date.parse(e.commence_time),h:e.home_team,a:e.away_team})).filter(e=>e.id&&Number.isFinite(e.t)&&e.t>now-3600000&&e.t<now+R507.horizonMs)};}
 catch(e){mem.events[s.key]={at:now,list:[],error:String(e?.message||e).slice(0,100)};}}
+if(evFetched&&evDs){try{const keep={};for(const [k,v] of Object.entries(mem.events))if(v&&!v.error&&v.list.length)keep[k]={at:v.at,list:v.list.slice(0,60)};await evDs.put('r565:ev',keep);}catch(_){}}
+audit.prefKeys=[...pref].map(k=>k+(mem.events[k]?'✓':'…')).join(',');
 const matches=r507MatchGames(store,games,mem,keys);
 audit.matched=matches.filter(x=>x.match).length;audit.unmatched=matches.length-audit.matched;
 audit.eventKeys=`${keys.filter(s=>mem.events[s.key]).length}/${keys.length}`;
