@@ -1,0 +1,21 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const store=new Map();let remFor={};
+const fakeFetch=async(u)=>{const url=new URL(String(u));const k=url.searchParams.get('apiKey');if(!(k in remFor))return new Response('{"message":"bad key"}',{status:401});return new Response('[]',{status:200,headers:{'x-requests-remaining':String(remFor[k]),'x-requests-used':'307','x-requests-last':'0'}});};
+const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto,fetch:fakeFetch});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+c.STORE={get:async k=>store.get(k),put:async(k,v)=>{store.set(k,v);}};
+run('MEM.doStorage=STORE;MEM.state={r507Overseas:{budget:{day:"2026-10-18",spent:0,remaining:193}}};');
+const OLD='a'.repeat(28)+'old1',FREEK='b'.repeat(28)+'fre2',PAIDK='c'.repeat(28)+'pay3';
+remFor={[OLD]:193,[FREEK]:193,[PAIDK]:19990};
+const env={THE_ODDS_API_KEY:OLD};c.ENV=env;
+const post=async key=>{c.REQ=new Request('https://x/api/odds-key',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key})});return (await run('r564KeyPost(REQ,ENV)')).json();};
+(async()=>{
+let r=await post('zz');assert.equal(r.ok,false);
+r=await post('d'.repeat(32));assert.equal(r.ok,false);assert.match(r.message,/거부/);
+r=await post(FREEK);assert.equal(r.ok,false);assert.match(r.message,/유료\(2만\) 키가 아니라서/);assert.equal(store.get('r564:key'),undefined);
+r=await post(PAIDK);assert.equal(r.ok,true,r.message);assert.equal(store.get('r564:key'),PAIDK);
+assert.equal(run('r507Opts(ENV).key'),PAIDK);
+assert.equal(JSON.stringify(r).includes(PAIDK),false,'key never echoed');
+const st=run('r507Status(MEM.state,ENV)');assert.equal(st.keyTail,'…pay3');assert.equal(JSON.stringify(st).includes(PAIDK),false);
+r=await post(FREEK);assert.equal(r.ok,false,'cannot downgrade to a key with fewer credits');assert.equal(store.get('r564:key'),PAIDK);
+console.log('R564H key form OK');})().catch(e=>{console.error(e);process.exit(1);});

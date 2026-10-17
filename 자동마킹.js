@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R564G-PAID-KEY-VAR";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R564H-KEY-FORM";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1796,7 +1796,7 @@ return {ml,total:(all.find(r=>r.total)||{}).total||null,src:"median:"+all.length
 /* ---- state, budget, API ---- */
 function r507Opts(env){const f=k=>{const raw=String(env?.[k]??"").trim(),v=Number(raw);return raw!==""&&Number.isFinite(v)?v:null;};
 const w=f("OVERSEAS_WEIGHT"),h=f("OVERSEAS_WINDOW_HOURS"),d=f("OVERSEAS_DAILY_CREDITS");
-return {key:String(MEM.r564WorkerKey||env?.ODDS_PAID_KEY||env?.THE_ODDS_API_KEY||"").trim(),disabled:/^(1|true|on|yes)$/i.test(String(env?.OVERSEAS_DISABLED||"").trim()),
+return {key:String(MEM.r564StoredKey||MEM.r564WorkerKey||env?.ODDS_PAID_KEY||env?.THE_ODDS_API_KEY||"").trim(),disabled:/^(1|true|on|yes)$/i.test(String(env?.OVERSEAS_DISABLED||"").trim()),
 weight:w!=null?clamp(w>1?w/100:w,0,.95):R507.weight,windowMs:h!=null&&h>0?h*3600000:R507.windowMs,dailyCredits:d!=null&&d>=0?Math.floor(d):null};}
 function r507Store(state){const s=state.r507Overseas||(state.r507Overseas={});
 s.markets=s.markets||{};s.matches=s.matches||{};s.oddsAt=s.oddsAt||{};s.aliases=s.aliases||{};s.budget=s.budget||{};s.audit=s.audit||{};return s;}
@@ -1977,7 +1977,7 @@ return {weight:Number(s.audit.weight??R507.weight),matched:Number(s.audit.matche
 priced:Object.values(s.markets||{}).filter(e=>now-Number(e.at)<=R507.maxAgeMs&&Number(e.kick)>now).length,lastError:s.audit.lastError||null,at:s.audit.at,collection:{lastFetch:s.audit.lastFetch||null,lastSkip:s.audit.lastSkip||null,budget:s.audit.budget||null,refetchMinutes:R507.refetchMs/60000,quoteStorageError:!!MEM.r508QuoteStorageError}};}
 function r507Status(state,env){const o=r507Opts(env),s=state?.r507Overseas||{},now=Date.now();
 const priced=Object.values(s.markets||{}).filter(e=>now-Number(e.at)<=R507.maxAgeMs&&Number(e.kick)>now).length;
-return {version:APP_VERSION,configured:!!o.key,keyTail:o.key?'…'+o.key.slice(-4):null,keyLength:o.key?o.key.length:0,keySource:MEM.r564WorkerKey?'worker':'durable-object',keyName:String(env?.ODDS_PAID_KEY||'').trim()?'ODDS_PAID_KEY':'THE_ODDS_API_KEY',paidKeySet:!!String(env?.ODDS_PAID_KEY||'').trim(),doEnvKeyTail:env?.THE_ODDS_API_KEY?'…'+String(env.THE_ODDS_API_KEY).trim().slice(-4):null,disabled:o.disabled,weight:o.weight,domesticWeight:r3(1-o.weight),windowHours:o.windowMs/3600000,
+return {version:APP_VERSION,configured:!!o.key,keyTail:o.key?'…'+o.key.slice(-4):null,keyLength:o.key?o.key.length:0,keySource:MEM.r564WorkerKey?'worker':'durable-object',keyName:MEM.r564StoredKey?'KEY_FORM(/odds-key)':String(env?.ODDS_PAID_KEY||'').trim()?'ODDS_PAID_KEY':'THE_ODDS_API_KEY',paidKeySet:!!String(env?.ODDS_PAID_KEY||'').trim(),doEnvKeyTail:env?.THE_ODDS_API_KEY?'…'+String(env.THE_ODDS_API_KEY).trim().slice(-4):null,disabled:o.disabled,weight:o.weight,domesticWeight:r3(1-o.weight),windowHours:o.windowMs/3600000,
 budget:s.budget||null,audit:s.audit||null,pricedMarkets:priced,
 betmanVsOverseasGap:s.gap?.n?{samples:Math.round(s.gap.n),avgAbsDiffPct:r3(100*s.gap.sumAbs/s.gap.n),bySport:Object.fromEntries(Object.entries(s.gap.bySport||{}).map(([k,v])=>[k,{samples:Math.round(v.n),avgAbsDiffPct:v.n?r3(100*v.sumAbs/v.n):null}])),
 guide:"베트맨과 해외의 일반승 홈팀 확률 차이 평균(시뮬레이션 기준 예상효과): 약 1.5%p→+0.3%p, 2.5%p→+0.7%p, 4%p→+1.2%p, 6%p 이상→+2.5%p 이상"}:null,learnedAliases:Object.keys(s.aliases||{}).length,
@@ -11990,10 +11990,24 @@ generatedPrediction:false,connectedPickschoolFeed:false,
 marketsAnalyzed:rows.length,byFamily,rows,
 interpretation:'marketShare is no-vig relative price weight, NOT verified outcome probability. historicalSameOdds is past observed frequency only.'};
 }
+/* R564H: key form — the owner pastes the paid key on his own site (never in chat). The key is checked live with the Odds API and kept only if it has more credits than the key in use, so a free or wrong key is refused and nothing else can be changed through it. */
+function r564KeyPage(){return new Response('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>해외배당 키 등록</title><style>body{background:#0a0f17;color:#e8eef6;font-family:sans-serif;max-width:520px;margin:40px auto;padding:0 16px}input{width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid #445;background:#111a26;color:#fff;box-sizing:border-box}button{margin-top:12px;width:100%;padding:12px;font-size:17px;font-weight:700;border:0;border-radius:8px;background:#ffcc33;color:#000}#out{margin-top:18px;font-size:16px;line-height:1.6;white-space:pre-wrap}</style><h2>해외배당 유료 키 등록</h2><p>결제 메일의 키를 붙여넣고 등록을 누르세요. 입력은 가려집니다.</p><input id="k" type="password" autocomplete="off" placeholder="API 키"><button id="b">등록</button><div id="out"></div><script>document.getElementById("b").onclick=async function(){var o=document.getElementById("out");o.textContent="확인 중...";try{var r=await fetch("/api/odds-key",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({key:document.getElementById("k").value})});var j=await r.json();document.getElementById("k").value="";o.textContent=j.message||JSON.stringify(j);o.style.color=j.ok?"#7CFC9A":"#ff8080";}catch(e){o.textContent="오류: "+e;}};</script>',{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});}
+async function r564KeyPost(req,env){let input;try{input=await req.json();}catch{return json({ok:false,message:'입력 오류'},400);}
+const k=String(input?.key||'').trim();if(!/^[A-Za-z0-9]{20,64}$/.test(k))return json({ok:false,message:'키 형식이 아닙니다. 공백 없이 키만 붙여넣어 주세요.'},400);
+let nu;try{nu=(await r507Get(k,'/v4/sports',{})).usage;}catch(e){const m=String(e?.message||e);return json({ok:false,message:/HTTP_401/.test(m)?'해외배당 사이트가 이 키를 거부했습니다 (잘못된 키).':'확인 실패: '+m.slice(0,80)});}
+const cur=r507Opts(env).key;let cr=null;if(cur&&cur!==k){try{cr=(await r507Get(cur,'/v4/sports',{})).usage.remaining;}catch(_){}}
+const rem=nu.remaining,used=nu.used,tot=(Number(rem)||0)+(Number(used)||0);
+if(cur===k)return json({ok:true,message:'이미 이 키(끝 '+k.slice(-4)+')를 쓰고 있습니다. 남은 횟수 '+rem});
+if(!(Number(rem)>=1000)||(cr!=null&&!(Number(rem)>Number(cr))))return json({ok:false,message:'이 키(끝 '+k.slice(-4)+')는 해외배당 사이트에서 남은 '+rem+' / 전체 약 '+tot+'회로 나옵니다.\n유료(2만) 키가 아니라서 등록하지 않았습니다.\n→ 결제 메일에 답장으로 문의해 주세요.'});
+const ds=doStorage();if(!ds)return json({ok:false,message:'저장소 없음'},503);await ds.put('r564:key',k);MEM.r564StoredKey=k;MEM.r564WorkerKey=null;
+try{const cs=MEM.state;if(cs){const store=r507Store(cs);if(store.budget){r507Spend(store,nu,0);store.budget.probeAt=Date.now();}}}catch(_){}
+return json({ok:true,message:'등록 완료! 끝 '+k.slice(-4)+' 키로 바뀌었습니다.\n남은 횟수: '+rem+' / 전체 약 '+tot+'회'});}
 async function handleApp(req,env,ctx){
 const u=new URL(req.url);
 if(u.pathname==="/robots.txt")return new Response("User-agent: Claude-User\nAllow: /\n\nUser-agent: *\nDisallow: /\n",{headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}}); /* R548: owner's assistant may read status pages; everything else stays out */
 if(u.pathname==="/")return html(INDEX);
+if(u.pathname==='/odds-key'&&req.method==='GET')return r564KeyPage();
+if(u.pathname==='/api/odds-key'&&req.method==='POST')return r564KeyPost(req,env);
 if(u.pathname==='/api/overseas-status'&&req.method==='GET'){const st=r508Status(MEM.state||await loadState(env),env);try{const ds=doStorage();st.tick=ds?(await ds.get('r513:tick'))||MEM.r513Tick||null:(MEM.r513Tick||null);st.overseasRun=ds?(await ds.get('r514:ov'))||null:null;}catch(_){st.tick=MEM.r513Tick||null;}
 /* R564E: ask the Odds API live (free /v4/sports) so the page shows the balance of the key actually in use, not the last saved figure */
 try{const o=r507Opts(env);if(o.key){const {usage}=await r507Get(o.key,'/v4/sports',{});st.live={keyTail:'…'+o.key.slice(-4),remaining:usage.remaining,used:usage.used,at:new Date().toISOString()};const cs=MEM.state;if(cs&&usage.remaining!=null){const store=r507Store(cs);if(store.budget){r507Spend(store,usage,0);store.budget.probeAt=Date.now();}}}else st.live={error:'NO_KEY'};}catch(e){st.live={error:String(e?.message||e).slice(0,140)};}
@@ -13746,7 +13760,8 @@ function exportSafeConfig(){const c=legacyExportSafeConfig();c.deepReview.always
 export class ProtoStateDO{
 constructor(state,env){
 this.state=state;this.env=env;MEM.doStorage=state.storage;MEM.inDurableObject=true;
-this.ready=state.blockConcurrencyWhile?state.blockConcurrencyWhile(()=>r509Initialize(env)):r509Initialize(env);
+const r564Init=async()=>{await r509Initialize(env);try{MEM.r564StoredKey=String((await state.storage.get('r564:key'))||'').trim()||null;}catch(_){}};
+this.ready=state.blockConcurrencyWhile?state.blockConcurrencyWhile(r564Init):r564Init();
 }
 alarmIntervalMs(){
 const s=MEM.state;
