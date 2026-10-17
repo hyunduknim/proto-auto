@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R565-EVENT-LISTS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R565B-CSL-ALIAS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1703,7 +1703,7 @@ const R507_ALIAS_TEXT={
 "울산=ulsan|전북=jeonbuk|포항=pohang|fc서울=fc seoul|수원fc=suwon fc|수원삼성=bluewings|대구=daegu|대전=daejeon|광주=gwangju|강원=gangwon|제주=jeju|인천=incheon|김천=gimcheon|안양=anyang|부산=busan|부천=bucheon|성남=seongnam|전남=jeonnam|경남=gyeongnam|서울이랜드=seoul e land|"+
 "가시마=kashima|우라와=urawa|가와사키=kawasaki|마리노스=marinos|요코하마fc=yokohama fc|감바=gamba|세레소=cerezo|비셀=vissel|산프레체=sanfrecce|나고야=nagoya|가시와=kashiwa|fc도쿄=fc tokyo|도쿄베르디=verdy|마치다=machida|쇼난=shonan|아비스파=avispa|사간=sagan|교토=kyoto|니가타=niigata|시미즈=shimizu|이와타=iwata|오카야마=okayama|제프=jef|몬테디오=montedio|베갈타=vegalta|v바렌=nagasaki|삿포로=sapporo|도쿠시마=tokushima|오이타=oita|"+
 "갤럭시=galaxy|lafc=los angeles fc|인터마이애미=inter miami|세인트루이스=st louis|시애틀=seattle|포틀랜드=portland|애틀랜타=atlanta|뉴욕시티=new york city|레드불스=red bulls|필라델피아=philadelphia|콜럼버스=columbus|신시내티=cincinnati|내슈빌=nashville|올랜도=orlando|휴스턴=houston|댈러스=dallas|오스틴=austin|밴쿠버=vancouver|토론토=toronto|몬트리올=montreal|시카고파이어=chicago fire|미네소타=minnesota|콜로라도=colorado|솔트레이크=salt lake|캔자스시티=kansas city|샌디에이고=san diego|새너제이=san jose|샬럿=charlotte|뉴잉글랜드=new england|dc유나이티드=d c united|"+
-"알힐랄=al hilal|알나스르=al nassr|알이티하드=al ittihad|알아흘리=al ahli|알사드=al sadd|부리람=buriram|멜버른=melbourne|시드니=sydney",
+"상하이하이강=shanghai port|상하이선화=shanghai shenhua|베이징궈안=beijing|청두룽청=chengdu rongcheng|우한싼전=wuhan three towns|칭다오시하이안=qingdao west coast|김천상무=sangmu|알힐랄=al hilal|알나스르=al nassr|알이티하드=al ittihad|알아흘리=al ahli|알사드=al sadd|부리람=buriram|멜버른=melbourne|시드니=sydney",
 "야구":"다이아몬드백스=diamondbacks|브레이브스=braves|오리올스=orioles|레드삭스=red sox|컵스=cubs|화이트삭스=white sox|레즈=reds|가디언스=guardians|로키스=rockies|타이거스=tigers|애스트로스=astros|로열스=royals|에인절스=angels|다저스=dodgers|말린스=marlins|브루어스=brewers|트윈스=twins|메츠=mets|양키스=yankees|애슬레틱스=athletics|필리스=phillies|파이리츠=pirates|파드리스=padres|자이언츠=giants|매리너스=mariners|카디널스=cardinals|레이스=rays|레인저스=rangers|블루제이스=blue jays|내셔널스=nationals|"+
 "두산=doosan|lg=lg twins|기아=kia|kia=kia|삼성=samsung|롯데=lotte|한화=hanwha|ssg=ssg|nc=nc dinos|kt=kt wiz|키움=kiwoom|"+
 "요미우리=yomiuri|한신=hanshin|주니치=chunichi|히로시마=hiroshima|야쿠르트=yakult|요코하마=yokohama|dena=baystars|소프트뱅크=softbank|세이부=seibu|라쿠텐=rakuten|지바롯데=chiba lotte|오릭스=orix|닛폰햄=nippon ham|니혼햄=nippon ham",
