@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R564C-CREDIT-PROBE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R564D-KEY-TAIL";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1977,7 +1977,7 @@ return {weight:Number(s.audit.weight??R507.weight),matched:Number(s.audit.matche
 priced:Object.values(s.markets||{}).filter(e=>now-Number(e.at)<=R507.maxAgeMs&&Number(e.kick)>now).length,lastError:s.audit.lastError||null,at:s.audit.at,collection:{lastFetch:s.audit.lastFetch||null,lastSkip:s.audit.lastSkip||null,budget:s.audit.budget||null,refetchMinutes:R507.refetchMs/60000,quoteStorageError:!!MEM.r508QuoteStorageError}};}
 function r507Status(state,env){const o=r507Opts(env),s=state?.r507Overseas||{},now=Date.now();
 const priced=Object.values(s.markets||{}).filter(e=>now-Number(e.at)<=R507.maxAgeMs&&Number(e.kick)>now).length;
-return {version:APP_VERSION,configured:!!o.key,disabled:o.disabled,weight:o.weight,domesticWeight:r3(1-o.weight),windowHours:o.windowMs/3600000,
+return {version:APP_VERSION,configured:!!o.key,keyTail:o.key?'…'+o.key.slice(-4):null,keyLength:o.key?o.key.length:0,disabled:o.disabled,weight:o.weight,domesticWeight:r3(1-o.weight),windowHours:o.windowMs/3600000,
 budget:s.budget||null,audit:s.audit||null,pricedMarkets:priced,
 betmanVsOverseasGap:s.gap?.n?{samples:Math.round(s.gap.n),avgAbsDiffPct:r3(100*s.gap.sumAbs/s.gap.n),bySport:Object.fromEntries(Object.entries(s.gap.bySport||{}).map(([k,v])=>[k,{samples:Math.round(v.n),avgAbsDiffPct:v.n?r3(100*v.sumAbs/v.n):null}])),
 guide:"베트맨과 해외의 일반승 홈팀 확률 차이 평균(시뮬레이션 기준 예상효과): 약 1.5%p→+0.3%p, 2.5%p→+0.7%p, 4%p→+1.2%p, 6%p 이상→+2.5%p 이상"}:null,learnedAliases:Object.keys(s.aliases||{}).length,
