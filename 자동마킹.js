@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R564D-KEY-TAIL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R564E-LIVE-BALANCE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11994,7 +11994,10 @@ async function handleApp(req,env,ctx){
 const u=new URL(req.url);
 if(u.pathname==="/robots.txt")return new Response("User-agent: Claude-User\nAllow: /\n\nUser-agent: *\nDisallow: /\n",{headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}}); /* R548: owner's assistant may read status pages; everything else stays out */
 if(u.pathname==="/")return html(INDEX);
-if(u.pathname==='/api/overseas-status'&&req.method==='GET'){const st=r508Status(MEM.state||await loadState(env),env);try{const ds=doStorage();st.tick=ds?(await ds.get('r513:tick'))||MEM.r513Tick||null:(MEM.r513Tick||null);st.overseasRun=ds?(await ds.get('r514:ov'))||null:null;}catch(_){st.tick=MEM.r513Tick||null;}return u.searchParams.get('view')==='html'?new Response('<!doctype html><meta charset="utf-8"><title>해외배당 수집 상태</title><pre>'+esc(JSON.stringify(st,null,2))+'</pre>',{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}}):json(st);}
+if(u.pathname==='/api/overseas-status'&&req.method==='GET'){const st=r508Status(MEM.state||await loadState(env),env);try{const ds=doStorage();st.tick=ds?(await ds.get('r513:tick'))||MEM.r513Tick||null:(MEM.r513Tick||null);st.overseasRun=ds?(await ds.get('r514:ov'))||null:null;}catch(_){st.tick=MEM.r513Tick||null;}
+/* R564E: ask the Odds API live (free /v4/sports) so the page shows the balance of the key actually in use, not the last saved figure */
+try{const o=r507Opts(env);if(o.key){const {usage}=await r507Get(o.key,'/v4/sports',{});st.live={keyTail:'…'+o.key.slice(-4),remaining:usage.remaining,used:usage.used,at:new Date().toISOString()};const cs=MEM.state;if(cs&&usage.remaining!=null){const store=r507Store(cs);if(store.budget){r507Spend(store,usage,0);store.budget.probeAt=Date.now();}}}else st.live={error:'NO_KEY'};}catch(e){st.live={error:String(e?.message||e).slice(0,140)};}
+return u.searchParams.get('view')==='html'?new Response('<!doctype html><meta charset="utf-8"><title>해외배당 수집 상태</title><pre>'+esc(JSON.stringify(st,null,2))+'</pre>',{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}}):json(st);}
 if(u.pathname==='/api/data-odds-analytics'&&req.method==='GET')return json(r477DataPayload(await loadState(env)));
 if(u.pathname==='/api/odds-history'&&req.method==='GET')return r462HandleHistory(req,env);
 if(u.pathname==='/api/manual-odds')return json({error:'MANUAL_ODDS_FEATURE_REMOVED'},410);
