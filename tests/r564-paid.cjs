@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+c.NOW=Date.parse('2026-10-18T00:30:00+09:00');
+run(`G={kick:NOW+2*3600000,markets:[{gmTs:"260123",no:1}]};FREE={budget:{remaining:227},markets:{"260123:1":{at:NOW-40*60000,kick:NOW+2*3600000}}};PAID={budget:{remaining:19950},markets:{"260123:1":{at:NOW-40*60000,kick:NOW+2*3600000}}};`);
+assert.equal(run('r507GameFresh(FREE,G,NOW)'),true,'free plan: 40-min-old odds still fresh 2h out');
+assert.equal(run('r507GameFresh(PAID,G,NOW)'),false,'paid plan: refresh every 30 min within 3h');
+assert.equal(run('r564ScoresCap(PAID)'),60);assert.equal(run('r564ScoresCap(FREE)'),4);
+assert.ok(run('r507Budget({budget:{day:"2026-10-18",spent:0,remaining:19950}},NOW,{dailyCredits:null}).daily')>1000,'daily allowance scales with the paid balance');
+console.log('R564 paid plan tuning OK');

@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R563B-NO-ALL-MARKING-FROM-124";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R564-PAID-ODDS-PLAN";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1846,12 +1846,14 @@ else if(x.n===1&&x.complete&&best.score>=.3)method="TIME_UNIQUE";}
 if(method){taken.add(best.id);rows.push({game:x.g,match:{id:best.id,sportKey:best.sportKey,h:best.h,a:best.a,t:best.t,score:best.score,method}});}
 else rows.push({game:x.g,match:null,complete:x.complete,candidates:x.n,bestScore:best?r3(best.score):null});}
 return rows;}
+/* R564: owner moved to a paid The Odds API plan (20K/month). With a big balance, refresh more often and look further ahead. */
+function r564Rich(store){return Number(store?.budget?.remaining)>2000;}
 function r507GameFresh(store,g,now){/* R522: free plan ~16 credits/day. Re-check 2h apart, 60min within 3h, 30min within 90min of kickoff */
-const left=g.kick-now,maxAge=left<=90*60000?30*60000:left<=3*3600000?R507.refetchMs:2*3600000;
+const rich=r564Rich(store),left=g.kick-now,maxAge=rich?(left<=90*60000?15*60000:left<=3*3600000?30*60000:90*60000):(left<=90*60000?30*60000:left<=3*3600000?R507.refetchMs:2*3600000);
 return g.markets.some(m=>{const e=store.markets[`${m.gmTs}:${m.no}`];return e&&now-Number(e.at)<maxAge&&Number(e.kick)===g.kick;});}
 function r507DueLeague(store,matches,now,o){const byKey=new Map();
 for(const x of matches){if(!x.match)continue;const k=x.match.sportKey;
-if(now-Number(store.oddsAt[k]||0)<R507.minRefetchGapMs)continue;
+if(now-Number(store.oddsAt[k]||0)<(r564Rich(store)?10*60000:R507.minRefetchGapMs))continue;
 const e=byKey.get(k)||{sportKey:k,eventIds:new Set(),first:Infinity,due:false};e.eventIds.add(x.match.id);
 if(x.game.kick-now<=o.windowMs&&!r507GameFresh(store,x.game,now)){e.due=true;e.first=Math.min(e.first,x.game.kick);if(!x.game.markets.some(m=>store.markets[`${m.gmTs}:${m.no}`]))e.fresh0=true;}byKey.set(k,e);}
 const due=[...byKey.values()].filter(e=>e.due).sort((a,b)=>(b.fresh0?1:0)-(a.fresh0?1:0)||Number(store.oddsAt[a.sportKey]||0)-Number(store.oddsAt[b.sportKey]||0)||a.first-b.first)[0];
@@ -1927,9 +1929,9 @@ store.matches=Object.fromEntries(matches.filter(x=>x.match).map(x=>[x.game.key,{
 /* R528: overseas numbers saved under a wrong match are removed once the game is re-matched elsewhere or is definitely unmatched */
 for(const x of matches){const id=x.match?.id||null;if(!id&&!x.complete)continue;for(const m of x.game.markets){const k=`${m.gmTs}:${m.no}`,e=store.markets[k];if(e&&e.eventId!==id)delete store.markets[k];}}
 store.unmatched=matches.filter(x=>!x.match).slice(0,30).map(x=>({betman:`${x.game.home} vs ${x.game.away}`,kick:x.game.kick,sport:x.game.sport,candidates:x.candidates,bestScore:x.bestScore}));
-let due=r507DueLeague(store,matches,now,o);
+const o2=r564Rich(store)?{...o,windowMs:Math.max(o.windowMs,12*3600000)}:o;let due=r507DueLeague(store,matches,now,o2);
 const budget=r507Budget(store,now,o);audit.budget={day:budget.day,daily:budget.daily,spent:budget.spent,remaining:budget.remaining};
-if(!due)due=r528PrecisionBoost(store,matches,now,o,budget);
+if(!due)due=r528PrecisionBoost(store,matches,now,o2,budget);
 if(!due){r507Prune(store,now);return {status:"OK",matched:audit.matched};}
 const requestedMarkets=['h2h','totals'];
 if(due.boost?due.handicap:(matches.some(x=>x.match?.sportKey===due.sportKey&&x.game.markets.some(m=>m.marketFamily==='HANDICAP'&&validChoices(m).length===2))&&budget.canSpend(3+R522_RESERVE)))requestedMarkets.push('spreads');
@@ -10704,19 +10706,19 @@ function r547Pending(state,now=Date.now()){
 return pendingSettlementMarkets(state).filter(m=>{const t=gameTimeMs(m);return t!=null&&now-t>=150*60000&&now-t<=3*86400000&&!!r547Ref(state,m);});}
 /* R555S: Odds API score checks no longer eat the daily odds allowance (they used all of 10/16's credits so no overseas
    odds were fetched). Scores have their own cap of 4 credits/day and each league is re-checked at most every 3 hours. */
-const R555S={scoresDaily:4,scoresGapMs:3*3600000};
+const R555S={scoresDaily:4,scoresGapMs:3*3600000};function r564ScoresCap(store){return r564Rich(store)?60:R555S.scoresDaily}
 function r555FixScoresDay(state){const st=state?.r507Overseas,b=st?.budget;if(!b||st.r555ScoresFix)return false;st.r555ScoresFix=nowIso();
 if(b.day==="2026-10-16"){b.spent=Math.min(Number(b.spent||0),3);return true;}return false;} /* only one odds fetch (≤3 credits) happened on 10/16; the rest were score checks */
 async function r547RefreshScores(state,env,now=Date.now()){
 const o=r507Opts(env),pending=r547Pending(state,now);if(!pending.length)return {source:"ODDSAPI_SCORES",status:"NO_OVERDUE_MATCHED_PENDING",settled:0};
 if(!o.key||o.disabled)return {source:"ODDSAPI_SCORES",status:"NOT_CONFIGURED",settled:0};
 const store=r507Store(state),last=store.scoresAt||(store.scoresAt={}),refOf=new Map(pending.map(m=>[m,r547Ref(state,m)]));
-const keys=[...new Set(pending.map(m=>refOf.get(m).sportKey))].filter(k=>now-Number(last[k]||0)>=R555S.scoresGapMs).slice(0,2);
+const keys=[...new Set(pending.map(m=>refOf.get(m).sportKey))].filter(k=>now-Number(last[k]||0)>=(r564Rich(store)?3600000:R555S.scoresGapMs)).slice(0,2);
 const audit={source:"ODDSAPI_SCORES",at:nowIso(),status:"CHECKING",pendingBefore:pending.length,leagues:keys,calls:0,matched:0,settled:0,rejected:0,reasons:{},samples:[],error:null};
 if(!keys.length){audit.status="THROTTLED";state.r547ScoresAudit=audit;return audit;}
 const fail=r=>{audit.rejected++;audit.reasons[r]=(audit.reasons[r]||0)+1;};
 try{for(const k of keys){const rem=Number(store.budget?.remaining);if(Number.isFinite(rem)&&rem-2<R507.reserve){audit.status="CREDIT_RESERVE";break;}
-const sd=kstDateFromMs(now),sb=store.scoresBudget&&store.scoresBudget.day===sd?store.scoresBudget:(store.scoresBudget={day:sd,spent:0});if(sb.spent+2>R555S.scoresDaily){audit.status="SCORES_DAILY_CAP";break;}
+const sd=kstDateFromMs(now),sb=store.scoresBudget&&store.scoresBudget.day===sd?store.scoresBudget:(store.scoresBudget={day:sd,spent:0});if(sb.spent+2>r564ScoresCap(store)){audit.status="SCORES_DAILY_CAP";break;}
 last[k]=now;const {data,usage}=await r507Get(o.key,`/v4/sports/${encodeURIComponent(k)}/scores`,{daysFrom:2,dateFormat:"iso"});const before=Number(store.budget?.spent||0);r507Spend(store,usage,2);const used=Math.max(0,Number(store.budget?.spent||0)-before);store.budget.spent=before;sb.spent+=used||2;audit.calls++;
 const byId=new Map((Array.isArray(data)?data:[]).map(e=>[e.id,e]));
 for(const m of pending){const x=refOf.get(m);if(x.sportKey!==k)continue;const e=byId.get(x.eventId);
