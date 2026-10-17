@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R559-TAMPA-POSTPONED-VOID";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.16-R559B-KEEP-PANELS-OPEN";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -8476,8 +8476,8 @@ b.classList.toggle('on',mode===settleFilterMode);
 b.textContent=names[mode]+' '+(counts[mode]||0);
 });
 $('settleSort').textContent=settleSortAsc?'시간 오름차순 ↑':'시간 내림차순 ↓';
-$('pastList').innerHTML=rows.length?rows.map(m=>m.resultFinal?pastResultHtml(m):pastPendingHtml(m)).join(''):
-'<div class="pastEmpty">선택한 조건의 정산 기록이 없습니다. 전체 필터에서 모든 경기 기록을 확인할 수 있습니다.</div>';
+r559SetHtml($('pastList'),rows.length?rows.map(m=>m.resultFinal?pastResultHtml(m):pastPendingHtml(m)).join(''):
+'<div class="pastEmpty">선택한 조건의 정산 기록이 없습니다. 전체 필터에서 모든 경기 기록을 확인할 수 있습니다.</div>');
 }
 function setSettleFilter(mode){
 if(!['all','pending','overdue','hit','miss','void'].includes(mode))return;
@@ -9006,15 +9006,16 @@ function r519FlowInsights(m,r,market){
 }
 function r557Table(title,rows){if(!rows||!rows.length)return '';return '<div class="ccT"><b>'+e(title)+'</b><table><tr><th></th><th>경기</th><th>적중</th><th>실제</th><th>예상</th></tr>'+rows.map(r=>{const d=r.hitPct-r.expPct,c=d>=3?'ccUp':d<=-3?'ccDn':'';return '<tr><td>'+e(r.label)+'</td><td>'+e(r.n)+'</td><td>'+e(r.hits)+'</td><td class="'+c+'">'+e(Number(r.hitPct).toFixed(1))+'%</td><td>'+e(Number(r.expPct).toFixed(1))+'%</td></tr>'}).join('')+'</table></div>'}
 function r557Render(st){const el=document.getElementById('r557Calib');if(!el)return;const x=st&&st.r557Calibration;if(!x){el.style.display='none';return}el.style.display='';const t=x.total||{};
-el.innerHTML='<div class="ccHead"><b>📈 실제 적중률 기록</b><small>'+e(x.from)+' 경기부터 · 자동픽만</small></div>'+(t.n?'<div class="ccSum"><span>전체 <b>'+e(t.n)+'</b>경기 · 적중 <b>'+e(t.hits)+'</b></span><span>실제 <b>'+e(Number(t.hitPct).toFixed(1))+'%</b> · 시스템 예상 '+e(Number(t.expPct).toFixed(1))+'%</span></div>'+r557Table('확률대별',x.prob)+r557Table('등급별',x.grade)+r557Table('종류별',x.family)+(x.voids?'<div class="ccNote">적특 '+e(x.voids)+'경기는 제외</div>':''):'<div class="ccNote">아직 정산된 경기가 없습니다. 경기가 끝나는 대로 자동으로 채워집니다.</div>')}
+r559SetHtml(el,'<div class="ccHead"><b>📈 실제 적중률 기록</b><small>'+e(x.from)+' 경기부터 · 자동픽만</small></div>'+(t.n?'<div class="ccSum"><span>전체 <b>'+e(t.n)+'</b>경기 · 적중 <b>'+e(t.hits)+'</b></span><span>실제 <b>'+e(Number(t.hitPct).toFixed(1))+'%</b> · 시스템 예상 '+e(Number(t.expPct).toFixed(1))+'%</span></div>'+r557Table('확률대별',x.prob)+r557Table('등급별',x.grade)+r557Table('종류별',x.family)+(x.voids?'<div class="ccNote">적특 '+e(x.voids)+'경기는 제외</div>':''):'<div class="ccNote">아직 정산된 경기가 없습니다. 경기가 끝나는 대로 자동으로 채워집니다.</div>'))}
 function r554CmpLeg(l){if(!l)return '<span class="mcDim">기록 없음</span>';const fam={MONEYLINE:'일반',HANDICAP:'핸디',TOTAL:'언오버'}[l.marketFamily]||'',st=l.status==='hit'?'<b class="mcHit">⭕</b>':l.status==='miss'?'<b class="mcMiss">❌</b>':l.status==='void'?'<b>적특</b>':l.status==='live'?'<b class="mcLive">진행</b>':'<b class="mcDim">전</b>';const txt=l.marketFamily==='TOTAL'?l.pick+' '+(l.line!=null?l.line:''):l.marketFamily==='HANDICAP'&&l.line!=null?'핸디 '+(Number(l.line)>0?'+':'')+l.line+' '+l.pick:l.pick;return st+' <span>['+e(fam)+'] '+e(txt)+(l.odds?' '+e(Number(l.odds).toFixed(2))+'배':'')+'</span>'}
 function r554RenderManCmp(st){const el=document.getElementById('r554ManCmp');if(!el)return;const x=st&&st.r554ManualCompare;if(!x||!x.rows||!x.rows.length){el.innerHTML='';el.style.display='none';return}el.style.display='';const t=x.totals,pct=(h,m)=>h+m?Math.round(h*100/(h+m))+'%':'-';
-el.innerHTML='<div class="mcHead"><b>✏️ 수동 vs 자동 비교</b><small>수동으로 바꾼 '+x.rows.length+'경기</small></div><div class="mcSum"><div><span>수동픽</span><b>'+t.manualHit+'적중 '+t.manualMiss+'낙첨</b><em>'+pct(t.manualHit,t.manualMiss)+'</em></div><div><span>원래 자동픽</span><b>'+t.autoHit+'적중 '+t.autoMiss+'낙첨</b><em>'+pct(t.autoHit,t.autoMiss)+'</em></div></div>'+x.rows.map(r=>{const m=r.manual||r.auto||{};return '<div class="mcRow"><div class="mcGame">#'+e(m.no)+' '+e(String(m.date||'').slice(5))+' '+e(String(m.time||'').slice(0,5))+' '+e(m.home)+' vs '+e(m.away)+(m.score?' <b>('+e(m.score)+')</b>':'')+'</div><div class="mcPick"><span class="mcTag">수동</span>'+r554CmpLeg(r.manual)+'</div><div class="mcPick"><span class="mcTag auto">자동</span>'+r554CmpLeg(r.auto)+'</div></div>'}).join('')}
+r559SetHtml(el,'<div class="mcHead"><b>✏️ 수동 vs 자동 비교</b><small>수동으로 바꾼 '+x.rows.length+'경기</small></div><div class="mcSum"><div><span>수동픽</span><b>'+t.manualHit+'적중 '+t.manualMiss+'낙첨</b><em>'+pct(t.manualHit,t.manualMiss)+'</em></div><div><span>원래 자동픽</span><b>'+t.autoHit+'적중 '+t.autoMiss+'낙첨</b><em>'+pct(t.autoHit,t.autoMiss)+'</em></div></div>'+x.rows.map(r=>{const m=r.manual||r.auto||{};return '<div class="mcRow"><div class="mcGame">#'+e(m.no)+' '+e(String(m.date||'').slice(5))+' '+e(String(m.time||'').slice(0,5))+' '+e(m.home)+' vs '+e(m.away)+(m.score?' <b>('+e(m.score)+')</b>':'')+'</div><div class="mcPick"><span class="mcTag">수동</span>'+r554CmpLeg(r.manual)+'</div><div class="mcPick"><span class="mcTag auto">자동</span>'+r554CmpLeg(r.auto)+'</div></div>'}).join(''))}
+function r559SetHtml(el,html){if(!el)return;if(el.__r559===html)return;let open=[];try{open=[...el.querySelectorAll('details')].map(d=>d.open)}catch(_){}el.innerHTML=html;el.__r559=html;try{const ds=el.querySelectorAll('details');open.forEach((o,i)=>{if(o&&ds[i])ds[i].open=true})}catch(_){}}
 function r524RenderOvStat(st){const el=document.getElementById('r524OvStat');if(!el)return;const x=st&&st.overseasChangeStats;
-if(!x){el.innerHTML='<b>해외배당 효과</b><span>해외배당이 붙은 경기가 정산되면 여기에 기록됩니다.</span>';return;}
+if(!x){r559SetHtml(el,'<b>해외배당 효과</b><span>해외배당이 붙은 경기가 정산되면 여기에 기록됩니다.</span>');return;}
 const pct=b=>b&&b.n?(b.hit/b.n*100).toFixed(1)+'%':'-';
 const recent=(x.recent||[]).slice(0,5).map(r=>'<li>'+e(r.game)+' · '+e(r.from)+' → '+e(r.to)+' · '+(r.hit===null?'적특':r.hit?'⭕':'❌')+'</li>').join('');
-el.innerHTML='<b>해외배당 효과</b><span>해외배당으로 픽이 바뀐 경기 '+x.changed.n+'경기 중 '+x.changed.hit+'적중 ('+pct(x.changed)+')</span><span>해외배당이 붙었지만 픽 그대로 '+x.same.n+'경기 중 '+x.same.hit+'적중 ('+pct(x.same)+')</span>'+(recent?'<details><summary>최근 바뀐 경기</summary><ul>'+recent+'</ul></details>':'');}
+r559SetHtml(el,'<b>해외배당 효과</b><span>해외배당으로 픽이 바뀐 경기 '+x.changed.n+'경기 중 '+x.changed.hit+'적중 ('+pct(x.changed)+')</span><span>해외배당이 붙었지만 픽 그대로 '+x.same.n+'경기 중 '+x.same.hit+'적중 ('+pct(x.same)+')</span>'+(recent?'<details><summary>최근 바뀐 경기</summary><ul>'+recent+'</ul></details>':''));}
 function r518HistoryTable(title,labels,points,overseas){
  const changes=points.filter((p,i)=>!i||labels.some(l=>Math.abs(p.values[l]-points[i-1].values[l])>=.005)),tail=changes.slice(-5);
  const rows=tail.map((p,i)=>'<tr><td>'+e(r506Clock(p.at))+'</td>'+labels.map(label=>{
