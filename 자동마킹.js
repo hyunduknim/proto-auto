@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R566-KEEP-OTHER-MARKETS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R567-PAST-ADJ-DOWN-ONLY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4203,7 +4203,7 @@ const R554={minP:.62,bestP:.66,minN:40,z:1.96,shrinkK:200,badAdj:-.01};
 function r554Key(m){const o=Number(m?.finalOdds);if(!(o>1))return null;return [m.sport||"기타",m.marketFamily,String(m.finalPick||""),r553Bucket(o)].join("|");}
 function r554Adj(m){const k=r554Key(m),b=k&&MEM.r553?.buckets?.[k];if(!b||b.n<R554.minN)return {adj:0,key:k,n:b?.n||0};
 const hit=b.hits/b.n,imp=b.sumP/b.n,se=Math.sqrt(Math.max(1e-6,imp*(1-imp))/b.n),z=(hit-imp)/se;
-const adj=Math.abs(z)>=R554.z?(hit-imp)*b.n/(b.n+R554.shrinkK):0;return {adj:clamp(adj,-.08,.08),key:k,n:b.n,z:r3(z),hitPct:r3(100*hit),impliedPct:r3(100*imp)};}
+let adj=Math.abs(z)>=R554.z?(hit-imp)*b.n/(b.n+R554.shrinkK):0;/* R567: from round 124 the past-segment table may only lower a probability (owner: hit rate first) */if(Number(m?.gmTs||0)>=260124)adj=Math.min(0,adj);return {adj:clamp(adj,-.08,.08),key:k,n:b.n,z:r3(z),hitPct:r3(100*hit),impliedPct:r3(100*imp)};}
 /* R555: recent form (last 5 games, streaks) — data-driven. Every settled pick is tracked by form flag
    (with / against / neutral). A probability correction for a flag switches on only after ≥40 settled picks show a
    statistically real gap (|z|≥1.96) vs the model, shrunk n/(n+200) and capped ±5%p. Until then form is shown only. */
@@ -9286,8 +9286,8 @@ return '<div class="r558Box">'+
 '<div class="r558S"><span class="n">1</span><div><b class="zY">국내배당 확률</b> <span class="r558Mk">'+e(r558MkName(m,row))+'</span><small>배트맨 배당에서 수수료를 뺀 확률</small><div class="r558Chs">'+line(dom,'zY')+'</div></div></div>'+
 '<div class="r558S"><span class="n">2</span><div><b class="zC">해외배당 확률</b> <span class="r558Mk">'+e(r558MkName(m,row))+'</span><small>'+(ov?'해외 여러 업체 배당 합의값':'아직 없음 · 경기 6시간 전부터 들어옵니다')+'</small>'+(ov?'<div class="r558Chs">'+line(ov,'zC')+'</div>':'')+'</div></div>'+
 '<div class="r558S"><span class="n">3</span><div><b class="zW">기본 확률 '+r558Pct(r.p)+'</b><small>'+(ov?'해외 70 : 국내 30으로 섞음':'국내배당 기준 분석')+'</small></div></div>'+
-'<div class="r558S"><span class="n">4</span><div><b class="zP">과거 배당구간 보정 '+r558Adj(r.adj)+'</b><small>'+r558SegNote(r)+(r558Seg(r)||'비교할 과거 기록 없음')+'</small></div></div>'+
-'<div class="r558S"><span class="n">5</span><div><b class="zO">최근 흐름 보정 '+r558Adj(r.formAdj)+'</b><small>'+(f?'최근5 · '+e(m.home)+' '+ft(f.home)+' · '+e(m.away)+' '+ft(f.away)+(f.flag==='against'?' · <b class="zDn">흐름 반대</b>':f.flag==='with'?' · <b class="zUp">흐름 같은 편</b>':''):'최근 경기 기록 없음')+'<br>'+r558FormNote(m)+'</small></div></div>'+
+(Number(m.gmTs||0)>=260124?'':'<div class="r558S"><span class="n">4</span><div><b class="zP">과거 배당구간 보정 '+r558Adj(r.adj)+'</b><small>'+r558SegNote(r)+(r558Seg(r)||'비교할 과거 기록 없음')+'</small></div></div>')+
+'<div class="r558S"><span class="n">'+(Number(m.gmTs||0)>=260124?4:5)+'</span><div><b class="zO">최근 흐름 보정 '+r558Adj(r.formAdj)+'</b><small>'+(f?'최근5 · '+e(m.home)+' '+ft(f.home)+' · '+e(m.away)+' '+ft(f.away)+(f.flag==='against'?' · <b class="zDn">흐름 반대</b>':f.flag==='with'?' · <b class="zUp">흐름 같은 편</b>':''):'최근 경기 기록 없음')+'<br>'+r558FormNote(m)+'</small></div></div>'+
 '<div class="r558S last"><span class="n">✓</span><div><b class="zG">최종 '+(ps!=null?r558Pct(ps):'-')+' → '+e(g)+'</b><small>'+r558Why(m,ps,g)+'62% 이상 추천 · 66% 이상 + 해외도 같은 쪽 1순위면 가장추천</small></div></div>'+
 '</div>'+r562Block(m)+'</div>'}
 function expBody(m){
