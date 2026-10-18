@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R569B-TELEGRAM-PICK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R570-OWNER-SCORE-9196";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4651,6 +4651,19 @@ state.r559VoidAudit={done:true,at,gmTs:"260123",fixture:ms[0].home+" vs "+ms[0].
 /* R560: owner-confirmed result — 260123 #8640 (현대건설 vs GS칼텍스 언더오버 178.5) ended 언더, so the manual 오버 is 낙첨. */
 function r560FixManual8640(state){if(!state||state.r560Fix8640)return 0;const lr=state.r556LegResults||(state.r556LegResults={});lr["260123:8640"]={outcome:"언더",score:null,source:"OWNER_CONFIRMED_RESULT",at:nowIso()};
 for(const row of Object.values(state.r554ManualLog||{})){for(const side of ["auto","manual"]){const l=row[side];if(l&&l.k==="260123:8640"){l.status="miss";l.result="언더";delete l.recheck;}}}state.r560Fix8640=nowIso();return 1;}
+/* R570: owner-confirmed final scores — applied on every pass so a later automatic re-check cannot flip them back. */
+const R570_OWNER_SCORES=[{gmTs:"260123",date:"2026-10-18",home:/베이징|궈안/,away:/칭다오/,score:"1:0",note:"9196 베이징 궈안 1:0 칭다오 (owner)"}];
+function r570OwnerScores(state){if(!state)return 0;let n=0;const at=nowIso(),lr=state.r556LegResults||(state.r556LegResults={});
+for(const fx of R570_OWNER_SCORES)for(const m of state.markets||[]){if(String(m.gmTs||"")!==fx.gmTs||String(m.date||"")!==fx.date||!fx.home.test(String(m.home||""))||!fx.away.test(String(m.away||"")))continue;
+const rr={no:m.no,family:m.marketFamily,score:fx.score,terminal:true,outcome:null};let res;try{res=resolveOfficialOutcome(rr,m);}catch(_){res=null;}if(!res||!res.outcome)continue;
+lr[r554LegKey(m)]={outcome:res.void?"void":res.outcome,score:fx.score,source:"OWNER_CONFIRMED_SCORE",at};
+if(!m.marked||!m.representativeSelected)continue;const hit=res.void?null:String(m.finalPick)===String(res.outcome),st=res.void?"적특":hit?"적중":"낙첨";
+if(m.resultFinal&&m.settlementStatus===st&&m.resultScoreText===fx.score&&m.resultSource==="OWNER_CONFIRMED_SCORE")continue;
+m.result=res.outcome;m.resultFinal=true;m.hit=hit;m.settlementStatus=st;m.settlementType=res.void?"VOID":"NORMAL";m.resultSpecialStatus=null;m.resultSource="OWNER_CONFIRMED_SCORE";m.resultResolutionSource=res.source;
+m.resultStatus="경기종료 · 사용자 확인 스코어";m.resultScoreText=fx.score;m.resultVerifiedAt=at;
+try{recordSettlementLedger(state,m);upsertSettledCard(state,m);}catch(_){}n++;}
+for(const row of Object.values(state.r554ManualLog||{}))for(const side of ["auto","manual"]){const l=row[side];const o=l&&lr[l.k];if(o&&o.source==="OWNER_CONFIRMED_SCORE"){l.status=o.outcome==="void"?"void":String(l.pick)===String(o.outcome)?"hit":"miss";l.result=o.outcome;delete l.recheck;}}
+if(n)state.r570Audit={at,fixed:n+(state.r570Audit?.fixed||0)};return n;}
 /* R561: owner says proto #8959 (round 260123) does not exist on Betman — drop it everywhere, every pass. */
 const R561_REMOVED=[["260123",8959]];
 function r561Gone(m){return !!m&&R561_REMOVED.some(([g,n])=>String(m.gmTs||"")===g&&Number(m.no)===n);}
@@ -4663,6 +4676,7 @@ r498WithdrawTwo(state);
 try{r561RemovePhantom(state);}catch(_){}
 try{r559PostponedVoid(state);}catch(_){}
 try{r560FixManual8640(state);}catch(_){}
+try{r570OwnerScores(state);}catch(_){}
 try{r555FixScoresDay(state);}catch(_){}
 r507Attach(state);
 if(state.r398Protocol?.backupPrerequisite==="TRANSACTIONAL_DO_UNAVAILABLE"){state.r398EvidenceAudit={policy:"NO_NEW_MARKING_WITHOUT_RESTORABLE_BACKUP",blocked:true};return state;}
