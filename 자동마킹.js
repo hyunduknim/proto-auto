@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R573-NEW-DESIGN";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R574-CACHE-TRIM";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4914,9 +4914,9 @@ return compacted;
 function r556Cleanup(s){if(!s||typeof s!=="object")return 0;let n=0;const cur=Number(s.gmTs||0),min=cur?cur-1:0;
 for(const k of ["r554Combos","comboBook"])if(k in s){delete s[k];n++;}
 if(s.r507Overseas&&"r555ScoresFix" in s.r507Overseas&&s.r507Overseas.budget?.day!=="2026-10-16"){delete s.r507Overseas.r555ScoresFix;n++;}
-if(Array.isArray(s.r398SelectionHistory)){const before=s.r398SelectionHistory.length;s.r398SelectionHistory=s.r398SelectionHistory.filter(x=>!min||Number(String(x.marketKey||"").split(":")[0])>=min).slice(-600);n+=before-s.r398SelectionHistory.length;}
-const snaps=s.r398PregameSnapshots;if(snaps&&typeof snaps==="object"){const keys=Object.keys(snaps);if(keys.length>500){const heads=new Set(Object.values(s.r398SnapshotHeads||{}));const ts=x=>{const c=x?.capturedAt,v=typeof c==="number"?c:Date.parse(c||"");return Number.isFinite(v)?v:Number(x?.kickoffAt||0);};
-const recent=keys.filter(k=>!heads.has(k)).sort((a,b)=>ts(snaps[b])-ts(snaps[a])).slice(0,400),keep=new Set([...heads,...recent]);for(const k of keys)if(!keep.has(k)){delete snaps[k];n++;}}}
+if(Array.isArray(s.r398SelectionHistory)){const before=s.r398SelectionHistory.length;s.r398SelectionHistory=s.r398SelectionHistory.filter(x=>!min||Number(String(x.marketKey||"").split(":")[0])>=min).slice(-300);n+=before-s.r398SelectionHistory.length;}
+const snaps=s.r398PregameSnapshots;if(snaps&&typeof snaps==="object"){const keys=Object.keys(snaps);if(keys.length>300){const heads=new Set(Object.values(s.r398SnapshotHeads||{}));const ts=x=>{const c=x?.capturedAt,v=typeof c==="number"?c:Date.parse(c||"");return Number.isFinite(v)?v:Number(x?.kickoffAt||0);};
+const recent=keys.filter(k=>!heads.has(k)).sort((a,b)=>ts(snaps[b])-ts(snaps[a])).slice(0,250),keep=new Set([...heads,...recent]);for(const k of keys)if(!keep.has(k)){delete snaps[k];n++;}}}
 for(const box of ["r483TeamForms","r483TeamAttempts","r483TeamLinks","r483SpogodLinks"]){const o=s[box];if(!o||typeof o!=="object"||!cur)continue;for(const k of Object.keys(o)){let g=null;try{g=Number(JSON.parse(k)[0]);}catch(_){}if(g&&g<min){delete o[k];n++;}}}
 if(s.r555Track&&Array.isArray(s.r555Track.seen)&&s.r555Track.seen.length>2000){n+=s.r555Track.seen.length-2000;s.r555Track.seen=s.r555Track.seen.slice(-2000);}
 if(n)s.r556CleanupAudit={at:nowIso(),removed:n+(s.r556CleanupAudit?.removed||0)};return n;}
@@ -11808,7 +11808,7 @@ return n%2===0;
 /* R522: raw quote copies (r508:quote:*) and flow histories (r518:history:*) were never deleted. Walk 64 keys per prefix every 30 min. */
 async function r522CleanupQuotes(ds,now){
 if(!ds||typeof ds.list!=='function'||now-Number(MEM.r522CleanAt||0)<30*60000)return;MEM.r522CleanAt=now;
-const cur=(await ds.get('r522:cleanCursor'))||{},next={},cut=now-3*86400000,audit={at:new Date(now).toISOString(),deleted:0};
+const cur=(await ds.get('r522:cleanCursor'))||{},next={},cut=now-2*86400000,audit={at:new Date(now).toISOString(),deleted:0};
 for(const prefix of ['r508:quote:','r518:history:']){
 const opts={prefix,limit:64};if(cur[prefix])opts.startAfter=cur[prefix];
 const got=await ds.list(opts),drop=[];let last=null;
