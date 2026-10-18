@@ -12022,11 +12022,12 @@ if(!j||!j.ok)throw new Error("TG_"+(j?.error_code||r.status)+":"+String(j?.descr
 catch(e){if(ac.signal.aborted)throw new Error("TG_TIMEOUT");throw e;}finally{clearTimeout(tm);}}
 async function r569Cfg(){const ds=doStorage();if(!ds)return null;if(MEM.r569Cfg===undefined){try{MEM.r569Cfg=(await ds.get("r569:tg"))||null;}catch(_){MEM.r569Cfg=null;}}return MEM.r569Cfg;}
 async function r569Save(cfg){const ds=doStorage();MEM.r569Cfg=cfg;if(ds)await ds.put("r569:tg",cfg);}
+const R569_NAMES={'인테르나치오날레 밀라노':'인터밀란','인테르나치오날레밀라노':'인터밀란'};function r569N(x){const t=String(x==null?'':x);return R569_NAMES[t]||R569_NAMES[t.replace(/\s+/g,'')]||t}
 function r569Esc(t){return String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function r569Pick(m){const pk=String(m.finalPick||m.pick||""),l=Number(m.line);if(m.marketFamily==="HANDICAP"){const x=handicapEffectiveLine(m,pk);if(Number.isFinite(x))return (x>0?"플핸 +":"마핸 ")+x+" · "+pk;return "핸디 "+(l>0?"+":"")+(Number.isFinite(l)?l:"")+" "+pk;}if(m.marketFamily==="TOTAL")return pk+" "+(Number.isFinite(l)?l:"");return pk||"-";}
 function r569Grade(m){return m.manualOverride?"수동":(m.displayGrade||"일반");}
 function r569Line(m){const ps=Number(m.r554?.ps),t=String(m.time||"").slice(0,5),g=r569Grade(m);
-return (g==="가장추천"?"🔥":g==="수동"?"✏️":"⭐")+" <b>"+r569Esc(t)+"</b> "+r569Esc(m.home)+" vs "+r569Esc(m.away)+"\n   → <b>"+r569Esc(r569Pick(m))+"</b> "+(Number(m.finalOdds||m.odds)>1?Number(m.finalOdds||m.odds).toFixed(2)+"배":"")+(ps>0?" · "+(ps*100).toFixed(0)+"%":"")+" ("+g+")";}
+return (g==="가장추천"?"🔥":g==="수동"?"✏️":"⭐")+" <b>"+r569Esc(t)+"</b> "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+"\n   → <b>"+r569Esc(r569Pick(m))+"</b> "+(Number(m.finalOdds||m.odds)>1?Number(m.finalOdds||m.odds).toFixed(2)+"배":"")+(ps>0?" · "+(ps*100).toFixed(0)+"%":"")+" ("+g+")";}
 async function r569Link(cfg){const ups=await r569Call(cfg.token,"getUpdates",{limit:50,timeout:0,allowed_updates:["message"]});
 const msgs=(ups||[]).map(u=>u.message).filter(x=>x&&x.chat&&x.chat.type==="private"&&Number(x.date)*1000>=Number(cfg.setAt)-60000);
 const last=msgs[msgs.length-1];if(!last)return null;cfg.chatId=last.chat.id;cfg.chatName=String(last.chat.first_name||last.chat.username||"");cfg.linkUntil=0;
@@ -12044,7 +12045,7 @@ if(m.resultFinal&&(typeof m.hit==="boolean"||m.settlementStatus==="적특")&&!se
 const sort=a=>a.sort((x,y)=>gameTimeMs(x)-gameTimeMs(y));const out=[];
 if(best.length)out.push("🔥 <b>새 가장추천 "+best.length+"경기</b>\n"+sort(best).map(r569Line).join("\n"));
 if(pre.length)out.push("⏰ <b>30분 안에 시작</b>\n"+sort(pre).map(r569Line).join("\n"));
-if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(m.home)+" vs "+r569Esc(m.away)+(m.score?" ("+r569Esc(m.score)+")":"")+" · "+r569Esc(r569Pick(m))).join("\n"));
+if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+(m.score?" ("+r569Esc(m.score)+")":"")+" · "+r569Esc(r569Pick(m))).join("\n"));
 for(const text of out)await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text,disable_web_page_preview:true});
 for(const g of ["best","pre","res"])for(const [k,v] of Object.entries(sent[g]))if(now-Number(v)>6*86400000)delete sent[g][k];
 if(ds&&(best.length||pre.length||Object.keys(sent.res).length))await ds.put("r569:sent",sent);
