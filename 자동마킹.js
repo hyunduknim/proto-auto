@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R567-PAST-ADJ-DOWN-ONLY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R569-TELEGRAM";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -12012,11 +12012,65 @@ if(!(Number(rem)>=1000)||(cr!=null&&!(Number(rem)>Number(cr))))return json({ok:f
 const ds=doStorage();if(!ds)return json({ok:false,message:'저장소 없음'},503);await ds.put('r564:key',k);MEM.r564StoredKey=k;MEM.r564WorkerKey=null;
 try{const cs=MEM.state;if(cs){const store=r507Store(cs);if(store.budget){r507Spend(store,nu,0);store.budget.probeAt=Date.now();}}}catch(_){}
 return json({ok:true,message:'등록 완료! 끝 '+k.slice(-4)+' 키로 바뀌었습니다.\n남은 횟수: '+rem+' / 전체 약 '+tot+'회'});}
+/* ===================== R569: Telegram alerts =====================
+   Owner registers his own bot token on /telegram (never in chat). The first private chat that messages the bot within 15 minutes is linked.
+   Each minute: new 가장추천, 30-minute kickoff reminders and results for 추천·가장추천·수동 picks. Nothing is sent until a chat is linked. */
+const R569={api:"https://api.telegram.org/bot",linkMs:15*60000,preMs:30*60000,gapMs:50000};
+async function r569Call(token,method,body){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),8000);
+try{const r=await fetch(R569.api+token+"/"+method,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body||{}),signal:ac.signal});const j=await r.json().catch(()=>null);
+if(!j||!j.ok)throw new Error("TG_"+(j?.error_code||r.status)+":"+String(j?.description||"").slice(0,90));return j.result;}
+catch(e){if(ac.signal.aborted)throw new Error("TG_TIMEOUT");throw e;}finally{clearTimeout(tm);}}
+async function r569Cfg(){const ds=doStorage();if(!ds)return null;if(MEM.r569Cfg===undefined){try{MEM.r569Cfg=(await ds.get("r569:tg"))||null;}catch(_){MEM.r569Cfg=null;}}return MEM.r569Cfg;}
+async function r569Save(cfg){const ds=doStorage();MEM.r569Cfg=cfg;if(ds)await ds.put("r569:tg",cfg);}
+function r569Esc(t){return String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function r569Pick(m){const l=Number(m.line);if(m.marketFamily==="HANDICAP")return "핸디 "+(l>0?"+":"")+(Number.isFinite(l)?l:"")+" "+m.pick;if(m.marketFamily==="TOTAL")return m.pick+" "+(Number.isFinite(l)?l:"");return String(m.pick||"");}
+function r569Grade(m){return m.manualOverride?"수동":(m.displayGrade||"일반");}
+function r569Line(m){const ps=Number(m.r554?.ps),t=String(m.time||"").slice(0,5),g=r569Grade(m);
+return (g==="가장추천"?"🔥":g==="수동"?"✏️":"⭐")+" <b>"+r569Esc(t)+"</b> "+r569Esc(m.home)+" vs "+r569Esc(m.away)+"\n   → <b>"+r569Esc(r569Pick(m))+"</b> "+(Number(m.finalOdds||m.odds)>1?Number(m.finalOdds||m.odds).toFixed(2)+"배":"")+(ps>0?" · "+(ps*100).toFixed(0)+"%":"")+" ("+g+")";}
+async function r569Link(cfg){const ups=await r569Call(cfg.token,"getUpdates",{limit:50,timeout:0,allowed_updates:["message"]});
+const msgs=(ups||[]).map(u=>u.message).filter(x=>x&&x.chat&&x.chat.type==="private"&&Number(x.date)*1000>=Number(cfg.setAt)-60000);
+const last=msgs[msgs.length-1];if(!last)return null;cfg.chatId=last.chat.id;cfg.chatName=String(last.chat.first_name||last.chat.username||"");cfg.linkUntil=0;
+const maxId=Math.max(...(ups||[]).map(u=>Number(u.update_id)||0));if(maxId>0){try{await r569Call(cfg.token,"getUpdates",{offset:maxId+1,limit:1,timeout:0});}catch(_){}}
+await r569Save(cfg);await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text:"✅ <b>프로토 알림 연결 완료</b>\n이제 아래 알림을 보내드립니다.\n🔥 가장추천이 새로 뜰 때\n⏰ 추천 경기 시작 30분 전\n⭕❌ 추천 경기 결과"});return cfg;}
+async function r569Tick(env){const cfg=await r569Cfg();if(!cfg||!cfg.token)return {status:"OFF"};const now=Date.now();if(now-Number(MEM.r569At||0)<R569.gapMs)return {status:"WAIT"};MEM.r569At=now;
+try{if(!cfg.chatId){if(Number(cfg.linkUntil)>now)await r569Link(cfg);return {status:cfg.chatId?"LINKED":"WAITING_FOR_CHAT"};}
+const st=MEM.state;if(!st)return {status:"NO_STATE"};const ds=doStorage();const sent=MEM.r569Sent||(MEM.r569Sent=(ds?await ds.get("r569:sent"):null)||{best:{},pre:{},res:{}});
+const reps=(st.markets||[]).filter(m=>currentRoundMarket(m,st)&&m.marked&&m.representativeSelected&&["추천","가장추천","수동"].includes(r569Grade(m)));
+const best=[],pre=[],res=[];
+for(const m of reps){const k=r554LegKey(m),t=gameTimeMs(m);if(t==null)continue;
+if(r569Grade(m)==="가장추천"&&t>now&&!sent.best[k]){best.push(m);sent.best[k]=now;}
+if(t>now&&t-now<=R569.preMs&&!sent.pre[k]){pre.push(m);sent.pre[k]=now;}
+if(m.resultFinal&&(typeof m.hit==="boolean"||m.settlementStatus==="적특")&&!sent.res[k]){sent.res[k]=now;if(t>=Number(cfg.setAt||0))res.push(m);}}
+const sort=a=>a.sort((x,y)=>gameTimeMs(x)-gameTimeMs(y));const out=[];
+if(best.length)out.push("🔥 <b>새 가장추천 "+best.length+"경기</b>\n"+sort(best).map(r569Line).join("\n"));
+if(pre.length)out.push("⏰ <b>30분 안에 시작</b>\n"+sort(pre).map(r569Line).join("\n"));
+if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(m.home)+" vs "+r569Esc(m.away)+(m.score?" ("+r569Esc(m.score)+")":"")+" · "+r569Esc(r569Pick(m))).join("\n"));
+for(const text of out)await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text,disable_web_page_preview:true});
+for(const g of ["best","pre","res"])for(const [k,v] of Object.entries(sent[g]))if(now-Number(v)>6*86400000)delete sent[g][k];
+if(ds&&(best.length||pre.length||Object.keys(sent.res).length))await ds.put("r569:sent",sent);
+cfg.lastAt=new Date(now).toISOString();cfg.lastSent=out.length?cfg.lastAt:cfg.lastSent||null;cfg.lastError=null;if(out.length)await r569Save(cfg);return {status:"OK",sent:out.length};}
+catch(e){cfg.lastError=String(e?.message||e).slice(0,120);try{await r569Save(cfg);}catch(_){}return {status:"ERROR",error:cfg.lastError};}}
+function r569Page(){return new Response('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>텔레그램 알림 연결</title><style>body{background:#0a0f17;color:#e8eef6;font-family:sans-serif;max-width:520px;margin:40px auto;padding:0 16px;line-height:1.6}input{width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid #445;background:#111a26;color:#fff;box-sizing:border-box;margin-top:6px}button{margin-top:12px;width:100%;padding:12px;font-size:17px;font-weight:700;border:0;border-radius:8px;background:#38bdf8;color:#000}button.b2{background:#ffcc33}#out{margin-top:18px;font-size:16px;white-space:pre-wrap}small{color:#8a96a8}</style><h2>텔레그램 알림 연결</h2><p><b>1단계</b> BotFather가 준 봇 토큰을 붙여넣고 [토큰 등록]을 누르세요. 입력은 가려집니다.</p><input id="t" type="password" autocomplete="off" placeholder="봇 토큰"><input id="c" type="password" autocomplete="off" placeholder="(이미 등록했다면) 지금 쓰는 토큰"><small>처음 등록이면 두 번째 칸은 비워두세요.</small><button id="b1">토큰 등록</button><p><b>2단계</b> 텔레그램에서 그 봇에게 아무 메시지(예: 안녕)나 보낸 뒤 [연결 확인]을 누르세요. 15분 안에 해주세요.</p><button id="b2" class="b2">연결 확인</button><div id="out"></div><script>var o=document.getElementById("out");async function go(u,b){o.textContent="확인 중...";try{var r=await fetch(u,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b||{})});var j=await r.json();o.textContent=j.message||JSON.stringify(j);o.style.color=j.ok?"#7CFC9A":"#ff8080";}catch(e){o.textContent="오류: "+e;}}document.getElementById("b1").onclick=function(){go("/api/telegram",{token:document.getElementById("t").value,current:document.getElementById("c").value});document.getElementById("t").value="";document.getElementById("c").value="";};document.getElementById("b2").onclick=function(){go("/api/telegram/link",{});};</script>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});}
+async function r569Register(req){let input;try{input=await req.json();}catch{return json({ok:false,message:"입력 오류"},400);}
+const t=String(input?.token||"").trim(),cur=String(input?.current||"").trim();if(!/^\d{5,15}:[A-Za-z0-9_-]{30,60}$/.test(t))return json({ok:false,message:"봇 토큰 형식이 아닙니다. 숫자:영문 형태 전체를 공백 없이 붙여넣어 주세요."},400);
+const old=await r569Cfg();if(old?.token&&old.chatId&&cur!==old.token&&t!==old.token)return json({ok:false,message:"이미 연결된 봇이 있습니다. 두 번째 칸에 지금 쓰는 토큰을 같이 넣어야 바꿀 수 있습니다."},403);
+let me;try{me=await r569Call(t,"getMe",{});}catch(e){return json({ok:false,message:/TG_401/.test(String(e.message))?"텔레그램이 이 토큰을 거부했습니다 (잘못된 토큰).":"텔레그램 확인 실패: "+String(e.message).slice(0,80)});}
+let note="";try{const wh=await r569Call(t,"getWebhookInfo",{});if(wh&&wh.url){await r569Call(t,"deleteWebhook",{drop_pending_updates:false});note="\n(예전에 연결돼 있던 웹훅은 해제했습니다.)";}}catch(_){}
+const same=old?.token===t&&old?.chatId;const cfg=same?{...old}:{token:t,botId:me.id,botName:me.username,chatId:null,setAt:Date.now(),linkUntil:Date.now()+R569.linkMs};await r569Save(cfg);
+return json({ok:true,message:same?"이미 연결된 봇입니다 (@"+me.username+"). 알림이 정상 작동 중입니다.":"토큰 등록 완료! 봇: @"+me.username+note+"\n이제 텔레그램에서 @"+me.username+" 에게 아무 메시지나 보내고 [연결 확인]을 눌러주세요."});}
+async function r569LinkReq(){const cfg=await r569Cfg();if(!cfg?.token)return json({ok:false,message:"먼저 1단계 토큰 등록을 해주세요."});if(cfg.chatId)return json({ok:true,message:"이미 연결돼 있습니다 ("+(cfg.chatName||"내 채팅")+"). 알림이 켜져 있습니다."});
+if(!(Number(cfg.linkUntil)>Date.now())){cfg.linkUntil=Date.now()+R569.linkMs;cfg.setAt=Date.now();await r569Save(cfg);return json({ok:false,message:"연결 시간이 지나서 다시 열었습니다. 지금 봇에게 메시지를 보내고 [연결 확인]을 다시 눌러주세요."});}
+try{const r=await r569Link(cfg);if(!r)return json({ok:false,message:"아직 봇에게 온 메시지가 없습니다. 텔레그램에서 @"+cfg.botName+" 에게 메시지를 보낸 뒤 다시 눌러주세요."});return json({ok:true,message:"연결 완료! "+(r.chatName||"")+"님 텔레그램으로 확인 메시지를 보냈습니다."});}
+catch(e){return json({ok:false,message:"연결 실패: "+String(e.message).slice(0,100)});}}
 async function handleApp(req,env,ctx){
 const u=new URL(req.url);
 if(u.pathname==="/robots.txt")return new Response("User-agent: Claude-User\nAllow: /\n\nUser-agent: *\nDisallow: /\n",{headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}}); /* R548: owner's assistant may read status pages; everything else stays out */
 if(u.pathname==="/")return html(INDEX);
 if(u.pathname==='/odds-key'&&req.method==='GET')return r564KeyPage();
+if(u.pathname==='/telegram'&&req.method==='GET')return r569Page();
+if(u.pathname==='/api/telegram'&&req.method==='POST')return r569Register(req);
+if(u.pathname==='/api/telegram/link'&&req.method==='POST')return r569LinkReq();
+if(u.pathname==='/api/telegram/status'&&req.method==='GET'){const c=await r569Cfg();return json(c?{bot:c.botName?'@'+c.botName:null,linked:!!c.chatId,chat:c.chatName||null,lastSent:c.lastSent||null,lastError:c.lastError||null}:{bot:null,linked:false});}
 if(u.pathname==='/api/odds-key'&&req.method==='POST')return r564KeyPost(req,env);
 if(u.pathname==='/api/overseas-status'&&req.method==='GET'){const st=r508Status(MEM.state||await loadState(env),env);try{const ds=doStorage();st.tick=ds?(await ds.get('r513:tick'))||MEM.r513Tick||null:(MEM.r513Tick||null);st.overseasRun=ds?(await ds.get('r514:ov'))||null:null;}catch(_){st.tick=MEM.r513Tick||null;}
 /* R564E: ask the Odds API live (free /v4/sports) so the page shows the balance of the key actually in use, not the last saved figure */
@@ -13797,7 +13851,7 @@ if(typeof this.state.blockConcurrencyWhile!=="function")return r398Response({err
 return this.state.blockConcurrencyWhile(async()=>await r398HandleProtocolAdmin(req,this.env)||await r398HandleOperational(req,this.env));
 });
 }
-if(u.pathname==="/__tick"){await runTick(this.env);await this.scheduleAlarm();return json({ok:true,nextAlarmAt:MEM.nextAlarmAt||null});}
+if(u.pathname==="/__tick"){await runTick(this.env);try{await r569Tick(this.env);}catch(_){}await this.scheduleAlarm();return json({ok:true,nextAlarmAt:MEM.nextAlarmAt||null});}
 const ctx={waitUntil:p=>{try{this.state.waitUntil?this.state.waitUntil(p):p?.catch?.(()=>{});}catch{}}};
 if(u.pathname==='/api/overseas-odds')return r508Precision(req,this.env,this.state.storage);
 const res=await handleApp(req,this.env,ctx);
