@@ -21,7 +21,7 @@ r=await post('r569Register',{token:'987654321:'+'B'.repeat(35)});assert.equal(r.
 // alerts
 const now=Date.now(),t=new Date(now+20*60000+9*3600000);const date=t.toISOString().slice(0,10),time=t.toISOString().slice(11,16);
 const p=new Date(now-3*3600000+9*3600000);
-c.MS=[{gmTs:'260124',no:1,marked:true,representativeSelected:true,displayGrade:'가장추천',home:'아스널',away:'첼시',pick:'승',marketFamily:'MONEYLINE',finalOdds:1.45,r554:{ps:.74},date,time},
+c.MS=[{gmTs:'260124',no:1,marked:true,representativeSelected:true,displayGrade:'가장추천',home:'아스널',away:'첼시',finalPick:'승',marketFamily:'MONEYLINE',finalOdds:1.45,r554:{ps:.74},date,time},
 {gmTs:'260124',no:2,marked:true,representativeSelected:true,displayGrade:'일반',home:'A',away:'B',pick:'승',date,time},
 {gmTs:'260124',no:3,marked:true,representativeSelected:true,displayGrade:'추천',home:'C',away:'D',pick:'패',marketFamily:'MONEYLINE',finalOdds:1.5,date:p.toISOString().slice(0,10),time:p.toISOString().slice(11,16),resultFinal:true,hit:true,score:'0:2'}];
 run('MEM.state={gmTs:"260124",markets:MS};store=null');

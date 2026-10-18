@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R569-TELEGRAM";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.18-R569B-TELEGRAM-PICK";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -12023,7 +12023,7 @@ catch(e){if(ac.signal.aborted)throw new Error("TG_TIMEOUT");throw e;}finally{cle
 async function r569Cfg(){const ds=doStorage();if(!ds)return null;if(MEM.r569Cfg===undefined){try{MEM.r569Cfg=(await ds.get("r569:tg"))||null;}catch(_){MEM.r569Cfg=null;}}return MEM.r569Cfg;}
 async function r569Save(cfg){const ds=doStorage();MEM.r569Cfg=cfg;if(ds)await ds.put("r569:tg",cfg);}
 function r569Esc(t){return String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-function r569Pick(m){const l=Number(m.line);if(m.marketFamily==="HANDICAP")return "핸디 "+(l>0?"+":"")+(Number.isFinite(l)?l:"")+" "+m.pick;if(m.marketFamily==="TOTAL")return m.pick+" "+(Number.isFinite(l)?l:"");return String(m.pick||"");}
+function r569Pick(m){const pk=String(m.finalPick||m.pick||""),l=Number(m.line);if(m.marketFamily==="HANDICAP"){const x=handicapEffectiveLine(m,pk);if(Number.isFinite(x))return (x>0?"플핸 +":"마핸 ")+x+" · "+pk;return "핸디 "+(l>0?"+":"")+(Number.isFinite(l)?l:"")+" "+pk;}if(m.marketFamily==="TOTAL")return pk+" "+(Number.isFinite(l)?l:"");return pk||"-";}
 function r569Grade(m){return m.manualOverride?"수동":(m.displayGrade||"일반");}
 function r569Line(m){const ps=Number(m.r554?.ps),t=String(m.time||"").slice(0,5),g=r569Grade(m);
 return (g==="가장추천"?"🔥":g==="수동"?"✏️":"⭐")+" <b>"+r569Esc(t)+"</b> "+r569Esc(m.home)+" vs "+r569Esc(m.away)+"\n   → <b>"+r569Esc(r569Pick(m))+"</b> "+(Number(m.finalOdds||m.odds)>1?Number(m.finalOdds||m.odds).toFixed(2)+"배":"")+(ps>0?" · "+(ps*100).toFixed(0)+"%":"")+" ("+g+")";}
