@@ -4,9 +4,6 @@
   "main": "자동마킹.js",
   "compatibility_date": "2026-10-07",
   "workers_dev": true,
-  "ai": {
-    "binding": "AI"
-  },
   "keep_vars": true,
   "kv_namespaces": [
     {
