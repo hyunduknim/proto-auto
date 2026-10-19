@@ -1,0 +1,16 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+run(`analyzeChoiceRows=function(x){return (x.choices||[]).map(c=>({pick:c.label,odds:c.odds,calibratedP:c.p}))};
+mk=(gm,games)=>{const S=createState();S.round=Number(gm.slice(3));S.gmTs=gm;S.markets=[];games.forEach((g,i)=>{const t=new Date(Date.now()+(3+i)*3600000+9*3600000).toISOString(),b={gmTs:gm,sourceRound:Number(gm.slice(3)),date:t.slice(0,10),time:t.slice(11,16),sport:"축구",league:"L"+i,home:"H"+i,away:"A"+i};
+S.markets.push({...b,no:i*10+1,marketFamily:"HANDICAP",line:1,choices:[{label:"승",odds:1.45,p:.70},{label:"패",odds:2.4,p:.3}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.45,hitProbability:g.h});
+S.markets.push({...b,no:i*10+2,marketFamily:"MONEYLINE",choices:[{label:"승",odds:2.0,p:.42},{label:"패",odds:1.5,p:g.ml}]});
+S.markets.push({...b,no:i*10+3,marketFamily:"TOTAL",line:2.5,choices:[{label:"언더",odds:1.5,p:g.tot},{label:"오버",odds:2.4,p:.3}]});});
+r554Apply(S);r588Balance(S);return S};
+fam=S=>S.markets.filter(m=>m.marked&&m.representativeSelected&&/추천/.test(m.displayGrade)).map(m=>m.marketFamily)`);
+run('A=mk("260125",[{h:.70,ml:.69,tot:.5},{h:.71,ml:.5,tot:.70},{h:.72,ml:.5,tot:.5},{h:.73,ml:.5,tot:.5},{h:.74,ml:.5,tot:.5}])');
+const fa=JSON.parse(run('JSON.stringify(fam(A))'));assert.equal(fa.length,5,'count unchanged');
+assert.ok(fa.filter(f=>f==='HANDICAP').length<=3,'handicap no longer more than half: '+fa);assert.ok(fa.includes('MONEYLINE')&&fa.includes('TOTAL'),'mixed: '+fa);
+run('B=mk("260125",[{h:.70,ml:.5,tot:.5},{h:.71,ml:.5,tot:.5},{h:.72,ml:.5,tot:.5}])');assert.equal(JSON.parse(run('JSON.stringify(fam(B))')).length,3,'no alternative → nothing demoted');
+run('C=mk("260124",[{h:.70,ml:.69,tot:.5},{h:.71,ml:.5,tot:.70},{h:.72,ml:.5,tot:.5}])');assert.deepEqual(JSON.parse(run('JSON.stringify(fam(C))')),['HANDICAP','HANDICAP','HANDICAP'],'round 124 unchanged');
+console.log('R588 mixed markets OK');
