@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R579B-OWNER-SCORE-TICK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R580-STALE-RELIST-DROP";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4824,7 +4824,9 @@ if(!started(m)&&m.oddsSnapshotStatus==='OPEN'&&kept===0&&received>=2)
 r419RecordQuote(m,Date.parse(input.domesticOddsFetchedAt||at));
 fresh.push(m);
 }
-for(const old of oldMarkets||[]){if(seen.has(officialOddsIdentity(old))||!isAfterCutoff(old)||validChoices(old).length<2)continue;if(started(old)&&!old.marked&&!old.representativeSelected&&!old.resultFinal)continue;
+/* R580: Betman re-listed the same proto number (handicap/total line or kickoff changed) — the old listing is stale, never keep it beside the new one unless it is already settled. */
+const freshNo=new Set(fresh.map(m=>String(m.gmTs??"")+":"+m.no));
+for(const old of oldMarkets||[]){if(seen.has(officialOddsIdentity(old))||!isAfterCutoff(old)||validChoices(old).length<2)continue;if(!old.resultFinal&&freshNo.has(String(old.gmTs??"")+":"+old.no))continue;if(started(old)&&!old.marked&&!old.representativeSelected&&!old.resultFinal)continue;
 fresh.push({...old,choices:(old.choices||[]).map(c=>({...c})),lastFetchAt:at,oddsClosedOrMissing:true,oddsSnapshotStatus:explicitMarketClosed(old)?"CLOSED":"LAST_KNOWN",oddsSource:"BETMAN_LAST_KNOWN_OFFICIAL"});preserved++;
 }
 const received=fresh.filter(m=>m.oddsSnapshotStatus==="OPEN"),recovered=received.filter(m=>oldMap.get(officialOddsIdentity(m))?.oddsSnapshotStatus==="LAST_KNOWN").length;
@@ -10388,7 +10390,7 @@ away=r381ZenStrip(awayTag[1]);
 if(r403UnknownName(home)||r403UnknownName(away))continue;
 const round=block.match(/(?:game_round|round)=["']?(\d{6})/i)||
 block.match(/\/(\d{6})\/\d{3,6}/);
-const hand=homeTag[1].match(/\(H\s*([+-]?\d+(?:\.\d+)?)\)/i),
+const hand=homeTag[1].replace(/[\u2212\u2013\u2014\uFE63\uFF0D]/g,'-').match(/\(H\s*([+-]?\d+(?:\.\d+)?)\)/i),
 total=homeTag[1].match(/\(U\s*\/\s*O\s*(\d+(?:\.\d+)?)\)/i);
 const family=total?'TOTAL':hand?'HANDICAP':'MONEYLINE',
 line=total?Number(total[1]):hand?Number(hand[1]):null;
@@ -10415,6 +10417,8 @@ let m=matches[0];
 if(!m){
 if(options.quoteOnly)continue;
 if(!pageVerified||newlySeen.has(no))continue;
+/* R580: this proto number already exists from Betman (maybe with another line sign) — Betman is the authority, never add a second copy. */
+if((state.markets||[]).some(x=>Number(x.no)===no&&String(x.gmTs)===pageGmTs))continue;
 const leagueMatch=block.match(/\b(KBO|NPB|MLB|KBL|WKBL|KOVO|ACLE|ACL2|UCL|EPL|J1|J2|NBA)\b/i);
 const league=leagueMatch?leagueMatch[1].toUpperCase():'미확인';
 const sport=/(KBO|NPB|MLB)/i.test(block)?'야구':
@@ -14177,7 +14181,7 @@ for(const block of html.split(/<div\s+class=["']game row col-xs-12["']\s*>/i).sl
 const noTag=block.match(/<p\s+class=["']proto_uid["'][^>]*>\s*(\d{3,6})\s*<\/p>/i),st=block.match(/<p\s+class=["']game_state([^"']*)["'][^>]*>([\s\S]*?)<\/p>/i),
 homeTag=block.match(/<p\s+class=["']home["'][^>]*>([\s\S]*?)<\/p>/i),scoreTag=block.match(/<p\s+class=["']vs["'][^>]*>([\s\S]*?)<\/p>/i);
 if(!noTag||!st||!homeTag||!scoreTag||r381ZenStrip(st[2])!=="경기종료")continue;
-const hand=homeTag[1].match(/\(H\s*([+-]?\d+(?:\.\d+)?)\)/i),total=homeTag[1].match(/\(U\s*\/\s*O\s*(\d+(?:\.\d+)?)\)/i);
+const hand=homeTag[1].replace(/[\u2212\u2013\u2014\uFE63\uFF0D]/g,'-').match(/\(H\s*([+-]?\d+(?:\.\d+)?)\)/i),total=homeTag[1].match(/\(U\s*\/\s*O\s*(\d+(?:\.\d+)?)\)/i);
 const family=total?"TOTAL":hand?"HANDICAP":"MONEYLINE",line=total?Number(total[1]):hand?Number(hand[1]):null;
 const flat=r381ZenStrip(block),p=flat.indexOf("배당율"),q=flat.indexOf("배당승률",p+3);if(p<0||q<=p||q-p>240)continue;
 if(family==="MONEYLINE"&&r515OddEvenText(block,flat.slice(0,p)))continue;
