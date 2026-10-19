@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R579-KOVO-OWNER-SCORES-TG-RESULT";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R579B-OWNER-SCORE-TICK";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4694,7 +4694,7 @@ m.result=res.outcome;m.resultFinal=true;m.hit=hit;m.settlementStatus=st;m.settle
 m.resultStatus="경기종료 · 사용자 확인 스코어";m.resultScoreText=fx.score;m.resultVerifiedAt=at;
 try{recordSettlementLedger(state,m);upsertSettledCard(state,m);}catch(_){}n++;}
 for(const row of Object.values(state.r554ManualLog||{}))for(const side of ["auto","manual"]){const l=row[side];const o=l&&lr[l.k];if(o&&o.source==="OWNER_CONFIRMED_SCORE"){l.status=o.outcome==="void"?"void":String(l.pick)===String(o.outcome)?"hit":"miss";l.result=o.outcome;delete l.recheck;}}
-if(n)state.r570Audit={at,fixed:n+(state.r570Audit?.fixed||0)};return n;}
+if(n){state.r570Audit={at,fixed:n+(state.r570Audit?.fixed||0)};state.updatedAt=at;MEM.publicCacheKey=null;MEM.publicCache=null;}return n;}
 /* R561: owner says proto #8959 (round 260123) does not exist on Betman — drop it everywhere, every pass. */
 const R561_REMOVED=[["260123",8959]];
 function r561Gone(m){return !!m&&R561_REMOVED.some(([g,n])=>String(m.gmTs||"")===g&&Number(m.no)===n);}
@@ -11700,6 +11700,7 @@ game:m.game||m.home+" vs "+m.away}))};
 async function runTickInternal(env){
 const s=await loadState(env);let cur=MEM.state||s;
 if(Number(cur.gmTs||0)<260121)r414ApplyOwnerRound121(cur);
+try{if(r570OwnerScores(cur)>0){await saveState(cur,env,true);cur=MEM.state||cur;}}catch(_){}
 const fiveMinuteDue=r394FiveMinuteDue(cur,Date.now());
 const pendingBefore=pendingSettlementMarkets(cur).length;
 const settlementFirst=pendingBefore>0;
@@ -12219,6 +12220,7 @@ if(u.pathname==="/robots.txt")return new Response("User-agent: Claude-User\nAllo
 if(u.pathname==="/")return html(INDEX);
 if(u.pathname==='/odds-key'&&req.method==='GET')return r564KeyPage();
 if(u.pathname==='/telegram'&&req.method==='GET')return r569Page();
+if(u.pathname==='/check'&&req.method==='GET'){const st=MEM.state||await loadState(env);let fixed=0;try{fixed=r570OwnerScores(st);if(fixed>0)await saveState(st,env,true);}catch(_){}const cur=MEM.state||st;const nos=String(u.searchParams.get('no')||'').split(/[ ,]+/).map(Number).filter(Boolean);const want=nos.length?nos:[];const rows=(cur.markets||[]).filter(m=>want.length?want.includes(Number(m.no)):String(m.resultSource||'')==='OWNER_CONFIRMED_SCORE').slice(0,40).map(m=>({no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,sport:m.sport,league:m.league,home:m.home,away:m.away,family:m.marketFamily,line:m.line??null,pick:m.finalPick||null,marked:!!m.marked,rep:!!m.representativeSelected,grade:m.displayGrade||null,final:!!m.resultFinal,hit:m.hit??null,status:m.settlementStatus||null,source:m.resultSource||null,score:m.resultScoreText||null}));const man=[];for(const [k,row] of Object.entries(cur.r554ManualLog||{}))for(const side of ['auto','manual']){const l=row&&row[side];if(l&&want.some(n=>String(l.k||'').endsWith(':'+n)))man.push({row:k,side,k:l.k,pick:l.pick||null,status:l.status||null,result:l.result||null});}return json({version:APP_VERSION,now:nowIso(),fixedNow:fixed,r570Audit:cur.r570Audit||null,rows,manual:man});}
 if(u.pathname==='/api/telegram'&&req.method==='POST')return r569Register(req);
 if(u.pathname==='/api/telegram/link'&&req.method==='POST')return r569LinkReq();
 if(u.pathname==='/api/telegram/status'&&req.method==='GET'){const c=await r569Cfg();return json(c?{bot:c.botName?'@'+c.botName:null,linked:!!c.chatId,chat:c.chatName||null,lastSent:c.lastSent||null,lastError:c.lastError||null}:{bot:null,linked:false});}
