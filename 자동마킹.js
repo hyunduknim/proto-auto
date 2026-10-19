@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R584-NORMAL-IN-SETTLEMENT";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R585-RESTORE-9331";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4691,6 +4691,22 @@ state.r559VoidAudit={done:true,at,gmTs:"260123",fixture:ms[0].home+" vs "+ms[0].
 /* R560: owner-confirmed result — 260123 #8640 (현대건설 vs GS칼텍스 언더오버 178.5) ended 언더, so the manual 오버 is 낙첨. */
 function r560FixManual8640(state){if(!state||state.r560Fix8640)return 0;const lr=state.r556LegResults||(state.r556LegResults={});lr["260123:8640"]={outcome:"언더",score:null,source:"OWNER_CONFIRMED_RESULT",at:nowIso()};
 for(const row of Object.values(state.r554ManualLog||{})){for(const side of ["auto","manual"]){const l=row[side];if(l&&l.k==="260123:8640"){l.status="miss";l.result="언더";delete l.recheck;}}}state.r560Fix8640=nowIso();return 1;}
+/* R585: 9331 (OK저축 vs 현대캐피탈) was shown as 추천 and silently swapped to 9332 일반 when its odds fell under 1.31 (fixed in R582).
+   Only if the stored 추천 record for 9331 exists: restore 9331 as the game's pick and drop the swapped-in 9332 from every record. */
+function r585Undo(t,m){const p=Number(m.r554?.ps);if(!t||!(p>0)||typeof m.hit!=="boolean")return;const sub=(o,k)=>{const x=o&&o[k];if(!x)return;x.n--;if(m.hit)x.hits--;x.sumP-=p;if(x.n<=0)delete o[k];};
+const bk=R557.buckets.find(x=>p>=x[0]&&p<x[1]),fam={MONEYLINE:"일반승",HANDICAP:"핸디캡",TOTAL:"언더오버"}[m.marketFamily]||"기타";let mv=null;try{mv=r572Move(m);}catch(_){}const cl=mv==null?null:mv>=.005?"마감에 우리 쪽으로":mv<=-.005?"마감에 반대쪽으로":"거의 그대로";
+for(const u of [t,t.v124]){if(!u)continue;sub(u.prob,bk?bk[2]:"기타");sub(u.grade,m.displayGrade||"일반");sub(u.family,fam);sub(u.league,String(m.league||"기타"));if(cl)sub(u.clv,cl);
+const o=Number(m.finalOdds||m.odds),r=u.roi;if(r&&o>1){const g=m.displayGrade||"일반";for(const k of [g].concat(g==="추천"||g==="가장추천"?["추천 이상 합계"]:[])){const x=r[k];if(!x)continue;x.n--;x.ret-=m.hit?o-1:-1;x.sumOdds-=o;if(x.n<=0)delete r[k];}}}}
+function r585Fix9331(state){if(!state)return 0;const ms=state.markets||[],at=nowIso();const a=ms.find(m=>String(m.gmTs)==="260124"&&Number(m.no)===9331);if(!a)return 0;
+if(!state.r585){const rec=a.r577Rec;if(!rec||!rec.pick){state.r585={at,applied:false,reason:"9331에 추천 기록 없음"};return 0;}state.r585={at,applied:true,pick:rec.pick,odds:Number(rec.odds)||null,ps:Number(rec.ps)||null,recAt:rec.at};}
+const fx=state.r585;if(!fx.applied)return 0;let n=0;
+const b=ms.find(m=>String(m.gmTs)==="260124"&&Number(m.no)===9332);
+if(b){if(!fx.undone){const t=state.r557Calib;if(t&&Array.isArray(t.seen)&&t.seen.includes("260124:9332")&&b.resultFinal){r585Undo(t,b);t.seen=t.seen.filter(k=>k!=="260124:9332");}fx.undone=at;}
+if(b.marked||b.representativeSelected){b.marked=false;b.representativeSelected=false;b.r506LockedPick=false;b.r585Removed=at;n++;}}
+const drop=x=>!(String(x?.gmTs)==="260124"&&Number(x?.no)===9332);if(state.settledCards&&Array.isArray(state.settledCards.rows))state.settledCards.rows=state.settledCards.rows.filter(drop);if(Array.isArray(state.settlementLedger))state.settlementLedger=state.settlementLedger.filter(drop);
+const odds=fx.odds>1?fx.odds:Number((a.choices||[]).find(c=>String(c.label)===String(fx.pick))?.odds)||null;
+if(!a.marked||!a.representativeSelected||String(a.finalPick)!==String(fx.pick)||a.displayGrade!=="추천"){a.marked=true;a.representativeSelected=true;a.r506LockedPick=true;a.finalPick=fx.pick;a.finalOdds=odds;a.displayGrade="추천";a.hitProbability=fx.ps;a.r554={...(a.r554||{}),p:fx.ps,ps:fx.ps,selected:true,why:null};a.r585Restored=at;n++;}
+if(n){state.updatedAt=at;MEM.publicCacheKey=null;MEM.publicCache=null;}return n;}
 /* R570: owner-confirmed final scores — applied on every pass so a later automatic re-check cannot flip them back. */
 const R570_OWNER_SCORES=[{gmTs:"260123",date:"2026-10-18",home:/베이징|궈안/,away:/칭다오/,score:"1:0",note:"9196 베이징 궈안 1:0 칭다오 (owner)"},
 {date:"2026-10-19",home:/OK/,away:/현대캐/,score:"2:3",families:["MONEYLINE","HANDICAP"],note:"9331·9332 OK저축 2:3 현대캐피탈 KOVO컵 (owner)"},
@@ -4718,6 +4734,7 @@ r498WithdrawTwo(state);
 try{r561RemovePhantom(state);}catch(_){}
 try{r559PostponedVoid(state);}catch(_){}
 try{r560FixManual8640(state);}catch(_){}
+try{r585Fix9331(state);}catch(_){}
 try{r570OwnerScores(state);}catch(_){}
 try{r555FixScoresDay(state);}catch(_){}
 r507Attach(state);
@@ -11719,7 +11736,7 @@ game:m.game||m.home+" vs "+m.away}))};
 async function runTickInternal(env){
 const s=await loadState(env);let cur=MEM.state||s;
 if(Number(cur.gmTs||0)<260121)r414ApplyOwnerRound121(cur);
-try{if(r570OwnerScores(cur)>0){await saveState(cur,env,true);cur=MEM.state||cur;}}catch(_){}
+try{const f585=r585Fix9331(cur);if(r570OwnerScores(cur)>0||f585>0){try{r557Track(cur);}catch(_){}await saveState(cur,env,true);cur=MEM.state||cur;}}catch(_){}
 const fiveMinuteDue=r394FiveMinuteDue(cur,Date.now());
 const pendingBefore=pendingSettlementMarkets(cur).length;
 const settlementFirst=pendingBefore>0;
@@ -12241,7 +12258,7 @@ if(u.pathname==='/odds-key'&&req.method==='GET')return r564KeyPage();
 if(u.pathname==='/telegram'&&req.method==='GET')return r569Page();
 if(u.pathname==='/check'&&req.method==='GET'){const st=MEM.state||await loadState(env);let fixed=0;try{fixed=r570OwnerScores(st);if(fixed>0)await saveState(st,env,true);}catch(_){}const cur=MEM.state||st;const nos=String(u.searchParams.get('no')||'').split(/[ ,]+/).map(Number).filter(Boolean);if(u.searchParams.has('dup')){const g=new Map();for(const m of cur.markets||[]){const k=String(m.gmTs)+':'+m.no;g.set(k,(g.get(k)||[]).concat([m]));}nos.push(...[...g.values()].filter(a=>a.length>1&&String(a[0].gmTs)===String(cur.gmTs)).map(a=>Number(a[0].no)));}
 const want=nos.length?nos:[];const rows=(cur.markets||[]).filter(m=>want.length?want.includes(Number(m.no)):String(m.resultSource||'')==='OWNER_CONFIRMED_SCORE').slice(0,40).map(m=>({no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,sport:m.sport,league:m.league,home:m.home,away:m.away,family:m.marketFamily,line:m.line??null,pick:m.finalPick||null,marked:!!m.marked,rep:!!m.representativeSelected,grade:m.displayGrade||null,final:!!m.resultFinal,hit:m.hit??null,status:m.settlementStatus||null,source:m.resultSource||null,score:m.resultScoreText||null,odds:m.finalOdds??null,ps:m.r554?.ps??null,why:m.r554?.why??null,rec:m.r577Rec||null,kept:m.r582Kept||null}));const man=[];for(const [k,row] of Object.entries(cur.r554ManualLog||{}))for(const side of ['auto','manual']){const l=row&&row[side];if(l&&want.some(n=>String(l.k||'').endsWith(':'+n)))man.push({row:k,side,k:l.k,pick:l.pick||null,status:l.status||null,result:l.result||null});}let pub=null;try{const ps=publicState(cur);const pg=(ps.pastGames||[]).filter(m=>String(m.gmTs)===String(cur.gmTs));const pp=(ps.pastPendingGames||[]).filter(m=>String(m.gmTs)===String(cur.gmTs));const sh=m=>({no:m.no,game:(m.home||'')+' vs '+(m.away||''),pick:m.pick||null,grade:m.displayGrade||null,manual:!!(m.manualOverride||m.manualReview),final:!!m.resultFinal,hit:m.hit??null,status:m.settlementStatus||null});const cal=ps.r557Calibration||null;pub={gmTs:cur.gmTs,past:pg.map(sh),pending:pp.map(sh),calAll:cal?cal.total:null,cal124:cal&&cal.v124?cal.v124.total:null,cal124grade:cal&&cal.v124?cal.v124.grade:null,seen:(cur.r557Calib?.seen||[]).filter(k=>String(k).startsWith(String(cur.gmTs)+':'))};}catch(e){pub={error:String(e&&e.message||e)};}
-return json({version:APP_VERSION,now:nowIso(),fixedNow:fixed,r570Audit:cur.r570Audit||null,rows,manual:man,pub});}
+return json({version:APP_VERSION,now:nowIso(),fixedNow:fixed,r570Audit:cur.r570Audit||null,r585:cur.r585||null,rows,manual:man,pub});}
 if(u.pathname==='/api/telegram'&&req.method==='POST')return r569Register(req);
 if(u.pathname==='/api/telegram/link'&&req.method==='POST')return r569LinkReq();
 if(u.pathname==='/api/telegram/status'&&req.method==='GET'){const c=await r569Cfg();return json(c?{bot:c.botName?'@'+c.botName:null,linked:!!c.chatId,chat:c.chatName||null,lastSent:c.lastSent||null,lastError:c.lastError||null}:{bot:null,linked:false});}
