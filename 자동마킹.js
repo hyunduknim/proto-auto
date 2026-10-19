@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R586-DB-OWNER-SCORE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R587-LESS-PLUS-HANDICAP";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4286,6 +4286,23 @@ let p=null;try{const row=analyzeChoiceRows(keep).find(r=>String(r.pick)===String
 if(rep){rep.marked=false;rep.representativeSelected=false;rep.finalPick=null;rep.finalOdds=null;rep.displayGrade="일반";}
 keep.marked=true;keep.representativeSelected=true;keep.finalPick=keep.r577Rec.pick;keep.finalOdds=odds;keep.hitProbability=p;keep.calibratedProbability=p;keep.r582Kept={at:nowIso(),odds,replaced:rep?rep.no:null};n++;}
 if(n)state.r582Audit={at:nowIso(),kept:n+(state.r582Audit?.kept||0)};return n;}
+/* R587 (round 125+): not so 플핸-heavy. When a game's 추천 is a plus handicap and the same game has an 일반승/언오버 pick that also
+   clears the full 추천 test (64%, odds floor, overseas move, league), that pick becomes the game's 추천 instead. */
+const R587={from:260125};
+function r587On(m){return Number(m?.gmTs||0)>=R587.from;}
+function r587Plus(m){return m?.marketFamily==="HANDICAP"&&Number(handicapEffectiveLine(m,m.finalPick))>0;}
+function r587Diversify(state){let n=0;const by=new Map();
+for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||!r587On(m)||m.resultFinal||started(m))continue;const k=String(m.gmTs)+"|"+gameSeed(m);if(!by.has(k))by.set(k,[]);by.get(k).push(m);}
+for(const ms of by.values()){const rep=ms.find(m=>m.marked&&m.representativeSelected);if(!rep||rep.manualOverride||rep.r582Kept||!r587Plus(rep)||!(rep.displayGrade==="추천"||rep.displayGrade==="가장추천"))continue;
+const cands=[];for(const x of ms){if(x===rep||!["MONEYLINE","TOTAL"].includes(x.marketFamily))continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}
+for(const q of rows){const odds=Number(q.odds),p=Number(q.calibratedP??q.decisionProbability);if(!(odds>=CFG.minRepOdds)||!Number.isFinite(p)||q.pick==="무")continue;cands.push({x,q,odds,p});}}
+cands.sort((a,b)=>b.p-a.p);
+for(const c of cands){const x=c.x,keep={marked:x.marked,representativeSelected:x.representativeSelected,finalPick:x.finalPick,finalOdds:x.finalOdds,hitProbability:x.hitProbability,displayGrade:x.displayGrade,r554:x.r554,r555:x.r555,r577Rec:x.r577Rec};
+x.marked=true;x.representativeSelected=true;x.finalPick=c.q.pick;x.finalOdds=c.odds;x.hitProbability=c.p;
+try{r554Apply({...state,markets:[x]});}catch(_){}
+if(x.displayGrade==="추천"||x.displayGrade==="가장추천"){rep.marked=false;rep.representativeSelected=false;rep.r587Swapped={at:nowIso(),to:x.no};x.r587From={at:nowIso(),no:rep.no,pick:rep.finalPick,line:rep.line};n++;break;}
+Object.assign(x,keep);}}
+if(n)state.r587Audit={at:nowIso(),swapped:n};return n;}
 // R554E: 3x+ combos are fixed when their first game kicks off and settled leg by leg (hit/miss/void) in real time.
 const R554C={minOdds:3,maxLegs:5,maxCand:10,open:2,keep:40};
 function r554LegKey(m){return String(m?.gmTs||"")+":"+String(m?.no??"");}
@@ -4770,6 +4787,7 @@ m.r480Recommendation={model:"R490_4AXIS_INTEGRATED",grade:m.displayGrade||"일�
 }
 try{r554Apply(state);}catch(_){}
 try{if(r582KeepRec(state)>0)r554Apply(state);}catch(_){}
+try{r587Diversify(state);}catch(_){}
 try{r555Track(state);}catch(_){}
 try{r557Track(state);}catch(_){}
 try{r554ManualCompare(state);}catch(_){}
