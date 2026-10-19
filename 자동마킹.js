@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R581-HEADER-COUNTS-SETTLED";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R582-KEEP-SHOWN-REC";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4268,13 +4268,24 @@ for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||!m.marked||!
 const p=Number(m.hitProbability??m.calibratedProbability);if(!Number.isFinite(p))continue;
 const on=r572On(m),pw=on?r572PowerDelta(m):0,mv=on?r572Move(m):null,minP=on?R572.minP:R554.minP,bestP=on?R572.bestP:R554.bestP,moveBad=mv!=null&&mv<=-R572.moveDrop,lgBad=on&&r572LeagueBad(state,m);
 const a=r554Adj(m),fm=r555Form(state,m),fa=r555Adj(state,fm?.flag),psBase=clamp(p+pw+a.adj,.01,.99),ps=clamp(psBase+fa.adj,.01,.99),against=r530Against(m),bad=a.adj<=R554.badAdj;m.r555=fm?{...fm,adj:r3(fa.adj)}:null;
-const selected=ps>=minP&&Number(m.finalOdds)>=CFG.minRepOdds&&!against&&!bad&&!moveBad&&!lgBad;
+const selected=ps>=minP&&(Number(m.finalOdds)>=CFG.minRepOdds||!!m.r582Kept)&&!against&&!bad&&!moveBad&&!lgBad;
 const grade=!selected?"일반":(r524BestOk(m)&&ps>=bestP?"가장추천":"추천");
 m.displayGrade=grade;m.r554={p:r3(p),pw:r3(pw),mv:mv==null?null:r3(mv),minP,bestP,adj:r3(a.adj),formAdj:r3(fa.adj),psBase:r3(psBase),ps:r3(ps),selected,seg:a.key,segN:a.n,segHitPct:a.hitPct??null,segImpliedPct:a.impliedPct??null,
 why:selected?null:(against?"해외배당 반대":moveBad?"해외배당이 반대로 움직임":lgBad?"이 리그 최근 성적 부진":bad?"과거 배당구간 약세":(ps<minP&&psBase>=minP&&fa.adj<0)?"최근 흐름 반대":ps<minP?"확률 부족":"배당 부족")};
 if(selected){if(!m.r577Rec||m.r577Rec.pick!==m.finalPick)m.r577Rec={at:nowIso(),pick:m.finalPick,odds:Number(m.finalOdds)||null,ps:r3(ps)};else if(m.r577Rec.off)delete m.r577Rec.off;}else if(m.r577Rec&&!m.r577Rec.off)m.r577Rec.off={at:nowIso(),why:m.r554.why};
 if(selected){marked++;if(grade==="가장추천")best++;}else pass++;}
 state.r554Audit={at:nowIso(),policy:"SELECTIVE_MARKING_62_66",marked,best,pass,historyLoaded:!!MEM.r553?.buckets};return state.r554Audit;}
+/* R582: a game already shown as 추천 must not silently vanish because its odds shortened under the 1.31 floor
+   (the market moving our way). Restore that pick as the game's representative and let r554Apply re-grade it. */
+function r582KeepRec(state){let n=0;const by=new Map();
+for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||!r572On(m)||m.resultFinal||started(m))continue;const k=String(m.gmTs)+"|"+gameSeed(m);if(!by.has(k))by.set(k,[]);by.get(k).push(m);}
+for(const ms of by.values()){if(ms.some(m=>m.manualOverride))continue;const rep=ms.find(m=>m.marked&&m.representativeSelected);if(rep&&(rep.displayGrade==="추천"||rep.displayGrade==="가장추천"))continue;
+const keep=ms.filter(m=>m!==rep&&m.r577Rec&&!m.r577Rec.off&&m.r577Rec.pick).sort((a,b)=>String(b.r577Rec.at).localeCompare(String(a.r577Rec.at)))[0];if(!keep)continue;
+const c=(keep.choices||[]).find(c=>String(c.label)===String(keep.r577Rec.pick)),odds=Number(c?.odds);if(!(odds>1))continue;
+let p=null;try{const row=analyzeChoiceRows(keep).find(r=>String(r.pick)===String(keep.r577Rec.pick));p=Number(row?.calibratedP??row?.decisionProbability);}catch(_){}if(!Number.isFinite(p))p=Number(keep.r577Rec.ps);if(!Number.isFinite(p))continue;
+if(rep){rep.marked=false;rep.representativeSelected=false;rep.finalPick=null;rep.finalOdds=null;rep.displayGrade="일반";}
+keep.marked=true;keep.representativeSelected=true;keep.finalPick=keep.r577Rec.pick;keep.finalOdds=odds;keep.hitProbability=p;keep.calibratedProbability=p;keep.r582Kept={at:nowIso(),odds,replaced:rep?rep.no:null};n++;}
+if(n)state.r582Audit={at:nowIso(),kept:n+(state.r582Audit?.kept||0)};return n;}
 // R554E: 3x+ combos are fixed when their first game kicks off and settled leg by leg (hit/miss/void) in real time.
 const R554C={minOdds:3,maxLegs:5,maxCand:10,open:2,keep:40};
 function r554LegKey(m){return String(m?.gmTs||"")+":"+String(m?.no??"");}
@@ -4738,6 +4749,7 @@ m.r480Recommendation={model:"R490_4AXIS_INTEGRATED",grade:m.displayGrade||"일�
 }
 }
 try{r554Apply(state);}catch(_){}
+try{if(r582KeepRec(state)>0)r554Apply(state);}catch(_){}
 try{r555Track(state);}catch(_){}
 try{r557Track(state);}catch(_){}
 try{r554ManualCompare(state);}catch(_){}
@@ -12225,7 +12237,7 @@ if(u.pathname==="/")return html(INDEX);
 if(u.pathname==='/odds-key'&&req.method==='GET')return r564KeyPage();
 if(u.pathname==='/telegram'&&req.method==='GET')return r569Page();
 if(u.pathname==='/check'&&req.method==='GET'){const st=MEM.state||await loadState(env);let fixed=0;try{fixed=r570OwnerScores(st);if(fixed>0)await saveState(st,env,true);}catch(_){}const cur=MEM.state||st;const nos=String(u.searchParams.get('no')||'').split(/[ ,]+/).map(Number).filter(Boolean);if(u.searchParams.has('dup')){const g=new Map();for(const m of cur.markets||[]){const k=String(m.gmTs)+':'+m.no;g.set(k,(g.get(k)||[]).concat([m]));}nos.push(...[...g.values()].filter(a=>a.length>1&&String(a[0].gmTs)===String(cur.gmTs)).map(a=>Number(a[0].no)));}
-const want=nos.length?nos:[];const rows=(cur.markets||[]).filter(m=>want.length?want.includes(Number(m.no)):String(m.resultSource||'')==='OWNER_CONFIRMED_SCORE').slice(0,40).map(m=>({no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,sport:m.sport,league:m.league,home:m.home,away:m.away,family:m.marketFamily,line:m.line??null,pick:m.finalPick||null,marked:!!m.marked,rep:!!m.representativeSelected,grade:m.displayGrade||null,final:!!m.resultFinal,hit:m.hit??null,status:m.settlementStatus||null,source:m.resultSource||null,score:m.resultScoreText||null}));const man=[];for(const [k,row] of Object.entries(cur.r554ManualLog||{}))for(const side of ['auto','manual']){const l=row&&row[side];if(l&&want.some(n=>String(l.k||'').endsWith(':'+n)))man.push({row:k,side,k:l.k,pick:l.pick||null,status:l.status||null,result:l.result||null});}let pub=null;try{const ps=publicState(cur);const pg=(ps.pastGames||[]).filter(m=>String(m.gmTs)===String(cur.gmTs));const pp=(ps.pastPendingGames||[]).filter(m=>String(m.gmTs)===String(cur.gmTs));const sh=m=>({no:m.no,game:(m.home||'')+' vs '+(m.away||''),pick:m.pick||null,grade:m.displayGrade||null,manual:!!(m.manualOverride||m.manualReview),final:!!m.resultFinal,hit:m.hit??null,status:m.settlementStatus||null});const cal=ps.r557Calibration||null;pub={gmTs:cur.gmTs,past:pg.map(sh),pending:pp.map(sh),calAll:cal?cal.total:null,cal124:cal&&cal.v124?cal.v124.total:null,cal124grade:cal&&cal.v124?cal.v124.grade:null,seen:(cur.r557Calib?.seen||[]).filter(k=>String(k).startsWith(String(cur.gmTs)+':'))};}catch(e){pub={error:String(e&&e.message||e)};}
+const want=nos.length?nos:[];const rows=(cur.markets||[]).filter(m=>want.length?want.includes(Number(m.no)):String(m.resultSource||'')==='OWNER_CONFIRMED_SCORE').slice(0,40).map(m=>({no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,sport:m.sport,league:m.league,home:m.home,away:m.away,family:m.marketFamily,line:m.line??null,pick:m.finalPick||null,marked:!!m.marked,rep:!!m.representativeSelected,grade:m.displayGrade||null,final:!!m.resultFinal,hit:m.hit??null,status:m.settlementStatus||null,source:m.resultSource||null,score:m.resultScoreText||null,odds:m.finalOdds??null,ps:m.r554?.ps??null,why:m.r554?.why??null,rec:m.r577Rec||null,kept:m.r582Kept||null}));const man=[];for(const [k,row] of Object.entries(cur.r554ManualLog||{}))for(const side of ['auto','manual']){const l=row&&row[side];if(l&&want.some(n=>String(l.k||'').endsWith(':'+n)))man.push({row:k,side,k:l.k,pick:l.pick||null,status:l.status||null,result:l.result||null});}let pub=null;try{const ps=publicState(cur);const pg=(ps.pastGames||[]).filter(m=>String(m.gmTs)===String(cur.gmTs));const pp=(ps.pastPendingGames||[]).filter(m=>String(m.gmTs)===String(cur.gmTs));const sh=m=>({no:m.no,game:(m.home||'')+' vs '+(m.away||''),pick:m.pick||null,grade:m.displayGrade||null,manual:!!(m.manualOverride||m.manualReview),final:!!m.resultFinal,hit:m.hit??null,status:m.settlementStatus||null});const cal=ps.r557Calibration||null;pub={gmTs:cur.gmTs,past:pg.map(sh),pending:pp.map(sh),calAll:cal?cal.total:null,cal124:cal&&cal.v124?cal.v124.total:null,cal124grade:cal&&cal.v124?cal.v124.grade:null,seen:(cur.r557Calib?.seen||[]).filter(k=>String(k).startsWith(String(cur.gmTs)+':'))};}catch(e){pub={error:String(e&&e.message||e)};}
 return json({version:APP_VERSION,now:nowIso(),fixedNow:fixed,r570Audit:cur.r570Audit||null,rows,manual:man,pub});}
 if(u.pathname==='/api/telegram'&&req.method==='POST')return r569Register(req);
 if(u.pathname==='/api/telegram/link'&&req.method==='POST')return r569LinkReq();
