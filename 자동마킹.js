@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R578-NEW-RULES-VIEW";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R579-KOVO-OWNER-SCORES-TG-RESULT";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4681,9 +4681,11 @@ state.r559VoidAudit={done:true,at,gmTs:"260123",fixture:ms[0].home+" vs "+ms[0].
 function r560FixManual8640(state){if(!state||state.r560Fix8640)return 0;const lr=state.r556LegResults||(state.r556LegResults={});lr["260123:8640"]={outcome:"언더",score:null,source:"OWNER_CONFIRMED_RESULT",at:nowIso()};
 for(const row of Object.values(state.r554ManualLog||{})){for(const side of ["auto","manual"]){const l=row[side];if(l&&l.k==="260123:8640"){l.status="miss";l.result="언더";delete l.recheck;}}}state.r560Fix8640=nowIso();return 1;}
 /* R570: owner-confirmed final scores — applied on every pass so a later automatic re-check cannot flip them back. */
-const R570_OWNER_SCORES=[{gmTs:"260123",date:"2026-10-18",home:/베이징|궈안/,away:/칭다오/,score:"1:0",note:"9196 베이징 궈안 1:0 칭다오 (owner)"}];
+const R570_OWNER_SCORES=[{gmTs:"260123",date:"2026-10-18",home:/베이징|궈안/,away:/칭다오/,score:"1:0",note:"9196 베이징 궈안 1:0 칭다오 (owner)"},
+{date:"2026-10-19",home:/OK/,away:/현대캐/,score:"2:3",families:["MONEYLINE","HANDICAP"],note:"9331·9332 OK저축 2:3 현대캐피탈 KOVO컵 (owner)"},
+{date:"2026-10-19",home:/한국전력/,away:/KB/,score:"3:1",families:["MONEYLINE","HANDICAP"],note:"9335·9336 한국전력 3:1 KB손보 KOVO컵 (owner)"}];
 function r570OwnerScores(state){if(!state)return 0;let n=0;const at=nowIso(),lr=state.r556LegResults||(state.r556LegResults={});
-for(const fx of R570_OWNER_SCORES)for(const m of state.markets||[]){if(String(m.gmTs||"")!==fx.gmTs||String(m.date||"")!==fx.date||!fx.home.test(String(m.home||""))||!fx.away.test(String(m.away||"")))continue;
+for(const fx of R570_OWNER_SCORES)for(const m of state.markets||[]){if((fx.gmTs&&String(m.gmTs||"")!==fx.gmTs)||(fx.families&&!fx.families.includes(m.marketFamily))||String(m.date||"")!==fx.date||!fx.home.test(String(m.home||""))||!fx.away.test(String(m.away||"")))continue;
 const rr={no:m.no,family:m.marketFamily,score:fx.score,terminal:true,outcome:null};let res;try{res=resolveOfficialOutcome(rr,m);}catch(_){res=null;}if(!res||!res.outcome)continue;
 lr[r554LegKey(m)]={outcome:res.void?"void":res.outcome,score:fx.score,source:"OWNER_CONFIRMED_SCORE",at};
 if(!m.marked||!m.representativeSelected)continue;const hit=res.void?null:String(m.finalPick)===String(res.outcome),st=res.void?"적특":hit?"적중":"낙첨";
@@ -12193,7 +12195,7 @@ if(m.resultFinal&&(typeof m.hit==="boolean"||m.settlementStatus==="적특")&&!se
 const sort=a=>a.sort((x,y)=>gameTimeMs(x)-gameTimeMs(y));const out=[];
 if(best.length)out.push("🔥 <b>새 가장추천 "+best.length+"경기</b>\n"+sort(best).map(r569Line).join("\n"));
 if(pre.length)out.push("⏰ <b>30분 안에 시작</b>\n"+sort(pre).map(r569Line).join("\n"));
-if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+(m.score?" ("+r569Esc(m.score)+")":"")+" · "+r569Esc(r569Pick(m))).join("\n"));
+if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+((m.score||m.resultScoreText)?" ("+r569Esc(m.score||m.resultScoreText)+")":"")+" · "+r569Esc(r569Pick(m))).join("\n")+(()=>{const d=reps.filter(x=>x.resultFinal&&typeof x.hit==="boolean");const h=d.filter(x=>x.hit).length;return d.length?"\n\n📊 "+r569Esc(String(st.gmTs||"").slice(-3))+"회 누적: ⭕ "+h+"적중 · ❌ "+(d.length-h)+"낙첨 ("+Math.round(h/d.length*100)+"%)":"";})());
 for(const text of out)await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text,disable_web_page_preview:true});
 for(const g of ["best","pre","res"])for(const [k,v] of Object.entries(sent[g]))if(now-Number(v)>6*86400000)delete sent[g][k];
 if(ds&&(best.length||pre.length||Object.keys(sent.res).length))await ds.put("r569:sent",sent);
