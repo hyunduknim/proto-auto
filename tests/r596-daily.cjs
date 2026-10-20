@@ -1,0 +1,17 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+run(`analyzeChoiceRows=function(x){return (x.choices||[]).map(c=>({pick:c.label,odds:c.odds,calibratedP:c.p}))};
+mk=(gm,tp)=>{const S=createState();S.round=Number(gm.slice(3));S.gmTs=gm;S.markets=[];const t=new Date(Date.now()+5*3600000+9*3600000).toISOString();
+[[.66,1],[.65,2],[.55,3]].forEach(([h,i])=>{const b={gmTs:gm,sourceRound:S.round,date:t.slice(0,10),time:t.slice(11,16),sport:"축구",league:"L"+i,home:"H"+i,away:"A"+i};
+S.markets.push({...b,no:i*10+1,marketFamily:"HANDICAP",line:1,choices:[{label:"승",odds:1.45,p:h},{label:"패",odds:2.4,p:1-h}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.45,hitProbability:h});
+S.markets.push({...b,no:i*10+3,marketFamily:"TOTAL",line:2.5,choices:[{label:"언더",odds:1.75,p:i===3?tp:.45},{label:"오버",odds:2.0,p:.4}]});});
+r554Apply(S);r596Total(S);r596Best(S);return S};
+g=S=>S.markets.filter(m=>m.marked&&m.representativeSelected).map(m=>m.no+":"+m.displayGrade)`);
+const A=JSON.parse(run('JSON.stringify(g(A=mk("260125",.60)))'));
+assert.ok(A.includes('33:추천'),'game 3 total becomes 추천: '+A);assert.ok(!A.includes('31:일반'),'its handicap rep replaced');
+assert.equal(A.filter(x=>x.endsWith('가장추천')).length,1,'one 가장추천: '+A);assert.ok(A.includes('11:가장추천'),'highest probability promoted: '+A);
+const B=JSON.parse(run('JSON.stringify(g(mk("260125",.52)))'));assert.ok(!B.some(x=>x.startsWith('33:')),'total below 58% not added: '+B);
+const C=JSON.parse(run('JSON.stringify(g(mk("260124",.60)))'));assert.ok(!C.some(x=>/가장추천|^33:/.test(x)),'round 124 untouched: '+C);
+run('A2=mk("260125",.60);r554Apply(A2);r596Total(A2);r596Best(A2);');assert.equal(JSON.parse(run('JSON.stringify(g(A2))')).join(),A.join(),'stable across passes');
+console.log('R596 daily 가장추천/언오버 OK');
