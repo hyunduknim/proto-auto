@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R598B-9427-EXCLUDED";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R599-OFFICIAL-RECHECK";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11817,10 +11817,29 @@ oldestPending:pending.slice().sort(marketSort).slice(0,12)
 .map(m=>({gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,
 game:m.game||m.home+" vs "+m.away}))};
 }
+/* R599: results settled from a non-Betman source are re-checked against Betman's official result for up to 3 days.
+   Betman wins: a mismatch is re-settled with the official score and the hit-rate tables are recounted. */
+const R599={gapMs:10*60000,windowMs:72*3600000};
+function r599Candidates(state,now=Date.now()){return (state?.markets||[]).filter(m=>m.marked&&m.representativeSelected&&m.resultFinal&&!m.r599Verified&&!/^BETMAN/.test(String(m.resultSource||""))&&m.resultSource!=="OWNER_CONFIRMED_SCORE"&&settlementAllowed(m)&&(()=>{const t=gameTimeMs(m);return t!=null&&now-t<=R599.windowMs;})());}
+function r599Apply(state,rows,ms){let fixed=0,ok=0;const at=nowIso();
+for(const m of ms){const rr=rows.find(r=>r&&r.terminal&&!r.partial&&!r.specialStatus&&resultMatchesMarket(r,m));if(!rr)continue;let res=null;try{res=resolveOfficialOutcome(rr,m);}catch(_){}if(!res||!res.outcome)continue;
+const hit=res.void?null:String(m.finalPick)===String(res.outcome),st=res.void?"적특":hit?"적중":"낙첨";
+if(m.settlementStatus===st&&(res.void||m.hit===hit)){m.r599Verified=at;ok++;continue;}
+if(!m.r586Was)m.r586Was={source:m.resultSource||null,score:m.resultScoreText||null,result:m.result??null,status:m.settlementStatus||null,at:m.resultVerifiedAt||null};
+try{const t=state.r557Calib,key=r554LegKey(m);if(t&&Array.isArray(t.seen)&&t.seen.includes(key)&&typeof m.hit==="boolean"){r585Undo(t,m);t.seen=t.seen.filter(k=>k!==key);}}catch(_){}
+m.result=res.outcome;m.hit=hit;m.settlementStatus=st;m.settlementType=res.void?"VOID":"NORMAL";m.resultSource="BETMAN_OFFICIAL_RECHECK";m.resultResolutionSource=res.source||null;m.resultScoreText=rr.score||m.resultScoreText;m.resultStatus="경기종료 · 베트맨 공식결과로 재확인";m.resultVerifiedAt=at;m.r599Verified=at;m.r599Corrected={at,was:m.r586Was};
+try{recordSettlementLedger(state,m);upsertSettledCard(state,m);}catch(_){}fixed++;}
+if(fixed||ok)state.r599Audit={at,fixed:fixed+Number(state.r599Audit?.fixed||0),verified:ok+Number(state.r599Audit?.verified||0)};return fixed;}
+async function r599Verify(state){const now=Date.now(),cands=r599Candidates(state,now);if(!cands.length)return 0;MEM.r599At=MEM.r599At||{};let fixed=0;
+for(const ts of [...new Set(cands.map(m=>String(m.gmTs||"")))].slice(0,3)){if(now-Number(MEM.r599At[ts]||0)<R599.gapMs)continue;MEM.r599At[ts]=now;
+let rows=[];try{rows=parseBetmanResultRows(await fetchResultInfo(ts),ts);}catch(_){}try{const gi=await fetchGameInfo(ts);rows=rows.concat(parseBetmanResultRows(gi,ts));}catch(_){}
+if(rows.length)fixed+=r599Apply(state,rows,cands.filter(m=>String(m.gmTs)===ts));}
+if(fixed){state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;}return fixed;}
 async function runTickInternal(env){
 const s=await loadState(env);let cur=MEM.state||s;
 if(Number(cur.gmTs||0)<260121)r414ApplyOwnerRound121(cur);
 try{r598Fix9427(cur);}catch(_){}
+try{if(await r599Verify(cur)>0){try{r557Track(cur);}catch(_){}await saveState(cur,env,true);cur=MEM.state||cur;}}catch(_){}
 try{const f585=r585Fix9331(cur);if(r570OwnerScores(cur)>0||f585>0){try{r557Track(cur);}catch(_){}await saveState(cur,env,true);cur=MEM.state||cur;}}catch(_){}
 const fiveMinuteDue=r394FiveMinuteDue(cur,Date.now());
 const pendingBefore=pendingSettlementMarkets(cur).length;
