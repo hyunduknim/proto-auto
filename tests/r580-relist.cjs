@@ -7,3 +7,6 @@ R2=mergeLastKnownOfficialMarkets([{...b,no:9336,line:1.5,marked:true,representat
 assert.deepEqual(JSON.parse(run('JSON.stringify(R1.markets.map(m=>m.no+"/"+m.line))')),['9336/-1.5','9340/2.5'],'stale 9336 +1.5 dropped; unrelated missing listing kept');
 assert.equal(run('R2.markets.length'),2,'already-settled old listing is never thrown away');
 console.log('R580 stale relist OK');
+run(`R3=mergeLastKnownOfficialMarkets([{gmTs:"260124",date:"2099-10-19",time:"15:30",home:"한국전력",away:"KB손해보험",marketFamily:"HANDICAP",no:9336,line:-1.5,choices:[{label:"승",odds:2.19},{label:"패",odds:1.47}],marked:true,representativeSelected:true,finalPick:"패",finalOdds:1.47,displayGrade:"추천",r577Rec:{at:"x",pick:"패"}}],[{gmTs:"260124",date:"2099-10-19",time:"15:30",home:"한국전력",away:"KB손해보험",marketFamily:"HANDICAP",no:9336,line:-2.5,choices:[{label:"승",odds:2.6},{label:"패",odds:1.35}]}]);`);
+assert.equal(run('R3.markets.length'),1);assert.equal(run('R3.markets[0].marked&&R3.markets[0].finalPick'),'패','pick carried to the re-listed line');assert.equal(run('R3.markets[0].finalOdds'),1.35);assert.equal(run('R3.markets[0].r577Rec.pick'),'패');
+console.log('R593 relist carry OK');
