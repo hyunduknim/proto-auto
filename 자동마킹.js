@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R607-OFFICIAL-CODE-RECHECK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R608-DROP-9425";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4803,7 +4803,7 @@ try{recordSettlementLedger(state,m);upsertSettledCard(state,m);}catch(_){}n++;}
 for(const row of Object.values(state.r554ManualLog||{}))for(const side of ["auto","manual"]){const l=row[side];const o=l&&lr[l.k];if(o&&o.source==="OWNER_CONFIRMED_SCORE"){l.status=o.outcome==="void"?"void":String(l.pick)===String(o.outcome)?"hit":"miss";l.result=o.outcome;delete l.recheck;}}
 if(n){state.r570Audit={at,fixed:n+(state.r570Audit?.fixed||0)};state.updatedAt=at;MEM.publicCacheKey=null;MEM.publicCache=null;}return n;}
 /* R561: owner says proto #8959 (round 260123) does not exist on Betman — drop it everywhere, every pass. */
-const R561_REMOVED=[["260123",8959]];
+const R561_REMOVED=[["260123",8959],["260124",9425],["260124",9427],["260124",9428]]; /* R608: owner asked to drop the 서울SK vs 안양정관장 game (9425·9427·9428, no pick after R598B) from 배당 정밀분석 */
 function r561Gone(m){return !!m&&R561_REMOVED.some(([g,n])=>String(m.gmTs||"")===g&&Number(m.no)===n);}
 function r561RemovePhantom(state){if(!state)return 0;let n=0;const keep=a=>{const b=a.filter(x=>!r561Gone(x));n+=a.length-b.length;return b;};
 if(Array.isArray(state.markets))state.markets=keep(state.markets);if(Array.isArray(state.settlementLedger))state.settlementLedger=keep(state.settlementLedger);
