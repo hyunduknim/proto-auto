@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R598-NO-SECONDARY-LINES";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R598B-9427-EXCLUDED";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4769,8 +4769,14 @@ const drop=x=>!(String(x?.gmTs)==="260124"&&Number(x?.no)===9332);if(state.settl
 const odds=fx.odds>1?fx.odds:Number((a.choices||[]).find(c=>String(c.label)===String(fx.pick))?.odds)||null;
 if(!a.marked||!a.representativeSelected||String(a.finalPick)!==String(fx.pick)||a.displayGrade!=="추천"){a.marked=true;a.representativeSelected=true;a.r506LockedPick=true;a.finalPick=fx.pick;a.finalOdds=odds;a.displayGrade="추천";a.hitProbability=fx.ps;a.r554={...(a.r554||{}),p:fx.ps,ps:fx.ps,selected:true,why:null};a.r585Restored=at;n++;}
 if(n){state.updatedAt=at;MEM.publicCacheKey=null;MEM.publicCache=null;}return n;}
-/* R598: 9427 서울SK vs 안양정관장 came only from the secondary page with line +1.5; Betman's line is H -5.5 (owner screenshot). */
-function r598Fix9427(state){let n=0;for(const m of state?.markets||[]){if(String(m.gmTs)!=="260124"||Number(m.no)!==9427||m.marketFamily!=="HANDICAP"||Number(m.line)===-5.5)continue;m.line=-5.5;m.market="마이너스 핸디캡";m.r598Line={at:nowIso(),was:1.5};n++;}return n;}
+/* R598: 9427 서울SK vs 안양정관장 came only from the secondary page with a non-existent line (+1.5; Betman's is H -5.5).
+   A pick made on a line that never existed is not a real pick: it is taken out of marking and every record. */
+function r598Fix9427(state){if(!state)return 0;let n=0;const hit=x=>String(x?.gmTs)==="260124"&&Number(x?.no)===9427;
+for(const m of state.markets||[]){if(!hit(m)||m.marketFamily!=="HANDICAP")continue;
+if(m.resultFinal&&typeof m.hit==="boolean"&&!m.r598Undone){try{const t=state.r557Calib,key=r554LegKey(m);if(t&&Array.isArray(t.seen)&&t.seen.includes(key)){r585Undo(t,m);t.seen=t.seen.filter(k=>k!==key);}}catch(_){}m.r598Undone=nowIso();}
+if(m.marked||m.representativeSelected){m.marked=false;m.representativeSelected=false;m.finalPick=null;m.finalOdds=null;m.displayGrade="일반";m.r598Excluded=nowIso();n++;}}
+if(state.settledCards&&Array.isArray(state.settledCards.rows))state.settledCards.rows=state.settledCards.rows.filter(x=>!hit(x));if(Array.isArray(state.settlementLedger))state.settlementLedger=state.settlementLedger.filter(x=>!hit(x));
+if(n){state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;}return n;}
 /* R570: owner-confirmed final scores — applied on every pass so a later automatic re-check cannot flip them back. */
 const R570_OWNER_SCORES=[{gmTs:"260123",date:"2026-10-18",home:/베이징|궈안/,away:/칭다오/,score:"1:0",note:"9196 베이징 궈안 1:0 칭다오 (owner)"},
 {date:"2026-10-19",home:/OK/,away:/현대캐/,score:"2:3",families:["MONEYLINE","HANDICAP"],note:"9331·9332 OK저축 2:3 현대캐피탈 KOVO컵 (owner)"},
