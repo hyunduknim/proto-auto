@@ -13,3 +13,6 @@ assert.equal(run('ST.markets[0].settlementStatus'),'적중','wrong 낙첨 correc
 assert.ok(run('!!ST.markets[1].r599Verified'),'matching one just marked verified');
 assert.equal(run('ST.r557Calib.grade["추천"].hits'),2,'tables recounted');assert.equal(run('ST.r557Calib.grade["추천"].n'),2);
 console.log('R599 official recheck OK');
+const src=require('node:fs').readFileSync('자동마킹.js','utf8');assert.match(src,/zeroPlaceholderSkipped/);
+const re=/^\s*0\s*[:：-]\s*0\s*$/;assert.ok(re.test('0:0')&&!re.test('1:0')&&!re.test('10:0'));
+console.log('R601 zero placeholder guard OK');

@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R600B-SOURCE-CHECK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R602-SANE-SECONDARY-LINES";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1592,8 +1592,9 @@ return ["MONEYLINE","HANDICAP","TOTAL"].includes(m.marketFamily);
 }
 function representativeMarketEligible(m){
 if(m?.r404ReferenceOnly)return false;
-/* R598: lines from the secondary pregame page proved wrong twice (9336 +1.5 for -1.5, 9427 +1.5 for -5.5) — only Betman lines may be marked */
-if(m&&m.source==="ZENTOTO_PUBLIC_PREGAME_HTML"&&m.marketFamily!=="MONEYLINE")return false;
+/* R602: Betman's own feed has been unreachable since 10-11, so every market comes from the secondary page. Its handicap line is
+   trusted only when it agrees with the same game's 일반승 odds (R598 had blocked all of them, which left no handicap/total picks). */
+if(m&&m.source==="ZENTOTO_PUBLIC_PREGAME_HTML"&&m.marketFamily==="HANDICAP"&&m.r602Bad)return false;
 if(!m||validChoices(m).length<2||started(m)||m.resultFinal||r360OddsAnomalyReason(m))return false;
 if(m.marketFamily==="HANDICAP"&&m.sport==="야구"){
 const line=Math.abs(Number(m.line)); if(!Number.isFinite(line)||Math.abs(line-2.5)>.001)return false;
@@ -4808,7 +4809,14 @@ function r561RemovePhantom(state){if(!state)return 0;let n=0;const keep=a=>{cons
 if(Array.isArray(state.markets))state.markets=keep(state.markets);if(Array.isArray(state.settlementLedger))state.settlementLedger=keep(state.settlementLedger);
 if(state.settledCards&&Array.isArray(state.settledCards.rows))state.settledCards.rows=keep(state.settledCards.rows);if(Array.isArray(state.markingGradeHistory))state.markingGradeHistory=keep(state.markingGradeHistory);
 if(n)state.r561Audit={at:nowIso(),removed:n+(state.r561Audit?.removed||0),targets:R561_REMOVED};return n;}
+function r602FlagLines(state){const by=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state))continue;const k=String(m.gmTs)+"|"+gameSeed(m);if(!by.has(k))by.set(k,[]);by.get(k).push(m);}
+const pw=(m,l)=>{const cs=validChoices(m);const inv=cs.reduce((a,c)=>a+1/Number(c.odds),0);const c=cs.find(x=>String(x.label)===l);return c&&inv>0?(1/Number(c.odds))/inv:null;};let bad=0;
+for(const ms of by.values()){const ml=ms.find(m=>m.marketFamily==="MONEYLINE"&&validChoices(m).length>=2);const pm=ml?pw(ml,"승"):null;
+for(const m of ms){if(m.marketFamily!=="HANDICAP"||m.source!=="ZENTOTO_PUBLIC_PREGAME_HTML")continue;const L=Number(m.line),ph=pw(m,"승");
+let b=false;if(pm!=null&&ph!=null&&Number.isFinite(L)&&L!==0)b=L>0?ph<pm-.03:ph>pm+.03;m.r602Bad=b||undefined;if(b)bad++;}}
+state.r602Audit={at:nowIso(),badLines:bad};return bad;}
 function markState(state){
+try{r602FlagLines(state);}catch(_){}
 r498WithdrawTwo(state);
 try{r561RemovePhantom(state);}catch(_){}
 try{r559PostponedVoid(state);}catch(_){}
@@ -11332,8 +11340,10 @@ const contentType=String(response.headers?.get("content-type")||"");
 if(contentType&&!/text\/html/i.test(contentType))throw Error("ZEN_NOT_HTML");
 const body=await response.text();
 if(body.length<10000||body.length>4500000)throw Error("ZEN_INVALID_HTML_LENGTH");
-const rows=r381ParseZentoto(body);
-audit.received=rows.length;
+/* R601: this page shows a 0:0 placeholder as "경기종료" before the real score arrives (9357 원주DB 104:78 and 헤타페 1:1 were both
+   settled as 0:0). A 0:0 / 0-point final from this page is never used; the game waits for another source or Betman. */
+const rows0=r381ParseZentoto(body),rows=rows0.filter(r=>!/^\s*0\s*[:：-]\s*0\s*$/.test(String(r.score||""))&&String(r.score||"").trim()!=="0");
+audit.received=rows.length;audit.zeroPlaceholderSkipped=rows0.length-rows.length;
 const pendingByRound=new Map();
 for(const m of pending){
 const ts=String(m.gmTs||"");

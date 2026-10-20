@@ -4,7 +4,11 @@ vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class 
 run(`const t=new Date(Date.now()+5*3600000+9*3600000).toISOString(),b={gmTs:"260125",date:t.slice(0,10),time:t.slice(11,16),sport:"농구",league:"KBL",home:"서울SK",away:"안양",choices:[{label:"승",odds:1.76},{label:"패",odds:1.76}]};
 Z={...b,no:1,marketFamily:"HANDICAP",line:1.5,source:"ZENTOTO_PUBLIC_PREGAME_HTML"};ZM={...b,no:2,marketFamily:"MONEYLINE",source:"ZENTOTO_PUBLIC_PREGAME_HTML"};BH={...b,no:3,marketFamily:"HANDICAP",line:-5.5,source:"BETMAN_OFFICIAL_JSON"};
 ST={markets:[{gmTs:"260124",no:9427,marketFamily:"HANDICAP",line:1.5,market:"플러스 핸디캡",marked:true,representativeSelected:true,finalPick:"승"}],settlementLedger:[{gmTs:"260124",no:9427}]};F=r598Fix9427(ST);`);
-assert.equal(run('representativeMarketEligible(Z)'),false,'secondary-page handicap never marked');
+run(`S2=createState();S2.round=125;S2.gmTs="260125";const ML={...b,no:5,marketFamily:"MONEYLINE",source:"ZENTOTO_PUBLIC_PREGAME_HTML",choices:[{label:"승",odds:1.4},{label:"패",odds:2.9}]};
+const BAD={...b,no:6,marketFamily:"HANDICAP",line:1.5,source:"ZENTOTO_PUBLIC_PREGAME_HTML",choices:[{label:"승",odds:1.76},{label:"패",odds:1.76}]};
+const OK={...b,no:7,marketFamily:"HANDICAP",line:-5.5,source:"ZENTOTO_PUBLIC_PREGAME_HTML",choices:[{label:"승",odds:1.76},{label:"패",odds:1.76}]};S2.markets=[ML,BAD,OK];r602FlagLines(S2);`);
+assert.equal(run('representativeMarketEligible(S2.markets[1])'),false,'+1.5 for a favourite at even odds is impossible → blocked');
+assert.equal(run('representativeMarketEligible(S2.markets[2])'),true,'-5.5 at even odds agrees with the favourite → allowed');
 assert.equal(run('representativeMarketEligible(BH)'),true);assert.equal(run('representativeMarketEligible(ZM)'),true,'moneyline from the secondary page still allowed');
 assert.equal(run('ST.markets[0].marked'),false,'pick on a non-existent line removed');assert.equal(run('ST.settlementLedger.length'),0);assert.equal(run('F'),1);
 console.log('R598 secondary lines OK');
