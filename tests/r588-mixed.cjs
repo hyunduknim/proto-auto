@@ -13,4 +13,6 @@ const fa=JSON.parse(run('JSON.stringify(fam(A))'));assert.equal(fa.length,5,'cou
 assert.ok(fa.filter(f=>f==='HANDICAP').length<=3,'handicap no longer more than half: '+fa);assert.ok(fa.includes('MONEYLINE')&&fa.includes('TOTAL'),'mixed: '+fa);
 run('B=mk("260125",[{h:.70,ml:.5,tot:.5},{h:.71,ml:.5,tot:.5},{h:.72,ml:.5,tot:.5}])');assert.equal(JSON.parse(run('JSON.stringify(fam(B))')).length,3,'no alternative → nothing demoted');
 run('C=mk("260124",[{h:.70,ml:.69,tot:.5},{h:.71,ml:.5,tot:.70},{h:.72,ml:.5,tot:.5}])');assert.deepEqual(JSON.parse(run('JSON.stringify(fam(C))')),['HANDICAP','HANDICAP','HANDICAP'],'round 124 unchanged');
+run('M=mk("260125",[{h:.70,ml:.60,tot:.5},{h:.71,ml:.5,tot:.60},{h:.72,ml:.5,tot:.5},{h:.73,ml:.5,tot:.5},{h:.74,ml:.5,tot:.5}])');
+const fm=JSON.parse(run('JSON.stringify(fam(M))'));assert.ok(fm.includes('MONEYLINE')&&fm.includes('TOTAL'),'58% alternatives used for the mix: '+fm);
 console.log('R588 mixed markets OK');

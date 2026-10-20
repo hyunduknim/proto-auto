@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R609B-TRACK-EVERY-TICK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R610-MIX-AT-58";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4307,14 +4307,17 @@ if(n)state.r582Audit={at:nowIso(),kept:n+(state.r582Audit?.kept||0)};return n;}
 /* R588 (round 125+): keep 추천 mixed across 일반승 / 핸디캡 / 언오버. When one family holds more than half of the upcoming 추천
    (at least 2 allowed), its weakest picks are switched to another family's pick in the same game — only if that pick also clears
    the full 추천 test (64%, odds floor, overseas move, league). Nothing is demoted, so the 추천 count stays the same. */
-const R588={from:260125,fams:["MONEYLINE","HANDICAP","TOTAL"]};
+const R588={from:260125,fams:["MONEYLINE","HANDICAP","TOTAL"],mixMinP:.58};
 function r588On(m){return Number(m?.gmTs||0)>=R588.from;}
 function r588Try(state,rep,fams){const ms=(state.markets||[]).filter(x=>x!==rep&&String(x.gmTs)===String(rep.gmTs)&&gameSeed(x)===gameSeed(rep)&&fams.includes(x.marketFamily)&&!x.resultFinal);
 const cands=[];for(const x of ms){let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}for(const q of rows){const odds=Number(q.odds),p=Number(q.calibratedP??q.decisionProbability);if(!(odds>=CFG.minRepOdds)||!Number.isFinite(p)||q.pick==="무")continue;cands.push({x,q,odds,p,fi:fams.indexOf(x.marketFamily)});}}
 cands.sort((a,b)=>a.fi-b.fi||b.p-a.p);
 for(const c of cands){const x=c.x,keep={marked:x.marked,representativeSelected:x.representativeSelected,finalPick:x.finalPick,finalOdds:x.finalOdds,hitProbability:x.hitProbability,displayGrade:x.displayGrade,r554:x.r554,r555:x.r555,r577Rec:x.r577Rec};
 x.marked=true;x.representativeSelected=true;x.finalPick=c.q.pick;x.finalOdds=c.odds;x.hitProbability=c.p;try{r554Apply({...state,markets:[x]});}catch(_){}
-if(x.displayGrade==="추천"||x.displayGrade==="가장추천"){const at=nowIso();rep.marked=false;rep.representativeSelected=false;rep.r588Swapped={at,to:x.no};x.r588From={at,no:rep.no,family:rep.marketFamily,pick:rep.finalPick,line:rep.line??null};return x;}
+/* R610: the strict 64% test almost never passes for a second market of the same game, so a mix also accepts the 58% bar used for 언오버 */
+const r=x.r554||{},relaxed=!(x.displayGrade==="추천"||x.displayGrade==="가장추천")&&Number(r.ps)>=R588.mixMinP&&r.why==="확률 부족";
+if(relaxed){x.displayGrade="추천";x.r554={...r,selected:true,why:null,minP:R588.mixMinP};if(!x.r577Rec||x.r577Rec.pick!==x.finalPick)x.r577Rec={at:nowIso(),pick:x.finalPick,odds:x.finalOdds,ps:r.ps};else delete x.r577Rec.off;}
+if(x.displayGrade==="추천"||x.displayGrade==="가장추천"){const at=nowIso();rep.marked=false;rep.representativeSelected=false;rep.r588Swapped={at,to:x.no};x.r588From={at,no:rep.no,family:rep.marketFamily,pick:rep.finalPick,line:rep.line??null,relaxed};return x;}
 Object.assign(x,keep);}return null;}
 function r588Balance(state){let n=0;
 const live=()=>(state?.markets||[]).filter(m=>currentRoundMarket(m,state)&&r588On(m)&&m.marked&&m.representativeSelected&&!m.resultFinal&&!started(m)&&(m.displayGrade==="추천"||m.displayGrade==="가장추천"));
