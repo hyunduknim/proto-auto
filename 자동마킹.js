@@ -11722,7 +11722,7 @@ const resultSettled=applyResults(state,parsed.resultRows);
 const fallbackSettled=applyResults(state,parsed.gameInfoRows);
 /* R605: Betman blocks the Worker's own fetch, so the relay is where official rows arrive — recheck earlier non-Betman settlements here */
 let r605Fixed=0;try{const allGi=input?.gameInfo?parseBetmanResultRows(input.gameInfo,gmTs):[],rr605=[...(parsed.resultRows||[]),...allGi],c605=r599Candidates(state).filter(m=>String(m.gmTs)===gmTs);
-state.r605Debug={at:nowIso(),gmTs,rows:rr605.length,terminal:rr605.filter(r=>r.terminal&&!r.partial).length,cands:c605.length,sample:rr605.slice(0,6).map(r=>({no:r.no,family:r.family,score:r.score,outcome:r.outcome,terminal:r.terminal,partial:r.partial,home:r.home})),candSample:c605.slice(0,6).map(m=>({no:m.no,family:m.marketFamily,src:m.resultSource})),matched:c605.filter(m=>rr605.some(r=>resultMatchesMarket(r,m))).length,matchedTerminal:c605.filter(m=>rr605.some(r=>r.terminal&&!r.partial&&!r.specialStatus&&resultMatchesMarket(r,m))).length};
+state.r605Debug={...(state.r605Debug&&!state.r605Debug.gmTs?state.r605Debug:{}),[gmTs]:{at:nowIso(),rows:rr605.length,terminal:rr605.filter(r=>r.terminal&&!r.partial).length,cands:c605.length,sample:rr605.slice(0,6).map(r=>({no:r.no,family:r.family,score:r.score,outcome:r.outcome,terminal:r.terminal,partial:r.partial,home:r.home})),candSample:c605.slice(0,6).map(m=>({no:m.no,family:m.marketFamily,src:m.resultSource})),matched:c605.filter(m=>rr605.some(r=>resultMatchesMarket(r,m))).length,matchedTerminal:c605.filter(m=>rr605.some(r=>r.terminal&&!r.partial&&!r.specialStatus&&resultMatchesMarket(r,m))).length}};
 r605Fixed=r599Apply(state,rr605,c605);if(r605Fixed){try{r557Track(state);}catch(_){}state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;}}catch(_){}
 const settled=flashAudit.settled+aiAudit.settled+zenAudit.settled+zenFixtureAudit.settled+espnAudit.settled+resultSettled+fallbackSettled,
 verifiedRows=parsed.resultRows.length+parsed.gameInfoRows.length+espnAudit.matched+flashAudit.matched+aiAudit.matched;
@@ -11842,7 +11842,8 @@ game:m.game||m.home+" vs "+m.away}))};
 const R599={gapMs:10*60000,windowMs:7*24*3600000};
 function r599Candidates(state,now=Date.now()){return (state?.markets||[]).filter(m=>m.marked&&m.representativeSelected&&m.resultFinal&&!m.r599Verified&&!/^BETMAN/.test(String(m.resultSource||""))&&m.resultSource!=="OWNER_CONFIRMED_SCORE"&&settlementAllowed(m)&&(()=>{const t=gameTimeMs(m);return t!=null&&now-t<=R599.windowMs;})());}
 function r599Apply(state,rows,ms){let fixed=0,ok=0;const at=nowIso();
-for(const m of ms){const rr=rows.find(r=>r&&r.terminal&&!r.partial&&!r.specialStatus&&resultMatchesMarket(r,m));if(!rr)continue;let res=null;try{res=resolveOfficialOutcome(rr,m);}catch(_){}if(!res||!res.outcome)continue;
+const live=/예정|경기중|진행중|\blive\b|\bin[ -]?progress\b|\bscheduled\b|\bnot[ -]?started\b/i;
+for(const m of ms){let res=null;const rr=rows.find(r=>{if(!r||r.partial||r.specialStatus||(r.terminal!==true&&live.test(String(r.statusText||"")))||!resultMatchesMarket(r,m))return false;try{res=resolveOfficialOutcome(r,m);}catch(_){res=null;}return !!(res&&res.outcome);});if(!rr||!res)continue;
 const hit=res.void?null:String(m.finalPick)===String(res.outcome),st=res.void?"적특":hit?"적중":"낙첨";
 if(m.settlementStatus===st&&(res.void||m.hit===hit)){m.r599Verified=at;ok++;continue;}
 if(!m.r586Was)m.r586Was={source:m.resultSource||null,score:m.resultScoreText||null,result:m.result??null,status:m.settlementStatus||null,at:m.resultVerifiedAt||null};
