@@ -1,9 +1,11 @@
 name: Official Betman settlement relay
 
-# R381 FREE MODE: Cloudflare cron/DO handles regular settlement.
-# Retained only for manual fallback if GitHub Actions quota is later restored.
+# R603: repository is public (free Actions) again, so the Betman relay runs every 10 minutes.
+# Betman blocks Cloudflare egress; this runner is the only path to Betman's official odds and results.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
 
 permissions:
   contents: read
