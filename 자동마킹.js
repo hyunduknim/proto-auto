@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R589-NBA-BACK-TO-BACK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R590-GETAFE-RAYO-1-1";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4741,9 +4741,10 @@ if(n){state.updatedAt=at;MEM.publicCacheKey=null;MEM.publicCache=null;}return n;
 const R570_OWNER_SCORES=[{gmTs:"260123",date:"2026-10-18",home:/베이징|궈안/,away:/칭다오/,score:"1:0",note:"9196 베이징 궈안 1:0 칭다오 (owner)"},
 {date:"2026-10-19",home:/OK/,away:/현대캐/,score:"2:3",families:["MONEYLINE","HANDICAP"],note:"9331·9332 OK저축 2:3 현대캐피탈 KOVO컵 (owner)"},
 {date:"2026-10-19",home:/한국전력/,away:/KB/,score:"3:1",families:["MONEYLINE","HANDICAP"],note:"9335·9336 한국전력 3:1 KB손보 KOVO컵 (owner)"},
-{date:"2026-10-19",home:/원주|DB/,away:/가스/,score:"104:78",families:["MONEYLINE","HANDICAP","TOTAL"],note:"9357~9360 원주DB 104:78 한국가스공사 KBL (owner)"}];
+{date:"2026-10-19",home:/원주|DB/,away:/가스/,score:"104:78",families:["MONEYLINE","HANDICAP","TOTAL"],note:"9357~9360 원주DB 104:78 한국가스공사 KBL (owner)"},
+{dates:["2026-10-19","2026-10-20"],home:/헤타페/,away:/라요/,score:"1:1",families:["MONEYLINE","HANDICAP","TOTAL"],note:"헤타페 1:1 라요 바예카노 라리가 (owner, site showed 0:0)"}];
 function r570OwnerScores(state){if(!state)return 0;let n=0;const at=nowIso(),lr=state.r556LegResults||(state.r556LegResults={});
-for(const fx of R570_OWNER_SCORES)for(const m of state.markets||[]){if((fx.gmTs&&String(m.gmTs||"")!==fx.gmTs)||(fx.families&&!fx.families.includes(m.marketFamily))||String(m.date||"")!==fx.date||!fx.home.test(String(m.home||""))||!fx.away.test(String(m.away||"")))continue;
+for(const fx of R570_OWNER_SCORES)for(const m of state.markets||[]){if((fx.gmTs&&String(m.gmTs||"")!==fx.gmTs)||(fx.families&&!fx.families.includes(m.marketFamily))||(fx.dates?!fx.dates.includes(String(m.date||"")):String(m.date||"")!==fx.date)||!fx.home.test(String(m.home||""))||!fx.away.test(String(m.away||"")))continue;
 const rr={no:m.no,family:m.marketFamily,score:fx.score,terminal:true,outcome:null};let res;try{res=resolveOfficialOutcome(rr,m);}catch(_){res=null;}if(!res||!res.outcome)continue;
 lr[r554LegKey(m)]={outcome:res.void?"void":res.outcome,score:fx.score,source:"OWNER_CONFIRMED_SCORE",at};
 if(!m.marked||!m.representativeSelected)continue;const hit=res.void?null:String(m.finalPick)===String(res.outcome),st=res.void?"적특":hit?"적중":"낙첨";
