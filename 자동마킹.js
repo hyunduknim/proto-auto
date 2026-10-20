@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R599-OFFICIAL-RECHECK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R600-NO-LONGSHOT-PICK";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4348,6 +4348,11 @@ if(n)state.r596TotalAudit={at:nowIso(),added:n};return n;}
 function r596Best(state){let n=0;for(const ms of r596Day(state).values()){const recs=ms.filter(r596IsRec);if(!recs.length||recs.some(m=>m.displayGrade==="가장추천"))continue;
 const pick=recs.filter(m=>!started(m)&&!m.resultFinal&&!m.manualOverride).sort((a,b)=>Number(b.r554?.ps||0)-Number(a.r554?.ps||0))[0];if(!pick)continue;pick.displayGrade="가장추천";pick.r596Best={at:nowIso()};n++;}
 if(n)state.r596BestAudit={at:nowIso(),promoted:n};return n;}
+/* R600: the 1.31 odds floor can remove a heavy favourite and leave a long-shot draw (e.g. 맨시티 vs AEK → 무 7.90, 9.5%) as the
+   game's pick. A pick below 35% is not a real pick: the game is left unmarked instead. */
+function r600NoLongshot(state){let n=0;for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||!m.marked||!m.representativeSelected||m.resultFinal||started(m)||m.manualOverride)continue;
+const p=Number(m.hitProbability??m.calibratedProbability);if(Number.isFinite(p)&&p<.35){m.marked=false;m.representativeSelected=false;m.r600NoPick={at:nowIso(),pick:m.finalPick,p:r3(p)};m.finalPick=null;m.finalOdds=null;m.displayGrade="일반";n++;}}
+if(n)state.r600Audit={at:nowIso(),cleared:n};return n;}
 // R554E: 3x+ combos are fixed when their first game kicks off and settled leg by leg (hit/miss/void) in real time.
 const R554C={minOdds:3,maxLegs:5,maxCand:10,open:2,keep:40};
 function r554LegKey(m){return String(m?.gmTs||"")+":"+String(m?.no??"");}
@@ -4840,6 +4845,7 @@ const ev=Number.isFinite(p)&&Number.isFinite(Number(m.finalOdds))?p*Number(m.fin
 m.r480Recommendation={model:"R490_4AXIS_INTEGRATED",grade:m.displayGrade||"일반",score:r3(Number(m.marketSelectionScore??p)),probability:r3(p),marketProbability:r3(mp),edge:r3(p-mp),ev:r3(ev),at:nowIso()};
 }
 }
+try{r600NoLongshot(state);}catch(_){}
 try{r554Apply(state);}catch(_){}
 try{if(r582KeepRec(state)>0)r554Apply(state);}catch(_){}
 try{r588Balance(state);}catch(_){}
@@ -12361,6 +12367,7 @@ if(u.pathname==="/")return html(INDEX);
 if(u.pathname==='/odds-key'&&req.method==='GET')return r564KeyPage();
 if(u.pathname==='/telegram'&&req.method==='GET')return r569Page();
 if(u.pathname==='/check'&&req.method==='GET'){const st=MEM.state||await loadState(env);let fixed=0;try{fixed=r570OwnerScores(st);if(fixed>0)await saveState(st,env,true);}catch(_){}const cur=MEM.state||st;const nos=String(u.searchParams.get('no')||'').split(/[ ,]+/).map(Number).filter(Boolean);if(u.searchParams.has('dup')){const g=new Map();for(const m of cur.markets||[]){const k=String(m.gmTs)+':'+m.no;g.set(k,(g.get(k)||[]).concat([m]));}nos.push(...[...g.values()].filter(a=>a.length>1&&String(a[0].gmTs)===String(cur.gmTs)).map(a=>Number(a[0].no)));}
+const gq=Number(u.searchParams.get('game')||0);if(gq){const g0=(cur.markets||[]).find(m=>Number(m.no)===gq&&String(m.gmTs)===String(cur.gmTs));if(g0)for(const m of cur.markets||[])if(String(m.gmTs)===String(g0.gmTs)&&gameSeed(m)===gameSeed(g0))nos.push(Number(m.no));}
 const want=nos.length?nos:[];const rows=(cur.markets||[]).filter(m=>want.length?want.includes(Number(m.no)):String(m.resultSource||'')==='OWNER_CONFIRMED_SCORE').slice(0,40).map(m=>({no:m.no,gmTs:m.gmTs,date:m.date,time:m.time,sport:m.sport,league:m.league,home:m.home,away:m.away,family:m.marketFamily,line:m.line??null,pick:m.finalPick||null,marked:!!m.marked,rep:!!m.representativeSelected,grade:m.displayGrade||null,final:!!m.resultFinal,hit:m.hit??null,status:m.settlementStatus||null,source:m.resultSource||null,score:m.resultScoreText||null,odds:m.finalOdds??null,ps:m.r554?.ps??null,why:m.r554?.why??null,rec:m.r577Rec||null,kept:m.r582Kept||null,was:m.r586Was||null,raw:m.rawLine||null,src:m.source||null,relisted:m.r593Relisted||null}));const man=[];for(const [k,row] of Object.entries(cur.r554ManualLog||{}))for(const side of ['auto','manual']){const l=row&&row[side];if(l&&want.some(n=>String(l.k||'').endsWith(':'+n)))man.push({row:k,side,k:l.k,pick:l.pick||null,status:l.status||null,result:l.result||null});}let pub=null;try{const ps=publicState(cur);const pg=(ps.pastGames||[]).filter(m=>String(m.gmTs)===String(cur.gmTs));const pp=(ps.pastPendingGames||[]).filter(m=>String(m.gmTs)===String(cur.gmTs));const sh=m=>({no:m.no,game:(m.home||'')+' vs '+(m.away||''),pick:m.pick||null,grade:m.displayGrade||null,manual:!!(m.manualOverride||m.manualReview),final:!!m.resultFinal,hit:m.hit??null,status:m.settlementStatus||null});const cal=ps.r557Calibration||null;pub={gmTs:cur.gmTs,past:pg.map(sh),pending:pp.map(sh),calAll:cal?cal.total:null,cal124:cal&&cal.v124?cal.v124.total:null,cal124grade:cal&&cal.v124?cal.v124.grade:null,seen:(cur.r557Calib?.seen||[]).filter(k=>String(k).startsWith(String(cur.gmTs)+':'))};}catch(e){pub={error:String(e&&e.message||e)};}
 return json({version:APP_VERSION,now:nowIso(),fixedNow:fixed,r570Audit:cur.r570Audit||null,r585:cur.r585||null,rows,manual:man,pub});}
 if(u.pathname==='/api/telegram'&&req.method==='POST')return r569Register(req);
