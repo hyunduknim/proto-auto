@@ -162,7 +162,7 @@ jobs:
             ).slice(0,120);
             const rounds=[...new Set([
               ...[...nos,...started,...scoreBackfill].map(m=>String(m.gmTs||"")),
-              ...(/^\d{6}$/.test(activeGmTs)?[activeGmTs]:[])
+              ...(/^\d{6}$/.test(activeGmTs)?[activeGmTs,String(Number(activeGmTs)-1)]:[])
             ].filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
             if(!rounds.length){console.log("No known G101 round and no pending settlements; skipping relay.");return;}
             const token=await signedToken();

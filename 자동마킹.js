@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R602-SANE-SECONDARY-LINES";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R605-RELAY-RECHECK";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11720,6 +11720,8 @@ const espnAudit=r367ApplyEspnFinishedScores(state,espnRows,gmTs);
 const officialTrainingRows=terminalOfficialScoringRows(state,gameInfo,gmTs);
 const resultSettled=applyResults(state,parsed.resultRows);
 const fallbackSettled=applyResults(state,parsed.gameInfoRows);
+/* R605: Betman blocks the Worker's own fetch, so the relay is where official rows arrive — recheck earlier non-Betman settlements here */
+let r605Fixed=0;try{r605Fixed=r599Apply(state,[...(parsed.resultRows||[]),...(parsed.gameInfoRows||[])],r599Candidates(state).filter(m=>String(m.gmTs)===gmTs));if(r605Fixed){try{r557Track(state);}catch(_){}state.updatedAt=nowIso();MEM.publicCacheKey=null;MEM.publicCache=null;}}catch(_){}
 const settled=flashAudit.settled+aiAudit.settled+zenAudit.settled+zenFixtureAudit.settled+espnAudit.settled+resultSettled+fallbackSettled,
 verifiedRows=parsed.resultRows.length+parsed.gameInfoRows.length+espnAudit.matched+flashAudit.matched+aiAudit.matched;
 let learned=0,jbAdded=0;
@@ -11835,7 +11837,7 @@ game:m.game||m.home+" vs "+m.away}))};
 }
 /* R599: results settled from a non-Betman source are re-checked against Betman's official result for up to 3 days.
    Betman wins: a mismatch is re-settled with the official score and the hit-rate tables are recounted. */
-const R599={gapMs:10*60000,windowMs:72*3600000};
+const R599={gapMs:10*60000,windowMs:7*24*3600000};
 function r599Candidates(state,now=Date.now()){return (state?.markets||[]).filter(m=>m.marked&&m.representativeSelected&&m.resultFinal&&!m.r599Verified&&!/^BETMAN/.test(String(m.resultSource||""))&&m.resultSource!=="OWNER_CONFIRMED_SCORE"&&settlementAllowed(m)&&(()=>{const t=gameTimeMs(m);return t!=null&&now-t<=R599.windowMs;})());}
 function r599Apply(state,rows,ms){let fixed=0,ok=0;const at=nowIso();
 for(const m of ms){const rr=rows.find(r=>r&&r.terminal&&!r.partial&&!r.specialStatus&&resultMatchesMarket(r,m));if(!rr)continue;let res=null;try{res=resolveOfficialOutcome(rr,m);}catch(_){}if(!res||!res.outcome)continue;
