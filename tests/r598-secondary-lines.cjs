@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+run(`const t=new Date(Date.now()+5*3600000+9*3600000).toISOString(),b={gmTs:"260125",date:t.slice(0,10),time:t.slice(11,16),sport:"농구",league:"KBL",home:"서울SK",away:"안양",choices:[{label:"승",odds:1.76},{label:"패",odds:1.76}]};
+Z={...b,no:1,marketFamily:"HANDICAP",line:1.5,source:"ZENTOTO_PUBLIC_PREGAME_HTML"};ZM={...b,no:2,marketFamily:"MONEYLINE",source:"ZENTOTO_PUBLIC_PREGAME_HTML"};BH={...b,no:3,marketFamily:"HANDICAP",line:-5.5,source:"BETMAN_OFFICIAL_JSON"};
+ST={markets:[{gmTs:"260124",no:9427,marketFamily:"HANDICAP",line:1.5,market:"플러스 핸디캡"}]};F=r598Fix9427(ST);`);
+assert.equal(run('representativeMarketEligible(Z)'),false,'secondary-page handicap never marked');
+assert.equal(run('representativeMarketEligible(BH)'),true);assert.equal(run('representativeMarketEligible(ZM)'),true,'moneyline from the secondary page still allowed');
+assert.equal(run('ST.markets[0].line'),-5.5);assert.equal(run('F'),1);
+console.log('R598 secondary lines OK');

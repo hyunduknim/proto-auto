@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R597-RAW-LINE-CHECK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R598-NO-SECONDARY-LINES";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1592,6 +1592,8 @@ return ["MONEYLINE","HANDICAP","TOTAL"].includes(m.marketFamily);
 }
 function representativeMarketEligible(m){
 if(m?.r404ReferenceOnly)return false;
+/* R598: lines from the secondary pregame page proved wrong twice (9336 +1.5 for -1.5, 9427 +1.5 for -5.5) — only Betman lines may be marked */
+if(m&&m.source==="ZENTOTO_PUBLIC_PREGAME_HTML"&&m.marketFamily!=="MONEYLINE")return false;
 if(!m||validChoices(m).length<2||started(m)||m.resultFinal||r360OddsAnomalyReason(m))return false;
 if(m.marketFamily==="HANDICAP"&&m.sport==="야구"){
 const line=Math.abs(Number(m.line)); if(!Number.isFinite(line)||Math.abs(line-2.5)>.001)return false;
@@ -4767,6 +4769,8 @@ const drop=x=>!(String(x?.gmTs)==="260124"&&Number(x?.no)===9332);if(state.settl
 const odds=fx.odds>1?fx.odds:Number((a.choices||[]).find(c=>String(c.label)===String(fx.pick))?.odds)||null;
 if(!a.marked||!a.representativeSelected||String(a.finalPick)!==String(fx.pick)||a.displayGrade!=="추천"){a.marked=true;a.representativeSelected=true;a.r506LockedPick=true;a.finalPick=fx.pick;a.finalOdds=odds;a.displayGrade="추천";a.hitProbability=fx.ps;a.r554={...(a.r554||{}),p:fx.ps,ps:fx.ps,selected:true,why:null};a.r585Restored=at;n++;}
 if(n){state.updatedAt=at;MEM.publicCacheKey=null;MEM.publicCache=null;}return n;}
+/* R598: 9427 서울SK vs 안양정관장 came only from the secondary page with line +1.5; Betman's line is H -5.5 (owner screenshot). */
+function r598Fix9427(state){let n=0;for(const m of state?.markets||[]){if(String(m.gmTs)!=="260124"||Number(m.no)!==9427||m.marketFamily!=="HANDICAP"||Number(m.line)===-5.5)continue;m.line=-5.5;m.market="마이너스 핸디캡";m.r598Line={at:nowIso(),was:1.5};n++;}return n;}
 /* R570: owner-confirmed final scores — applied on every pass so a later automatic re-check cannot flip them back. */
 const R570_OWNER_SCORES=[{gmTs:"260123",date:"2026-10-18",home:/베이징|궈안/,away:/칭다오/,score:"1:0",note:"9196 베이징 궈안 1:0 칭다오 (owner)"},
 {date:"2026-10-19",home:/OK/,away:/현대캐/,score:"2:3",families:["MONEYLINE","HANDICAP"],note:"9331·9332 OK저축 2:3 현대캐피탈 KOVO컵 (owner)"},
@@ -4799,6 +4803,7 @@ try{r561RemovePhantom(state);}catch(_){}
 try{r559PostponedVoid(state);}catch(_){}
 try{r560FixManual8640(state);}catch(_){}
 try{r585Fix9331(state);}catch(_){}
+try{r598Fix9427(state);}catch(_){}
 try{r570OwnerScores(state);}catch(_){}
 try{r555FixScoresDay(state);}catch(_){}
 r507Attach(state);
@@ -11809,6 +11814,7 @@ game:m.game||m.home+" vs "+m.away}))};
 async function runTickInternal(env){
 const s=await loadState(env);let cur=MEM.state||s;
 if(Number(cur.gmTs||0)<260121)r414ApplyOwnerRound121(cur);
+try{r598Fix9427(cur);}catch(_){}
 try{const f585=r585Fix9331(cur);if(r570OwnerScores(cur)>0||f585>0){try{r557Track(cur);}catch(_){}await saveState(cur,env,true);cur=MEM.state||cur;}}catch(_){}
 const fiveMinuteDue=r394FiveMinuteDue(cur,Date.now());
 const pendingBefore=pendingSettlementMarkets(cur).length;
