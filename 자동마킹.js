@@ -4411,9 +4411,11 @@ box.at=nowIso();return box;}
    From then on the pick, market and grade no longer change; the only exception is a withdrawal when overseas odds move against it. */
 const R619={leadMs:60*60000};
 function r619Lock(state){let n=0;const now=Date.now(),at=nowIso();
-for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||m.resultFinal||m.r619Lock||!m.marked||!m.representativeSelected||!m.finalPick)continue;const k=gameTimeMs(m);if(k==null||now<k-R619.leadMs)continue;
+const lockedSeeds=new Set((state?.markets||[]).filter(x=>x.r619Lock&&!x.resultFinal).map(x=>String(x.gmTs)+"|"+gameSeed(x)));
+for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||m.resultFinal||m.r619Lock||!m.marked||!m.representativeSelected||!m.finalPick)continue;const k=gameTimeMs(m);if(k==null||now<k-R619.leadMs)continue;const sk=String(m.gmTs)+"|"+gameSeed(m);if(lockedSeeds.has(sk)||(state.markets||[]).some(x=>String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&(x.manualOverride||x.manualReview)))continue;lockedSeeds.add(sk);
 m.r619Lock={at,pick:m.finalPick,odds:m.finalOdds,grade:m.displayGrade};n++;}
 for(const m of state?.markets||[]){const L=m.r619Lock;if(!L||m.resultFinal||started(m)||!currentRoundMarket(m,state))continue;
+if((state.markets||[]).some(x=>String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&(x.manualOverride||x.manualReview))){delete m.r619Lock;continue;}
 for(const x of state.markets){if(x!==m&&String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&x.marked&&x.representativeSelected&&!x.resultFinal){x.marked=false;x.representativeSelected=false;x.r619Displaced=at;}}
 m.marked=true;m.representativeSelected=true;m.finalPick=L.pick;const c=(m.choices||[]).find(c=>String(c.label)===String(L.pick));if(Number(c?.odds)>1)m.finalOdds=Number(c.odds);
 if(L.grade!=="일반"&&m.r554?.why==="해외배당이 반대로 움직임"){if(m.displayGrade!=="일반"){m.displayGrade="일반";if(m.r577Rec&&!m.r577Rec.off)m.r577Rec.off={at,why:"확정 후 해외배당이 반대로 움직임"};}}
