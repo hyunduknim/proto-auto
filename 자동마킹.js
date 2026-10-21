@@ -4416,6 +4416,7 @@ for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||m.resultFina
 m.r619Lock={at,pick:m.finalPick,odds:m.finalOdds,grade:m.displayGrade};n++;}
 for(const m of state?.markets||[]){const L=m.r619Lock;if(!L||m.resultFinal||started(m)||!currentRoundMarket(m,state))continue;
 if((state.markets||[]).some(x=>String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&(x.manualOverride||x.manualReview))){delete m.r619Lock;continue;}
+if((state.markets||[]).some(x=>x!==m&&x.r619Lock&&!x.resultFinal&&String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&(String(x.r619Lock.at)<String(L.at)||(String(x.r619Lock.at)===String(L.at)&&Number(x.no)<Number(m.no))))){delete m.r619Lock;continue;}
 for(const x of state.markets){if(x!==m&&String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&x.marked&&x.representativeSelected&&!x.resultFinal){x.marked=false;x.representativeSelected=false;x.r619Displaced=at;}}
 m.marked=true;m.representativeSelected=true;m.finalPick=L.pick;const c=(m.choices||[]).find(c=>String(c.label)===String(L.pick));if(Number(c?.odds)>1)m.finalOdds=Number(c.odds);
 if(L.grade!=="일반"&&m.r554?.why==="해외배당이 반대로 움직임"){if(m.displayGrade!=="일반"){m.displayGrade="일반";if(m.r577Rec&&!m.r577Rec.off)m.r577Rec.off={at,why:"확정 후 해외배당이 반대로 움직임"};}}
