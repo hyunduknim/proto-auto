@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R611-PLUS-HANDICAP-CAP";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R611B-PLUS-HANDICAP-2-PER-DAY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4357,16 +4357,16 @@ if(n)state.r596BestAudit={at:nowIso(),promoted:n};return n;}
 function r600NoLongshot(state){let n=0;for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||!m.marked||!m.representativeSelected||m.resultFinal||started(m)||m.manualOverride)continue;
 const p0=Number(m.hitProbability??m.calibratedProbability),p=Number.isFinite(p0)?p0:Number(m.r554?.ps);if(Number.isFinite(p)&&p<.35){m.marked=false;m.representativeSelected=false;m.r600NoPick={at:nowIso(),pick:m.finalPick,p:r3(p)};m.finalPick=null;m.finalOdds=null;m.displayGrade="일반";n++;}}
 if(n)state.r600Audit={at:nowIso(),cleared:n};return n;}
-/* R611 (round 126+), owner: "플핸을 적당히". Plus handicaps may hold at most 40% of the upcoming 추천 (at least 2).
+/* R611 (round 126+), owner: "추천경기 플러스 핸디캡 3회 이상 금지" — at most 2 plus-handicap 추천 per game day.
    Excess ones — weakest first — are switched to the same game's 일반승/언오버 (58%+, R588) or, failing that, taken out of 추천
-   with the reason "플핸 비율 조절" shown on the card. */
-const R611={from:260126,maxShare:.4};
+   with the reason "플핸 하루 2경기 제한" shown on the card. */
+const R611={from:260126,maxPerDay:2};
 function r611Plus(m){return m?.marketFamily==="HANDICAP"&&Number(handicapEffectiveLine(m,m.finalPick))>0;}
-function r611CapPlus(state){let sw=0,cut=0;const live=()=>(state?.markets||[]).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs||0)>=R611.from&&m.marked&&m.representativeSelected&&!m.resultFinal&&!started(m)&&(m.displayGrade==="추천"||m.displayGrade==="가장추천"));
-for(let g=0;g<60;g++){const reps=live(),plus=reps.filter(m=>r611Plus(m)&&!m.manualOverride),max=Math.max(2,Math.floor(reps.length*R611.maxShare));if(plus.length<=max)break;
-const m=plus.sort((a,b)=>Number(a.r554?.ps||0)-Number(b.r554?.ps||0))[0];
-if(r588Try(state,m,["MONEYLINE","TOTAL"])){sw++;continue;}
-const at=nowIso();m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 비율 조절"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 비율 조절"};m.r611Cut={at};cut++;}
+function r611CapPlus(state){let sw=0,cut=0;const isRec=m=>m.marked&&m.representativeSelected&&(m.displayGrade==="추천"||m.displayGrade==="가장추천");
+for(let g=0;g<80;g++){const by=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R611.from||m.resultFinal||!isRec(m)||!r611Plus(m))continue;if(!by.has(m.date))by.set(m.date,[]);by.get(m.date).push(m);}
+let target=null;for(const ms of by.values()){if(ms.length<=R611.maxPerDay)continue;const free=ms.filter(m=>!started(m)&&!m.manualOverride).sort((a,b)=>Number(a.r554?.ps||0)-Number(b.r554?.ps||0));if(free.length){target=free[0];break;}}
+if(!target)break;if(r588Try(state,target,["MONEYLINE","TOTAL"])){sw++;continue;}
+const at=nowIso(),m=target;m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 2경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 2경기 제한"};m.r611Cut={at};cut++;}
 if(sw||cut)state.r611Audit={at:nowIso(),swapped:sw,cut};return sw+cut;}
 // R554E: 3x+ combos are fixed when their first game kicks off and settled leg by leg (hit/miss/void) in real time.
 const R554C={minOdds:3,maxLegs:5,maxCand:10,open:2,keep:40};
