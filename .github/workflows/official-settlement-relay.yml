@@ -331,20 +331,15 @@ jobs:
             const state=await load();
             let activity=relevant(state);
             core.info("OFFICIAL_LIVE_CONTINUE="+JSON.stringify({...activity,round:state.round}));
-            if(activity.pending===0&&activity.imminent===0){
-              core.info("No live or imminent represented games; stop active polling.");
-              return;
-            }
+            // R613: GitHub's cron did not fire for hours, so the chain never stops: it is the relay's clock.
+            if(activity.pending===0&&activity.imminent===0)core.info("No live games; keep the 5-minute chain alive for odds and results.");
             // Do not chain every ~minute. Wait approximately four minutes so the next
             // official refresh occurs about five minutes after the current one. GitHub scheduling remains best-effort.
             // The independent watchdog covers abrupt job/runner termination.
             await new Promise(resolve=>setTimeout(resolve,4*60*1000));
             const current=await load();
             activity=relevant(current);
-            if(activity.pending===0&&activity.imminent===0){
-              core.info("Pending games cleared; no next relay needed.");
-              return;
-            }
+
             const {data:existing}=await github.rest.actions.listWorkflowRuns({
               owner:context.repo.owner,repo:context.repo.repo,
               workflow_id:"official-settlement-relay.yml",per_page:20

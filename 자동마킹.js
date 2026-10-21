@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R612-TABLES-BY-HIT-RATE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R613-WILD-PROB-GUARD";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4286,10 +4286,12 @@ for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||!m.marked||!
 const p=Number(m.hitProbability??m.calibratedProbability);if(!Number.isFinite(p))continue;
 const on=r572On(m),pw=on?r572PowerDelta(m):0,mv=on?r572Move(m):null,minP=on?R572.minP:R554.minP,bestP=on?R572.bestP:R554.bestP,moveBad=mv!=null&&mv<=-R572.moveDrop,lgBad=on&&r572LeagueBad(state,m);
 const a=r554Adj(m),fm=r555Form(state,m),fa=r555Adj(state,fm?.flag),psBase=clamp(p+pw+a.adj,.01,.99),ps=clamp(psBase+fa.adj,.01,.99),against=r530Against(m),bad=a.adj<=R554.badAdj;m.r555=fm?{...fm,adj:r3(fa.adj)}:null;
-const selected=ps>=minP&&(Number(m.finalOdds)>=CFG.minRepOdds||!!m.r582Kept)&&!against&&!bad&&!moveBad&&!lgBad;
+/* R613: a probability far above what the odds themselves say (e.g. 레알 vs 라이프치히 오버 1.5 at 1.51 → 93%) means a broken line/odds pair from a secondary source */
+const imp=(()=>{const cs=validChoices(m),inv=cs.reduce((a,c)=>a+1/Number(c.odds),0),c=cs.find(x=>String(x.label)===String(m.finalPick));return c&&inv>0?(1/Number(c.odds))/inv:null;})(),wild=imp!=null&&ps-imp>.15;
+const selected=!wild&&ps>=minP&&(Number(m.finalOdds)>=CFG.minRepOdds||!!m.r582Kept)&&!against&&!bad&&!moveBad&&!lgBad;
 const grade=!selected?"일반":(r524BestOk(m)&&ps>=bestP?"가장추천":"추천");
 m.displayGrade=grade;m.r554={p:r3(p),pw:r3(pw),mv:mv==null?null:r3(mv),minP,bestP,adj:r3(a.adj),formAdj:r3(fa.adj),psBase:r3(psBase),ps:r3(ps),selected,seg:a.key,segN:a.n,segHitPct:a.hitPct??null,segImpliedPct:a.impliedPct??null,
-why:selected?null:(against?"해외배당 반대":moveBad?"해외배당이 반대로 움직임":lgBad?"이 리그 최근 성적 부진":bad?"과거 배당구간 약세":(ps<minP&&psBase>=minP&&fa.adj<0)?"최근 흐름 반대":ps<minP?"확률 부족":"배당 부족")};
+why:selected?null:(wild?"배당과 확률이 안 맞음 (데이터 확인)":against?"해외배당 반대":moveBad?"해외배당이 반대로 움직임":lgBad?"이 리그 최근 성적 부진":bad?"과거 배당구간 약세":(ps<minP&&psBase>=minP&&fa.adj<0)?"최근 흐름 반대":ps<minP?"확률 부족":"배당 부족")};
 if(selected){if(!m.r577Rec||m.r577Rec.pick!==m.finalPick)m.r577Rec={at:nowIso(),pick:m.finalPick,odds:Number(m.finalOdds)||null,ps:r3(ps)};else if(m.r577Rec.off)delete m.r577Rec.off;}else if(m.r577Rec&&!m.r577Rec.off)m.r577Rec.off={at:nowIso(),why:m.r554.why};
 if(selected){marked++;if(grade==="가장추천")best++;}else pass++;}
 state.r554Audit={at:nowIso(),policy:"SELECTIVE_MARKING_62_66",marked,best,pass,historyLoaded:!!MEM.r553?.buckets};return state.r554Audit;}
@@ -4344,7 +4346,7 @@ for(const x of gm){if(x.marketFamily!=="TOTAL")continue;let rows=[];try{rows=ana
 cands.sort((a,b)=>b.p-a.p);
 for(const c of cands){const x=c.x,keep={marked:x.marked,representativeSelected:x.representativeSelected,finalPick:x.finalPick,finalOdds:x.finalOdds,hitProbability:x.hitProbability,displayGrade:x.displayGrade,r554:x.r554,r555:x.r555,r577Rec:x.r577Rec};
 x.marked=true;x.representativeSelected=true;x.finalPick=c.q.pick;x.finalOdds=c.odds;x.hitProbability=c.p;try{r554Apply({...state,markets:[x]});}catch(_){}
-const r=x.r554||{};if(Number(r.ps)>=R596.totalMinP&&(r.selected||r.why==="확률 부족")){const at=nowIso();x.displayGrade=Number(r.ps)>=R572.bestP&&r.selected?x.displayGrade:"추천";x.r554={...r,selected:true,why:null,minP:R596.totalMinP};x.r596Total={at};
+const r=x.r554||{};if(Number(r.ps)>=R596.totalMinP&&(r.selected||r.why==="확률 부족")&&!String(r.why||"").includes("안 맞음")){const at=nowIso();x.displayGrade=Number(r.ps)>=R572.bestP&&r.selected?x.displayGrade:"추천";x.r554={...r,selected:true,why:null,minP:R596.totalMinP};x.r596Total={at};
 if(!x.r577Rec||x.r577Rec.pick!==x.finalPick)x.r577Rec={at,pick:x.finalPick,odds:x.finalOdds,ps:r.ps};else delete x.r577Rec.off;
 if(c.rep&&c.rep!==x){c.rep.marked=false;c.rep.representativeSelected=false;c.rep.r596Swapped={at,to:x.no};}n++;break;}
 Object.assign(x,keep);}}
