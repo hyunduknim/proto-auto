@@ -9,3 +9,6 @@ assert.ok(run('!!ST.markets[0].r619Lock'),'locked inside the hour');
 assert.equal(run('ST.markets[0].marked&&ST.markets[0].displayGrade'),'추천','pick and grade kept after lock');assert.equal(run('ST.markets[1].marked'),false,'switch to another market undone');
 run('ST.markets[0].r554={ps:.6,selected:false,why:"해외배당이 반대로 움직임"};r619Lock(ST)');assert.equal(run('ST.markets[0].displayGrade'),'일반','overseas move against still withdraws');
 console.log('R619 lock at confirm OK');
+run(`ST.markets[0].r554={ps:.66,selected:true};ST.markets[0].displayGrade="추천";r619Lock(ST);ST.markets[0].date="2000-01-01";ST.markets[0].marked=false;ST.markets[0].representativeSelected=false;ST.markets[0].finalPick=null;r619Lock(ST);`);
+assert.equal(run('ST.markets[0].marked&&ST.markets[0].finalPick'),'승','confirmed pick restored after kick-off');
+console.log('R621 lock survives kick-off OK');

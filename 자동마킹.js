@@ -4414,7 +4414,7 @@ function r619Lock(state){let n=0;const now=Date.now(),at=nowIso();
 const lockedSeeds=new Set((state?.markets||[]).filter(x=>x.r619Lock&&!x.resultFinal).map(x=>String(x.gmTs)+"|"+gameSeed(x)));
 for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||m.resultFinal||m.r619Lock||!m.marked||!m.representativeSelected||!m.finalPick)continue;const k=gameTimeMs(m);if(k==null||now<k-R619.leadMs)continue;const sk=String(m.gmTs)+"|"+gameSeed(m);if(lockedSeeds.has(sk)||(state.markets||[]).some(x=>String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&(x.manualOverride||x.manualReview)))continue;lockedSeeds.add(sk);
 m.r619Lock={at,pick:m.finalPick,odds:m.finalOdds,grade:m.displayGrade};n++;}
-for(const m of state?.markets||[]){const L=m.r619Lock;if(!L||m.resultFinal||started(m)||!currentRoundMarket(m,state))continue;
+for(const m of state?.markets||[]){const L=m.r619Lock;if(!L||m.resultFinal||!currentRoundMarket(m,state))continue;/* R621: also after kick-off, so a confirmed pick can never vanish before it is settled */
 if((state.markets||[]).some(x=>String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&(x.manualOverride||x.manualReview))){delete m.r619Lock;continue;}
 if((state.markets||[]).some(x=>x!==m&&x.r619Lock&&!x.resultFinal&&String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&(String(x.r619Lock.at)<String(L.at)||(String(x.r619Lock.at)===String(L.at)&&Number(x.no)<Number(m.no))))){delete m.r619Lock;continue;}
 for(const x of state.markets){if(x!==m&&String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&x.marked&&x.representativeSelected&&!x.resultFinal){x.marked=false;x.representativeSelected=false;x.r619Displaced=at;}}
