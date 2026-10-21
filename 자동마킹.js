@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R615-ONE-LEAGUE-TABLE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R616-NO-BROKEN-PICKS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4304,7 +4304,9 @@ const grade=!selected?"일반":(r524BestOk(m)&&ps>=bestP?"가장추천":"추천"
 m.displayGrade=grade;m.r554={p:r3(p),pw:r3(pw),mv:mv==null?null:r3(mv),minP,bestP,adj:r3(a.adj),formAdj:r3(fa.adj),psBase:r3(psBase),ps:r3(ps),selected,seg:a.key,segN:a.n,segHitPct:a.hitPct??null,segImpliedPct:a.impliedPct??null,
 why:selected?null:(wild?"배당과 확률이 안 맞음 (데이터 확인)":against?"해외배당 반대":moveBad?"해외배당이 반대로 움직임":lgBad?"이 리그 최근 성적 부진":bad?"과거 배당구간 약세":(ps<minP&&psBase>=minP&&fa.adj<0)?"최근 흐름 반대":ps<minP?"확률 부족":"배당 부족")};
 if(selected){if(!m.r577Rec||m.r577Rec.pick!==m.finalPick)m.r577Rec={at:nowIso(),pick:m.finalPick,odds:Number(m.finalOdds)||null,ps:r3(ps)};else if(m.r577Rec.off)delete m.r577Rec.off;}else if(m.r577Rec&&!m.r577Rec.off)m.r577Rec.off={at:nowIso(),why:m.r554.why};
-if(selected){marked++;if(grade==="가장추천")best++;}else pass++;}
+if(selected){marked++;if(grade==="가장추천")best++;}else pass++;
+/* R616: a broken line/odds pair is not shown as a high-probability 일반 pick either — the game gets no pick from it */
+if(wild){m.marked=false;m.representativeSelected=false;m.r616Wild={at:nowIso(),pick:m.finalPick,ps:r3(ps),imp:r3(imp)};m.finalPick=null;m.finalOdds=null;}}
 state.r554Audit={at:nowIso(),policy:"SELECTIVE_MARKING_62_66",marked,best,pass,historyLoaded:!!MEM.r553?.buckets};return state.r554Audit;}
 /* R582: a game already shown as 추천 must not silently vanish because its odds shortened under the 1.31 floor
    (the market moving our way). Restore that pick as the game's representative and let r554Apply re-grade it. */
