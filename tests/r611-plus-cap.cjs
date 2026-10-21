@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+run(`analyzeChoiceRows=function(x){return (x.choices||[]).map(c=>({pick:c.label,odds:c.odds,calibratedP:c.p}))};
+mk=(gm,games)=>{const S=createState();S.round=Number(gm.slice(3));S.gmTs=gm;S.markets=[];games.forEach((g,i)=>{const t=new Date(Date.now()+(3+i)*3600000+9*3600000).toISOString(),b={gmTs:gm,sourceRound:S.round,date:t.slice(0,10),time:t.slice(11,16),sport:"축구",league:"L"+i,home:"H"+i,away:"A"+i};
+S.markets.push({...b,no:i*10+1,marketFamily:"HANDICAP",line:1,choices:[{label:"승",odds:1.45,p:g.h},{label:"패",odds:2.4,p:1-g.h}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.45,hitProbability:g.h});
+S.markets.push({...b,no:i*10+2,marketFamily:"MONEYLINE",choices:[{label:"승",odds:2.0,p:.42},{label:"패",odds:1.5,p:g.ml}]});});
+r554Apply(S);r588Balance(S);r611CapPlus(S);return S};
+cnt=S=>{const r=S.markets.filter(m=>m.marked&&m.representativeSelected&&/추천/.test(m.displayGrade));return {n:r.length,plus:r.filter(r611Plus).length,ml:r.filter(m=>m.marketFamily==="MONEYLINE").length}}`);
+const A=JSON.parse(run('JSON.stringify(cnt(A=mk("260126",[{h:.70,ml:.60},{h:.71,ml:.5},{h:.72,ml:.5},{h:.73,ml:.5},{h:.74,ml:.5}])))'));
+assert.ok(A.plus<=2,'plus handicap capped at 40%: '+JSON.stringify(A));assert.equal(A.ml,1,'one switched to 일반승');
+assert.ok(run('A.markets.some(m=>m.r611Cut&&m.r554.why==="플핸 비율 조절")'),'others taken out with a visible reason');
+const B=JSON.parse(run('JSON.stringify(cnt(mk("260125",[{h:.70,ml:.5},{h:.71,ml:.5},{h:.72,ml:.5},{h:.73,ml:.5},{h:.74,ml:.5}])))'));assert.equal(B.plus,5,'round 125 untouched by the cap');
+console.log('R611 plus-handicap cap OK');
