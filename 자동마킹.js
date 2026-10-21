@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R618C-STATUS-CHIP";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R619-LOCK-AT-CONFIRM";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4407,6 +4407,18 @@ box.list.push({id:day+":"+legs.map(l=>l.k).join("+"),day,legs,p:r3(pr.p),odds:r3
 box.list.sort((a,b)=>String(a.day).localeCompare(String(b.day))||gameTimeMs(a.legs[0])-gameTimeMs(b.legs[0]));
 const done=box.list.filter(c=>["hit","miss","void"].includes(c.status));if(done.length>40)box.list=box.list.filter(c=>!["hit","miss","void"].includes(c.status)||done.slice(-40).includes(c));
 box.at=nowIso();return box;}
+/* R619: a 추천 is fixed at its 확정 time (1 hour before kick-off, after lineups) — what the owner marks then is what is recorded.
+   From then on the pick, market and grade no longer change; the only exception is a withdrawal when overseas odds move against it. */
+const R619={leadMs:60*60000};
+function r619Lock(state){let n=0;const now=Date.now(),at=nowIso();
+for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||m.resultFinal||m.r619Lock||!m.marked||!m.representativeSelected||!(m.displayGrade==="추천"||m.displayGrade==="가장추천"))continue;const k=gameTimeMs(m);if(k==null||now<k-R619.leadMs)continue;
+m.r619Lock={at,pick:m.finalPick,odds:m.finalOdds,grade:m.displayGrade};n++;}
+for(const m of state?.markets||[]){const L=m.r619Lock;if(!L||m.resultFinal||started(m)||!currentRoundMarket(m,state))continue;
+for(const x of state.markets){if(x!==m&&String(x.gmTs)===String(m.gmTs)&&gameSeed(x)===gameSeed(m)&&x.marked&&x.representativeSelected&&!x.resultFinal){x.marked=false;x.representativeSelected=false;x.r619Displaced=at;}}
+m.marked=true;m.representativeSelected=true;m.finalPick=L.pick;const c=(m.choices||[]).find(c=>String(c.label)===String(L.pick));if(Number(c?.odds)>1)m.finalOdds=Number(c.odds);
+if(m.r554?.why==="해외배당이 반대로 움직임"){if(m.displayGrade!=="일반"){m.displayGrade="일반";if(m.r577Rec&&!m.r577Rec.off)m.r577Rec.off={at,why:"확정 후 해외배당이 반대로 움직임"};}}
+else{m.displayGrade=L.grade;if(m.r554)m.r554={...m.r554,selected:true,why:null};if(m.r577Rec&&m.r577Rec.off)delete m.r577Rec.off;}}
+if(n)state.r619Audit={at,locked:n+Number(state.r619Audit?.locked||0)};return n;}
 // R554E: 3x+ combos are fixed when their first game kicks off and settled leg by leg (hit/miss/void) in real time.
 const R554C={minOdds:3,maxLegs:5,maxCand:10,open:2,keep:40};
 function r554LegKey(m){return String(m?.gmTs||"")+":"+String(m?.no??"");}
@@ -4913,6 +4925,7 @@ try{r588Balance(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
 try{r596Total(state);}catch(_){}
 try{r596Best(state);}catch(_){}
+try{r619Lock(state);}catch(_){}
 try{r617Step(state);}catch(_){}
 try{r555Track(state);}catch(_){}
 try{r557Track(state);}catch(_){}
@@ -9786,7 +9799,8 @@ r.precision?.historyCount,r.precision?.sampleObservedAt,r.precision?.lastChanged
 (r.choices||[]).map(c=>[c.label,c.odds]),
 (r.precision?.choices||[]).map(c=>[c.label,c.sampleSamples,c.sampleHits])])])]);
 }
-const r558OldOpen=new Set();function r558Chip(m){if(!m||!m.pick)return '';const g=r554Manual(m)?'수동':(m.displayGrade||'일반'),gc=g==='가장추천'?'best':g==='추천'?'rec':g==='수동'?'man':'norm',ps=r554Ps(m);return '<span class="r558Chip"><i class="r558G '+gc+'">'+e(g)+'</i><b>'+e(r554PickText(m))+'</b>'+(Number(m.odds)>1?'<em>'+e(Number(m.odds).toFixed(2))+'배</em>':'')+(ps!=null?'<strong>'+r558Pct(ps)+'</strong>':'')+'</span>'}
+const r558OldOpen=new Set();function r558Chip(m){if(!m||!m.pick)return '';const g=r554Manual(m)?'수동':(m.displayGrade||'일반'),gc=g==='가장추천'?'best':g==='추천'?'rec':g==='수동'?'man':'norm',ps=r554Ps(m);return '<span class="r558Chip"><i class="r558G '+gc+'">'+e(g)+'</i><b>'+e(r554PickText(m))+'</b>'+(Number(m.odds)>1?'<em>'+e(Number(m.odds).toFixed(2))+'배</em>':'')+(ps!=null?'<strong>'+r558Pct(ps)+'</strong>':'')+'</span>'+r618Mini(m)}
+function r618Mini(m){if(!m||!m.pick||m.resultFinal||!r554Marked(m))return '';const k=liveGameStartMs(m);if(!isFinite(k)||Date.now()>=k)return '';const at=k-r618Lead(m)*60000;if(Date.now()>=at)return ' <span class="nStatus r618c ok">✅ 확정</span>';const d=new Date(at+9*3600000);return ' <span class="nStatus r618c">예비 · '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+' 확정</span>'}
 function renderExperiment(){
 if(!state||activeView!=='experiment')return;
 const all=orderCurrentRows(state.markingGames||[]),q=expQuery.toLowerCase().trim();
