@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R611B-PLUS-HANDICAP-2-PER-DAY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R612-TABLES-BY-HIT-RATE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -8533,6 +8533,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .r507Ver{display:inline-block;margin-top:10px;padding:5px 14px;border-radius:999px;border:1px solid rgba(84,234,255,.55);color:var(--cyan);background:rgba(84,234,255,.07);font-size:13px;font-weight:800;white-space:nowrap}
 .c5off{display:block;font-style:normal;font-size:12.5px;font-weight:800;color:#ff4f6d;margin-bottom:4px}
 .r596No{color:#ffd23f;margin-right:2px}.r596Hd{font-size:13px;color:#8590a2;margin:0 0 8px}.r596Hd b{color:#ffd23f;font-size:15px}
+.r612s{font-size:11px;color:#8590a2;margin-left:6px;font-weight:500}
 .r584G{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:999px;vertical-align:2px}.r584G.b{background:#ff4f6d;color:#fff}.r584G.r{background:#ffd23f;color:#0b0d12}.r584G.m{background:#ff8f40;color:#0b0d12}.r584G.n{border:1px solid #2f6b52;color:#34d399}
 .r584All{grid-column:1/-1;text-align:center;font-size:12.5px;color:#9aa3b2;padding:6px 0 0}.r584All b{color:#f1f3f7}.r584All b.h{color:#34d399}.r584All b.m{color:#ff4f6d}.r584All small{color:#8590a2}
 .r535Title{position:relative;display:flex;align-items:center;justify-content:center;min-height:24px}.r535Json{position:absolute;right:0;top:50%;transform:translateY(-50%);padding:4px 10px;border:1px solid #3d5268;border-radius:999px;background:#101c2a;color:#9fb3c8;font-size:11px;font-weight:700;cursor:pointer}.r535Json:disabled{opacity:.55}
@@ -9278,7 +9279,7 @@ function r519FlowInsights(m,r,market){
  return out.slice(0,5);
 }
 function r576RoiTable(rows){if(!rows||!rows.length)return '';return '<div class="ccT"><b>수익률 (같은 금액씩 걸었을 때)</b><table><tr><th></th><th>경기</th><th>평균 배당</th><th>수익률</th></tr>'+rows.map(r=>'<tr><td>'+e(r.label)+'</td><td>'+e(r.n)+'</td><td>'+e(Number(r.avgOdds).toFixed(2))+'</td><td class="'+(r.roiPct>=0?'ccUp':'ccDn')+'">'+(r.roiPct>=0?'+':'')+e(Number(r.roiPct).toFixed(1))+'%</td></tr>').join('')+'</table></div>'}
-function r557Table(title,rows){if(!rows||!rows.length)return '';return '<div class="ccT"><b>'+e(title)+'</b><table><tr><th></th><th>경기</th><th>적중</th><th>실제</th><th>예상</th></tr>'+rows.map(r=>{const hasE=r.expPct!=null,d=hasE?r.hitPct-r.expPct:0,c=hasE&&d>=3?'ccUp':hasE&&d<=-3?'ccDn':'';return '<tr><td>'+e(r.label)+'</td><td>'+e(r.n)+'</td><td>'+e(r.hits)+'</td><td class="'+c+'">'+e(Number(r.hitPct).toFixed(1))+'%</td><td>'+(hasE?e(Number(r.expPct).toFixed(1))+'%':'-')+'</td></tr>'}).join('')+'</table></div>'}
+function r557Table(title,rows){if(!rows||!rows.length)return '';rows=rows.slice().sort((a,b)=>(Number(b.hitPct)||0)-(Number(a.hitPct)||0)||(Number(b.n)||0)-(Number(a.n)||0));return '<div class="ccT"><b>'+e(title)+'</b><small class="r612s">적중률 높은 순</small><table><tr><th></th><th>경기</th><th>적중</th><th>실제</th><th>예상</th></tr>'+rows.map(r=>{const hasE=r.expPct!=null,d=hasE?r.hitPct-r.expPct:0,c=hasE&&d>=3?'ccUp':hasE&&d<=-3?'ccDn':'';return '<tr><td>'+e(r.label)+'</td><td>'+e(r.n)+'</td><td>'+e(r.hits)+'</td><td class="'+c+'">'+e(Number(r.hitPct).toFixed(1))+'%</td><td>'+(hasE?e(Number(r.expPct).toFixed(1))+'%':'-')+'</td></tr>'}).join('')+'</table></div>'}
 let r578View='124';try{r578View=localStorage.getItem('r578View')||'124'}catch(_){}
 function r578Set(v){r578View=v;try{localStorage.setItem('r578View',v)}catch(_){}try{const el=document.getElementById('r557Calib');if(el)el.__r559=null;r557Render(state)}catch(_){}}
 function r557Render(st){const el=document.getElementById('r557Calib');if(!el)return;const x0=st&&st.r557Calibration;if(!x0){el.style.display='none';return}el.style.display='';const x=r578View==='124'&&x0.v124?x0.v124:x0,t=x.total||{};
