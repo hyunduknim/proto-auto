@@ -5,11 +5,12 @@ const g=(no,home,away,h,d,a,extra={})=>({gmTs:'260126',no,sport:'축구',league:
 c.ST={gmTs:'260126',markets:[
 g(1,'A','B',1.33,4.6,7.5,{marked:true,representativeSelected:true,finalPick:'승',finalOdds:1.33,displayGrade:'추천',r554:{ps:.7,selected:true},r577Rec:{pick:'승'}}),
 g(2,'C','D',2.4,2.9,2.9,{marked:true,representativeSelected:true,finalPick:'승',finalOdds:2.4,displayGrade:'추천',r554:{ps:.6,selected:true},r577Rec:{pick:'승'}}),
-g(3,'E','F',2.6,2.8,2.7),g(4,'G','H',2.2,3.0,3.2),g(5,'I','J',1.9,3.2,3.9),g(6,'K','L',3.0,2.75,2.5)]};
+g(3,'E','F',2.6,2.8,2.7),{gmTs:'260126',no:31,sport:'축구',league:'K리그1',date:'2099-01-01',time:'19:00',home:'E',away:'F',marketFamily:'HANDICAP',line:-1,choices:[{label:'승',odds:2.5},{label:'무',odds:3.0},{label:'패',odds:2.6}],marked:true,representativeSelected:true,finalPick:'승',finalOdds:2.5,displayGrade:'추천',r554:{ps:.6,selected:true},r577Rec:{pick:'승'}},g(4,'G','H',2.2,3.0,3.2),g(5,'I','J',1.9,3.2,3.9),g(6,'K','L',3.0,2.75,2.5)]};
 run('r645Apply(ST)');const m=n=>run('ST.markets.find(x=>x.no==='+n+')');
 assert.ok(m(1).r645.p<.27,'heavy favourite low draw p '+m(1).r645.p);assert.equal(m(1).displayGrade,'추천');
 assert.ok(m(2).r645.p>=.27,'tight game high draw p '+m(2).r645.p);assert.equal(m(2).displayGrade,'일반');assert.match(m(2).r554.why,/무승부 위험/);assert.ok(m(2).r577Rec.off);
-run('r645Step(ST)');const box=run('ST.r645Draws');assert.equal(box.list.length,3,'3 per day');
+assert.ok(m(31).r645h&&m(31).r645h.p>=.27,'handicap draw p');assert.equal(m(31).displayGrade,'일반');assert.match(m(31).r554.why,/핸디 무승부 위험/);
+run('r645Step(ST)');const box=run('ST.r645Draws');assert.equal(box.list.filter(x=>x.leg.marketFamily!=='HANDICAP').length,3,'3 per day');assert.equal(box.list.filter(x=>x.leg.marketFamily==='HANDICAP').length,1,'handicap draw candidate');
 assert.ok(box.list.every(x=>x.leg.pick==='무'&&x.status==='pre'));
 const html=vm.runInContext('INDEX',c);assert.ok(html.includes('function r645Panel')&&html.includes('function r645Chip'));
 console.log('R645 draws OK',JSON.stringify(box.list.map(x=>[x.leg.home,x.p])));
