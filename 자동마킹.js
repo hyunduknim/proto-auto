@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R640-FAST-ESPN-SETTLE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R641-ESPN-SETTLE-NAMES";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11121,12 +11121,13 @@ function r532Pending(state,now=Date.now()){return pendingSettlementMarkets(state
 function r532Resolve(state,m,events){
 const t=gameTimeMs(m),aliasStore=state?.r507Overseas||{};
 const cands=events.filter(e=>Math.abs(Date.parse(e?.date||"")-t)<=15*60000).map(e=>{const c=e?.competitions?.[0]?.competitors||[],h=c.find(x=>x.homeAway==="home"),a=c.find(x=>x.homeAway==="away");
-const hn=h?.team?.displayName||"",an=a?.team?.displayName||"",sh=r507NameSim(aliasStore,"축구",m.home,hn),sa=r507NameSim(aliasStore,"축구",m.away,an),
-sw=(r507NameSim(aliasStore,"축구",m.home,an)+r507NameSim(aliasStore,"축구",m.away,hn))/2;return {e,h,a,sh,sa,score:(sh+sa)/2,sw};}).sort((x,y)=>y.score-x.score);
+const hn=h?.team?.displayName||"",an=a?.team?.displayName||"",sh=Math.max(r507NameSim(aliasStore,"축구",m.home,hn),r633Sim(m.home,hn)),sa=Math.max(r507NameSim(aliasStore,"축구",m.away,an),r633Sim(m.away,an)),
+sw=(r633Sim(m.home,an)+r633Sim(m.away,hn))/2;return {e,h,a,sh,sa,score:(sh+sa)/2,sw};}).sort((x,y)=>y.score-x.score);
 const best=cands[0],second=cands[1];
 if(!best)return {reject:"NO_FIXTURE_AT_KICKOFF"};
-if(best.score<.6||Math.min(best.sh,best.sa)<.4||best.sw>best.score)return {reject:"TEAM_NAMES_NOT_CONFIRMED"};
-if(second&&best.score-second.score<.2)return {reject:"AMBIGUOUS_FIXTURE"};
+/* R641: odds-API aliases no longer veto ESPN spellings; same acceptance rule as the ESPN team-form matcher */
+const clear=!second||best.score-second.score>=.15;if(best.sw>best.score||!((best.score>=.6&&Math.min(best.sh,best.sa)>=.4)||(best.score>=.5&&Math.min(best.sh,best.sa)>=.3&&clear)))return {reject:"TEAM_NAMES_NOT_CONFIRMED"};
+if(second&&second.score>=.6&&Math.min(second.sh,second.sa)>=.4&&best.score-second.score<.15)return {reject:"AMBIGUOUS_FIXTURE"};
 const st=best.e?.status?.type||{};if(st.completed!==true||st.name!=="STATUS_FULL_TIME")return {reject:st.completed?"NOT_REGULATION_FULL_TIME":"NOT_FINISHED"};
 const hs=String(best.h?.score??""),as=String(best.a?.score??"");if(!/^\d{1,2}$/.test(hs)||!/^\d{1,2}$/.test(as))return {reject:"SCORE_MISSING"};
 return {event:best.e,score:hs+":"+as,names:(best.h?.team?.displayName||"")+" vs "+(best.a?.team?.displayName||""),nameScore:r3(best.score)};}
