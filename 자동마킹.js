@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R629-BRUGGE-SCORE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R630-TG-REC-ONLY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4412,7 +4412,6 @@ box.at=nowIso();return box;}
 const R619={leadMs:60*60000};
 /* R623: owner wants to try the lineup-first reveal today (round 125). To go back to the old way set R622_FROM (and the 260125 in r618Lead/r622Hidden) to 999999. */
 const R622_FROM=999999;
-const R626_AT=Date.parse("2026-10-22T03:00:00Z");
 /* R622 (round 126+): picks are revealed only after lineups — 45 minutes before kick-off — and lock at that moment */
 function r619LeadMs(m){return Number(m?.gmTs||0)>=R622_FROM?45*60000:R619.leadMs;}
 function r619Lock(state){let n=0;const now=Date.now(),at=nowIso();
@@ -12477,14 +12476,10 @@ for(const m of reps){const k=r554LegKey(m),t=gameTimeMs(m);if(t==null)continue;
 if(r569Grade(m)==="가장추천"&&t>now&&!sent.best[k]&&(Number(m.gmTs||0)<R622_FROM||now>=t-r619LeadMs(m))){best.push(m);sent.best[k]=now;}
 if(t>now&&t-now<=R569.preMs&&!sent.pre[k]){pre.push(m);sent.pre[k]=now;}
 if(m.resultFinal&&(typeof m.hit==="boolean"||m.settlementStatus==="적특")&&!sent.res[k]){sent.res[k]=now;if(t>=Number(cfg.setAt||0))res.push(m);}}
-/* R626: owner wants 일반 results (hits and misses) in Telegram too; only games from this deploy on, so old ones do not flood in. */
-for(const m of (st.markets||[]).filter(x=>currentRoundMarket(x,st)&&x.marked&&x.representativeSelected&&r569Grade(x)==="일반")){const k=r554LegKey(m),t=gameTimeMs(m);if(t==null)continue;if(m.resultFinal&&(typeof m.hit==="boolean"||m.settlementStatus==="적특")&&!sent.res[k]){sent.res[k]=now;if(t>=Math.max(Number(cfg.setAt||0),R626_AT))res.push(m);}}
 const sort=a=>a.sort((x,y)=>gameTimeMs(x)-gameTimeMs(y));const out=[];
 if(best.length)out.push("🔥 <b>새 가장추천 "+best.length+"경기</b>\n"+sort(best).map(r569Line).join("\n"));
 if(pre.length)out.push("⏰ <b>30분 안에 시작</b>\n"+sort(pre).map(r569Line).join("\n"));
-if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+((m.score||m.resultScoreText)?" ("+r569Esc(m.score||m.resultScoreText)+")":"")+" · "+r569Esc(r569Pick(m))+(r569Grade(m)==="일반"?" <i>(일반)</i>":"")).join("\n")+(()=>{const d=reps.filter(x=>x.resultFinal&&typeof x.hit==="boolean");const h=d.filter(x=>x.hit).length;const g=(st.markets||[]).filter(x=>currentRoundMarket(x,st)&&x.marked&&x.representativeSelected&&r569Grade(x)==="일반"&&x.resultFinal&&typeof x.hit==="boolean");const gh=g.filter(x=>x.hit).length;return (d.length?"\n\n📊 "+r569Esc(String(st.gmTs||"").slice(-3))+"회 추천 누적: ⭕ "+h+"적중 · ❌ "+(d.length-h)+"낙첨 ("+Math.round(h/d.length*100)+"%)":"")+(g.length?"\n📊 일반 누적: ⭕ "+gh+"적중 · ❌ "+(g.length-gh)+"낙첨 ("+Math.round(gh/g.length*100)+"%)":"");})());
-/* R628: one-time catch-up - owner asked for the 일반 results that went out before R626 (round 125, games before 10-22 12:00 KST). Sent once, split so each message stays under Telegram's size limit. */
-if(!sent.r628&&String(st.gmTs||"")==="260125"){const g=sort((st.markets||[]).filter(x=>currentRoundMarket(x,st)&&x.marked&&x.representativeSelected&&r569Grade(x)==="일반"&&x.resultFinal&&(typeof x.hit==="boolean"||x.settlementStatus==="적특")&&gameTimeMs(x)!=null&&gameTimeMs(x)<R626_AT));if(g.length){const L=g.map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+((m.score||m.resultScoreText)?" ("+r569Esc(m.score||m.resultScoreText)+")":"")+" · "+r569Esc(r569Pick(m)));const d=g.filter(x=>typeof x.hit==="boolean"),h=d.filter(x=>x.hit).length;for(let i=0;i<L.length;i+=30)out.push((i?"📋 <b>지난 일반 결과 (계속)</b>\n":"📋 <b>125회 지난 일반 결과</b> (오늘 12시 전 경기)\n")+L.slice(i,i+30).join("\n")+(i+30>=L.length&&d.length?"\n\n📊 지난 일반: ⭕ "+h+"적중 · ❌ "+(d.length-h)+"낙첨 ("+Math.round(h/d.length*100)+"%)":""));}sent.r628=now;if(ds)await ds.put("r569:sent",sent);}
+if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+((m.score||m.resultScoreText)?" ("+r569Esc(m.score||m.resultScoreText)+")":"")+" · "+r569Esc(r569Pick(m))).join("\n")+(()=>{const d=reps.filter(x=>x.resultFinal&&typeof x.hit==="boolean");const h=d.filter(x=>x.hit).length;return d.length?"\n\n📊 "+r569Esc(String(st.gmTs||"").slice(-3))+"회 누적: ⭕ "+h+"적중 · ❌ "+(d.length-h)+"낙첨 ("+Math.round(h/d.length*100)+"%)":"";})());
 for(const text of out)await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text,disable_web_page_preview:true});
 for(const g of ["best","pre","res"])for(const [k,v] of Object.entries(sent[g]))if(now-Number(v)>6*86400000)delete sent[g][k];
 if(ds&&(best.length||pre.length||Object.keys(sent.res).length))await ds.put("r569:sent",sent);

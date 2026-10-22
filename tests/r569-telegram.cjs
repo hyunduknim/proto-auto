@@ -20,21 +20,14 @@ r=await (await run('r569LinkReq()')).json();assert.equal(r.ok,true,r.message);as
 r=await post('r569Register',{token:'987654321:'+'B'.repeat(35)});assert.equal(r.ok,false,'cannot replace linked bot without current token');
 // alerts
 const now=Date.now(),t=new Date(now+20*60000+9*3600000);const date=t.toISOString().slice(0,10),time=t.toISOString().slice(11,16);
-const p=new Date(now-3*3600000+9*3600000),p2=new Date(now-10*60000+9*3600000);
+const p=new Date(now-3*3600000+9*3600000);
 c.MS=[{gmTs:'260124',no:1,marked:true,representativeSelected:true,displayGrade:'가장추천',home:'아스널',away:'첼시',finalPick:'승',marketFamily:'MONEYLINE',finalOdds:1.45,r554:{ps:.74},date,time},
 {gmTs:'260124',no:2,marked:true,representativeSelected:true,displayGrade:'일반',home:'A',away:'B',pick:'승',date,time},
-{gmTs:'260124',no:3,marked:true,representativeSelected:true,displayGrade:'추천',home:'C',away:'D',pick:'패',marketFamily:'MONEYLINE',finalOdds:1.5,date:p.toISOString().slice(0,10),time:p.toISOString().slice(11,16),resultFinal:true,hit:true,score:'0:2'},
-{gmTs:'260124',no:4,marked:true,representativeSelected:true,displayGrade:'일반',home:'E',away:'F',pick:'언더',marketFamily:'TOTAL',line:2.5,finalPick:'언더',date:p2.toISOString().slice(0,10),time:p2.toISOString().slice(11,16),resultFinal:true,hit:false,score:'2:1'}];
+{gmTs:'260124',no:3,marked:true,representativeSelected:true,displayGrade:'추천',home:'C',away:'D',pick:'패',marketFamily:'MONEYLINE',finalOdds:1.5,date:p.toISOString().slice(0,10),time:p.toISOString().slice(11,16),resultFinal:true,hit:true,score:'0:2'}];
 run('MEM.state={gmTs:"260124",markets:MS};store=null');
 const cfg=store.get('r569:tg');cfg.setAt=now-5*3600000;run('MEM.r569Cfg=null;MEM.r569Cfg=undefined');store.set('r569:tg',cfg);
 calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(r.status,'OK',JSON.stringify(r));
 const texts=calls.filter(x=>x.m==='sendMessage').map(x=>x.body.text).join('\n---\n');
-assert.match(texts,/새 가장추천 1경기/);assert.match(texts,/30분 안에 시작/);assert.match(texts,/⭕ 적중 C vs D/);assert.match(texts,/124회 추천 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.match(texts,/❌ 낙첨 E vs F \(2:1\).*\(일반\)/);assert.match(texts,/일반 누적: ⭕ 0적중 · ❌ 1낙첨 \(0%\)/);assert.equal(/A vs B/.test(texts),false,'일반 never alerted');
+assert.match(texts,/새 가장추천 1경기/);assert.match(texts,/30분 안에 시작/);assert.match(texts,/⭕ 적중 C vs D/);assert.match(texts,/124회 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.equal(/A vs B/.test(texts),false,'일반 never alerted');
 calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage').length,0,'no duplicates');
-// R628 catch-up: past 일반 results of round 125 sent once
-{const old=new Date(Date.parse("2026-10-21T10:00:00Z")+9*3600000);c.MS2=[{gmTs:'260125',no:9592,marked:true,representativeSelected:true,displayGrade:'일반',home:'V바렌 나가사키',away:'산프레체 히로시마',finalPick:'언더',marketFamily:'TOTAL',line:3.5,date:old.toISOString().slice(0,10),time:old.toISOString().slice(11,16),resultFinal:true,hit:false,score:'4:0'},
-{gmTs:'260125',no:9620,marked:true,representativeSelected:true,displayGrade:'일반',home:'주빌로 이와타',away:'오이타',finalPick:'언더',marketFamily:'TOTAL',line:2.5,date:old.toISOString().slice(0,10),time:old.toISOString().slice(11,16),resultFinal:true,hit:true,score:'0:0'}];
-run('MEM.state={gmTs:"260125",markets:MS2}');calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');
-const t2=calls.filter(x=>x.m==='sendMessage').map(x=>x.body.text).join('\n---\n');assert.match(t2,/125회 지난 일반 결과/);assert.match(t2,/❌ 낙첨 V바렌 나가사키 vs 산프레체 히로시마 \(4:0\)/);assert.match(t2,/지난 일반: ⭕ 1적중 · ❌ 1낙첨 \(50%\)/);
-calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage'&&/지난 일반/.test(x.body.text)).length,0,'only once');}
 console.log('R569 telegram OK');})().catch(e=>{console.error(e);process.exit(1);});
