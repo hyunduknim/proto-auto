@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R623-REVEAL-FROM-125";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R624-REVEAL-OFF";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4411,7 +4411,7 @@ box.at=nowIso();return box;}
    From then on the pick, market and grade no longer change; the only exception is a withdrawal when overseas odds move against it. */
 const R619={leadMs:60*60000};
 /* R623: owner wants to try the lineup-first reveal today (round 125). To go back to the old way set R622_FROM (and the 260125 in r618Lead/r622Hidden) to 999999. */
-const R622_FROM=260125;
+const R622_FROM=999999;
 /* R622 (round 126+): picks are revealed only after lineups — 45 minutes before kick-off — and lock at that moment */
 function r619LeadMs(m){return Number(m?.gmTs||0)>=R622_FROM?45*60000:R619.leadMs;}
 function r619Lock(state){let n=0;const now=Date.now(),at=nowIso();
@@ -9882,8 +9882,8 @@ const legHtml=l=>{const icon=l.status==='hit'?'⭕':l.status==='miss'?'❌':l.st
 return '<div class="r617L"><span class="i">'+icon+'</span><div class="g"><b>'+e(r560N(l.home)+' vs '+r560N(l.away))+'</b><small>#'+e(l.no)+' · '+e(String(l.date||'').slice(5))+' '+e(String(l.time||'').slice(0,5))+' · '+e(l.league||'')+'</small></div><div class="p"><b>'+e(pk)+'</b><small>'+e(fam)+' · '+Number(l.odds).toFixed(2)+' · '+Math.round(Number(l.ps)*100)+'%</small></div></div>'};
 const card=c=>{if(c.status==='pre'&&c.legs.some(l=>r622Hidden({...l,pick:l.pick,resultFinal:false})))return '<article class="r617C"><div class="r617H"><b>'+e(String(c.day||'').slice(5).replace('-','/'))+' 조합</b><span class="s">⏳ 라인업 분석 후 공개</span></div><div class="r622N">두 경기 모두 경기 45분 전이 지나면 공개됩니다.</div></article>';const st={pre:'대기',live:'진행 중',hit:'⭕ 적중',miss:'❌ 낙첨',void:'⚪ 적특'}[c.status]||c.status;return '<article class="r617C '+e(c.status)+'"><div class="r617H"><b>'+e(String(c.day||'').slice(5).replace('-','/'))+' 조합</b><span class="s">'+e(st)+(c.locked&&c.status==='pre'?' · 고정':'')+'</span></div>'+c.legs.map(legHtml).join('')+'<div class="r617F"><span>둘 다 맞을 확률 <b>'+Math.round(Number(c.p)*100)+'%</b></span><span>합산 배당 <b>'+Number(c.odds).toFixed(2)+'</b></span></div></article>'};
 el.innerHTML='<div class="r617Hd"><b>🎯 조합 (2폴)</b><small>하루 2개 · 서로 다른 종류끼리 · 둘 다 맞을 확률이 가장 높은 조합 · 첫 경기 시작 시 고정</small><div class="r617T">조합 성적 <b>'+e(t.hit||0)+'적중 '+e(t.miss||0)+'낙첨</b>'+(done?' ('+Math.round((t.hit||0)*100/done)+'%)':'')+(t.void?' · 적특 '+e(t.void):'')+'</div></div>'+(list.length?list.map(card).join(''):'<div class="pastEmpty">아직 조합을 만들 경기(확률 60% 이상)가 부족합니다.</div>')+'<div class="ccNote">조합은 추천 적중률 기록과 따로 집계됩니다.</div>'}
-function r618Lead(m){return Number(m&&m.gmTs||0)>=260125?45:60}
-function r622Hidden(m){if(!m||!m.pick||m.resultFinal||Number(m.gmTs||0)<260125)return false;const k=liveGameStartMs(m);return isFinite(k)&&Date.now()<k-r618Lead(m)*60000}
+function r618Lead(m){return Number(m&&m.gmTs||0)>=999999?45:60}
+function r622Hidden(m){if(!m||!m.pick||m.resultFinal||Number(m.gmTs||0)<999999)return false;const k=liveGameStartMs(m);return isFinite(k)&&Date.now()<k-r618Lead(m)*60000}
 function r622At(m){const k=liveGameStartMs(m);if(!isFinite(k))return '-';const d=new Date(k-r618Lead(m)*60000+9*3600000);return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')}
 function r618Badge(m){if(!m||!m.pick||m.resultFinal)return '';const k=liveGameStartMs(m);if(!isFinite(k)||Date.now()>=k)return '';const at=k-r618Lead(m)*60000;
 if(Date.now()>=at)return '<div class="r618 ok">✅ 확정 · 라인업 반영 후 최종 추천</div>';const d=new Date(at+9*3600000);return '<div class="r618">예비 · <b>'+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+'</b>에 확정 (경기 '+r618Lead(m)+'분 전, 라인업 반영)</div>'}
