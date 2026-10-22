@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R635-ESPN-PARALLEL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R636-ESPN-MATCH";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -6547,7 +6547,7 @@ async function r633Json(url){const ac=new AbortController(),tm=setTimeout(()=>ac
 function r633Find(state,m,events){const t=gameTimeMs(m),al=state?.r507Overseas||{};
 const c=events.filter(e=>Math.abs(Date.parse(e?.date||"")-t)<=20*60000).map(e=>{const cs=e?.competitions?.[0]?.competitors||[],h=cs.find(x=>x.homeAway==="home"),a=cs.find(x=>x.homeAway==="away");
 const hn=h?.team?.displayName||"",an=a?.team?.displayName||"",sh=r507NameSim(al,"축구",m.home,hn),sa=r507NameSim(al,"축구",m.away,an),sw=(r507NameSim(al,"축구",m.home,an)+r507NameSim(al,"축구",m.away,hn))/2;return {e,h,a,sh,sa,score:(sh+sa)/2,sw};}).sort((x,y)=>y.score-x.score);
-const b=c[0],s2=c[1];if(!b)return null;if(b.score<.6||Math.min(b.sh,b.sa)<.4||b.sw>b.score)return null;if(s2&&b.score-s2.score<.2)return null;return b;}
+const b=c[0],s2=c[1];if(!b)return null;if(b.score<.6||Math.min(b.sh,b.sa)<.4||b.sw>b.score)return null;if(s2&&s2.score>=.6&&Math.min(s2.sh,s2.sa)>=.4&&b.score-s2.score<.15)return null;return b;}
 function r633EvHalves(sum){const cs=sum?.header?.competitions?.[0]?.competitors||[];const out={};for(const c of cs){const ls=c?.linescores||[];if(ls.length<2)return null;const x=Number(ls[0]?.displayValue??ls[0]?.value),y=Number(ls[1]?.displayValue??ls[1]?.value);if(!Number.isInteger(x)||!Number.isInteger(y)||x<0||y<0||x>20||y>20)return null;out[String(c?.team?.id)]=[x,y];}return Object.keys(out).length===2?out:null;}
 function r633NeedsHalves(state,m){try{const d=r482TeamData(state,m);return !!d&&(!d.home.halves||!d.away.halves);}catch(_){return false;}}
 async function r633RefreshEspnForms(state,env,options={}){
