@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R639-ESPN-TWO-DAYS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R640-FAST-ESPN-SETTLE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11108,16 +11108,16 @@ return audit;
    Settles only when ESPN says completed regulation full time (no AET/penalties), kickoff within 15 min, both team names
    clearly match (alias + romanised skeleton) and no other fixture at that time comes close. */
 const R532_ESPN_SOCCER={"afc.cup":["AFC 챔피언스리그2","AFC챔피언스리그2","ACL2"],"afc.champions":["AFC 챔피언스리그 엘리트","AFC챔피언스리그엘리트","ACLE"],
-"uefa.champions":["UEFA 챔피언스리그"],"uefa.europa":["UEFA 유로파리그"],"uefa.europa.conf":["UEFA 컨퍼런스리그"],
+"uefa.champions":["UEFA 챔피언스리그","UCL"],"uefa.europa":["UEFA 유로파리그","UEL"],"uefa.europa.conf":["UEFA 컨퍼런스리그","UECL"],
 "eng.1":["EPL","잉글랜드 프리미어리그"],"eng.2":["잉글랜드 챔피언십"],"eng.3":["잉글랜드 리그1"],"eng.4":["잉글랜드 리그2"],"eng.league_cup":["잉글랜드 리그컵","EFL컵"],"eng.fa":["잉글랜드 FA컵","FA컵"],
 "esp.1":["스페인 라리가","라리가"],"ger.1":["독일 분데스리가","분데스리가"],"ita.1":["이탈리아 세리에A","세리에A"],"fra.1":["프랑스 리그1"],
 "ned.1":["네덜란드 에레디비시","에레디비시"],"por.1":["포르투갈 프리메이라리가","포르투갈 리가"],"sco.1":["스코틀랜드 프리미어십"],"bel.1":["벨기에 프로리그"],"tur.1":["튀르키예 쉬페르리그"],
-"usa.1":["미국 메이저리그사커","MLS"],"jpn.1":["일본 J1리그","J1리그","J리그"],"kor.1":["K리그1"],"aus.1":["호주 A리그"],"chn.1":["중국 슈퍼리그"],"ksa.1":["사우디 프로리그"],
-"conmebol.libertadores":["코파 리베르타도레스"],"conmebol.sudamericana":["코파 수다메리카나"],"bra.1":["브라질 세리에A"],"mex.1":["멕시코 리가MX"],
+"usa.1":["미국 메이저리그사커","MLS"],"jpn.1":["일본 J1리그","J1리그","J리그"],"kor.1":["K리그1"],"aus.1":["호주 A리그","A리그"],"chn.1":["중국 슈퍼리그"],"ksa.1":["사우디 프로리그"],
+"conmebol.libertadores":["코파 리베르타도레스","코파리베"],"conmebol.sudamericana":["코파 수다메리카나"],"bra.1":["브라질 세리에A"],"mex.1":["멕시코 리가MX"],
 "fifa.worldq.uefa":["월드컵 유럽예선"],"uefa.nations":["UEFA 네이션스리그","네이션스리그"],"fifa.friendly":["국가대표 친선경기","A매치"]};
 const R532_LEAGUE_SLUG=new Map(Object.entries(R532_ESPN_SOCCER).flatMap(([slug,names])=>names.map(n=>[r506Name(n),slug])));
 function r532Slug(m){return m?.sport==="축구"?R532_LEAGUE_SLUG.get(r506Name(m.league))||null:null;}
-function r532Pending(state,now=Date.now()){return pendingSettlementMarkets(state).filter(m=>{const t=gameTimeMs(m);return r532Slug(m)&&t!=null&&now-t>=115*60000&&now-t<=3*86400000;});}
+function r532Pending(state,now=Date.now()){return pendingSettlementMarkets(state).filter(m=>{const t=gameTimeMs(m);return r532Slug(m)&&t!=null&&now-t>=105*60000&&now-t<=3*86400000;});}
 function r532Resolve(state,m,events){
 const t=gameTimeMs(m),aliasStore=state?.r507Overseas||{};
 const cands=events.filter(e=>Math.abs(Date.parse(e?.date||"")-t)<=15*60000).map(e=>{const c=e?.competitions?.[0]?.competitors||[],h=c.find(x=>x.homeAway==="home"),a=c.find(x=>x.homeAway==="away");
@@ -11134,7 +11134,7 @@ async function r532RefreshEspnSoccer(state,env,force=false){
 const now=Date.now(),pending=r532Pending(state,now);
 if(!pending.length)return {source:"ESPN_DIRECT_SOCCER_FULLTIME",status:"NO_COVERED_SOCCER_PENDING",settled:0};
 const old=state.r532EspnSoccerAudit||{},oldMs=Date.parse(old.at||"");
-if(!force&&Number.isFinite(oldMs)&&now-oldMs<3*60000)return {source:"ESPN_DIRECT_SOCCER_FULLTIME",status:"THROTTLED",settled:0};
+if(!force&&Number.isFinite(oldMs)&&now-oldMs<60000)return {source:"ESPN_DIRECT_SOCCER_FULLTIME",status:"THROTTLED",settled:0};
 const audit={source:"ESPN_DIRECT_SOCCER_FULLTIME",at:nowIso(),status:"CHECKING",pendingBefore:pending.length,pendingAfter:pending.length,requests:0,events:0,matched:0,settled:0,rejected:0,reasons:{},samples:[],error:null};
 const ymd=ms=>new Date(ms).toISOString().slice(0,10).replace(/-/g,""),jobs=new Map();
 for(const m of pending){const slug=r532Slug(m),t=gameTimeMs(m);for(const d of [ymd(t),ymd(t-86400000)])jobs.set(slug+"|"+d,{slug,d});}
