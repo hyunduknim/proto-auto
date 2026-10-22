@@ -6557,7 +6557,7 @@ delete state.r633Try;state.r633Forms=state.r633Forms||{};state.r637Try=state.r63
 const fixtures=[...groupMarkets((state.markets||[]).filter(m=>String(m.gmTs)===String(state.gmTs)&&m.sport==='축구'&&!m.resultFinal&&gameTimeMs(m)>now-3*3600000)).values()].map(ms=>ms.find(m=>m.representativeSelected)||ms[0]);
 const due=fixtures.filter(m=>{const k=r483FixtureKey(m);return r633Slug(m)&&!state.r633Forms[k]&&now-Number(state.r637Try[k]||0)>R633.retryMs&&r633NeedsHalves(state,m);}).sort((a,b)=>gameTimeMs(a)-gameTimeMs(b));
 audit.due=due.length;const m=due[0];if(!m){audit.status='NONE_DUE';state.r633Audit=audit;return audit;}
-const key=r483FixtureKey(m);state.r633Try[key]=now;audit.tried=m.home+' vs '+m.away;
+const key=r483FixtureKey(m);state.r637Try[key]=now;audit.tried=m.home+' vs '+m.away;
 try{const t=gameTimeMs(m),ymd=ms=>new Date(ms).toISOString().slice(0,10).replace(/-/g,'');
 const sb=await r633Json('https://site.api.espn.com/apis/site/v2/sports/soccer/'+r633Slug(m)+'/scoreboard?dates='+ymd(t)+'&limit=200');
 const ev=r633Find(state,m,sb?.events||[]);if(!ev)throw Error('NO_ESPN_FIXTURE');
@@ -6581,7 +6581,7 @@ if(teams.some(x=>x.matches.length)){state.r633Forms[key]={...r483Fixture(m),team
 }catch(e){audit.status='ERROR';audit.error=String(e?.message||e).slice(0,120);}
 const fk=Object.keys(state.r633Forms);if(fk.length>160)for(const k of fk.sort((a,b)=>Date.parse(state.r633Forms[a].updatedAt||'')-Date.parse(state.r633Forms[b].updatedAt||'')).slice(0,fk.length-160))delete state.r633Forms[k];
 const ek=Object.keys(state.r633Ev);if(ek.length>800)for(const k of ek.slice(0,ek.length-800))delete state.r633Ev[k];
-for(const k of Object.keys(state.r633Try))if(now-Number(state.r633Try[k])>2*86400000)delete state.r633Try[k];
+for(const k of Object.keys(state.r637Try))if(now-Number(state.r637Try[k])>2*86400000)delete state.r637Try[k];
 state.r633Audit=audit;return audit;}
 async function r483PublicFetch(url,kind,fetcher=fetch){
 const u=new URL(url);if(u.protocol!=='https:'||!['v1.zentoto.com','spogod.com'].includes(u.hostname)||u.username||u.password)throw Error('TEAM_SOURCE_URL_REJECTED');
