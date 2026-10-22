@@ -31,4 +31,10 @@ calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(r.status,'O
 const texts=calls.filter(x=>x.m==='sendMessage').map(x=>x.body.text).join('\n---\n');
 assert.match(texts,/새 가장추천 1경기/);assert.match(texts,/30분 안에 시작/);assert.match(texts,/⭕ 적중 C vs D/);assert.match(texts,/124회 추천 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.match(texts,/❌ 낙첨 E vs F \(2:1\).*\(일반\)/);assert.match(texts,/일반 누적: ⭕ 0적중 · ❌ 1낙첨 \(0%\)/);assert.equal(/A vs B/.test(texts),false,'일반 never alerted');
 calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage').length,0,'no duplicates');
+// R628 catch-up: past 일반 results of round 125 sent once
+{const old=new Date(Date.parse("2026-10-21T10:00:00Z")+9*3600000);c.MS2=[{gmTs:'260125',no:9592,marked:true,representativeSelected:true,displayGrade:'일반',home:'V바렌 나가사키',away:'산프레체 히로시마',finalPick:'언더',marketFamily:'TOTAL',line:3.5,date:old.toISOString().slice(0,10),time:old.toISOString().slice(11,16),resultFinal:true,hit:false,score:'4:0'},
+{gmTs:'260125',no:9620,marked:true,representativeSelected:true,displayGrade:'일반',home:'주빌로 이와타',away:'오이타',finalPick:'언더',marketFamily:'TOTAL',line:2.5,date:old.toISOString().slice(0,10),time:old.toISOString().slice(11,16),resultFinal:true,hit:true,score:'0:0'}];
+run('MEM.state={gmTs:"260125",markets:MS2}');calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');
+const t2=calls.filter(x=>x.m==='sendMessage').map(x=>x.body.text).join('\n---\n');assert.match(t2,/125회 지난 일반 결과/);assert.match(t2,/❌ 낙첨 V바렌 나가사키 vs 산프레체 히로시마 \(4:0\)/);assert.match(t2,/지난 일반: ⭕ 1적중 · ❌ 1낙첨 \(50%\)/);
+calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage'&&/지난 일반/.test(x.body.text)).length,0,'only once');}
 console.log('R569 telegram OK');})().catch(e=>{console.error(e);process.exit(1);});
