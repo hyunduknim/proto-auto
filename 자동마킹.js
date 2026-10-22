@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R641-ESPN-SETTLE-NAMES";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R642-HIT-RATE-RULES";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4355,7 +4355,7 @@ function r596IsRec(m){return m.marked&&m.representativeSelected&&(m.displayGrade
 function r596Total(state){let n=0;for(const ms of r596Day(state).values()){if(ms.some(m=>r596IsRec(m)&&m.marketFamily==="TOTAL"))continue;
 const games=new Map();for(const m of ms){const k=gameSeed(m);if(!games.has(k))games.set(k,[]);games.get(k).push(m);}
 const cands=[];for(const gm of games.values()){const rep=gm.find(m=>m.marked&&m.representativeSelected);if(rep&&(r596IsRec(rep)||rep.manualOverride))continue;if(gm.some(m=>started(m)||m.resultFinal))continue;
-for(const x of gm){if(x.marketFamily!=="TOTAL")continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}for(const q of rows){const odds=Number(q.odds),p=Number(q.calibratedP??q.decisionProbability);if(!(odds>=CFG.minRepOdds)||!Number.isFinite(p)||p<.5)continue;cands.push({x,rep,q,odds,p});}}}
+for(const x of gm){if(x.marketFamily!=="TOTAL")continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}for(const q of rows){const odds=Number(q.odds),p=Number(q.calibratedP??q.decisionProbability);if(!(odds>=CFG.minRepOdds)||!Number.isFinite(p)||p<.5)continue;if(Number(x.gmTs||0)>=R642.from&&r642LowUnder(x,q.pick,x.line))continue;cands.push({x,rep,q,odds,p});}}}
 cands.sort((a,b)=>b.p-a.p);
 for(const c of cands){const x=c.x,keep={marked:x.marked,representativeSelected:x.representativeSelected,finalPick:x.finalPick,finalOdds:x.finalOdds,hitProbability:x.hitProbability,displayGrade:x.displayGrade,r554:x.r554,r555:x.r555,r577Rec:x.r577Rec};
 x.marked=true;x.representativeSelected=true;x.finalPick=c.q.pick;x.finalOdds=c.odds;x.hitProbability=c.p;try{r554Apply({...state,markets:[x]});}catch(_){}
@@ -4365,7 +4365,7 @@ if(c.rep&&c.rep!==x){c.rep.marked=false;c.rep.representativeSelected=false;c.rep
 Object.assign(x,keep);}}
 if(n)state.r596TotalAudit={at:nowIso(),added:n};return n;}
 function r596Best(state){let n=0;for(const ms of r596Day(state).values()){const recs=ms.filter(r596IsRec);if(!recs.length||recs.some(m=>m.displayGrade==="가장추천"))continue;
-const pick=recs.filter(m=>!started(m)&&!m.resultFinal&&!m.manualOverride).sort((a,b)=>Number(b.r554?.ps||0)-Number(a.r554?.ps||0))[0];if(!pick)continue;pick.displayGrade="가장추천";pick.r596Best={at:nowIso()};n++;}
+const pick=recs.filter(m=>!started(m)&&!m.resultFinal&&!m.manualOverride&&!(Number(m.gmTs||0)>=R642.from&&r642Euro(m))).sort((a,b)=>Number(b.r554?.ps||0)-Number(a.r554?.ps||0))[0];if(!pick)continue;pick.displayGrade="가장추천";pick.r596Best={at:nowIso()};n++;}
 if(n)state.r596BestAudit={at:nowIso(),promoted:n};return n;}
 /* R600: the 1.31 odds floor can remove a heavy favourite and leave a long-shot draw (e.g. 맨시티 vs AEK → 무 7.90, 9.5%) as the
    game's pick. A pick below 35% is not a real pick: the game is left unmarked instead. */
@@ -4383,6 +4383,19 @@ let target=null;for(const ms of by.values()){if(ms.length<=R611.maxPerDay)contin
 if(!target)break;if(r588Try(state,target,["MONEYLINE","TOTAL"])){sw++;continue;}
 const at=nowIso(),m=target;m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 2경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 2경기 제한"};m.r611Cut={at};cut++;}
 if(sw||cut)state.r611Audit={at:nowIso(),swapped:sw,cut};return sw+cut;}
+/* R642 (round 126+), from the 122~125 record (owner: "적중률을 올리는 방법?"):
+   - 유럽대항전(챔스/유로파/컨퍼런스) 일반승: 13경기 6적중(46%), soccer 일반승 낙첨 16개 중 12개가 무승부 -> not 추천
+   - 유럽대항전 가장추천 10경기 5적중 -> at most 추천
+   - 축구 언더 2.5 이하: 33경기 13적중(39%) -> not 추천 (언더 3.5는 63%로 유지) */
+const R642={from:260126};
+function r642Euro(m){return m?.sport==="축구"&&/UEFA|^UEL$|^UECL$|^UCL$|챔피언스리그|유로파|컨퍼런스/.test(String(m?.league||""))&&!/AFC|아시아/.test(String(m?.league||""));}
+function r642LowUnder(m,pick,line){return m?.sport==="축구"&&m?.marketFamily==="TOTAL"&&String(pick)==="언더"&&Number(line)<=2.5;}
+function r642Why(m){if(r642Euro(m)&&m.marketFamily==="MONEYLINE")return "유럽대항전 일반승 제외 (무승부 위험)";if(r642LowUnder(m,m.finalPick,m.line))return "언더 2.5 이하 제외 (기록 39%)";return null;}
+function r642Apply(state){let cut=0,down=0;for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R642.from||m.resultFinal||started(m)||m.manualOverride||!m.marked||!m.representativeSelected)continue;
+if(m.displayGrade!=="추천"&&m.displayGrade!=="가장추천")continue;const why=r642Why(m),at=nowIso();
+if(why){m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why};if(m.r577Rec)m.r577Rec.off={at,why};m.r642Cut={at,why};cut++;continue;}
+if(m.displayGrade==="가장추천"&&r642Euro(m)){m.displayGrade="추천";m.r642Down={at};down++;}}
+if(cut||down)state.r642Audit={at:nowIso(),cut,down};return cut+down;}
 /* R617: 조합 menu (owner request). Two 2-leg combos per game day, legs from different market types, chosen for the highest
    chance that both hit (odds ignored). Rebuilt freely until a leg kicks off, then fixed and settled leg by leg. Kept apart from
    the 추천 hit-rate record; its own tally is shown on the 조합 tab. */
@@ -4938,6 +4951,7 @@ try{r554Apply(state);}catch(_){}
 try{if(r582KeepRec(state)>0)r554Apply(state);}catch(_){}
 try{r588Balance(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
+try{r642Apply(state);}catch(_){}
 try{r596Total(state);}catch(_){}
 try{r596Best(state);}catch(_){}
 try{r619Lock(state);}catch(_){}
