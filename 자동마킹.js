@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R638-ESPN-SMALL-CLUBS-B";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R639-ESPN-TWO-DAYS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -6562,8 +6562,10 @@ const due=fixtures.filter(m=>{const k=r483FixtureKey(m);return r633Slug(m)&&!sta
 audit.due=due.length;const m=due[0];if(!m){audit.status='NONE_DUE';state.r633Audit=audit;return audit;}
 const key=r483FixtureKey(m);state.r637Try[key]=now;audit.tried=m.home+' vs '+m.away;
 try{const t=gameTimeMs(m),ymd=ms=>new Date(ms).toISOString().slice(0,10).replace(/-/g,'');
-const sb=await r633Json('https://site.api.espn.com/apis/site/v2/sports/soccer/'+r633Slug(m)+'/scoreboard?dates='+ymd(t)+'&limit=200');
-const ev=r633Find(state,m,sb?.events||[]);if(!ev)throw Error('NO_ESPN_FIXTURE');
+/* R639: ESPN files late-evening US games under the previous US date (Flamengo 00:30Z), so read both days */
+const sbs=await Promise.allSettled([ymd(t),ymd(t-86400000)].map(d=>r633Json('https://site.api.espn.com/apis/site/v2/sports/soccer/'+r633Slug(m)+'/scoreboard?dates='+d+'&limit=200')));
+const evs=[...new Map(sbs.flatMap(x=>x.status==='fulfilled'?(x.value?.events||[]):[]).map(e=>[String(e?.id),e])).values()];
+const ev=r633Find(state,m,evs);if(!ev)throw Error('NO_ESPN_FIXTURE');
 const sum=await r633Json('https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event='+encodeURIComponent(ev.e.id));
 const ids={home:String(ev.h?.team?.id||''),away:String(ev.a?.team?.id||'')},teams=[];
 /* R635: fetch the per-game summaries in parallel (one slow sequential tick could be cut off and then wait 6h) */
