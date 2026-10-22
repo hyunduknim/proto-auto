@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R637-ESPN-NAMES";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R638-ESPN-SMALL-CLUBS-B";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -6544,10 +6544,13 @@ const R633={tickMs:60000,maxDays:120,perTickEvents:10,retryMs:15*60000,timeout:8
 const R633_EXTRA_SLUG={"UEL":"uefa.europa","UECL":"uefa.europa.conf","UCL":"uefa.champions","A리그":"aus.1","코파리베":"conmebol.libertadores","코파수다":"conmebol.sudamericana"};
 function r633Slug(m){return m?.sport==="축구"?(r532Slug(m)||R633_EXTRA_SLUG[String(m.league||"").trim()]||null):null;}
 async function r633Json(url){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),R633.timeout);try{const r=await fetch(url,{headers:{accept:"application/json"},signal:ac.signal});if(!r.ok)throw Error("ESPN_HTTP_"+r.status);const t=await r.text();if(t.length>4000000)throw Error("ESPN_SIZE");return JSON.parse(t);}finally{clearTimeout(tm);}}
+const R633_ALIAS={"FK츠르베나 즈베즈다":"red star belgrade","츠르베나 즈베즈다":"red star belgrade","코펜하겐":"f.c. københavn","인터클럽드 에스칼데스":"inter d'escaldes","우니베르시타테아 크라이오바":"csu craiova","이베리아1999 트빌리시":"iberia 1999","야기엘로니아 비아위스토크":"jagiellonia bialystok","하포엘 베르셰바":"hapoel be'er","신트 트라위던VV":"sint-truidense","하트오브 미들로디언":"heart of midlothian"};
+function r633Sim(kr,en){const x=R633_ALIAS[String(kr||'').trim()];if(x)return String(en||'').trim().toLowerCase()===x?1:Math.min(.3,r507NameSim({},"축구",kr,en));return r507NameSim({},"축구",kr,en);}
 function r633Find(state,m,events){const t=gameTimeMs(m),al0=state?.r507Overseas||{},al={};/* R637: odds-API aliases (e.g. "Sint Truiden") veto ESPN spellings ("Sint-Truidense"), so match on spelling only */
 const c=events.filter(e=>Math.abs(Date.parse(e?.date||"")-t)<=20*60000).map(e=>{const cs=e?.competitions?.[0]?.competitors||[],h=cs.find(x=>x.homeAway==="home"),a=cs.find(x=>x.homeAway==="away");
-const hn=h?.team?.displayName||"",an=a?.team?.displayName||"",sh=r507NameSim(al,"축구",m.home,hn),sa=r507NameSim(al,"축구",m.away,an),sw=(r507NameSim(al,"축구",m.home,an)+r507NameSim(al,"축구",m.away,hn))/2;return {e,h,a,sh,sa,score:(sh+sa)/2,sw};}).sort((x,y)=>y.score-x.score);
-const b=c[0],s2=c[1];if(!b)return null;if(b.score<.6||Math.min(b.sh,b.sa)<.4||b.sw>b.score)return null;if(s2&&s2.score>=.6&&Math.min(s2.sh,s2.sa)>=.4&&b.score-s2.score<.15)return null;return b;}
+const hn=h?.team?.displayName||"",an=a?.team?.displayName||"",sh=r633Sim(m.home,hn),sa=r633Sim(m.away,an),sw=(r633Sim(m.home,an)+r633Sim(m.away,hn))/2;return {e,h,a,sh,sa,score:(sh+sa)/2,sw};}).sort((x,y)=>y.score-x.score);
+const b=c[0],s2=c[1];if(!b||b.sw>b.score)return null;const clear=!s2||b.score-s2.score>=.15;/* R638: Korean spellings of small clubs (인터클럽드 에스칼데스, 이베리아1999) score lower; accept them only when clearly ahead at the same kick-off */
+if(!((b.score>=.6&&Math.min(b.sh,b.sa)>=.4)||(b.score>=.5&&Math.min(b.sh,b.sa)>=.3&&clear)))return null;if(s2&&s2.score>=.6&&Math.min(s2.sh,s2.sa)>=.4&&b.score-s2.score<.15)return null;return b;}
 function r633EvHalves(sum){const cs=sum?.header?.competitions?.[0]?.competitors||[];const out={};for(const c of cs){const ls=c?.linescores||[];if(ls.length<2)return null;const x=Number(ls[0]?.displayValue??ls[0]?.value),y=Number(ls[1]?.displayValue??ls[1]?.value);if(!Number.isInteger(x)||!Number.isInteger(y)||x<0||y<0||x>20||y>20)return null;out[String(c?.team?.id)]=[x,y];}return Object.keys(out).length===2?out:null;}
 function r633NeedsHalves(state,m){try{const d=r482TeamData(state,m);return !!d&&(!d.home.halves||!d.away.halves);}catch(_){return false;}}
 async function r633RefreshEspnForms(state,env,options={}){
