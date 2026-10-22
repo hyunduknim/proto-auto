@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R630-TG-REC-ONLY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R631-HALF-GOALS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -6485,6 +6485,10 @@ const unit=meta.sports_type==='VOLLEYBALL'||meta.sports_type==='TENNIS'?'SETS':m
 if(unit==='SETS'&&(Math.max(h,a)>5||h===a))continue;
 const key=String(r.uid||[at,r.uid_home,r.uid_away].join('|'));if(seen.has(key))continue;seen.add(key);
 const row={date:kstDateFromMs(at),at,home,opponent,gf,ga,scoreUnit:unit,providerGameId:String(r.uid||''),providerTeamId:id,competition:r.league_name||r.game_name||null};
+/* R631: soccer half-time split (owner wants 전반/후반 goals per team). score_his is "1H,2H"; accept per-half or cumulative, else skip. */
+if(meta.sports_type==='SOCCER'&&pairs.length>=2&&pairs[0]&&pairs[1]){const x0=Number(pairs[0][1]),y0=Number(pairs[0][2]),x1=Number(pairs[1][1]),y1=Number(pairs[1][2]);let s1=null,s2=null;
+if(x0+x1===h&&y0+y1===a){s1=[x0,y0];s2=[x1,y1];}else if(x1===h&&y1===a&&x0<=x1&&y0<=y1){s1=[x0,y0];s2=[x1-x0,y1-y0];}
+if(s1){row.h1=home?s1:[s1[1],s1[0]];row.h2=home?s2:[s2[1],s2[0]];}}
 if(meta.sports_type==='VOLLEYBALL'&&pairs.length>=3&&pairs.length<=5&&pairs.every(p=>p&&Math.max(Number(p[1]),Number(p[2]))>=15&&Number(p[1])!==Number(p[2]))){
 const won=pairs.filter(p=>Number(p[1])>Number(p[2])).length;
 if(won===h&&pairs.length-won===a){const ph=pairs.reduce((v,p)=>v+Number(p[1]),0),pa=pairs.reduce((v,p)=>v+Number(p[2]),0);row.pointsFor=home?ph:pa;row.pointsAgainst=home?pa:ph;}
@@ -6560,7 +6564,7 @@ const html=await r483PublicFetch('https://spogod.com/today/?d='+date,'html',fetc
 }
 const due=fixtures.filter(m=>{
 const key=r483FixtureKey(m),cached=state.r483TeamForms[key],last=state.r483TeamAttempts[key]||0;
-return (state.r483TeamLinks[key]||state.r483SpogodLinks[key])&&(options.force||now-last>(cached?.teams?.every(t=>t.r562&&t.matches.length>=5)?21600000:600000));
+return (state.r483TeamLinks[key]||state.r483SpogodLinks[key])&&(options.force||now-last>(cached?.teams?.every(t=>t.r562&&t.matches.length>=5&&(m.sport!=='축구'||t.r631))?21600000:600000));
 }).sort((a,b)=>Number(!!state.r483TeamForms[r483FixtureKey(a)])-Number(!!state.r483TeamForms[r483FixtureKey(b)])||gameTimeMs(a)-gameTimeMs(b)).slice(0,options.limit||2);
 for(const m of due){
 const key=r483FixtureKey(m),link=state.r483TeamLinks[key];state.r483TeamAttempts[key]=now;audit.attempted++;
@@ -6570,7 +6574,7 @@ const html=await r483PublicFetch(link.url,'html',fetcher),meta=r483ZenMetadata(h
 const teams=await Promise.all(['home','away'].map(async side=>{
 const params=new URLSearchParams(Object.fromEntries(['sports_type','game_datetime','uid_home','uid_away','home_at','away_at'].map(k=>[k,meta[k]])));params.set('uid_pos',side);params.set('page','1');
 const payload=await r483PublicFetch('https://v1.zentoto.com/analizer/results/matched?'+params,'json',fetcher),matches=r483ZenRows(payload,meta,side,m);
-return {name:m[side],matches,r562:true,sport:m.sport,source:'젠토토 공개 최근 경기',sourceUrl:link.url,scope:'PROVIDER_LAST5',sourceDateBasis:'KST_DATE',observedAt:audit.at};
+return {name:m[side],matches,r562:true,r631:true,sport:m.sport,source:'젠토토 공개 최근 경기',sourceUrl:link.url,scope:'PROVIDER_LAST5',sourceDateBasis:'KST_DATE',observedAt:audit.at};
 }));
 if(!teams.some(t=>t.matches.length))throw Error('TEAM_ROWS_EMPTY');
 const old=state.r483TeamForms[key];
@@ -6611,7 +6615,9 @@ const line=typeof m.totalLine==='number'?m.totalLine:m.marketFamily==='TOTAL'?m.
 const sets=m.sport==='배구'||m.sport==='테니스',pointTotals=sets&&typeof line==='number'&&line>10;
 const totalRows=pointTotals?matches.filter(r=>Number.isFinite(r.pointsFor)&&Number.isFinite(r.pointsAgainst)):matches;
 const total=r=>pointTotals?r.pointsFor+r.pointsAgainst:r.gf+r.ga;
-return {...info,...tally(matches),matches,complete:n===5,ha:{depth:depth.length,home:split(true),away:split(false)},gf,ga,avgGF:n?r3(gf/n):null,
+const hv=m.sport==='축구'?sortedAll.slice(0,10).filter(r=>Array.isArray(r.h1)&&Array.isArray(r.h2)):[],hn=hv.length,hs=(i,j)=>hn?r3(hv.reduce((v,r)=>v+r[i][j],0)/hn):null;
+const halves=hn?{n:hn,h1f:hs('h1',0),h1a:hs('h1',1),h2f:hs('h2',0),h2a:hs('h2',1),h1Scored:hv.filter(r=>r.h1[0]>0).length,h2Scored:hv.filter(r=>r.h2[0]>0).length,h1Conceded:hv.filter(r=>r.h1[1]>0).length,h2Conceded:hv.filter(r=>r.h2[1]>0).length,h1Over05:hv.filter(r=>r.h1[0]+r.h1[1]>0).length}:null;
+return {...info,...tally(matches),matches,halves,complete:n===5,ha:{depth:depth.length,home:split(true),away:split(false)},gf,ga,avgGF:n?r3(gf/n):null,
 avgGA:n?r3(ga/n):null,home:tally(matches.filter(r=>r.home)),away:tally(matches.filter(r=>!r.home)),
 cleanSheets:matches.filter(r=>r.ga===0).length,btts:m.sport==='축구'?matches.filter(r=>r.gf>0&&r.ga>0).length:null,
 sport:m.sport,scoreUnit:sets?'SETS':m.sport==='야구'?'RUNS':m.sport==='농구'?'POINTS':'GOALS',
@@ -8568,6 +8574,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 #expPanel .r477Missing{font-size:12px;color:#cadde7;line-height:1.6}
 @media(max-width:460px){#expPanel .r477Shell{padding:11px}#expPanel .r477Kpis{grid-template-columns:repeat(2,minmax(0,1fr))}#expPanel .r477Kpi.forecast{grid-column:1/-1}#expPanel .r477BarRow{grid-template-columns:minmax(57px,auto) minmax(10px,1fr) 44px;gap:6px}}
 .r482Shell{margin:12px 0;border:1px solid #395d83;border-radius:18px;background:linear-gradient(135deg,#102743,#101a30);padding:12px}.r482Title{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}.r482Title strong{font-size:18px;color:#65e8ff}.r482Title>span{font-size:11px;color:#cadbfa}.r482Teams{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.r482Team{min-width:0;border:1px solid #365477;border-radius:13px;padding:11px;background:#08182c}.r482TeamHead{display:flex;align-items:start;justify-content:space-between;gap:7px}.r482TeamHead strong{font-size:14px;color:#f8fcff;overflow-wrap:anywhere}.r482TeamHead span{font-size:9px;color:#91b4ec}.r482Form{display:flex;gap:5px;margin:10px 0;flex-wrap:wrap}.r482Badge{display:inline-grid;place-items:center;min-width:27px;height:27px;border-radius:8px;font-size:12px;font-weight:900}.r482Badge.w{background:#14533d;color:#88f8bf}.r482Badge.d{background:#59491b;color:#ffe182}.r482Badge.l{background:#5a2232;color:#ffa9b8}.r482Record{font-size:13px;font-weight:800;color:#fff}.r482Record small{display:block;font-weight:400;font-size:10px;color:#a6bad5;margin-top:5px}.r482Metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:11px 0}.r482Metrics small{display:block;font-size:9px;color:#b6c8e1}.r482Metrics b{display:block;font-size:17px;color:#69d7ff;margin-top:3px}.r482Venue,.r482Line{font-size:11px;color:#c9d8ec;line-height:1.7;margin:7px 0}.r482Venue b{color:#f3d47b}.r482Matches{font-size:11px;border-top:1px solid #284669;padding-top:8px}.r482Matches summary{cursor:pointer;color:#7fcaff}.r482Matches ul{list-style:none;padding:0;margin:8px 0}.r482Matches li{display:grid;grid-template-columns:38px minmax(0,1fr) 33px;gap:5px;padding:5px 0;border-bottom:1px solid #203753}.r482Matches span{overflow-wrap:anywhere}.r482Matches .w{color:#82efb4}.r482Matches .d{color:#ffdc78}.r482Matches .l{color:#ff92a8}.r482Team footer{margin-top:10px;color:#829fbd;font-size:9px;line-height:1.5;overflow-wrap:anywhere}.r482Team footer a{color:#92bced;text-decoration:none}.r482Note{display:block;color:#a2b9d3;font-size:10px;line-height:1.6;margin-top:8px}@media(max-width:480px){.r482Teams{grid-template-columns:minmax(0,1fr)}.r482Metrics small{font-size:11px}.r482TeamHead strong{font-size:16px}}
+.r631Half{margin:8px 0 4px;padding:7px 9px;border:1px solid #2c4566;border-radius:10px;background:#0e1a2c}.r631Hd{font-size:12.5px;color:#cfe0f5;font-weight:800;margin-bottom:4px}.r631Hd small{color:#8aa0bb;font-weight:500;margin-left:4px}.r631Half table{width:100%;border-collapse:collapse;font-size:12.5px}.r631Half th{color:#8aa0bb;font-weight:600;text-align:center;padding:2px}.r631Half td{text-align:center;padding:3px 2px;color:#dbe6f3;border-top:1px solid #1c2c44}.r631Half td:first-child{color:#9fb6d3;font-weight:700}.r631Half td b{color:#7dd3fc}.r631Half>small{display:block;margin-top:4px;color:#8aa0bb;font-size:11.5px}
 /* R485: clearer current quotes and readable, compact data evidence. */
 #expPanel .r485Flow{margin:12px 0;padding:13px;border:1px solid #4b7596;border-radius:14px;background:linear-gradient(135deg,#102f48,#0b1e34);overflow:hidden}
 #expPanel .r485Head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:11px}
@@ -9573,7 +9580,7 @@ let safe=null;try{const u=new URL(t.sourceUrl);if(u.protocol==='https:'&&!u.user
 return '<article class="r482Team '+side+'"><div class="r482TeamHead"><strong>'+esc(t.name)+
 '</strong><span>'+side.toUpperCase()+'</span></div><div class="r482Form">'+badges+'</div><div class="r482Record">'+
 (t.n?record(t)+' <small>확인된 최근 '+t.n+'경기'+(t.n<5?' · 5경기 중 일부':'')+'</small>':'')+'</div>'+
-r562Mini(t)+metrics+extra+(list?'<details class="r482Matches"><summary>상세 경기 · 최신순</summary><ul>'+list+'</ul></details>':'')+
+r562Mini(t)+metrics+extra+r631Half(t)+(list?'<details class="r482Matches"><summary>상세 경기 · 최신순</summary><ul>'+list+'</ul></details>':'')+
 '<footer>'+(safe?'<a href="'+esc(safe)+'" target="_blank" rel="noopener noreferrer">'+esc(t.source)+' ↗</a>':esc(t.source))+
 (t.sourceDateBasis==='PROVIDER_LOCAL_DATE'?' · 날짜는 자료원 기준':'')+
 (t.scope==='PROVIDER_WINDOW_SINCE_LATE_AUGUST'?' · 8월 말 이후 수집 기록':'')+
@@ -9585,6 +9592,7 @@ return '<section class="r482Shell" data-version="R482_TEAM_FORM"><div class="r48
 '<div class="r482Teams">'+card(d.home,'home')+card(d.away,'away')+'</div>'+h2h+
 '<small class="r482Note">승·무·패는 실제 경기 결과 · 득실·홈·원정은 위 최근 기록 기준</small></section>';
 }
+function r631Half(t){const h=t&&t.halves;if(!h||!h.n)return '';const f=v=>Number(v).toFixed(1);return '<div class="r631Half"><div class="r631Hd">전반·후반 득실 <small>최근 '+h.n+'경기 평균</small></div><table><tr><th></th><th>득점</th><th>실점</th><th>득점한 경기</th></tr><tr><td>전반</td><td><b>'+f(h.h1f)+'</b></td><td>'+f(h.h1a)+'</td><td>'+h.h1Scored+'/'+h.n+'</td></tr><tr><td>후반</td><td><b>'+f(h.h2f)+'</b></td><td>'+f(h.h2a)+'</td><td>'+h.h2Scored+'/'+h.n+'</td></tr></table><small>전반에 골이 나온 경기 '+h.h1Over05+'/'+h.n+'</small></div>'}
 function r558Pct(v){return isFinite(Number(v))&&v!==null?(Number(v)*100).toFixed(1)+'%':'-'}
 function r558Adj(v){const n=Number(v);if(!isFinite(n)||Math.abs(n)<.0005)return '<span class="z0">±0.0%p</span>';return '<span class="'+(n>0?'zUp':'zDn')+'">'+(n>0?'+':'')+(n*100).toFixed(1)+'%p</span>'}
 function r558Seg(r){if(!r||!r.seg)return '';const p=String(r.seg).split('|'),fam={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'}[p[1]]||p[1],b=String(p[3]||'').replace('<','~')+'배 구간';return e(p[0]+' '+fam+' '+p[2]+' · '+b)+(r.segN?' · 과거 <b>'+e(r.segN)+'</b>경기 실제 <b class="zY">'+e(Number(r.segHitPct).toFixed(1))+'%</b> vs 배당 '+e(Number(r.segImpliedPct).toFixed(1))+'%':'')}
