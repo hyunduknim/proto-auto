@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R634-HALF-PCT";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R635-ESPN-PARALLEL";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -6540,7 +6540,7 @@ return best||r482Summarize([],{name,sport:m.sport,source:'저장된 공식 결�
 /* R633: ESPN backup (owner: "없는건 다른사이트 검색해서 넣어주면 안되나?"). For current-round soccer games whose team data still lacks the
    전반/후반 split (or has no rows at all), find the game on ESPN, read each team's last games from the pre-match summary and each game's
    half scores from its own summary. One fixture a minute, at most 10 game summaries a tick, each game's halves cached for reuse. */
-const R633={tickMs:60000,maxDays:120,perTickEvents:10,retryMs:6*3600000,timeout:8000};
+const R633={tickMs:60000,maxDays:120,perTickEvents:10,retryMs:15*60000,timeout:8000};
 const R633_EXTRA_SLUG={"UEL":"uefa.europa","UECL":"uefa.europa.conf","UCL":"uefa.champions","A리그":"aus.1","코파리베":"conmebol.libertadores","코파수다":"conmebol.sudamericana"};
 function r633Slug(m){return m?.sport==="축구"?(r532Slug(m)||R633_EXTRA_SLUG[String(m.league||"").trim()]||null):null;}
 async function r633Json(url){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),R633.timeout);try{const r=await fetch(url,{headers:{accept:"application/json"},signal:ac.signal});if(!r.ok)throw Error("ESPN_HTTP_"+r.status);const t=await r.text();if(t.length>4000000)throw Error("ESPN_SIZE");return JSON.parse(t);}finally{clearTimeout(tm);}}
@@ -6563,11 +6563,15 @@ const sb=await r633Json('https://site.api.espn.com/apis/site/v2/sports/soccer/'+
 const ev=r633Find(state,m,sb?.events||[]);if(!ev)throw Error('NO_ESPN_FIXTURE');
 const sum=await r633Json('https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event='+encodeURIComponent(ev.e.id));
 const ids={home:String(ev.h?.team?.id||''),away:String(ev.a?.team?.id||'')},teams=[];
+/* R635: fetch the per-game summaries in parallel (one slow sequential tick could be cut off and then wait 6h) */
+const need=[...new Set((sum?.lastFiveGames||[]).filter(x=>[ids.home,ids.away].includes(String(x?.team?.id))).flatMap(x=>x.events||[]).filter(g=>{const at=Date.parse(g?.gameDate||'');return /^\d+$/.test(String(g?.id||''))&&Number.isFinite(at)&&at<t&&t-at<=R633.maxDays*86400000&&state.r633Ev[g.id]===undefined;}).map(g=>String(g.id)))].slice(0,R633.perTickEvents);
+audit.events=need.length;const got=await Promise.allSettled(need.map(id=>r633Json('https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event='+id)));
+need.forEach((id,i)=>{state.r633Ev[id]=got[i].status==='fulfilled'?r633EvHalves(got[i].value):null;});
 for(const side of ['home','away']){const L=(sum?.lastFiveGames||[]).find(x=>String(x?.team?.id)===ids[side]),rows=[];
 for(const g of L?.events||[]){const at=Date.parse(g?.gameDate||''),hs=Number(g?.homeTeamScore),as=Number(g?.awayTeamScore);
 if(!Number.isFinite(at)||at>=t||t-at>R633.maxDays*86400000||!Number.isInteger(hs)||!Number.isInteger(as)||!/^\d+$/.test(String(g?.id||'')))continue;
 const isHome=String(g.homeTeamId)===ids[side],gf=isHome?hs:as,ga=isHome?as:hs,opp=String(g?.opponent?.displayName||'').trim();if(!opp)continue;
-let hv=state.r633Ev[g.id];if(hv===undefined&&audit.events<R633.perTickEvents){audit.events++;try{hv=r633EvHalves(await r633Json('https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event='+g.id));}catch(_){hv=null;}state.r633Ev[g.id]=hv;}
+const hv=state.r633Ev[g.id];
 const row={date:kstDateFromMs(at),at,home:isHome,opponent:opp,gf,ga,scoreUnit:'GOALS',providerGameId:String(g.id),competition:g.leagueName||null};
 const mine=hv?.[ids[side]],their=hv?Object.entries(hv).find(([k])=>k!==ids[side])?.[1]:null;
 if(mine&&their&&mine[0]+mine[1]===gf&&their[0]+their[1]===ga){row.h1=[mine[0],their[0]];row.h2=[mine[1],their[1]];audit.halves++;}
