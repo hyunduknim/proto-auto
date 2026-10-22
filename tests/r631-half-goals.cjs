@@ -18,5 +18,5 @@ if(r3.length)assert.equal(r3[0].h1,undefined);
 const sum=call('r482Summarize',rows,{name:'알사드SC',sport:'축구'},fixture);
 assert.ok(sum.halves&&sum.halves.n===rows.length,'halves summary');
 const tot=rows.reduce((v,r)=>v+r.h1[0],0)/rows.length;assert.ok(Math.abs(sum.halves.h1f-tot)<0.01);
-const html=vm.runInContext('INDEX',ctx);assert.ok(html.includes('function r631Half'),'client renders half table');
+const html=vm.runInContext('INDEX',ctx);assert.ok(html.includes('function r631Half')&&html.includes('function r631Game'),'client renders half table');assert.ok(typeof sum.halves.h2Over05==='number');
 console.log('R631 half goals OK',JSON.stringify(sum.halves));
