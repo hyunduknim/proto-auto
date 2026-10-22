@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R646-HANDICAP-DRAWS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R647-COMBO-ODDS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4430,11 +4430,12 @@ box.list.sort((a,b)=>String(a.day).localeCompare(String(b.day))||(gameTimeMs(a.l
 /* R617: 조합 menu (owner request). Two 2-leg combos per game day, legs from different market types, chosen for the highest
    chance that both hit (odds ignored). Rebuilt freely until a leg kicks off, then fixed and settled leg by leg. Kept apart from
    the 추천 hit-rate record; its own tally is shown on the 조합 tab. */
-const R617={minP:.6,perDay:2};
+/* R647 (owner: 조합 유지, "배당좀 있는 경기로"): combined odds 2.3+ preferred (2.0+ fallback), legs dropped by the 126 rules never join */
+const R617={minP:.6,perDay:2,minOdds:2.3,fallbackOdds:2.0};
 function r617Cands(state){const by=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||!m.marked||!m.representativeSelected||m.resultFinal||started(m)||m.r616Wild)continue;
-const ps=Number(m.r554?.ps);if(!(ps>=R617.minP)||!(Number(m.finalOdds)>1)||!m.finalPick||!m.date)continue;const k=String(m.gmTs)+"|"+gameSeed(m);if(!by.has(k)||Number(by.get(k).r554?.ps||0)<ps)by.set(k,m);}return [...by.values()];}
+const ps=Number(m.r554?.ps);if(!(ps>=R617.minP)||!(Number(m.finalOdds)>1)||!m.finalPick||!m.date)continue;if(m.r642Cut||m.r643Cut||m.r644Cut||m.r645Cut||m.r611Cut||(Number(m.gmTs||0)>=R642.from&&r642Why(m)))continue;const k=String(m.gmTs)+"|"+gameSeed(m);if(!by.has(k)||Number(by.get(k).r554?.ps||0)<ps)by.set(k,m);}return [...by.values()];}
 function r617Pair(cands,usedSeeds){let best=null;for(let i=0;i<cands.length;i++)for(let j=i+1;j<cands.length;j++){const a=cands[i],b=cands[j];if(a.marketFamily===b.marketFamily)continue;
-if(usedSeeds.has(gameSeed(a))||usedSeeds.has(gameSeed(b))||gameSeed(a)===gameSeed(b))continue;const p=Number(a.r554.ps)*Number(b.r554.ps);if(!best||p>best.p)best={a,b,p};}return best;}
+if(usedSeeds.has(gameSeed(a))||usedSeeds.has(gameSeed(b))||gameSeed(a)===gameSeed(b))continue;const p=Number(a.r554.ps)*Number(b.r554.ps),o=Number(a.finalOdds)*Number(b.finalOdds),tier=o>=R617.minOdds?2:o>=R617.fallbackOdds?1:0;if(!tier)continue;if(!best||tier>best.tier||(tier===best.tier&&p>best.p))best={a,b,p,tier};}return best;}
 function r617Step(state){if(!state)return null;const g=String(state.gmTs||"");let box=state.r617Combos;
 if(!box||!Array.isArray(box.list))box=state.r617Combos={gmTs:g,list:[],tally:{hit:0,miss:0,void:0}};
 for(const c of box.list){let hit=0,miss=0,vd=0,live=0,odds=1;for(const leg of c.legs){const r=r554LegStatus(state,leg);leg.status=r.status;leg.score=r.score||leg.score||null;if(r.status==="hit"){hit++;odds*=Number(leg.odds)||1;}else if(r.status==="miss")miss++;else if(r.status==="void")vd++;else if(r.status==="live")live++;}
@@ -10093,7 +10094,7 @@ function r617Render(st){const el=$('r617Panel');if(!el)return;const box=st&&st.r
 const legHtml=l=>{const icon=l.status==='hit'?'⭕':l.status==='miss'?'❌':l.status==='void'?'⚪':l.status==='live'?'⏳':'·';const fam=({MONEYLINE:'일반승',HANDICAP:'핸디',TOTAL:'언오버'})[l.marketFamily]||'';let pk=l.pick;if(l.marketFamily==='HANDICAP'&&l.line!=null){const x=l.pick==='승'?Number(l.line):l.pick==='패'?-Number(l.line):null;if(x!=null&&isFinite(x))pk=(x>0?'플핸 +':'마핸 ')+x+' · '+l.pick;}else if(l.marketFamily==='TOTAL'&&l.line!=null)pk=l.pick+' '+l.line;
 return '<div class="r617L"><span class="i">'+icon+'</span><div class="g"><b>'+e(r560N(l.home)+' vs '+r560N(l.away))+'</b><small>#'+e(l.no)+' · '+e(String(l.date||'').slice(5))+' '+e(String(l.time||'').slice(0,5))+' · '+e(l.league||'')+'</small></div><div class="p"><b>'+e(pk)+'</b><small>'+e(fam)+' · '+Number(l.odds).toFixed(2)+' · '+Math.round(Number(l.ps)*100)+'%</small></div></div>'};
 const card=c=>{if(c.status==='pre'&&c.legs.some(l=>r622Hidden({...l,pick:l.pick,resultFinal:false})))return '<article class="r617C"><div class="r617H"><b>'+e(String(c.day||'').slice(5).replace('-','/'))+' 조합</b><span class="s">⏳ 라인업 분석 후 공개</span></div><div class="r622N">두 경기 모두 경기 45분 전이 지나면 공개됩니다.</div></article>';const st={pre:'대기',live:'진행 중',hit:'⭕ 적중',miss:'❌ 낙첨',void:'⚪ 적특'}[c.status]||c.status;return '<article class="r617C '+e(c.status)+'"><div class="r617H"><b>'+e(String(c.day||'').slice(5).replace('-','/'))+' 조합</b><span class="s">'+e(st)+(c.locked&&c.status==='pre'?' · 고정':'')+'</span></div>'+c.legs.map(legHtml).join('')+'<div class="r617F"><span>둘 다 맞을 확률 <b>'+Math.round(Number(c.p)*100)+'%</b></span><span>합산 배당 <b>'+Number(c.odds).toFixed(2)+'</b></span></div></article>'};
-el.innerHTML='<div class="r617Hd"><b>🎯 조합 (2폴)</b><small>하루 2개 · 서로 다른 종류끼리 · 둘 다 맞을 확률이 가장 높은 조합 · 첫 경기 시작 시 고정</small><div class="r617T">조합 성적 <b>'+e(t.hit||0)+'적중 '+e(t.miss||0)+'낙첨</b>'+(done?' ('+Math.round((t.hit||0)*100/done)+'%)':'')+(t.void?' · 적특 '+e(t.void):'')+'</div></div>'+(list.length?list.map(card).join(''):'<div class="pastEmpty">아직 조합을 만들 경기(확률 60% 이상)가 부족합니다.</div>')+'<div class="ccNote">조합은 추천 적중률 기록과 따로 집계됩니다.</div>'+r645Panel(st)}
+el.innerHTML='<div class="r617Hd"><b>🎯 조합 (2폴)</b><small>하루 2개 · 서로 다른 종류끼리 · 합산 배당 2.3배 이상 중 둘 다 맞을 확률이 가장 높은 조합 · 첫 경기 시작 시 고정</small><div class="r617T">조합 성적 <b>'+e(t.hit||0)+'적중 '+e(t.miss||0)+'낙첨</b>'+(done?' ('+Math.round((t.hit||0)*100/done)+'%)':'')+(t.void?' · 적특 '+e(t.void):'')+'</div></div>'+(list.length?list.map(card).join(''):'<div class="pastEmpty">아직 조합을 만들 경기(확률 60% 이상)가 부족합니다.</div>')+'<div class="ccNote">조합은 추천 적중률 기록과 따로 집계됩니다.</div>'+r645Panel(st)}
 function r618Lead(m){return Number(m&&m.gmTs||0)>=999999?45:60}
 function r622Hidden(m){if(!m||!m.pick||m.resultFinal||Number(m.gmTs||0)<999999)return false;const k=liveGameStartMs(m);return isFinite(k)&&Date.now()<k-r618Lead(m)*60000}
 function r622At(m){const k=liveGameStartMs(m);if(!isFinite(k))return '-';const d=new Date(k-r618Lead(m)*60000+9*3600000);return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')}
