@@ -6565,7 +6565,7 @@ const html=await r483PublicFetch('https://spogod.com/today/?d='+date,'html',fetc
 const due=fixtures.filter(m=>{
 const key=r483FixtureKey(m),cached=state.r483TeamForms[key],last=state.r483TeamAttempts[key]||0;
 return (state.r483TeamLinks[key]||state.r483SpogodLinks[key])&&(options.force||now-last>(cached?.teams?.every(t=>t.r562&&t.matches.length>=5&&(m.sport!=='축구'||t.r631))?21600000:600000));
-}).sort((a,b)=>Number(!!state.r483TeamForms[r483FixtureKey(a)])-Number(!!state.r483TeamForms[r483FixtureKey(b)])||gameTimeMs(a)-gameTimeMs(b)).slice(0,options.limit||2);
+}).sort((a,b)=>Number(!!state.r483TeamForms[r483FixtureKey(a)])-Number(!!state.r483TeamForms[r483FixtureKey(b)])||gameTimeMs(a)-gameTimeMs(b)).slice(0,options.limit||(fixtures.some(x=>x.sport==="축구"&&!state.r483TeamForms[r483FixtureKey(x)]?.teams?.every(t=>t.r631))?5:2));
 for(const m of due){
 const key=r483FixtureKey(m),link=state.r483TeamLinks[key];state.r483TeamAttempts[key]=now;audit.attempted++;
 try{
