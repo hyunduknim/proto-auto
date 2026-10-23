@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R658-TG-ONE-PER-GAME";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R659-TG-RETRY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -12917,10 +12917,12 @@ if(m.resultFinal&&(typeof m.hit==="boolean"||m.settlementStatus==="적특")&&!se
 for(const [g,info] of Object.entries(sent.preInfo)){if(!info||Number(info.t)<=now||sent.chg[g])continue;const cur=reps.find(x=>gk(x)===g);if(cur&&String(cur.no)===String(info.no)&&String(cur.finalPick||"")===info.pick)continue;
 const any=(st.markets||[]).find(x=>gk(x)===g&&x.marked&&x.representativeSelected)||(st.markets||[]).find(x=>gk(x)===g);if(!any)continue;sent.chg[g]=now;chg.push({m:cur||any,was:info,off:!cur,why:String((any.r554&&any.r554.why)||"")});}
 const sort=a=>a.sort((x,y)=>gameTimeMs(x)-gameTimeMs(y));const out=[];
-if(chg.length)out.push("🔄 <b>추천 변경</b>\n"+chg.map(c=>c.off?"⛔ "+r569Esc(r569N(c.m.home))+" vs "+r569Esc(r569N(c.m.away))+" · 추천에서 빠짐"+(c.why?" ("+r569Esc(c.why)+")":""):r569Line(c.m)+"\n   (먼저 보낸 픽에서 바뀜)").join("\n"));
-if(pre.length)out.push("⏰ <b>1시간 안에 시작 · 확정</b>\n"+sort(pre).map(r569Line).join("\n"));
-if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+((m.score||m.resultScoreText)?" ("+r569Esc(m.score||m.resultScoreText)+")":"")+" · "+r569Esc(r569Pick(m))).join("\n")+(()=>{const d=reps.filter(x=>x.resultFinal&&typeof x.hit==="boolean");const h=d.filter(x=>x.hit).length;return d.length?"\n\n📊 "+r569Esc(String(st.gmTs||"").slice(-3))+"회 누적: ⭕ "+h+"적중 · ❌ "+(d.length-h)+"낙첨 ("+Math.round(h/d.length*100)+"%)":"";})());
-sent.log=sent.log||[];for(const text of out){let ok=true,err=null;try{await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text,disable_web_page_preview:true});}catch(e){ok=false;err=String(e&&e.message||e).slice(0,120);}sent.log.push({at:new Date(now).toISOString(),ok,err,text:String(text).slice(0,700)});}if(sent.log.length>30)sent.log.splice(0,sent.log.length-30);
+const undo=[];
+if(chg.length)undo[out.length]=()=>{for(const c of chg)delete sent.chg[gk(c.m)];};if(chg.length)out.push("🔄 <b>추천 변경</b>\n"+chg.map(c=>c.off?"⛔ "+r569Esc(r569N(c.m.home))+" vs "+r569Esc(r569N(c.m.away))+" · 추천에서 빠짐"+(c.why?" ("+r569Esc(c.why)+")":""):r569Line(c.m)+"\n   (먼저 보낸 픽에서 바뀜)").join("\n"));
+if(pre.length)undo[out.length]=()=>{for(const m of pre){delete sent.pre[gk(m)];delete sent.preInfo[gk(m)];}};if(pre.length)out.push("⏰ <b>1시간 안에 시작 · 확정</b>\n"+sort(pre).map(r569Line).join("\n"));
+if(res.length)undo[out.length]=()=>{for(const m of res)delete sent.res[r554LegKey(m)];};if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+((m.score||m.resultScoreText)?" ("+r569Esc(m.score||m.resultScoreText)+")":"")+" · "+r569Esc(r569Pick(m))).join("\n")+(()=>{const d=reps.filter(x=>x.resultFinal&&typeof x.hit==="boolean");const h=d.filter(x=>x.hit).length;return d.length?"\n\n📊 "+r569Esc(String(st.gmTs||"").slice(-3))+"회 누적: ⭕ "+h+"적중 · ❌ "+(d.length-h)+"낙첨 ("+Math.round(h/d.length*100)+"%)":"";})());
+/* R659: a message that fails to send is retried next round instead of being marked as sent (낙첨 notices could vanish this way) */
+sent.log=sent.log||[];for(let oi=0;oi<out.length;oi++){const text=out[oi];let ok=true,err=null;try{await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text,disable_web_page_preview:true});}catch(e){ok=false;err=String(e&&e.message||e).slice(0,120);try{undo[oi]&&undo[oi]();}catch(_){}}sent.log.push({at:new Date(now).toISOString(),ok,err,text:String(text).slice(0,700)});}if(sent.log.length>30)sent.log.splice(0,sent.log.length-30);
 for(const g of ["best","pre","res","chg"])for(const [k,v] of Object.entries(sent[g]||{}))if(now-Number(v)>6*86400000)delete sent[g][k];for(const [k,v] of Object.entries(sent.preInfo))if(!v||now-Number(v.t)>2*86400000)delete sent.preInfo[k];
 if(ds&&(best.length||pre.length||chg.length||out.length||Object.keys(sent.res).length))await ds.put("r569:sent",sent);
 cfg.lastAt=new Date(now).toISOString();cfg.lastSent=out.length?cfg.lastAt:cfg.lastSent||null;cfg.lastError=null;if(out.length)await r569Save(cfg);return {status:"OK",sent:out.length};}
