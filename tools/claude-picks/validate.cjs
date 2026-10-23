@@ -4,7 +4,7 @@
 const fs=require('fs');const [,,postF,slateF,curF]=process.argv;const post=JSON.parse(fs.readFileSync(postF,'utf8'));const sl=JSON.parse(fs.readFileSync(slateF,'utf8'));
 const cur=curF&&fs.existsSync(curF)?JSON.parse(fs.readFileSync(curF,'utf8')):{posts:[]};const mk=new Map();
 for(const g of sl.slate||[])for(const [no,fam,line,ch] of g.mk)mk.set(String(sl.gmTs)+':'+no,{g,fam,line,ch});
-const err=[],warn=[];if(!post.id||!post.title||!Array.isArray(post.groups)||!post.groups.length)err.push('post needs id, title, groups');
+const err=[],warn=[];if(!post.id||!post.title||!Array.isArray(post.groups)||(!post.groups.length&&!(post.cautions||[]).length))err.push('post needs id, title, and picks or cautions');
 if((cur.posts||[]).some(p=>p.id===post.id))warn.push('post id exists; it will be replaced: '+post.id);
 const old=new Set();for(const p of cur.posts||[])if(p.id!==post.id)for(const g of p.groups||[])for(const x of g.picks||[])old.add(x.gmTs+':'+x.no);
 const seen=new Set();

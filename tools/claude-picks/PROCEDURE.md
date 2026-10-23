@@ -54,3 +54,30 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
 7. Publish: `tools/claude-picks/publish.sh post.json slate.json`. It validates and stops on errors: fix them and run again.
 8. Tell 형님 in one short message (SendUserMessage): the picks table (경기 · 픽 · 배당 · 한 줄 근거), cautions, and the
    record so far. Mention that it is on the 🤖 클로드추천 tab.
+
+## NBA 결장 체크 (two daily runs: about 00:45 KST and 06:45 KST)
+The owner asked for a daily NBA absence check posted on 클로드추천 ("매일해줘서 클로드추천에 넣어주면 좋겟는데"), and also
+for the early-morning games ("새벽에도 NBA 하는데"). Each run covers a tip-off window given in its prompt:
+- night run (about 00:45): games tipping off from 01:00 to 07:30 KST (weekend and holiday afternoon games in the US);
+- morning run (about 06:45): games tipping off from 07:30 to 14:00 KST (the usual evening games in the US).
+1. `tools/claude-picks/snap.sh "slate&h=9" > slate.json`. Keep the NBA games (`sp` 농구, `lg` NBA) whose KST tip-off
+   time is inside this run's window. If there are none, stop: publish nothing and send nothing. `inj` shows what the site itself has detected (key players Out = `h`/`a`, doubtful = `hq`/`aq`). `site` shows
+   the site's pick and grade; a 추천 backing a team with a key player Out is dropped to 일반 automatically.
+2. Current posts: `gh api -H "Accept: application/vnd.github.raw" "repos/hyunduknim/proto-auto/contents/picks.json?ref=claude-picks"`.
+   Find the earlier 클로드추천 picks on today's NBA games.
+3. ESPN, for each game: get the event ids from the scoreboard for the US date(s), then read the summaries with `snap.sh`
+   (see step 4 above). From each summary read `injuries` (Out / Doubtful / Questionable / Day-To-Day) and `leaders` (the
+   team's key players), plus `predictor` (BPI). WebSearch the latest injury news only when it is unclear.
+4. Write a post with `"kind":"injury"`. The night run uses `"id":"YYYY-MM-DD-y-nba-injury"` and
+   `"title":"M/D 새벽 NBA 결장 체크"`. The morning run uses `"id":"YYYY-MM-DD-z-nba-injury"` and
+   `"title":"M/D 아침 NBA 결장 체크"`. In both, the date is today's KST date.
+   - `cautions`: one line per game that has notable absences. Example: "보스턴-뉴욕: 보스턴 테이텀(Out), 뉴욕 없음 →
+     보스턴 공격 약화". Mark the game with "⚠ 기존 클로드추천 #no 영향" when an earlier pick is affected, saying whether the
+     pick still holds. Earlier picks stay on the record; never delete them.
+   - `passes`: games with no notable absences, in one or two lines.
+   - `groups`: 0–3 new NBA picks only, for games not picked yet, where an absence makes a side clearly better or worse
+     than its Betman odds. Picks follow the same rules as above. No picks at all is fine.
+   - `intro`: how many games were checked, and whether the site's own check flagged anything.
+5. Publish with `publish.sh post.json slate.json`. A notes-only post (no picks) is allowed.
+6. Send 형님 a short SendUserMessage: the key absences, any affected 클로드추천 picks, new picks, and a pointer to the
+   🤖 클로드추천 tab.
