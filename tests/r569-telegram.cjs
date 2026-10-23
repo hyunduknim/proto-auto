@@ -28,6 +28,10 @@ run('MEM.state={gmTs:"260124",markets:MS};store=null');
 const cfg=store.get('r569:tg');cfg.setAt=now-5*3600000;run('MEM.r569Cfg=null;MEM.r569Cfg=undefined');store.set('r569:tg',cfg);
 calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(r.status,'OK',JSON.stringify(r));
 const texts=calls.filter(x=>x.m==='sendMessage').map(x=>x.body.text).join('\n---\n');
-assert.match(texts,/새 가장추천 1경기/);assert.match(texts,/1시간 안에 시작/);assert.match(texts,/⭕ 적중 C vs D/);assert.match(texts,/124회 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.equal(/A vs B/.test(texts),false,'일반 never alerted');
+assert.equal(/새 가장추천/.test(texts),false,'no early 가장추천 alert');assert.equal((texts.match(/아스널 vs 첼시/g)||[]).length,1,'one alert per game');assert.match(texts,/🔥 <b>/);assert.match(texts,/1시간 안에 시작/);assert.match(texts,/⭕ 적중 C vs D/);assert.match(texts,/124회 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.equal(/A vs B/.test(texts),false,'일반 never alerted');
 calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage').length,0,'no duplicates');
+// R658: pick changed after the 1-hour alert -> one correction
+run('MS[0].finalPick="패";MS[0].finalOdds=4.2');calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');
+let t3=calls.filter(x=>x.m==='sendMessage').map(x=>x.body.text).join('\n');assert.match(t3,/추천 변경/);assert.match(t3,/아스널 vs 첼시/);
+calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage'&&/추천 변경/.test(x.body.text)).length,0,'correction once');
 console.log('R569 telegram OK');})().catch(e=>{console.error(e);process.exit(1);});

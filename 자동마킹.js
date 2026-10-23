@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R657-TG-1H";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R658-TG-ONE-PER-GAME";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -12902,23 +12902,27 @@ async function r569Link(cfg){const ups=await r569Call(cfg.token,"getUpdates",{li
 const msgs=(ups||[]).map(u=>u.message).filter(x=>x&&x.chat&&x.chat.type==="private"&&Number(x.date)*1000>=Number(cfg.setAt)-60000);
 const last=msgs[msgs.length-1];if(!last)return null;cfg.chatId=last.chat.id;cfg.chatName=String(last.chat.first_name||last.chat.username||"");cfg.linkUntil=0;
 const maxId=Math.max(...(ups||[]).map(u=>Number(u.update_id)||0));if(maxId>0){try{await r569Call(cfg.token,"getUpdates",{offset:maxId+1,limit:1,timeout:0});}catch(_){}}
-await r569Save(cfg);await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text:"✅ <b>프로토 알림 연결 완료</b>\n이제 아래 알림을 보내드립니다.\n🔥 가장추천이 새로 뜰 때\n⏰ 추천 경기 시작 1시간 전 (확정 시점)\n⭕❌ 추천 경기 결과"});return cfg;}
+await r569Save(cfg);await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text:"✅ <b>프로토 알림 연결 완료</b>\n이제 아래 알림을 보내드립니다.\n⏰ 추천 경기 시작 1시간 전 (확정 시점)\n⭕❌ 추천 경기 결과"});return cfg;}
 async function r569Tick(env){const cfg=await r569Cfg();if(!cfg||!cfg.token)return {status:"OFF"};const now=Date.now();if(now-Number(MEM.r569At||0)<R569.gapMs)return {status:"WAIT"};MEM.r569At=now;
 try{if(!cfg.chatId){if(Number(cfg.linkUntil)>now)await r569Link(cfg);return {status:cfg.chatId?"LINKED":"WAITING_FOR_CHAT"};}
 const st=MEM.state;if(!st)return {status:"NO_STATE"};const ds=doStorage();const sent=MEM.r569Sent||(MEM.r569Sent=(ds?await ds.get("r569:sent"):null)||{best:{},pre:{},res:{}});
 const reps=(st.markets||[]).filter(m=>currentRoundMarket(m,st)&&m.marked&&m.representativeSelected&&["추천","가장추천","수동"].includes(r569Grade(m)));
-const best=[],pre=[],res=[];
-for(const m of reps){const k=r554LegKey(m),t=gameTimeMs(m);if(t==null)continue;
-if(r569Grade(m)==="가장추천"&&t>now&&!sent.best[k]&&(Number(m.gmTs||0)<R622_FROM||now>=t-r619LeadMs(m))){best.push(m);sent.best[k]=now;}
-if(t>now&&t-now<=R569.preMs&&!sent.pre[k]){pre.push(m);sent.pre[k]=now;}
+/* R658: owner "픽 알람이 가끔 잘못 온다": the early "새 가장추천" alert went out hours before the pick was fixed (grades move until
+   the 1-hour lock) and alerts were keyed per market, so a switched pick alerted twice. Now one alert per game at the 1-hour mark
+   (가장추천 shown with 🔥), and if that game's pick is changed or withdrawn before kick-off a single correction follows. */
+const best=[],pre=[],res=[],chg=[];sent.preInfo=sent.preInfo||{};sent.chg=sent.chg||{};const gk=m=>String(m.gmTs)+"|"+gameSeed(m);
+for(const m of reps){const k=r554LegKey(m),t=gameTimeMs(m);if(t==null)continue;const g=gk(m);
+if(t>now&&t-now<=R569.preMs&&!sent.pre[g]&&!sent.pre[k]){pre.push(m);sent.pre[g]=now;sent.preInfo[g]={no:m.no,pick:String(m.finalPick||""),grade:r569Grade(m),t};}
 if(m.resultFinal&&(typeof m.hit==="boolean"||m.settlementStatus==="적특")&&!sent.res[k]){sent.res[k]=now;if(t>=Number(cfg.setAt||0))res.push(m);}}
+for(const [g,info] of Object.entries(sent.preInfo)){if(!info||Number(info.t)<=now||sent.chg[g])continue;const cur=reps.find(x=>gk(x)===g);if(cur&&String(cur.no)===String(info.no)&&String(cur.finalPick||"")===info.pick)continue;
+const any=(st.markets||[]).find(x=>gk(x)===g&&x.marked&&x.representativeSelected)||(st.markets||[]).find(x=>gk(x)===g);if(!any)continue;sent.chg[g]=now;chg.push({m:cur||any,was:info,off:!cur,why:String((any.r554&&any.r554.why)||"")});}
 const sort=a=>a.sort((x,y)=>gameTimeMs(x)-gameTimeMs(y));const out=[];
-if(best.length)out.push("🔥 <b>새 가장추천 "+best.length+"경기</b>\n"+sort(best).map(r569Line).join("\n"));
+if(chg.length)out.push("🔄 <b>추천 변경</b>\n"+chg.map(c=>c.off?"⛔ "+r569Esc(r569N(c.m.home))+" vs "+r569Esc(r569N(c.m.away))+" · 추천에서 빠짐"+(c.why?" ("+r569Esc(c.why)+")":""):r569Line(c.m)+"\n   (먼저 보낸 픽에서 바뀜)").join("\n"));
 if(pre.length)out.push("⏰ <b>1시간 안에 시작 · 확정</b>\n"+sort(pre).map(r569Line).join("\n"));
 if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+((m.score||m.resultScoreText)?" ("+r569Esc(m.score||m.resultScoreText)+")":"")+" · "+r569Esc(r569Pick(m))).join("\n")+(()=>{const d=reps.filter(x=>x.resultFinal&&typeof x.hit==="boolean");const h=d.filter(x=>x.hit).length;return d.length?"\n\n📊 "+r569Esc(String(st.gmTs||"").slice(-3))+"회 누적: ⭕ "+h+"적중 · ❌ "+(d.length-h)+"낙첨 ("+Math.round(h/d.length*100)+"%)":"";})());
 for(const text of out)await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text,disable_web_page_preview:true});
-for(const g of ["best","pre","res"])for(const [k,v] of Object.entries(sent[g]))if(now-Number(v)>6*86400000)delete sent[g][k];
-if(ds&&(best.length||pre.length||Object.keys(sent.res).length))await ds.put("r569:sent",sent);
+for(const g of ["best","pre","res","chg"])for(const [k,v] of Object.entries(sent[g]||{}))if(now-Number(v)>6*86400000)delete sent[g][k];for(const [k,v] of Object.entries(sent.preInfo))if(!v||now-Number(v.t)>2*86400000)delete sent.preInfo[k];
+if(ds&&(best.length||pre.length||chg.length||Object.keys(sent.res).length))await ds.put("r569:sent",sent);
 cfg.lastAt=new Date(now).toISOString();cfg.lastSent=out.length?cfg.lastAt:cfg.lastSent||null;cfg.lastError=null;if(out.length)await r569Save(cfg);return {status:"OK",sent:out.length};}
 catch(e){cfg.lastError=String(e?.message||e).slice(0,120);try{await r569Save(cfg);}catch(_){}return {status:"ERROR",error:cfg.lastError};}}
 function r569Page(){return new Response('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>텔레그램 알림 연결</title><style>body{background:#0a0f17;color:#e8eef6;font-family:sans-serif;max-width:520px;margin:40px auto;padding:0 16px;line-height:1.6}input{width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid #445;background:#111a26;color:#fff;box-sizing:border-box;margin-top:6px}button{margin-top:12px;width:100%;padding:12px;font-size:17px;font-weight:700;border:0;border-radius:8px;background:#38bdf8;color:#000}button.b2{background:#ffcc33}#out{margin-top:18px;font-size:16px;white-space:pre-wrap}small{color:#8a96a8}</style><h2>텔레그램 알림 연결</h2><p><b>1단계</b> BotFather가 준 봇 토큰을 붙여넣고 [토큰 등록]을 누르세요. 입력은 가려집니다.</p><input id="t" type="password" autocomplete="off" placeholder="봇 토큰"><input id="c" type="password" autocomplete="off" placeholder="(이미 등록했다면) 지금 쓰는 토큰"><small>처음 등록이면 두 번째 칸은 비워두세요.</small><button id="b1">토큰 등록</button><p><b>2단계</b> 텔레그램에서 그 봇에게 아무 메시지(예: 안녕)나 보낸 뒤 [연결 확인]을 누르세요. 15분 안에 해주세요.</p><button id="b2" class="b2">연결 확인</button><div id="out"></div><script>var o=document.getElementById("out");async function go(u,b){o.textContent="확인 중...";try{var r=await fetch(u,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b||{})});var j=await r.json();o.textContent=j.message||JSON.stringify(j);o.style.color=j.ok?"#7CFC9A":"#ff8080";}catch(e){o.textContent="오류: "+e;}}document.getElementById("b1").onclick=function(){go("/api/telegram",{token:document.getElementById("t").value,current:document.getElementById("c").value});document.getElementById("t").value="";document.getElementById("c").value="";};document.getElementById("b2").onclick=function(){go("/api/telegram/link",{});};</script>',{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});}
