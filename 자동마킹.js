@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R667-RESULT-TREND-CHART";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R668-SETTLE-CAUSES-ONLY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -9132,7 +9132,7 @@ body{background:#090b10!important}
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 국내·해외배당 핵심 비교와 업체별 상세 자료를 확인합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
 <div class="expControls"><input id="expSearch" type="search" placeholder="팀명 / 리그 / 프로토번호 검색" aria-label="경기 검색"><select id="expSport" aria-label="종목 선택"><option value="all">전체</option><option value="축구">축구</option><option value="야구">야구</option><option value="농구">농구</option><option value="배구">배구</option></select></div>
-<div id="expMeta" class="expInfo">경기 자료 로딩</div><div id="expList"></div></section><div id="markMenu" class="markMenu"><button type="button" data-mode="now">전체 시간순</button><button type="button" data-mode="best">가장추천</button><button type="button" data-mode="rec">추천</button><button type="button" data-mode="normal">일반</button></div><div id="hourlyBar" class="hourlyBar"></div><section id="pastPanel" class="pastPanel"><div class="pastTitle"><span>📂 회차별 정산확인</span><small id="pastMeta">정산 0경기</small></div><div id="r667Box" class="r667Box"></div><div id="r557Calib" class="r557Calib"></div><div id="r614Lg" class="r614Lg"></div><div id="r650Box" class="r614Lg"></div><div id="r652Box" class="r614Lg"></div><div id="r661Box" class="r614Lg"></div><div id="r524OvStat" class="r524OvStat"></div><div id="settleFilters" class="settleFilters">
+<div id="expMeta" class="expInfo">경기 자료 로딩</div><div id="expList"></div></section><div id="markMenu" class="markMenu"><button type="button" data-mode="now">전체 시간순</button><button type="button" data-mode="best">가장추천</button><button type="button" data-mode="rec">추천</button><button type="button" data-mode="normal">일반</button></div><div id="hourlyBar" class="hourlyBar"></div><section id="pastPanel" class="pastPanel"><div class="pastTitle"><span>📂 회차별 정산확인</span><small id="pastMeta">정산 0경기</small></div><div id="r667Box" class="r667Box"></div><div id="r557Calib" class="r557Calib"></div><div id="r614Lg" class="r614Lg"></div><div id="r650Box" class="r614Lg"></div><div id="r524OvStat" class="r524OvStat"></div><div id="settleFilters" class="settleFilters">
 <button type="button" data-mode="all" class="on" onclick="setSettleFilter('all')">전체</button>
 <button type="button" data-mode="pending" onclick="setSettleFilter('pending')">정산대기</button>
 <button type="button" data-mode="overdue" onclick="setSettleFilter('overdue')">장기대기</button>
