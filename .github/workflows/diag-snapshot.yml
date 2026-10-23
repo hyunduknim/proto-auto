@@ -37,7 +37,15 @@ jobs:
           mkdir out && cd out
           curl -sS -m 60 "https://protonumber.mystyle276.workers.dev/check?${Q}" -o check.json
           if [ -n "$E" ]; then
-            if printf '%s' "$E" | grep -Eq '^site/v2/sports/[a-z]+/[a-z0-9._-]+/[A-Za-z0-9/._?=&,-]+$'; then curl -sS -m 60 "https://site.api.espn.com/apis/${E}" -o espn.json || true; fi
+            i=0
+            IFS='|' read -ra PARTS <<< "$E"
+            for P in "${PARTS[@]}"; do
+              if printf '%s' "$P" | grep -Eq '^site/v2/sports/[a-z]+/[a-z0-9._-]+/[A-Za-z0-9/._?=&,-]+$'; then
+                if [ $i -eq 0 ]; then curl -sS -m 60 --compressed "https://site.api.espn.com/apis/${P}" -o espn.json || true; fi
+                curl -sS -m 60 --compressed "https://site.api.espn.com/apis/${P}" -o "espn_${i}.json" || true
+              fi
+              i=$((i+1)); [ $i -ge 20 ] && break
+            done
           fi
           date -u +%FT%TZ > at.txt
           echo "$Q" > query.txt
