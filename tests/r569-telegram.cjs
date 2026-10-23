@@ -28,6 +28,6 @@ run('MEM.state={gmTs:"260124",markets:MS};store=null');
 const cfg=store.get('r569:tg');cfg.setAt=now-5*3600000;run('MEM.r569Cfg=null;MEM.r569Cfg=undefined');store.set('r569:tg',cfg);
 calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(r.status,'OK',JSON.stringify(r));
 const texts=calls.filter(x=>x.m==='sendMessage').map(x=>x.body.text).join('\n---\n');
-assert.match(texts,/새 가장추천 1경기/);assert.match(texts,/30분 안에 시작/);assert.match(texts,/⭕ 적중 C vs D/);assert.match(texts,/124회 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.equal(/A vs B/.test(texts),false,'일반 never alerted');
+assert.match(texts,/새 가장추천 1경기/);assert.match(texts,/1시간 안에 시작/);assert.match(texts,/⭕ 적중 C vs D/);assert.match(texts,/124회 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.equal(/A vs B/.test(texts),false,'일반 never alerted');
 calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage').length,0,'no duplicates');
 console.log('R569 telegram OK');})().catch(e=>{console.error(e);process.exit(1);});
