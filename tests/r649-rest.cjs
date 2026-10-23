@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const T=Date.parse('2026-10-25T14:00:00Z');
+const sb={events:[{id:'500',date:'2026-10-25T14:00Z',competitions:[{competitors:[{homeAway:'home',team:{id:'362',displayName:'Aston Villa'}},{homeAway:'away',team:{id:'382',displayName:'Manchester City'}}]}]}]};
+const sum={header:{competitions:[{competitors:[{homeAway:'home',team:{id:'362'}},{homeAway:'away',team:{id:'382'}}]}]},lastFiveGames:[{team:{id:'362'},events:[{id:'1',gameDate:'2026-10-22T19:00Z',leagueName:'UEFA Europa League'},{id:'2',gameDate:'2026-10-18T14:00Z',leagueName:'English Premier League'}]},{team:{id:'382'},events:[{id:'3',gameDate:'2026-10-18T16:30Z',leagueName:'English Premier League'}]}]};
+const fetchMock=async u=>new Response(JSON.stringify(String(u).includes('scoreboard')?sb:sum),{status:200});
+const c=vm.createContext({Date,URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto,fetch:fetchMock});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+c.ST={gmTs:'260126',markets:[{gmTs:'260126',no:275,sport:'축구',league:'EPL',date:'2026-10-25',time:'23:00',home:'애스턴 빌라',away:'맨체스터 시티',marketFamily:'MONEYLINE',choices:[],representativeSelected:true}]};
+(async()=>{const a=await run('r649RefreshRest(ST,null,{nowMs:'+(T-6*3600000)+',force:true})');assert.equal(a.found,1,JSON.stringify(a));
+const f=run('Object.values(ST.r649)[0]');assert.equal(f.home.days,2.8);assert.equal(f.away.days,6.9);assert.equal(a.short,1);
+run('r649Apply(ST)');assert.ok(run('ST.markets[0].r649'));
+const html=vm.runInContext('INDEX',c);const fn=new Function('const e=x=>String(x);const r560N=x=>x;'+html.slice(html.indexOf('function r649Html('),html.indexOf('function r644Html('))+';return r649Html')();
+const out=fn({home:'애스턴 빌라',away:'맨체스터 시티',r649:f});assert.match(out,/휴식 부족 · 애스턴 빌라 2.8일/);assert.match(out,/상대 맨체스터 시티 6.9일/);
+console.log('R649 rest OK');})().catch(e=>{console.error(e);process.exit(1);});
