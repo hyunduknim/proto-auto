@@ -1,0 +1,12 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+const T=(w,d,l,gf,ga)=>({n:5,wins:w,draws:d,losses:l,avgGF:gf,avgGA:ga,cleanSheets:1,ha:{home:{n:3,w:w>2?2:0,d:0,l:w>2?1:3},away:{n:3,w:w>2?2:0,d:0,l:w>2?1:3}}});
+c.TD={home:T(1,0,4,92,112),away:T(4,0,1,119,110)};run('r482TeamData=()=>TD');
+const b={gmTs:'260126',sport:'농구',league:'NBA',date:'2099-01-01',time:'08:00',home:'밀워키',away:'시카고'};
+c.ST={gmTs:'260126',markets:[{...b,no:80,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.73},{label:'패',odds:1.75}]}]};
+run('r661Step(ST)');assert.equal(run('ST.r661.list.length'),1,'disagreement recorded');assert.equal(run('ST.r661.list[0].edge'),'away');assert.equal(run('ST.r661.list[0].fav'),'home');
+run('ST.markets[0].date="2000-01-01";ST.markets[0].resultFinal=true;ST.markets[0].result="패";ST.markets[0].resultScoreText="100:110"');
+run('r661Step(ST)');assert.equal(run('ST.r661.list[0].status'),'perf','away (performance side) won');
+const sm=run('r661Summary(ST)');assert.equal(sm.perf,1);assert.ok(vm.runInContext('INDEX',c).includes('function r661Render'));
+console.log('R661 perf vs market OK',JSON.stringify(sm).slice(0,160));
