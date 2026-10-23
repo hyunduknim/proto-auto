@@ -40,6 +40,7 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
    - No soccer 언더 ≤2.5.
    - Minimum odds 1.20. Usually 4–8 picks; fewer is fine. Never pad.
    - At most one pick per game. Groups are `안정형` (확률 우선) and `가치형` (일정 피로 · 결장 · 시장 오차).
+   - NBA: mix 일반승 / 핸디 / 언오버 (compare all three per game, pick the best). Put the type in the label, e.g. "[핸디] 올랜도 +2.5 승".
    - Optionally add 1–2 two-leg combos from the picks.
 6. Write the post (`post.json`) in Korean:
    ```json
@@ -68,6 +69,20 @@ for the early-morning games ("새벽에도 NBA 하는데"). Each run covers a ti
 3. ESPN, for each game: get the event ids from the scoreboard for the US date(s), then read the summaries with `snap.sh`
    (see step 4 above). From each summary read `injuries` (Out / Doubtful / Questionable / Day-To-Day) and `leaders` (the
    team's key players), plus `predictor` (BPI). WebSearch the latest injury news only when it is unclear.
+   **Keep it short (owner: "핵심만 간단히", "세줄까지 괜찮음"):** `intro` is one short sentence. `cautions` has at most
+   3 lines in total, and only the absences that matter: key players Out or doubtful, and affected 클로드추천 picks.
+   Example: "보스턴: 테이텀 결장 → 기존 #57 주의". Games with nothing notable go into one `passes` line, or are left out.
+   The site shows these posts in large text.
+3b. **NBA 추천 mix (owner: "NBA 일반승 핸디캡 언오버를 섞어서 추천"):** in the same post, add picks for this window's NBA
+   games that have no 클로드추천 pick yet. For each game, compare all three markets (일반승, 핸디, 언오버) and take the one
+   with the best overseas probability and value. Mix the types across the day instead of all 일반승. Inputs:
+   - overseas probabilities in `mk`;
+   - the ESPN predictor;
+   - absences;
+   - for totals, the site's efficiency projection (pace × ORtg/DRtg, shown as "효율 기준 예상" on the card).
+
+   Put the type in the label: "[일반승] 골든스테이트 승", "[핸디] 올랜도 +2.5 승", "[언오버] 레이커스-클리퍼스 언더 228.5".
+   Usually 3–6 picks, one per game; skip games with no edge. Groups are 안정형 and 가치형.
 4. Write a post with `"kind":"injury"`. The night run uses `"id":"YYYY-MM-DD-y-nba-injury"` and
    `"title":"M/D 새벽 NBA 결장 체크"`. The morning run uses `"id":"YYYY-MM-DD-z-nba-injury"` and
    `"title":"M/D 아침 NBA 결장 체크"`. In both, the date is today's KST date.
