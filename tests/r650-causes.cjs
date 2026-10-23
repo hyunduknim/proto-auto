@@ -6,7 +6,7 @@ assert.match(J({hit:false,sport:'축구',league:'UEL',marketFamily:'MONEYLINE',f
 assert.match(J({hit:false,sport:'축구',league:'K리그1',marketFamily:'HANDICAP',line:-1,finalPick:'승',result:'무',resultScoreText:'2:1'}),/핸디 무/);
 assert.match(J({hit:false,sport:'축구',league:'K리그1',marketFamily:'TOTAL',line:2.5,finalPick:'언더',resultScoreText:'2:1'}),/한 골 차/);
 assert.match(J({hit:false,sport:'축구',league:'UECL',marketFamily:'HANDICAP',line:1,finalPick:'패',resultScoreText:'0:0',r643:{away:{miss:7}}}),/로테이션/);
-assert.match(J({hit:false,sport:'농구',league:'NBA',marketFamily:'MONEYLINE',finalPick:'승',resultScoreText:'100:110'}),/뚜렷한 원인 없음/);
+assert.match(J({hit:false,sport:'농구',league:'NBA',marketFamily:'MONEYLINE',finalPick:'승',finalOdds:1.8,resultScoreText:'100:110'}),/확률 낮은 픽/);assert.match(J({hit:false,sport:'농구',league:'NBA',marketFamily:'MONEYLINE',finalPick:'승',finalOdds:1.35,resultScoreText:'100:110'}),/정배 완패/);assert.match(J({hit:false,sport:'축구',league:'K리그1',marketFamily:'TOTAL',line:2.5,finalPick:'언더',finalOdds:1.5,resultScoreText:'4:1'}),/크게 빗나감/);assert.match(J({hit:false,sport:'농구',league:'NBA',marketFamily:'TOTAL',line:220.5,finalPick:'오버',finalOdds:1.4,resultScoreText:'105:107'}),/뚜렷한 원인 없음/);
 assert.equal(run('r650Causes({hit:true})'),null);
 c.ST={gmTs:'260126',settlementLedger:[{gmTs:'260125',no:1,sport:'축구',league:'UEL',marketFamily:'MONEYLINE',pick:'승',displayGrade:'추천',hit:false,score:'2:2',settlementStatus:'낙첨'}],markets:[]};
 const sm=run('r650Summary(ST)');assert.equal(sm.rec.n,1);assert.equal(sm.rec.list[0].cause,'무승부');

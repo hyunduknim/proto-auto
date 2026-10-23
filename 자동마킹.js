@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R653-REVIEW-TAB";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.19-R654-CAUSE-SPLIT";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -3534,7 +3534,14 @@ if(side&&Number(m.r649?.[side]?.days)<3.5)out.push('휴식 부족');
 if(soc&&Number(m.r645?.p)>=.27)out.push('무승부 위험 경기');
 try{if(r642Euro(m))out.push('유럽대항전');}catch(_){}
 const o=m.r507Overseas,f0=Number(o?.firstProbs?.[pk]),f1=Number(o?.probs?.[pk]);if(Number.isFinite(f0)&&Number.isFinite(f1)&&f1-f0<=-.03)out.push('해외배당 반대');
+/* R654: split "뚜렷한 원인 없음" — low-probability picks, favourites beaten outright, results far from the line */
+const odds=Number(m.finalOdds??m.odds),ps=Number(m.r554?.ps??m.warn?.ps),pp=Number.isFinite(ps)&&ps>0?ps:(odds>1?.95/odds:NaN);
+if(Number.isFinite(pp)&&pp<.6)out.push('확률 낮은 픽');
+if(fam==='MONEYLINE'&&odds>1&&odds<=1.5&&a!=null&&a!==b)out.push('정배 완패');
+if(fam==='TOTAL'&&a!=null){const ln=Number(m.line),d=Math.abs(a+b-ln);if(Number.isFinite(ln)&&((soc&&d>=2.5)||(m.sport==='농구'&&d>=20)||(m.sport==='야구'&&d>=4.5)))out.push('크게 빗나감');}
+if(fam==='HANDICAP'&&a!=null&&String(m.result||'')!=='무'){const ln=Number(m.line);if(Number.isFinite(ln)){const z=Math.abs(a+ln-b);if((soc&&z>=2)||(m.sport==='농구'&&z>=15))out.push('크게 빗나감');}}
 if(!out.length)out.push('뚜렷한 원인 없음');return out;}
+function r650Merge(x){let fresh=[];try{fresh=r650Causes(x)||[];}catch(_){}const kept=(Array.isArray(x.causes)?x.causes:[]).filter(c=>c!=='뚜렷한 원인 없음');const all=[...new Set([...kept,...fresh.filter(c=>c!=='뚜렷한 원인 없음')])];return all.length?all:['뚜렷한 원인 없음'];}
 /* R653 (owner: 낙첨 복기 메뉴): every missed pick with what was known before kick-off, what the same game's other picks would have
    done, and a one-line lesson. */
 function r653Warn(m){if(!m||m.hit!==false)return null;const pk=String(m.finalPick??m.pick??''),o=m.r507Overseas;const w={ps:m.r554?.ps??null,why:m.r554?.why??null,draw:m.r645?.p??null,hdraw:m.r645h?.p??null,model:m.r648?.[pk]??m.r651?.mp??null,
@@ -3546,15 +3553,16 @@ return out.slice(0,6);}
 function r653Lesson(x){const c=x.causes||[],t=[];if(c.includes('무승부'))t.push('정배 일반승이 무승부로 낙첨 → 무승부 위험 경기는 언오버·플핸이 더 안전');if(c.includes('핸디 무'))t.push('정확히 그 점수차로 끝나 핸디 무 → 반 점 라인(.5)이나 다른 종류가 대안');
 if(c.includes('한 골 차')||c.includes('근소 차'))t.push('한 끗 차이로 빗나감 → 라인이 빡빡했음');if(c.includes('로테이션'))t.push('주전 휴식이 경기 전에 보였음');if(c.includes('핵심 결장'))t.push('핵심 선수 결장이 경기 전에 보였음');if(c.includes('휴식 부족'))t.push('일정 피로(3.5일 이내 경기)가 있었음');
 if(c.includes('해외배당 반대'))t.push('해외배당이 반대로 움직였음 → 경기 직전 흐름 확인 필요');if(c.includes('유럽대항전'))t.push('유럽대항전은 이변이 잦음 (126회부터 일반승 추천 제외)');if(c.includes('무승부 위험 경기'))t.push('무승부 확률이 높게 나온 경기였음');
+if(c.includes('확률 낮은 픽'))t.push('사이트 확률 60% 미만이라 원래 반반에 가까운 픽');if(c.includes('정배 완패'))t.push('정배가 비기지도 못하고 짐 → 결장·로테이션·일정 재확인');if(c.includes('크게 빗나감'))t.push('라인과 한참 먼 결과 → 경기 성격을 잘못 읽음');
 if(!t.length)t.push('경기 전 신호가 없던 이변');return t;}
 function r653Review(state){const rows=new Map();for(const x of state?.settlementLedger||[]){if(Number(x?.gmTs||0)<260125||!settlementAllowed(x)||r561Gone(x)||x.hit!==false)continue;rows.set(String(x.gmTs)+':'+x.no,{...x});}
 for(const m of state?.markets||[]){if(Number(m?.gmTs||0)<260125||!m.resultFinal||!m.marked||!m.representativeSelected||m.hit!==false||!settlementAllowed(m)||r561Gone(m))continue;const r=compactSettlementResult(m);try{r.alts=r653Alts(state,m);}catch(_){}rows.set(String(m.gmTs)+':'+m.no,r);}
-const list=[...rows.values()].map(x=>{const causes=Array.isArray(x.causes)&&x.causes.length?x.causes:(r650Causes(x)||[]);return {gmTs:x.gmTs,no:x.no,date:x.date,time:x.time,sport:x.sport,league:x.league,home:x.home,away:x.away,fam:x.marketFamily,line:x.line,pick:x.pick,odds:x.odds,grade:x.displayGrade,score:x.score,causes,warn:x.warn||null,alts:(x.alts||[]).filter(a=>a.odds),lesson:r653Lesson({causes})};})
+const list=[...rows.values()].map(x=>{const causes=r650Merge(x);return {gmTs:x.gmTs,no:x.no,date:x.date,time:x.time,sport:x.sport,league:x.league,home:x.home,away:x.away,fam:x.marketFamily,line:x.line,pick:x.pick,odds:x.odds,grade:x.displayGrade,score:x.score,causes,warn:x.warn||null,alts:(x.alts||[]).filter(a=>a.odds),lesson:r653Lesson({causes})};})
 .sort((a,b)=>String(b.date+b.time).localeCompare(String(a.date+a.time))).slice(0,80);
 const recN=list.filter(x=>x.grade==='추천'||x.grade==='가장추천').length;return {from:'125회',n:list.length,recN,list};}
 function r650Summary(state){const rows=new Map();for(const x of state?.settlementLedger||[]){if(Number(x?.gmTs||0)<260125||!settlementAllowed(x)||r561Gone(x)||x.hit!==false)continue;rows.set(String(x.gmTs)+':'+x.no,x);}
 for(const m of state?.markets||[]){if(Number(m?.gmTs||0)<260125||!m.resultFinal||!m.marked||!m.representativeSelected||m.hit!==false||!settlementAllowed(m)||r561Gone(m))continue;rows.set(String(m.gmTs)+':'+m.no,compactSettlementResult(m));}
-const mk=()=>({n:0,c:{}}),rec=mk(),all=mk();for(const x of rows.values()){const cs=Array.isArray(x.causes)&&x.causes.length?x.causes:(r650Causes(x)||[]);for(const t of [all,...((x.displayGrade==='추천'||x.displayGrade==='가장추천')?[rec]:[])]){t.n++;for(const c of cs)t.c[c]=(t.c[c]||0)+1;}}
+const mk=()=>({n:0,c:{}}),rec=mk(),all=mk();for(const x of rows.values()){const cs=r650Merge(x);for(const t of [all,...((x.displayGrade==='추천'||x.displayGrade==='가장추천')?[rec]:[])]){t.n++;for(const c of cs)t.c[c]=(t.c[c]||0)+1;}}
 const list=t=>Object.entries(t.c).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({cause:k,n:v,pct:r3(v/t.n*100)}));return {from:'125회',rec:{n:rec.n,list:list(rec)},all:{n:all.n,list:list(all)}};}
 function compactSettlementResult(m){
 return {gmTs:String(m?.gmTs||''),no:m?.no??null,date:String(m?.date||''),time:String(m?.time||''),sport:String(m?.sport||''),league:String(m?.league||''),home:String(m?.home||''),away:String(m?.away||''),game:String(m?.game||`${m?.home||''} vs ${m?.away||''}`),market:String(m?.market||''),marketFamily:String(m?.marketFamily||''),line:num(m?.line),handicapEffectiveLine:num(m?.handicapEffectiveLine)??(m?.marketFamily==='HANDICAP'?handicapEffectiveLine(m,m?.finalPick??m?.pick):null),pick:m?.finalPick??m?.pick??null,odds:num(m?.finalOdds??m?.odds),displayGrade:String(m?.displayGrade||'일반'),result:m?.result??null,settlementStatus:m?.settlementStatus??(m?.hit===true?'적중':m?.hit===false?'낙첨':null),hit:typeof m?.hit==='boolean'?m.hit:null,score:m?.resultScoreText??m?.score??null,resultVerifiedAt:m?.resultVerifiedAt??null,resultPublishedAt:m?.resultPublishedAt??null,resultSource:m?.resultSource??null,settlementType:m?.settlementType??null,resultSpecialStatus:m?.resultSpecialStatus??null,manualVoidAt:m?.manualVoidAt??null,causes:(()=>{try{return r650Causes(m);}catch(_){return null;}})(),warn:(()=>{try{return r653Warn(m);}catch(_){return null;}})(),resultFinal:true};
