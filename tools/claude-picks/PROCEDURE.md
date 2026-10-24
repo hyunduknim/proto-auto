@@ -45,8 +45,13 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
      - A huge gap between the overseas probability and Betman's odds (10%p or more) is treated as stale or mismatched
        data, not value: skip the game. Orlando +2.5 at "60%" lost by 22.
      - No 일반승 when the winning probability is below 60%.
-     - Early season, Betman's totals lines run high: 5 of the six 08:00 games went under by 10–28 points. Avoid 오버;
-       take 언더 only with support from the efficiency projection.
+     - Early-season NBA totals swing both ways (owner: "오버쪽도 심심치 않게 나옴"). On 10/24 five games went under by 10–28
+       points, while 밀워키-시카고 went to 257 and 마이애미-디트로이트 to 239. Opening-week totals ranged from 180 to 257.
+       Use no direction bias. Pick a total, 오버 or 언더, only when:
+       - the efficiency projection (pace × ORtg/DRtg) is 6+ points away from the line;
+       - both teams' recent game totals point the same way;
+       - absences don't contradict it (a scorer Out → lean under, weak defenders Out → lean over).
+       Otherwise skip the total.
      - Until the record improves, at most 2–3 NBA picks a day.
    - Optionally add 1–2 two-leg combos from the picks.
 6. Write the post (`post.json`) in Korean:
