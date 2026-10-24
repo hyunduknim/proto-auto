@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R670-CLAUDE-SETTLE-FIX";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R671-ORPHAN-MARKED-FIX";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5096,7 +5096,7 @@ const pw=(m,l)=>{const cs=validChoices(m);const inv=cs.reduce((a,c)=>a+1/Number(
 /* R660: owner "12번 밀워키 템파베이 배당 있는데 안 나와" — the secondary page also lists Betman's hidden part-game markets (5이닝 핸디/언오버,
    #18/#19) which came in as full-game markets; the 5-inning total won the pick, failed the wild guard and the whole game was left
    unmarked. In a game Betman itself lists, a market Betman never sent (no oddsLastSeenAt) is reference only. */
-for(const ms of by.values()){const off=ms.some(m=>!!m.oddsLastSeenAt);for(const m of ms){const orphan=off&&m.source==="ZENTOTO_PUBLIC_PREGAME_HTML"&&!m.oddsLastSeenAt&&!m.resultFinal&&!m.marked;if(orphan)m.r660Orphan=true;else if(m.r660Orphan&&m.oddsLastSeenAt)delete m.r660Orphan;}}
+for(const ms of by.values()){const off=ms.some(m=>!!m.oddsLastSeenAt);for(const m of ms){const orphan=off&&m.source==="ZENTOTO_PUBLIC_PREGAME_HTML"&&!m.oddsLastSeenAt&&!m.resultFinal&&!m.manualOverride&&(!m.marked||!started(m));/* R671: also when already marked before kick-off (K리그 "언더 1.5" part-game markets marked on 10-22, before R660) */if(orphan)m.r660Orphan=true;else if(m.r660Orphan&&m.oddsLastSeenAt)delete m.r660Orphan;}}
 for(const ms of by.values()){const ml=ms.find(m=>m.marketFamily==="MONEYLINE"&&validChoices(m).length>=2);const pm=ml?pw(ml,"승"):null;
 for(const m of ms){if(m.marketFamily!=="HANDICAP"||m.source!=="ZENTOTO_PUBLIC_PREGAME_HTML")continue;const L=Number(m.line),ph=pw(m,"승");
 let b=false;if(pm!=null&&ph!=null&&Number.isFinite(L)&&L!==0)b=L>0?ph<pm-.03:ph>pm+.03;m.r602Bad=b||undefined;if(b)bad++;}}
