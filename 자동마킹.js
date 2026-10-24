@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R686B-RULES-FINAL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R687-PLUS-CAP-3";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4431,17 +4431,17 @@ const p0=Number(m.hitProbability??m.calibratedProbability),p=Number.isFinite(p0)
 if(n)state.r600Audit={at:nowIso(),cleared:n};return n;}
 /* R611 (round 126+), owner: "추천경기 플러스 핸디캡 3회 이상 금지" — at most 2 plus-handicap 추천 per game day.
    Excess ones — weakest first — are switched to the same game's 일반승/언오버 (58%+, R588) or, failing that, taken out of 추천
-   with the reason "플핸 하루 2경기 제한" shown on the card. */
-const R611={from:260126,maxPerDay:2};
+   with the reason "플핸 하루 3경기 제한" shown on the card. */
+const R611={from:260126,maxPerDay:3};/* R687 owner: "한개는 박하다 3개까지는 인정" -> 플핸 추천(가장추천 포함) 하루 3개까지, 가장추천 플핸 별도 제한 없음 */
 function r611Plus(m){const pk=m?.r619Lock?.pick||m?.finalPick;return m?.marketFamily==="HANDICAP"&&Number(handicapEffectiveLine(m,pk))>0;}
 function r611CapPlus(state){let sw=0,cut=0;/* R684: locked / started 추천 count too (their grade is only restored later by r619Lock, so the cap never saw them and a day ended with 3+ 플핸) */const isRec=m=>m.marked&&m.representativeSelected&&(m.displayGrade==="추천"||m.displayGrade==="가장추천"||(m.r619Lock&&(m.r619Lock.grade==="추천"||m.r619Lock.grade==="가장추천")));
 for(let g=0;g<80;g++){const by=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R611.from||!isRec(m)||!r611Plus(m))continue;if(!by.has(m.date))by.set(m.date,[]);by.get(m.date).push(m);}
 let target=null;for(const ms of by.values()){if(ms.length<=R611.maxPerDay)continue;const free=ms.filter(m=>!started(m)&&!m.manualOverride&&!m.r619Lock&&(m.displayGrade==="추천"||m.displayGrade==="가장추천")).sort((a,b)=>Number(a.r554?.ps||0)-Number(b.r554?.ps||0));if(free.length){target=free[0];break;}
 /* R684b: if only locked-but-not-started ones are left, the latest kick-off loses its 추천 (lock kept, grade 일반) */
-const lk=ms.filter(m=>!started(m)&&!m.manualOverride&&m.r619Lock&&m.r619Lock.grade!=="일반").sort((a,b)=>(gameTimeMs(b)||0)-(gameTimeMs(a)||0));if(lk.length){const m=lk[0],at=nowIso();r652Note(state,m,'플핸 하루 2경기');m.r619Lock={...m.r619Lock,grade:"일반"};m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 2경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 2경기 제한"};m.r611Cut={at,locked:true};cut++;target="again";break;}}
+const lk=ms.filter(m=>!started(m)&&!m.manualOverride&&m.r619Lock&&m.r619Lock.grade!=="일반").sort((a,b)=>(gameTimeMs(b)||0)-(gameTimeMs(a)||0));if(lk.length){const m=lk[0],at=nowIso();r652Note(state,m,'플핸 하루 3경기');m.r619Lock={...m.r619Lock,grade:"일반"};m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 3경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 3경기 제한"};m.r611Cut={at,locked:true};cut++;target="again";break;}}
 if(target==="again")continue;
-if(!target)break;r652Note(state,target,'플핸 하루 2경기');if(r588Try(state,target,["MONEYLINE","TOTAL"])){sw++;continue;}
-const at=nowIso(),m=target;m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 2경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 2경기 제한"};m.r611Cut={at};cut++;}
+if(!target)break;r652Note(state,target,'플핸 하루 3경기');if(r588Try(state,target,["MONEYLINE","TOTAL"])){sw++;continue;}
+const at=nowIso(),m=target;m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 3경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 3경기 제한"};m.r611Cut={at};cut++;}
 if(sw||cut)state.r611Audit={at:nowIso(),swapped:sw,cut};return sw+cut;}
 /* R685 (owner: "가장추천이 플핸이 많았네 6경기중 4경기가 플핸"): plus handicaps carry the highest probabilities at ~1.33, so they kept
    winning 가장추천. At most 1 plus handicap 가장추천 per game day; extra ones (weakest first, not started) stay 추천. */
@@ -5206,7 +5206,6 @@ try{r642Apply(state);}catch(_){}
 try{r596Total(state);}catch(_){}
 try{r596Best(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
-try{r685BestMix(state);}catch(_){}
 try{r619Lock(state);}catch(_){}
 try{r643Apply(state);}catch(_){}
 try{r644Apply(state);}catch(_){}
@@ -5214,7 +5213,6 @@ try{r649Apply(state);}catch(_){}
 try{r663Apply(state);}catch(_){}
 try{r651Apply(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
-try{r685BestMix(state);}catch(_){}
 }
 function markState(state){
 try{r602FlagLines(state);}catch(_){}
