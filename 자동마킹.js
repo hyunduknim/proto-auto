@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R681-BET-LIMITS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R682-TG-RESULTS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -13235,15 +13235,21 @@ const reps=(st.markets||[]).filter(m=>currentRoundMarket(m,st)&&m.marked&&m.repr
    (가장추천 shown with 🔥), and if that game's pick is changed or withdrawn before kick-off a single correction follows. */
 const best=[],pre=[],res=[],chg=[];sent.preInfo=sent.preInfo||{};sent.chg=sent.chg||{};const gk=m=>String(m.gmTs)+"|"+gameSeed(m);
 for(const m of reps){const k=r554LegKey(m),t=gameTimeMs(m);if(t==null)continue;const g=gk(m);
-if(t>now&&t-now<=R569.preMs&&!sent.pre[g]&&!sent.pre[k]){pre.push(m);sent.pre[g]=now;sent.preInfo[g]={no:m.no,pick:String(m.finalPick||""),grade:r569Grade(m),t};}
+/* R682: a pick must look the same on two ticks at least 2 minutes apart before its 1-hour alert (grades that flipped for one
+   cycle sent "확정" and then "추천에서 빠짐" a minute later) */
+sent.cand=sent.cand||{};
+if(t>now&&t-now<=R569.preMs&&!sent.pre[g]&&!sent.pre[k]){const cd=sent.cand[g],sig=String(m.no)+"|"+String(m.finalPick||"")+"|"+r569Grade(m);if(!cd||cd.sig!==sig){sent.cand[g]={sig,at:now};}else if(now-Number(cd.at)>=120000||t-now<=10*60000){pre.push(m);sent.pre[g]=now;sent.preInfo[g]={no:m.no,pick:String(m.finalPick||""),grade:r569Grade(m),t};delete sent.cand[g];}}
 if(m.resultFinal&&(typeof m.hit==="boolean"||m.settlementStatus==="적특")&&!sent.res[k]){sent.res[k]=now;if(t>=Number(cfg.setAt||0))res.push(m);}}
+/* R682: a game that got its 1-hour alert always gets its result, even if its grade dropped afterwards */
+for(const [g,info] of Object.entries(sent.preInfo)){if(!info)continue;const m=(st.markets||[]).find(x=>gk(x)===g&&x.marked&&x.representativeSelected&&x.resultFinal&&(typeof x.hit==="boolean"||x.settlementStatus==="적특"));if(!m)continue;const k=r554LegKey(m);if(sent.res[k]||reps.includes(m))continue;sent.res[k]=now;m.r682Was=true;res.push(m);}
+for(const [g,v] of Object.entries(sent.cand))if(now-Number(v.at)>3*3600000)delete sent.cand[g];
 for(const [g,info] of Object.entries(sent.preInfo)){if(!info||Number(info.t)<=now||sent.chg[g])continue;const cur=reps.find(x=>gk(x)===g);if(cur&&String(cur.no)===String(info.no)&&String(cur.finalPick||"")===info.pick)continue;
 const any=(st.markets||[]).find(x=>gk(x)===g&&x.marked&&x.representativeSelected)||(st.markets||[]).find(x=>gk(x)===g);if(!any)continue;sent.chg[g]=now;chg.push({m:cur||any,was:info,off:!cur,why:String((any.r554&&any.r554.why)||"")});}
 const sort=a=>a.sort((x,y)=>gameTimeMs(x)-gameTimeMs(y));const out=[];
 const undo=[];
 if(chg.length)undo[out.length]=()=>{for(const c of chg)delete sent.chg[gk(c.m)];};if(chg.length)out.push("🔄 <b>추천 변경</b>\n"+chg.map(c=>c.off?"⛔ #"+r569Esc(c.m.no)+" "+r569Esc(r569N(c.m.home))+" vs "+r569Esc(r569N(c.m.away))+" · 추천에서 빠짐"+(c.why?" ("+r569Esc(c.why)+")":""):r569Line(c.m)+"\n   (먼저 보낸 픽에서 바뀜)").join("\n"));
 if(pre.length)undo[out.length]=()=>{for(const m of pre){delete sent.pre[gk(m)];delete sent.preInfo[gk(m)];}};if(pre.length)out.push("⏰ <b>1시간 안에 시작 · 확정</b>\n"+sort(pre).map(r569Line).join("\n"));
-if(res.length)undo[out.length]=()=>{for(const m of res)delete sent.res[r554LegKey(m)];};if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" #"+r569Esc(m.no)+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+((m.score||m.resultScoreText)?" ("+r569Esc(m.marketFamily==="TOTAL"&&/^\d+:0$/.test(String(m.score||m.resultScoreText))?"합계 "+String(m.score||m.resultScoreText).split(":")[0]:(m.score||m.resultScoreText))+")":"")+" · "+r569Esc(r569Pick(m))).join("\n")+(()=>{const d=reps.filter(x=>x.resultFinal&&typeof x.hit==="boolean");const h=d.filter(x=>x.hit).length;return d.length?"\n\n📊 "+r569Esc(String(st.gmTs||"").slice(-3))+"회 누적: ⭕ "+h+"적중 · ❌ "+(d.length-h)+"낙첨 ("+Math.round(h/d.length*100)+"%)":"";})());
+if(res.length)undo[out.length]=()=>{for(const m of res)delete sent.res[r554LegKey(m)];};if(res.length)out.push("📋 <b>결과</b>\n"+sort(res).map(m=>(m.settlementStatus==="적특"?"➖ 적특":m.hit?"⭕ 적중":"❌ 낙첨")+" #"+r569Esc(m.no)+" "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+(()=>{const sc=String(m.score||m.resultScoreText||"");if(!sc)return "";if(m.marketFamily==="TOTAL"){const t=sc.match(/^(\d+):0$/);if(t&&Number(t[1])>0)return " (합계 "+r569Esc(t[1])+")";const p=sc.match(/^(\d+):(\d+)$/);return p&&!/^0:0$/.test(sc)?" ("+r569Esc(sc)+")":"";}return " ("+r569Esc(sc)+")";})()+" · "+r569Esc(r569Pick(m))+(m.r682Was?" <i>(알림 후 추천에서 빠진 경기)</i>":"")).join("\n")+(()=>{const d=reps.filter(x=>x.resultFinal&&typeof x.hit==="boolean");const h=d.filter(x=>x.hit).length;return d.length?"\n\n📊 "+r569Esc(String(st.gmTs||"").slice(-3))+"회 누적: ⭕ "+h+"적중 · ❌ "+(d.length-h)+"낙첨 ("+Math.round(h/d.length*100)+"%)":"";})());
 /* R659: a message that fails to send is retried next round instead of being marked as sent (낙첨 notices could vanish this way) */
 sent.log=sent.log||[];for(let oi=0;oi<out.length;oi++){const text=out[oi];let ok=true,err=null;try{await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text,disable_web_page_preview:true});}catch(e){ok=false;err=String(e&&e.message||e).slice(0,120);try{undo[oi]&&undo[oi]();}catch(_){}}sent.log.push({at:new Date(now).toISOString(),ok,err,text:String(text).slice(0,700)});}if(sent.log.length>30)sent.log.splice(0,sent.log.length-30);
 for(const g of ["best","pre","res","chg"])for(const [k,v] of Object.entries(sent[g]||{}))if(now-Number(v)>6*86400000)delete sent[g][k];for(const [k,v] of Object.entries(sent.preInfo))if(!v||now-Number(v.t)>2*86400000)delete sent.preInfo[k];

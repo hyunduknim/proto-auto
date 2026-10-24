@@ -26,7 +26,9 @@ c.MS=[{gmTs:'260124',no:1,marked:true,representativeSelected:true,displayGrade:'
 {gmTs:'260124',no:3,marked:true,representativeSelected:true,displayGrade:'추천',home:'C',away:'D',pick:'패',marketFamily:'MONEYLINE',finalOdds:1.5,date:p.toISOString().slice(0,10),time:p.toISOString().slice(11,16),resultFinal:true,hit:true,score:'0:2'}];
 run('MEM.state={gmTs:"260124",markets:MS};store=null');
 const cfg=store.get('r569:tg');cfg.setAt=now-5*3600000;run('MEM.r569Cfg=null;MEM.r569Cfg=undefined');store.set('r569:tg',cfg);
-calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(r.status,'OK',JSON.stringify(r));
+calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage'&&/1시간 안에/.test(x.body.text)).length,0,'R682: first sighting only arms the alert');
+run('for(const v of Object.values(MEM.r569Sent.cand||{}))v.at-=200000');
+const first=calls.slice();calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');calls.unshift(...first);assert.equal(r.status,'OK',JSON.stringify(r));
 const texts=calls.filter(x=>x.m==='sendMessage').map(x=>x.body.text).join('\n---\n');
 assert.equal(/새 가장추천/.test(texts),false,'no early 가장추천 alert');assert.equal((texts.match(/아스널 vs 첼시/g)||[]).length,1,'one alert per game');assert.match(texts,/🔥 <b>/);assert.match(texts,/1시간 안에 시작/);assert.match(texts,/⭕ 적중 #3 C vs D/);assert.match(texts,/124회 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.equal(/A vs B/.test(texts),false,'일반 never alerted');
 calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage').length,0,'no duplicates');
