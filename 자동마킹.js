@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R685-BEST-MIX";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R686-RULES-CHAIN";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5193,6 +5193,27 @@ for(const ms of by.values()){const ml=ms.find(m=>m.marketFamily==="MONEYLINE"&&v
 for(const m of ms){if(m.marketFamily!=="HANDICAP"||m.source!=="ZENTOTO_PUBLIC_PREGAME_HTML")continue;const L=Number(m.line),ph=pw(m,"승");
 let b=false;if(pm!=null&&ph!=null&&Number.isFinite(L)&&L!==0)b=L>0?ph<pm-.03:ph>pm+.03;m.r602Bad=b||undefined;if(b)bad++;}}
 state.r602Audit={at:nowIso(),badLines:bad};return bad;}
+/* R686: the grade rules after r554Apply as one chain. r553Step re-ran r554Apply alone right after every restart, which brought
+   back the 추천 / 가장추천 the later rules (플핸 caps, 무승부, 모델, 유럽대항전 …) had removed until the next full markState. */
+function r686Rules(state){
+try{r554Apply(state);}catch(_){}
+try{if(r582KeepRec(state)>0)r554Apply(state);}catch(_){}
+try{r588Balance(state);}catch(_){}
+try{r611CapPlus(state);}catch(_){}
+try{r645Apply(state);}catch(_){}
+try{r648Apply(state);}catch(_){}
+try{r642Apply(state);}catch(_){}
+try{r596Total(state);}catch(_){}
+try{r596Best(state);}catch(_){}
+try{r611CapPlus(state);}catch(_){}
+try{r685BestMix(state);}catch(_){}
+try{r619Lock(state);}catch(_){}
+try{r643Apply(state);}catch(_){}
+try{r644Apply(state);}catch(_){}
+try{r649Apply(state);}catch(_){}
+try{r663Apply(state);}catch(_){}
+try{r651Apply(state);}catch(_){}
+}
 function markState(state){
 try{r602FlagLines(state);}catch(_){}
 r498WithdrawTwo(state);
@@ -5232,23 +5253,7 @@ m.r480Recommendation={model:"R490_4AXIS_INTEGRATED",grade:m.displayGrade||"일�
 }
 }
 try{r600NoLongshot(state);}catch(_){}
-try{r554Apply(state);}catch(_){}
-try{if(r582KeepRec(state)>0)r554Apply(state);}catch(_){}
-try{r588Balance(state);}catch(_){}
-try{r611CapPlus(state);}catch(_){}
-try{r645Apply(state);}catch(_){}
-try{r648Apply(state);}catch(_){}
-try{r642Apply(state);}catch(_){}
-try{r596Total(state);}catch(_){}
-try{r596Best(state);}catch(_){}
-try{r611CapPlus(state);}catch(_){}
-try{r685BestMix(state);}catch(_){}
-try{r619Lock(state);}catch(_){}
-try{r643Apply(state);}catch(_){}
-try{r644Apply(state);}catch(_){}
-try{r649Apply(state);}catch(_){}
-try{r663Apply(state);}catch(_){}
-try{r651Apply(state);}catch(_){}
+r686Rules(state);
 try{r617Step(state);}catch(_){}
 try{r645Step(state);}catch(_){}
 try{r652Step(state);}catch(_){}
@@ -15280,7 +15285,7 @@ async function r553Fetch(url){const ac=new AbortController(),tm=setTimeout(()=>a
 if(!r.ok)return null;return await r.text();}catch(_){return null;}finally{clearTimeout(tm);}}
 async function r553Step(state,now=Date.now()){const ds=doStorage();if(!ds)return {status:"NO_STORAGE"};const fresh=!MEM.r553;
 const st=MEM.r553||(MEM.r553=(await ds.get("r553:hist"))||{done:{},buckets:{},pattern:null,games:0,rounds:0,fails:{}});
-if(fresh&&state&&typeof state==="object"){try{r554Apply(state);}catch(_){}}
+if(fresh&&state&&typeof state==="object"){try{r686Rules(state);}catch(_){}}
 if(now-Number(st.at||0)<R553.gapMs)return {status:"WAIT"};st.at=now;
 const cur=Number(state?.gmTs||0);if(!cur)return {status:"NO_ROUND"};let target=null;
 for(let r=cur-1;r>=R553.firstRound;r--){if(!st.done[r]&&Number(st.fails[r]||0)<3){target=r;break;}}
