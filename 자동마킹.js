@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R688-BETS-INPUT-FIX";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R689-CLAUDE-ARCHIVE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4544,7 +4544,7 @@ return {...c,recent:L.slice(-20).reverse().map(x=>({status:x.status,home:x.home,
 const R662={url:'https://raw.githubusercontent.com/hyunduknim/proto-auto/claude-picks/picks.json',tickMs:5*60000,maxPosts:40};
 function r662Str(x,n){return String(x==null?'':x).replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,n);}
 function r662Clean(j){const arr=(x,n)=>Array.isArray(x)?x.slice(0,n):[];
-return arr(j?.posts,R662.maxPosts).map(p=>({id:r662Str(p?.id,40),kind:r662Str(p?.kind,12),title:r662Str(p?.title,120),at:r662Str(p?.at,40),intro:r662Str(p?.intro,800),
+return arr(j?.posts,R662.maxPosts).map(p=>({id:r662Str(p?.id,40),kind:r662Str(p?.kind,12),archived:p?.archived===true,title:r662Str(p?.title,120),at:r662Str(p?.at,40),intro:r662Str(p?.intro,800),
 groups:arr(p?.groups,8).map(g=>({name:r662Str(g?.name,30),note:r662Str(g?.note,160),picks:arr(g?.picks,20).map(x=>({gmTs:r662Str(x?.gmTs,8),no:Number(x?.no)||null,pick:r662Str(x?.pick,4),label:r662Str(x?.label,60),odds:Number(x?.odds)>1?Math.round(Number(x.odds)*100)/100:null,why:r662Str(x?.why,400)})).filter(x=>x.no>0&&/^\d{6}$/.test(x.gmTs)&&['승','무','패','오버','언더'].includes(x.pick))})).filter(g=>g.picks.length),
 combos:arr(p?.combos,6).map(c=>({name:r662Str(c?.name,30),gmTs:r662Str(c?.gmTs,8),nos:arr(c?.nos,4).map(Number).filter(n=>n>0),odds:Number(c?.odds)>1?Math.round(Number(c.odds)*100)/100:null})).filter(c=>c.nos.length>=2),
 cautions:arr(p?.cautions,16).map(x=>r662Str(x,300)).filter(Boolean),passes:arr(p?.passes,10).map(x=>r662Str(x,300)).filter(Boolean)})).filter(p=>p.id&&(p.groups.length||p.cautions.length||p.passes.length));}
@@ -10636,7 +10636,7 @@ const s=box&&box.sum;const done=s?(s.hit||0)+(s.miss||0):0;
 let h='<div class="r617Hd"><b>🤖 클로드추천</b><small>사이트 자동 분석과 별개로 Claude가 매일 직접 분석한 픽 · 해외 배당 · 예측 사이트 · 주중 일정 피로 · 결장 정보 · 경기가 끝나면 자동 정산</small>'+
 '<div class="r617T">클로드추천 성적 <b>'+e(s?s.hit:0)+'적중 '+e(s?s.miss:0)+'낙첨</b>'+(done?' ('+Math.round((s.hit||0)*100/done)+'%)':'')+(s&&s.roi!=null?' · 수익률 '+(s.roi>0?'+':'')+e(s.roi)+'%':'')+(s&&s.void?' · 적특 '+e(s.void):'')+'</div>'+
 (s&&s.byG&&s.byG.length?'<div class="r662By">'+s.byG.map(g=>'<span>'+e(g.name)+' <b>'+e(g.hit)+'/'+e(g.n)+'</b>'+(g.roi!=null?' · '+(g.roi>0?'+':'')+e(g.roi)+'%':'')+'</span>').join('')+'</div>':'')+'</div>';
-const posts=(box&&box.posts)||[];if(!posts.length)return h+'<div class="pastEmpty">아직 올라온 클로드추천이 없습니다. 매일 분석이 끝나면 여기에 올라옵니다.</div>';
+const allPosts=(box&&box.posts)||[],posts=allPosts.filter(p=>!p.archived),arch=allPosts.length-posts.length;if(arch)h+='<div class="r662Lg">지난 분석 '+arch+'개는 목록에서 내렸습니다 · 성적에는 그대로 포함</div>';if(!posts.length)return h+'<div class="pastEmpty">아직 올라온 클로드추천이 없습니다. 매일 분석이 끝나면 여기에 올라옵니다.</div>';
 const leg=x=>{const nm=x.home?r560N(x.home)+' vs '+r560N(x.away):(x.label||'');const when=x.date?String(x.date).slice(5)+' '+String(x.time||'').slice(0,5):'';const fin=x.st==='hit'||x.st==='miss'||x.st==='void';
 const sc=fin&&x.score?(x.fam==='TOTAL'&&/^\\d+:0$/.test(String(x.score))?'합계 '+String(x.score).split(':')[0]:String(x.score)):'';const od=(x.odds?Number(x.odds).toFixed(2)+'배':'')+(x.cur&&x.odds&&Math.abs(Number(x.cur)-Number(x.odds))>=.02&&!fin?' → 지금 '+Number(x.cur).toFixed(2):'');
 return '<div class="r662L '+e(x.st)+'"><span class="i">'+(ic[x.st]||'·')+'</span><div class="g"><div class="r662P"><b>'+e(r662Pk(x))+'</b><span>'+e(od)+'</span></div><div class="r662N">'+(x.gi!=null&&x.multi?'<span class="r662Tg t'+x.gi+'">'+e(x.gname)+'</span> ':'')+e(nm)+'</div><small>#'+e(x.no)+(when?' · '+e(when):'')+(x.league?' · '+e(x.league):'')+(sc?' · 결과 '+e(sc):'')+'</small>'+(x.why?'<div class="r662W">'+e(x.why)+'</div>':'')+(x.rv?'<div class="r662Rv">📝 복기: '+e(x.rv)+'</div>':'')+'</div></div>'};
