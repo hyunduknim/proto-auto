@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R684-PLUS-CAP-LOCKED";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R684B-PLUS-CAP-FINAL";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4436,7 +4436,10 @@ const R611={from:260126,maxPerDay:2};
 function r611Plus(m){const pk=m?.r619Lock?.pick||m?.finalPick;return m?.marketFamily==="HANDICAP"&&Number(handicapEffectiveLine(m,pk))>0;}
 function r611CapPlus(state){let sw=0,cut=0;/* R684: locked / started 추천 count too (their grade is only restored later by r619Lock, so the cap never saw them and a day ended with 3+ 플핸) */const isRec=m=>m.marked&&m.representativeSelected&&(m.displayGrade==="추천"||m.displayGrade==="가장추천"||(m.r619Lock&&(m.r619Lock.grade==="추천"||m.r619Lock.grade==="가장추천")));
 for(let g=0;g<80;g++){const by=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R611.from||m.resultFinal||!isRec(m)||!r611Plus(m))continue;if(!by.has(m.date))by.set(m.date,[]);by.get(m.date).push(m);}
-let target=null;for(const ms of by.values()){if(ms.length<=R611.maxPerDay)continue;const free=ms.filter(m=>!started(m)&&!m.manualOverride&&!m.r619Lock&&(m.displayGrade==="추천"||m.displayGrade==="가장추천")).sort((a,b)=>Number(a.r554?.ps||0)-Number(b.r554?.ps||0));if(free.length){target=free[0];break;}}
+let target=null;for(const ms of by.values()){if(ms.length<=R611.maxPerDay)continue;const free=ms.filter(m=>!started(m)&&!m.manualOverride&&!m.r619Lock&&(m.displayGrade==="추천"||m.displayGrade==="가장추천")).sort((a,b)=>Number(a.r554?.ps||0)-Number(b.r554?.ps||0));if(free.length){target=free[0];break;}
+/* R684b: if only locked-but-not-started ones are left, the latest kick-off loses its 추천 (lock kept, grade 일반) */
+const lk=ms.filter(m=>!started(m)&&!m.manualOverride&&m.r619Lock&&m.r619Lock.grade!=="일반").sort((a,b)=>(gameTimeMs(b)||0)-(gameTimeMs(a)||0));if(lk.length){const m=lk[0],at=nowIso();r652Note(state,m,'플핸 하루 2경기');m.r619Lock={...m.r619Lock,grade:"일반"};m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 2경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 2경기 제한"};m.r611Cut={at,locked:true};cut++;target="again";break;}}
+if(target==="again")continue;
 if(!target)break;r652Note(state,target,'플핸 하루 2경기');if(r588Try(state,target,["MONEYLINE","TOTAL"])){sw++;continue;}
 const at=nowIso(),m=target;m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 2경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 2경기 제한"};m.r611Cut={at};cut++;}
 if(sw||cut)state.r611Audit={at:nowIso(),swapped:sw,cut};return sw+cut;}
@@ -5231,6 +5234,7 @@ try{r648Apply(state);}catch(_){}
 try{r642Apply(state);}catch(_){}
 try{r596Total(state);}catch(_){}
 try{r596Best(state);}catch(_){}
+try{r611CapPlus(state);}catch(_){}
 try{r619Lock(state);}catch(_){}
 try{r643Apply(state);}catch(_){}
 try{r644Apply(state);}catch(_){}
