@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R686-RULES-CHAIN";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R686B-RULES-FINAL";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4435,7 +4435,7 @@ if(n)state.r600Audit={at:nowIso(),cleared:n};return n;}
 const R611={from:260126,maxPerDay:2};
 function r611Plus(m){const pk=m?.r619Lock?.pick||m?.finalPick;return m?.marketFamily==="HANDICAP"&&Number(handicapEffectiveLine(m,pk))>0;}
 function r611CapPlus(state){let sw=0,cut=0;/* R684: locked / started 추천 count too (their grade is only restored later by r619Lock, so the cap never saw them and a day ended with 3+ 플핸) */const isRec=m=>m.marked&&m.representativeSelected&&(m.displayGrade==="추천"||m.displayGrade==="가장추천"||(m.r619Lock&&(m.r619Lock.grade==="추천"||m.r619Lock.grade==="가장추천")));
-for(let g=0;g<80;g++){const by=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R611.from||m.resultFinal||!isRec(m)||!r611Plus(m))continue;if(!by.has(m.date))by.set(m.date,[]);by.get(m.date).push(m);}
+for(let g=0;g<80;g++){const by=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R611.from||!isRec(m)||!r611Plus(m))continue;if(!by.has(m.date))by.set(m.date,[]);by.get(m.date).push(m);}
 let target=null;for(const ms of by.values()){if(ms.length<=R611.maxPerDay)continue;const free=ms.filter(m=>!started(m)&&!m.manualOverride&&!m.r619Lock&&(m.displayGrade==="추천"||m.displayGrade==="가장추천")).sort((a,b)=>Number(a.r554?.ps||0)-Number(b.r554?.ps||0));if(free.length){target=free[0];break;}
 /* R684b: if only locked-but-not-started ones are left, the latest kick-off loses its 추천 (lock kept, grade 일반) */
 const lk=ms.filter(m=>!started(m)&&!m.manualOverride&&m.r619Lock&&m.r619Lock.grade!=="일반").sort((a,b)=>(gameTimeMs(b)||0)-(gameTimeMs(a)||0));if(lk.length){const m=lk[0],at=nowIso();r652Note(state,m,'플핸 하루 2경기');m.r619Lock={...m.r619Lock,grade:"일반"};m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 2경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 2경기 제한"};m.r611Cut={at,locked:true};cut++;target="again";break;}}
@@ -4445,9 +4445,9 @@ const at=nowIso(),m=target;m.displayGrade="일반";m.r554={...(m.r554||{}),selec
 if(sw||cut)state.r611Audit={at:nowIso(),swapped:sw,cut};return sw+cut;}
 /* R685 (owner: "가장추천이 플핸이 많았네 6경기중 4경기가 플핸"): plus handicaps carry the highest probabilities at ~1.33, so they kept
    winning 가장추천. At most 1 plus handicap 가장추천 per game day; extra ones (weakest first, not started) stay 추천. */
-function r685BestMix(state){let n=0;const isBest=m=>m.marked&&m.representativeSelected&&!m.resultFinal&&(m.displayGrade==="가장추천"||m.r619Lock?.grade==="가장추천");const by=new Map();
+function r685BestMix(state){let n=0;const isBest=m=>m.marked&&m.representativeSelected&&(m.displayGrade==="가장추천"||m.r619Lock?.grade==="가장추천");const by=new Map();
 for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R611.from||!isBest(m)||!r611Plus(m))continue;if(!by.has(m.date))by.set(m.date,[]);by.get(m.date).push(m);}
-for(const ms of by.values()){if(ms.length<=1)continue;const keep=ms.filter(m=>started(m)||m.manualOverride);const rest=ms.filter(m=>!started(m)&&!m.manualOverride).sort((a,b)=>Number(b.r554?.ps||0)-Number(a.r554?.ps||0));const allow=Math.max(0,1-keep.length);
+for(const ms of by.values()){if(ms.length<=1)continue;const keep=ms.filter(m=>started(m)||m.resultFinal||m.manualOverride);const rest=ms.filter(m=>!started(m)&&!m.resultFinal&&!m.manualOverride).sort((a,b)=>Number(b.r554?.ps||0)-Number(a.r554?.ps||0));const allow=Math.max(0,1-keep.length);
 for(const m of rest.slice(allow)){m.displayGrade="추천";if(m.r619Lock)m.r619Lock={...m.r619Lock,grade:"추천"};m.r685={at:nowIso()};n++;}}
 if(n)state.r685Audit={at:nowIso(),down:n};return n;}
 /* R642 (round 126+), from the 122~125 record (owner: "적중률을 올리는 방법?"):
@@ -5213,6 +5213,8 @@ try{r644Apply(state);}catch(_){}
 try{r649Apply(state);}catch(_){}
 try{r663Apply(state);}catch(_){}
 try{r651Apply(state);}catch(_){}
+try{r611CapPlus(state);}catch(_){}
+try{r685BestMix(state);}catch(_){}
 }
 function markState(state){
 try{r602FlagLines(state);}catch(_){}
