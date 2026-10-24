@@ -11,4 +11,7 @@ const A=JSON.parse(run('JSON.stringify(cnt(A=mk("260126",[{h:.70,ml:.60},{h:.71,
 assert.equal(A.plus,2,'at most 2 plus handicaps per day: '+JSON.stringify(A));assert.equal(A.ml,1,'one switched to 일반승');
 assert.ok(run('A.markets.some(m=>m.r611Cut&&m.r554.why==="플핸 하루 2경기 제한")'),'others taken out with a visible reason');
 const B=JSON.parse(run('JSON.stringify(cnt(mk("260125",[{h:.70,ml:.5},{h:.71,ml:.5},{h:.72,ml:.5},{h:.73,ml:.5},{h:.74,ml:.5}])))'));assert.equal(B.plus,5,'round 125 untouched by the cap');
+// R684: two locked (1-hour) plus handicaps already fill the day -> a third, unlocked one is cut
+run('C=createState();C.gmTs="260126";C.round=126;C.markets=[0,1,2].map(i=>({gmTs:"260126",sourceRound:126,date:"2099-01-02",time:String(10+i)+":00",sport:"축구",league:"L",home:"H"+i,away:"A"+i,no:100+i,marketFamily:"HANDICAP",line:1,choices:[{label:"승",odds:1.45},{label:"패",odds:2.4}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.45,displayGrade:i<2?"일반":"추천",r554:{ps:.7},r619Lock:i<2?{pick:"승",grade:"추천",at:"x"}:null}));r611CapPlus(C)');
+assert.equal(run('C.markets[2].displayGrade'),'일반','third plus handicap cut when two locked ones fill the day');assert.equal(run('C.markets[0].r619Lock.grade'),'추천','locked ones untouched');
 console.log('R611 plus-handicap cap OK');
