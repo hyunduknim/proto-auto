@@ -6,10 +6,13 @@ set -euo pipefail
 P=$(readlink -f "$1"); SL=$(readlink -f "$2"); H=$(cd "$(dirname "$0")" && pwd); W=$(mktemp -d)
 ORIGIN=$(cd "$H/../.." && git remote get-url origin)
 git clone -q --depth 1 -b claude-picks "$ORIGIN" "$W/b"
-node "$H/validate.cjs" "$P" "$SL" "$W/b/picks.json"
+# a file with only {"reviews":{...}} (no post id) just merges the reviews
+if node -e 'process.exit(require(process.argv[1]).id?0:1)' "$P"; then node "$H/validate.cjs" "$P" "$SL" "$W/b/picks.json"; fi
 node -e '
 const fs=require("fs");const [pf,cf]=process.argv.slice(1);const p=JSON.parse(fs.readFileSync(pf,"utf8"));const c=JSON.parse(fs.readFileSync(cf,"utf8"));
-c.posts=[p,...(c.posts||[]).filter(x=>x.id!==p.id)].sort((a,b)=>String(b.id).localeCompare(String(a.id))).slice(0,40);c.updatedAt=new Date().toISOString();
+if(p.reviews){c.reviews=Object.assign(c.reviews||{},p.reviews);delete p.reviews;}
+if(p.id){c.posts=[p,...(c.posts||[]).filter(x=>x.id!==p.id)]}
+c.posts=(c.posts||[]).sort((a,b)=>String(b.id).localeCompare(String(a.id))).slice(0,40);c.updatedAt=new Date().toISOString();
 fs.writeFileSync(cf,JSON.stringify(c,null,1)+"\n");' "$P" "$W/b/picks.json"
 cd "$W/b"; git add picks.json
 git -c user.name="Claude" -c user.email="noreply@anthropic.com" commit -qm "클로드추천: $(node -e 'console.log(require(process.argv[1]).title)' "$P")

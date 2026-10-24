@@ -22,6 +22,15 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
    - `site`: the site's own pick. `rest`: days since the last game (`r649`; under 3.5 = 휴식 부족). `inj`: NBA key players
      Out/doubtful. `rot`: missing regulars (only about 1 h before kick-off).
    - `rec`: the 클로드추천 record so far (`sum`) and recent settled picks. Read it: learn from the misses.
+2b. **낙첨 복기 first** (owner: "클로드추천을 낙첨복기로 참고하고 분발해야될듯").
+   - `rec.needReview` lists the 클로드추천 misses that have no review yet; `rec.recent` holds
+     `[post, group, label, odds, status, score, key, why, review]`.
+   - For each new miss, write one honest line that says what was missed and the lesson: the real cause (absence,
+     draw, a stale overseas probability, a blow-out, pure variance) and what to do differently.
+   - Put the lines in `post.json` as `"reviews": {"<key>": "…"}`. publish.sh merges them, and they show on the pick and
+     in the 🔁 복기 tab (🤖 클로드추천).
+   - With no new post, publish a file holding only `{"reviews": {...}}`.
+   - Read all reviews before picking, and don't repeat a pattern that keeps missing.
 3. Window: games starting between now+1 h and now+26 h that are not already picked in an earlier post (validate.cjs warns).
    Focus on EPL, 분데스, 라리가, 세리에A, 리그1, UCL/UEL/UECL, K리그, J리그, NBA, plus MLB/KBO postseason when listed.
 4. Evidence per candidate game:

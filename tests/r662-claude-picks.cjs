@@ -28,4 +28,7 @@ c.S2={gmTs:'260126',markets:[{...nb,no:80,marketFamily:'MONEYLINE',choices:[{lab
 run('r662Settle(S2)');assert.equal(run('S2.r662Res["260126:80:승"].st'),'live','total-only score must not settle 승패');assert.equal(run('S2.r662Res["260126:82:오버"].st'),'hit');
 run('S2.r651Ids={[r483FixtureKey(S2.markets[0])]:{home:"15",away:"4"}};S2.r651Games={g:{t:gameTimeMs(S2.markets[0])+600000,h:"15",a:"4",hs:125,as:132}};r662Settle(S2)');assert.equal(run('S2.r662Res["260126:80:승"].st'),'miss','ESPN final 125:132');
 run('delete S2.r662Res["260126:80:승"];S2.r662Off={"260126:80:승":{outcome:"패",score:"125:132"}};r662Settle(S2)');assert.equal(run('S2.r662Res["260126:80:승"].st'),'miss');assert.equal(run('S2.r662Res["260126:80:승"].src'),'official');
+// R673 reviews
+assert.equal(JSON.stringify(JSON.parse(run('JSON.stringify(r662CleanReviews({"260126:80:승":"  기디 출전, 4Q 붕괴 ","bad":"x","260126:1:XX":"y"}))'))),JSON.stringify({"260126:80:승":"기디 출전, 4Q 붕괴"}));
+run('S2.r662Reviews={"260126:80:승":"반반 경기를 일반승으로"}');const z2=run('r662Summary(S2)');assert.equal(z2.posts[0].groups[0].picks.find(x=>x.no===80).rv,'반반 경기를 일반승으로');
 console.log('R662 claude picks OK',JSON.stringify(sm.sum));
