@@ -81,6 +81,8 @@ for the early-morning games ("새벽에도 NBA 하는데"). Each run covers a ti
    - absences;
    - for totals, the site's efficiency projection (pace × ORtg/DRtg, shown as "효율 기준 예상" on the card).
 
+   **Read every candidate game's ESPN injuries first.** Never back a side whose key player is Out. (On 10/24 #92
+   골든스테이트 승 was picked although Butler, Porzingis and Moody were Out.)
    Put the type in the label: "[일반승] 골든스테이트 승", "[핸디] 올랜도 +2.5 승", "[언오버] 레이커스-클리퍼스 언더 228.5".
    Usually 3–6 picks, one per game; skip games with no edge. Groups are 안정형 and 가치형.
 4. Write a post with `"kind":"injury"`. The night run uses `"id":"YYYY-MM-DD-y-nba-injury"` and
