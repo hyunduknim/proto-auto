@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R682-TG-RESULTS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R683-REST-CHIP-SHORT";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -10439,7 +10439,7 @@ return '<div class="r645Hd"><b><svg class="r645Mu" viewBox="0 0 24 24" aria-hidd
 function r648Chip(m){const f=m&&m.r648;if(!f||m.marketFamily!=='HANDICAP')return '';const pk=String(m.pick||m.finalPick||'');const mp=Number(f[pk]);if(!isFinite(mp))return '';const ps=Number(m.r554&&m.r554.ps),bad=isFinite(ps)&&mp<ps-.08;const ln=Number(m.line),win=x=>(Math.floor(x)+1)+'골차 이상 승',loss=(t,x)=>{const k=Math.ceil(x)-1;return k<=0?t+' 무승부 이상':t+' '+k+'골차 패배까지'},need=pk==='승'?(ln<0?'홈 '+win(-ln):ln>0?loss('홈',ln):'홈 승'):pk==='패'?(ln>0?'원정 '+win(ln):ln<0?loss('원정',-ln):'원정 승'):'정확히 '+Math.abs(ln)+'골차';
 return '<div class="nForm"><em class="r648'+(bad?' bad':'')+'">📐 득점 모델 '+Math.round(mp*100)+'% · '+e(need)+(bad?' · 사이트 확률보다 낮음':'')+'</em></div>'}
 function r649Html(m){const f=m&&m.r649;if(!f)return '';const L=[['home',r560N(m.home)],['away',r560N(m.away)]].map(([sd,n])=>f[sd]?{n,d:Number(f[sd].days),c:f[sd].comp}:null);const short=L.filter(x=>x&&x.d<3.5);if(!short.length)return '';
-const other=L.filter(x=>x&&x.d>=3.5);return '<div class="nForm">'+short.map(x=>'<em class="nFormBad">😮‍💨 휴식 부족 · '+e(x.n)+' '+e(x.d.toFixed(1))+'일 만에 경기'+(x.c?' (직전: '+e(x.c)+')':'')+'</em>').join(' ')+(other.length?' <em class="r643Mid">상대 '+e(other[0].n)+' '+e(other[0].d.toFixed(1))+'일 휴식</em>':'')+'</div>'}
+const other=L.filter(x=>x&&x.d>=3.5);return '<div class="nForm">'+short.map(x=>'<em class="nFormBad">😮‍💨 휴식 부족 · '+e(x.n)+' '+e(x.d.toFixed(1))+'일 만에 경기</em>').join(' ')+(other.length?' <em class="r643Mid">상대 '+e(other[0].n)+' '+e(other[0].d.toFixed(1))+'일 휴식</em>':'')+'</div>'}
 function r663V(x,d){return x==null||!isFinite(Number(x))?'-':Number(x).toFixed(d==null?1:d)}
 function r663Chip(m){const f=m&&m.r663;if(!f)return '';if(m.sport==='축구'){const h=f.home,a=f.away;if(!h||!a)return '';return '<div class="nForm"><em class="r648">📊 최근 슈팅 '+r663V(h.sh)+' : '+r663V(a.sh)+' · 유효 '+r663V(h.sot)+' : '+r663V(a.sot)+(h.pos!=null&&a.pos!=null?' · 점유율 '+Math.round(h.pos)+'% : '+Math.round(a.pos)+'%':'')+'</em></div>'}
 const p=f.proj;if(!p)return '';return '<div class="nForm"><em class="r648">⚡ 효율 기준 예상 '+r663V(p.h)+' : '+r663V(p.a)+' · 합계 '+r663V(p.tot)+' · 페이스 '+r663V(p.pace)+'</em></div>'}
