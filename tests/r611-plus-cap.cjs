@@ -17,3 +17,7 @@ assert.equal(run('C.markets[2].displayGrade'),'일반','third plus handicap cut 
 run('D=createState();D.gmTs="260126";D.round=126;D.markets=[0,1,2].map(i=>({gmTs:"260126",sourceRound:126,date:"2099-01-03",time:String(10+i)+":00",sport:"축구",league:"L",home:"H"+i,away:"A"+i,no:200+i,marketFamily:"HANDICAP",line:1,choices:[{label:"승",odds:1.45},{label:"패",odds:2.4}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.45,displayGrade:"추천",r554:{ps:.7},r619Lock:{pick:"승",grade:"추천",at:"x"}}));r611CapPlus(D)');
 assert.equal(run('D.markets[2].r619Lock.grade'),'일반','R684b: with 3 locked, the latest kick-off loses 추천');assert.equal(run('D.markets[0].r619Lock.grade'),'추천');
 console.log('R611 plus-handicap cap OK');
+// R685: one plus-handicap 가장추천 per day
+run('E=createState();E.gmTs="260126";E.round=126;E.markets=[0,1].map(i=>({gmTs:"260126",sourceRound:126,date:"2099-01-04",time:String(10+i)+":00",sport:"축구",league:"L",home:"H"+i,away:"A"+i,no:300+i,marketFamily:"HANDICAP",line:2,choices:[{label:"승",odds:1.34},{label:"패",odds:3}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.34,displayGrade:"가장추천",r554:{ps:i?.72:.75}}));r685BestMix(E)');
+assert.equal(run('E.markets[0].displayGrade'),'가장추천');assert.equal(run('E.markets[1].displayGrade'),'추천','second plus 가장추천 of the day becomes 추천');
+console.log('R685 best mix OK');

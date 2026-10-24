@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R684B-PLUS-CAP-FINAL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R685-BEST-MIX";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4443,6 +4443,13 @@ if(target==="again")continue;
 if(!target)break;r652Note(state,target,'플핸 하루 2경기');if(r588Try(state,target,["MONEYLINE","TOTAL"])){sw++;continue;}
 const at=nowIso(),m=target;m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why:"플핸 하루 2경기 제한"};if(m.r577Rec)m.r577Rec.off={at,why:"플핸 하루 2경기 제한"};m.r611Cut={at};cut++;}
 if(sw||cut)state.r611Audit={at:nowIso(),swapped:sw,cut};return sw+cut;}
+/* R685 (owner: "가장추천이 플핸이 많았네 6경기중 4경기가 플핸"): plus handicaps carry the highest probabilities at ~1.33, so they kept
+   winning 가장추천. At most 1 plus handicap 가장추천 per game day; extra ones (weakest first, not started) stay 추천. */
+function r685BestMix(state){let n=0;const isBest=m=>m.marked&&m.representativeSelected&&!m.resultFinal&&(m.displayGrade==="가장추천"||m.r619Lock?.grade==="가장추천");const by=new Map();
+for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R611.from||!isBest(m)||!r611Plus(m))continue;if(!by.has(m.date))by.set(m.date,[]);by.get(m.date).push(m);}
+for(const ms of by.values()){if(ms.length<=1)continue;const keep=ms.filter(m=>started(m)||m.manualOverride);const rest=ms.filter(m=>!started(m)&&!m.manualOverride).sort((a,b)=>Number(b.r554?.ps||0)-Number(a.r554?.ps||0));const allow=Math.max(0,1-keep.length);
+for(const m of rest.slice(allow)){m.displayGrade="추천";if(m.r619Lock)m.r619Lock={...m.r619Lock,grade:"추천"};m.r685={at:nowIso()};n++;}}
+if(n)state.r685Audit={at:nowIso(),down:n};return n;}
 /* R642 (round 126+), from the 122~125 record (owner: "적중률을 올리는 방법?"):
    - 유럽대항전(챔스/유로파/컨퍼런스) 일반승: 13경기 6적중(46%), soccer 일반승 낙첨 16개 중 12개가 무승부 -> not 추천
    - 유럽대항전 가장추천 10경기 5적중 -> at most 추천
@@ -5235,6 +5242,7 @@ try{r642Apply(state);}catch(_){}
 try{r596Total(state);}catch(_){}
 try{r596Best(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
+try{r685BestMix(state);}catch(_){}
 try{r619Lock(state);}catch(_){}
 try{r643Apply(state);}catch(_){}
 try{r644Apply(state);}catch(_){}
