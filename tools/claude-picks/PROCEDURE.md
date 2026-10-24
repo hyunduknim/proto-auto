@@ -41,6 +41,13 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
    - Minimum odds 1.20. Usually 4–8 picks; fewer is fine. Never pad.
    - At most one pick per game. Groups are `안정형` (확률 우선) and `가치형` (일정 피로 · 결장 · 시장 오차).
    - NBA: mix 일반승 / 핸디 / 언오버 (compare all three per game, pick the best). Put the type in the label, e.g. "[핸디] 올랜도 +2.5 승".
+   - NBA lessons from 10/24 (1 of 5 hit):
+     - A huge gap between the overseas probability and Betman's odds (10%p or more) is treated as stale or mismatched
+       data, not value: skip the game. Orlando +2.5 at "60%" lost by 22.
+     - No 일반승 when the winning probability is below 60%.
+     - Early season, Betman's totals lines run high: 5 of the six 08:00 games went under by 10–28 points. Avoid 오버;
+       take 언더 only with support from the efficiency projection.
+     - Until the record improves, at most 2–3 NBA picks a day.
    - Optionally add 1–2 two-leg combos from the picks.
 6. Write the post (`post.json`) in Korean:
    ```json
