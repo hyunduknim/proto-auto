@@ -52,7 +52,7 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
        - both teams' recent game totals point the same way;
        - absences don't contradict it (a scorer Out → lean under, weak defenders Out → lean over).
        Otherwise skip the total.
-     - Until the record improves, at most 2–3 NBA picks a day.
+     - NBA: 3–4 picks a day (owner: "3~4로 올려줘"). Fewer only when there aren't 3 games that pass the rules above.
    - Optionally add 1–2 two-leg combos from the picks.
 6. Write the post (`post.json`) in Korean:
    ```json
@@ -96,7 +96,8 @@ for the early-morning games ("새벽에도 NBA 하는데"). Each run covers a ti
    **Read every candidate game's ESPN injuries first.** Never back a side whose key player is Out. (On 10/24 #92
    골든스테이트 승 was picked although Butler, Porzingis and Moody were Out.)
    Put the type in the label: "[일반승] 골든스테이트 승", "[핸디] 올랜도 +2.5 승", "[언오버] 레이커스-클리퍼스 언더 228.5".
-   Usually 3–6 picks, one per game; skip games with no edge. Groups are 안정형 and 가치형.
+   3–4 NBA picks a day in total across the night and morning runs and the daily analysis, one per game; skip games with
+   no edge. Groups are 안정형 and 가치형.
 4. Write a post with `"kind":"injury"`. The night run uses `"id":"YYYY-MM-DD-y-nba-injury"` and
    `"title":"M/D 새벽 NBA 결장 체크"`. The morning run uses `"id":"YYYY-MM-DD-z-nba-injury"` and
    `"title":"M/D 아침 NBA 결장 체크"`. In both, the date is today's KST date.
