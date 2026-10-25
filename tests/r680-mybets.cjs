@@ -13,4 +13,7 @@ const call=async(path,body)=>{const req=new Request('http://x'+path,{method:body
 run('ST.markets.forEach(m=>{m.date="2000-01-01"});Object.assign(ST.markets[0],{resultFinal:true,result:"패",resultScoreText:"80:88",marked:true,representativeSelected:true});ST.r680Off={"260126:250:승":{outcome:"승",score:"90:80"},"260126:22:승":{outcome:"승",score:"3:4"}}');
 [s,j]=await call('/api/mybets');assert.equal(j.bets[0].st,'hit');assert.equal(j.bets[0].ret,46600);assert.equal(j.sum.all.profit,26600);
 console.log('R680 my bets OK',JSON.stringify(j.sum.all));
+[s,j]=await call('/api/mybets/add',{text:'22플핸 250승',stake:10000});assert.equal(s,200,JSON.stringify(j));assert.equal(j.bet.legs[0].pick,'승','22 line +2.5 -> 플핸 = 승');
+[s,j]=await call('/api/mybets/add',{text:'22마핸',stake:10000});assert.equal(j.bet.legs[0].pick,'패');
+[s,j]=await call('/api/mybets/add',{text:'250플핸',stake:10000});assert.equal(s,400,'플핸 on a 승패 market is refused');
 const ix=vm.runInContext('INDEX',c);assert.ok(ix.includes('function r680Render')&&ix.includes('💰 내 베팅'));})().catch(e=>{console.error(e);process.exit(1)});
