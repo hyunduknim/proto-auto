@@ -32,7 +32,20 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
    - With no new post, publish a file holding only `{"reviews": {...}}`.
    - Read all reviews before picking, and don't repeat a pattern that keeps missing.
 3. Window: games starting between now+1 h and now+26 h that are not already picked in an earlier post (validate.cjs warns).
-   Focus on EPL, 분데스, 라리가, 세리에A, 리그1, UCL/UEL/UECL, K리그, J리그, NBA, plus MLB/KBO postseason when listed.
+   Cover **every sport Betman lists**, not only soccer and NBA (owner: "축구 농구뿐만 아니라 좋아보이는 경기까지 국내것도 해줘"):
+   - soccer: EPL, 분데스, 라리가, 세리에A, 리그1, UCL/UEL/UECL, K리그1·2, J리그, A리그, MLS and others;
+   - basketball: NBA, KBL, WKBL;
+   - volleyball: V-리그 남녀 and KOVO컵;
+   - baseball: KBO, NPB, MLB.
+
+   Domestic games (KBL/WKBL/KOVO/K리그/KBO) usually have no overseas probability. Use these instead:
+   - Betman's implied probability;
+   - `form` in the slate: `[w, d, l, n, avgGF, avgGA, homeRecord, awayRecord]` per team;
+   - rest days and the site's pick;
+   - WebSearch team news (foreign players, injuries). Don't scrape the KBL/KOVO/Naver pages.
+
+   Pick a domestic game only when the form gap is clear (for example 4-1 vs 1-4 with a goal/point gap) and the price is
+   fair. One or two good domestic picks are better than none, but never pad.
 4. Evidence per candidate game:
    - Compare the overseas probability with the Betman implied probability. The overround is about 1.08–1.12, so EV is
      usually below 1.

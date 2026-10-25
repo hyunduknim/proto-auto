@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R693-PROB-BANDS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R694-SLATE-FORM";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4609,7 +4609,7 @@ for(const ms0 of groupMarkets((state.markets||[]).filter(m=>String(m.gmTs)===Str
 const rep=ms.find(x=>x.marked&&x.representativeSelected),k=r483FixtureKey(m);
 out.push({d:m.date,t:m.time,sp:m.sport,lg:m.league,h:m.home,a:m.away,site:rep?{no:rep.no,fam:rep.marketFamily,line:rep.line??null,pick:rep.finalPick||null,grade:rep.displayGrade||null,odds:rep.finalOdds??null,ps:rep.r554?.ps??null}:null,
 mk:ms.map(x=>[x.no,x.marketFamily,x.line??null,(x.choices||[]).filter(c=>Number(c.odds)>1).map(c=>[c.label,Number(c.odds)]),x.r507Overseas?.probs||null,x.r507Overseas?.line??null]),
-rest:state.r649?.[k]||null,inj:state.r644?.[k]?{h:state.r644[k].home?.keyOut||[],a:state.r644[k].away?.keyOut||[],hq:state.r644[k].home?.keyQ||[],aq:state.r644[k].away?.keyQ||[]}:null,rot:state.r643?.[k]?{h:state.r643[k].home?.miss??null,a:state.r643[k].away?.miss??null}:null});}
+form:(()=>{try{const d=r482TeamData(state,m);const f=t=>t&&t.n?[t.wins,t.draws||0,t.losses,t.n,t.avgGF,t.avgGA,t.ha?.home?[t.ha.home.w,t.ha.home.d,t.ha.home.l]:null,t.ha?.away?[t.ha.away.w,t.ha.away.d,t.ha.away.l]:null]:null;return d?{h:f(d.home),a:f(d.away)}:null;}catch(_){return null;}})(),stats:state.r663?null:(ms.find(x=>x.r663)?.r663||null),rest:state.r649?.[k]||null,inj:state.r644?.[k]?{h:state.r644[k].home?.keyOut||[],a:state.r644[k].away?.keyOut||[],hq:state.r644[k].home?.keyQ||[],aq:state.r644[k].away?.keyQ||[]}:null,rot:state.r643?.[k]?{h:state.r643[k].home?.miss??null,a:state.r643[k].away?.miss??null}:null});}
 return out.sort((a,b)=>(a.d+a.t).localeCompare(b.d+b.t));}
 /* R676: 🏆 오늘의 베스트 (owner chose it for the last menu slot). For every upcoming current-round game, four independent views
    vote on a direction (홈 / 원정 / 무 / 오버 / 언더):
