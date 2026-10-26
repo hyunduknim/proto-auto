@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R698-GPT-PICKS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R699-PICK-CARRY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4585,9 +4585,16 @@ const rr=cands.find(r=>r.specialStatus||resolveOfficialOutcome(r,m).outcome);if(
 const res=resolveOfficialOutcome(rr,m);if(!res?.outcome)continue;off[k]={outcome:res.void?'void':res.outcome,score:rr.score||null,source,at:nowIso()};n++;}
 const ks=Object.keys(off);if(ks.length>1500)for(const kk of ks.slice(0,ks.length-1500))delete off[kk];return n;}
 function r662EspnNba(state,m){if(!r644Is(m))return null;const ids=state.r651Ids?.[r483FixtureKey(m)],t=gameTimeMs(m);if(!ids||t==null)return null;const g=Object.values(state.r651Games||{}).find(x=>x.h===ids.home&&x.a===ids.away&&Math.abs(x.t-t)<6*3600000);return g&&Number.isFinite(g.hs)&&Number.isFinite(g.as)?g.hs+':'+g.as:null;}
+/* R699: results the owner confirmed in chat for picks the site could not settle ("뉴욕승 낙첨 새크 언더 적중"). */
+const R699_OWNER={'260126:771:승':{st:'miss'},'260126:794:언더':{st:'hit',score:'112:123'}};
+function r699LabelFits(x,y){const L=String(x.label||'');const w=s=>String(s||'').replace(/\s.*$/,'').slice(0,2);return !!L&&!!y.home&&(L.includes(w(y.home))||L.includes(w(y.away)));}
 function r662Settle(state){if(state.r662V!==2){state.r662Res={};state.r662V=2;}const res=state.r662Res||(state.r662Res={}),off=state.r662Off||{};const mk=new Map();for(const m of state?.markets||[])mk.set(String(m.gmTs)+':'+Number(m.no),m);let n=0;
 for(const p of state?.r662Posts||[])for(const g of p.groups||[])for(const x of g.picks||[]){const k=r662Key(x.gmTs,x.no,x.pick),cur=res[k];if(cur&&['hit','miss','void'].includes(cur.st))continue;
-const m=mk.get(String(x.gmTs)+':'+Number(x.no));if(!m){if(!cur)res[k]={st:'pre',seen:false};continue;}
+const mo=R699_OWNER[k];if(mo){res[k]={...(cur||{}),st:mo.st,score:mo.score||cur?.score||null,src:'owner',at:nowIso()};n++;continue;}
+let m=mk.get(String(x.gmTs)+':'+Number(x.no));
+/* R699: Betman carries an unstarted game into the next round under the same number, and the old round's copy is pruned. Follow it there when it is the same game. */
+if(!m){m=(state?.markets||[]).find(y=>Number(y.no)===Number(x.no)&&Number(y.gmTs)>Number(x.gmTs)&&Number(y.gmTs)<=Number(x.gmTs)+2&&(cur?.home?y.home===cur.home&&y.away===cur.away:r699LabelFits(x,y)))||null;}
+if(!m){if(!cur)res[k]={st:'pre',seen:false};continue;}
 const out={st:'pre',seen:true,home:m.home,away:m.away,date:m.date,time:m.time,league:m.league,sport:m.sport,fam:m.marketFamily,line:m.line??null,odds:Number((m.choices||[]).find(c=>String(c.label)===x.pick)?.odds)||null};
 /* R690: Betman sometimes moves a handicap line on the same number after the pick; settle on the line that was picked */
 const moved=x.line!=null&&m.line!=null&&m.marketFamily!=='MONEYLINE'&&Number(m.line)!==Number(x.line);if(moved)out.line=x.line;
@@ -10692,7 +10699,7 @@ return h+posts.slice(0,r662Show).map(post).join('')+(posts.length>r662Show?'<but
 let r662Show=5;
 /* R697 (owner: "클로드추천 지나간경기는 날짜 넘어가면 바로바로 삭제해줘"): picks whose KST game date is before today leave the tab (a game still live stays); a post with nothing left goes too. The record and 🔁 복기 keep them. */
 let r697Gone=0;function r697Today(){return new Date(Date.now()+9*3600000).toISOString().slice(0,10)}
-function r697Trim(p){const today=r697Today(),t0=Date.parse(p.at||''),pd=isFinite(t0)?new Date(t0+9*3600000).toISOString().slice(0,10):'',old=x=>!!x&&x.st!=='live'&&(x.date?String(x.date)<today:(x.st==='hit'||x.st==='miss'||x.st==='void')&&!!pd&&pd<today);let n=0,k=0;const keep=new Set();
+function r697Trim(p){const today=r697Today(),t0=Date.parse(p.at||''),pd=isFinite(t0)?new Date(t0+9*3600000).toISOString().slice(0,10):'',old=x=>!!x&&x.st!=='live'&&((!!x.date&&String(x.date)<today)||((x.st==='hit'||x.st==='miss'||x.st==='void')&&!!pd&&pd<today));let n=0,k=0;const keep=new Set();
 const groups=(p.groups||[]).map(g=>{const ps=(g.picks||[]).filter(x=>{n++;if(old(x)){r697Gone++;return false}k++;keep.add(String(x.no));return true});return Object.assign({},g,{picks:ps})}).filter(g=>g.picks.length||!n);
 if(n&&!k)return null;if(!n&&pd&&pd<today)return null;
 return Object.assign({},p,{groups,combos:(p.combos||[]).filter(c=>(c.nos||[]).every(x=>keep.has(String(x))))})}

@@ -14,4 +14,6 @@ assert.equal(k.T({kind:'injury',groups:[],at:'2026-10-25T06:45:00+09:00'}),null,
 assert.ok(k.T({kind:'injury',groups:[],at:'2026-10-26T06:45:00+09:00'}),'today notes-only post stays');
 assert.equal(k.T(P([{no:6,st:'hit'}])),null,'settled pick without date from an old post removed');
 assert.ok(k.T(P([{no:7,st:'pre'}])),'pending pick without date stays');
+assert.equal(k.T(P([{no:8,date:'2026-10-26',st:'hit'}])),null,'yesterday post whose picks are all settled goes, even if the game date is today');
+assert.ok(k.T(P([{no:9,date:'2026-10-26',st:'pre'}])),'yesterday post with a pending game today stays');
 console.log('R697 claude today OK');
