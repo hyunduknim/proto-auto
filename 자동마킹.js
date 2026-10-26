@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R696-OVER25-SMART";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R697-CLAUDE-TODAY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -10668,7 +10668,7 @@ const s=box&&box.sum;const done=s?(s.hit||0)+(s.miss||0):0;
 let h='<div class="r617Hd"><b>🤖 클로드추천</b><small>사이트 자동 분석과 별개로 Claude가 매일 직접 분석한 픽 · 해외 배당 · 예측 사이트 · 주중 일정 피로 · 결장 정보 · 경기가 끝나면 자동 정산</small>'+
 '<div class="r617T">클로드추천 성적 <b>'+e(s?s.hit:0)+'적중 '+e(s?s.miss:0)+'낙첨</b>'+(done?' ('+Math.round((s.hit||0)*100/done)+'%)':'')+(s&&s.roi!=null?' · 수익률 '+(s.roi>0?'+':'')+e(s.roi)+'%':'')+(s&&s.void?' · 적특 '+e(s.void):'')+'</div>'+
 (s&&s.byG&&s.byG.length?'<div class="r662By">'+s.byG.map(g=>'<span>'+e(g.name)+' <b>'+e(g.hit)+'/'+e(g.n)+'</b>'+(g.roi!=null?' · '+(g.roi>0?'+':'')+e(g.roi)+'%':'')+'</span>').join('')+'</div>':'')+'</div>';
-const allPosts=(box&&box.posts)||[],posts=allPosts.filter(p=>!p.archived),arch=allPosts.length-posts.length;if(arch)h+='<div class="r662Lg">지난 분석 '+arch+'개는 목록에서 내렸습니다 · 성적에는 그대로 포함</div>';if(!posts.length)return h+'<div class="pastEmpty">아직 올라온 클로드추천이 없습니다. 매일 분석이 끝나면 여기에 올라옵니다.</div>';
+const allPosts=(box&&box.posts)||[],live=allPosts.filter(p=>!p.archived),arch=allPosts.length-live.length;r697Gone=0;const posts=live.map(r697Trim).filter(Boolean);if(arch||r697Gone)h+='<div class="r662Lg">지난 경기'+(r697Gone?' '+r697Gone+'개':'')+'는 날짜가 넘어가면 목록에서 내립니다 · 성적과 🔁 복기에는 그대로 포함</div>';if(!posts.length)return h+'<div class="pastEmpty">아직 올라온 클로드추천이 없습니다. 매일 분석이 끝나면 여기에 올라옵니다.</div>';
 const leg=x=>{const nm=x.home?r560N(x.home)+' vs '+r560N(x.away):(x.label||'');const when=x.date?String(x.date).slice(5)+' '+String(x.time||'').slice(0,5):'';const fin=x.st==='hit'||x.st==='miss'||x.st==='void';
 const sc=fin&&x.score?(x.fam==='TOTAL'&&/^\\d+:0$/.test(String(x.score))?'합계 '+String(x.score).split(':')[0]:String(x.score)):'';const od=(x.odds?Number(x.odds).toFixed(2)+'배':'')+(x.cur&&x.odds&&Math.abs(Number(x.cur)-Number(x.odds))>=.02&&!fin?' → 지금 '+Number(x.cur).toFixed(2):'');
 return '<div class="r662L '+e(x.st)+'"><span class="i">'+(ic[x.st]||'·')+'</span><div class="g"><div class="r662P"><b>'+e(r662Pk(x))+'</b><span>'+e(od)+'</span></div><div class="r662N">'+(x.gi!=null&&x.multi?'<span class="r662Tg t'+x.gi+'">'+e(x.gname)+'</span> ':'')+e(nm)+'</div><small>#'+e(x.no)+(when?' · '+e(when):'')+(x.league?' · '+e(x.league):'')+(sc?' · 결과 '+e(sc):'')+'</small>'+(x.why?'<div class="r662W">'+e(x.why)+'</div>':'')+(x.rv?'<div class="r662Rv">📝 복기: '+e(x.rv)+'</div>':'')+'</div></div>'};
@@ -10680,6 +10680,12 @@ return '<article class="r617C r662C'+(p.kind==='injury'?' inj':'')+'"><div class
 ((p.passes||[]).length?'<div class="r662G">⛔ 거를 경기</div><ul class="r662U">'+p.passes.map(x=>'<li>'+e(x)+'</li>').join('')+'</ul>':'')+'</article>'};
 return h+posts.slice(0,r662Show).map(post).join('')+(posts.length>r662Show?'<button type="button" class="r662More" onclick="r662Show+=5;r617Render(state)">이전 분석 더 보기</button>':'')}
 let r662Show=5;
+/* R697 (owner: "클로드추천 지나간경기는 날짜 넘어가면 바로바로 삭제해줘"): picks whose KST game date is before today leave the tab (a game still live stays); a post with nothing left goes too. The record and 🔁 복기 keep them. */
+let r697Gone=0;function r697Today(){return new Date(Date.now()+9*3600000).toISOString().slice(0,10)}
+function r697Trim(p){const today=r697Today(),old=x=>x&&x.date&&String(x.date)<today&&x.st!=='live';let n=0,k=0;const keep=new Set();
+const groups=(p.groups||[]).map(g=>{const ps=(g.picks||[]).filter(x=>{n++;if(old(x)){r697Gone++;return false}k++;keep.add(String(x.no));return true});return Object.assign({},g,{picks:ps})}).filter(g=>g.picks.length||!n);
+if(n&&!k)return null;if(!n){const t=Date.parse(p.at||'');const d=isFinite(t)?new Date(t+9*3600000).toISOString().slice(0,10):'';if(d&&d<today)return null}
+return Object.assign({},p,{groups,combos:(p.combos||[]).filter(c=>(c.nos||[]).every(x=>keep.has(String(x))))})}
 function r618Lead(m){return Number(m&&m.gmTs||0)>=999999?45:60}
 function r622Hidden(m){if(!m||!m.pick||m.resultFinal||Number(m.gmTs||0)<999999)return false;const k=liveGameStartMs(m);return isFinite(k)&&Date.now()<k-r618Lead(m)*60000}
 function r622At(m){const k=liveGameStartMs(m);if(!isFinite(k))return '-';const d=new Date(k-r618Lead(m)*60000+9*3600000);return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')}

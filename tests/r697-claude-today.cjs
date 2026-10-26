@@ -1,0 +1,15 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);
+const ix=vm.runInContext('INDEX',c);const i=ix.indexOf('let r697Gone=0;'),j=ix.indexOf('\n',ix.indexOf('function r697Trim',i)+10);
+const j2=ix.indexOf('combos:(p.combos',i);const end=ix.indexOf('}\n',j2)+1;const src=ix.slice(i,end);
+const k=vm.createContext({Date:class extends Date{static now(){return Date.parse('2026-10-26T01:00:00Z')}},Set,Object,String,isFinite});
+vm.runInContext(src+';this.T=r697Trim;this.G=()=>r697Gone;',k);
+const P=(picks,extra)=>Object.assign({groups:[{name:'안정형',picks}],at:'2026-10-25T17:00:00+09:00'},extra||{});
+assert.equal(k.T(P([{no:1,date:'2026-10-25',st:'hit'},{no:2,date:'2026-10-25',st:'miss'}])),null,'yesterday-only post removed');
+const r=k.T(P([{no:1,date:'2026-10-25',st:'hit'},{no:3,date:'2026-10-26',st:'pre'},{no:4,date:'2026-10-27',st:'pre'}],{combos:[{nos:[1,3]},{nos:[3,4]}]}));
+assert.deepEqual(r.groups[0].picks.map(x=>x.no),[3,4]);assert.deepEqual(r.combos.map(c=>c.nos),[[3,4]]);
+assert.ok(k.T(P([{no:5,date:'2026-10-25',st:'live'}])),'live game stays');
+assert.equal(k.T({kind:'injury',groups:[],at:'2026-10-25T06:45:00+09:00'}),null,'old notes-only post removed');
+assert.ok(k.T({kind:'injury',groups:[],at:'2026-10-26T06:45:00+09:00'}),'today notes-only post stays');
+console.log('R697 claude today OK');
