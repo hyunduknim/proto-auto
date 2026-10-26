@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R695-OVER25-BAN";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R696-OVER25-SMART";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4470,9 +4470,11 @@ const R642={from:260126};
 function r642Euro(m){return m?.sport==="축구"&&/UEFA|^UEL$|^UECL$|^UCL$|챔피언스리그|유로파|컨퍼런스/.test(String(m?.league||""))&&!/AFC|아시아/.test(String(m?.league||""));}
 function r642LowUnder(m,pick,line){return m?.sport==="축구"&&m?.marketFamily==="TOTAL"&&String(pick)==="언더"&&Number(line)<=2.5;}
 /* R695: soccer 오버 2.5 추천 hit 10/20 since round 122 (오버 추천 ROI -12%), so it is banned like 언더 ≤2.5; the game switches to its best other market at ≥58% instead of losing the pick */
-function r695Over25(m,pick,line){return m?.sport==="축구"&&m?.marketFamily==="TOTAL"&&String(pick)==="오버"&&Number(line)===2.5;}
+/* R696 (owner: "빼라는게 아니고 넣을건 넣어주라"): split by league. 추천 오버 2.5 since round 122: 유럽대항전 7/8, J리그 2/2, but European domestic leagues, 중국, AFC and 일본 리그컵 1/10. Only that group is blocked. */
+const R696_OVER_BAD=/EPL|프리미어리그|라리가|세리에|에레디비|분데스|프랑스 리그1|프리그1|EFL챔|챔피언십|중국 슈퍼리그|CSL|AFC|리그컵/;
+function r695Over25(m,pick,line){if(!(m?.sport==="축구"&&m?.marketFamily==="TOTAL"&&String(pick)==="오버"&&Number(line)===2.5))return false;const lg=String(m?.league||"");if(/UEFA|^UEL$|^UECL$|^UCL$/.test(lg))return false;return R696_OVER_BAD.test(lg);}
 function r695Blocked(x,pick){if(Number(x?.gmTs||0)<R642.from)return false;return (r642Euro(x)&&x.marketFamily==="MONEYLINE"&&pick!=="무")||r642LowUnder(x,pick,x.line)||r695Over25(x,pick,x.line);}
-function r642Why(m){if(r642Euro(m)&&m.marketFamily==="MONEYLINE")return "유럽대항전 일반승 제외 (무승부 위험)";if(r642LowUnder(m,m.finalPick,m.line))return "언더 2.5 이하 제외 (기록 39%)";if(r695Over25(m,m.finalPick,m.line))return "오버 2.5 제외 (기록 50%)";return null;}
+function r642Why(m){if(r642Euro(m)&&m.marketFamily==="MONEYLINE")return "유럽대항전 일반승 제외 (무승부 위험)";if(r642LowUnder(m,m.finalPick,m.line))return "언더 2.5 이하 제외 (기록 39%)";if(r695Over25(m,m.finalPick,m.line))return "오버 2.5 제외 (유럽 국내리그·중국·AFC 기록 1/10)";return null;}
 function r642Apply(state){let cut=0,down=0,moved=0;for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R642.from||m.resultFinal||started(m)||m.manualOverride||!m.marked||!m.representativeSelected)continue;
 if(m.displayGrade!=="추천"&&m.displayGrade!=="가장추천")continue;const why=r642Why(m),at=nowIso();
 if(why){r652Note(state,m,why.startsWith('유럽')?'유럽대항전 일반승':why.startsWith('오버')?'오버 2.5':'언더 2.5 이하');
