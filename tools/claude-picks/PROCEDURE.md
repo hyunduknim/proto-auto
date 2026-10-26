@@ -39,7 +39,7 @@ Pick independently; a game GPT also picked is fine (the site marks agreement wit
 3. Window: games starting between now+1 h and now+26 h that are not already picked in an earlier post (validate.cjs warns).
    Cover **every sport Betman lists**, not only soccer and NBA (owner: "축구 농구뿐만 아니라 좋아보이는 경기까지 국내것도 해줘"):
    - soccer: EPL, 분데스, 라리가, 세리에A, 리그1, UCL/UEL/UECL, K리그1·2, J리그, A리그, MLS and others;
-   - basketball: KBL, WKBL (NBA is handled only by the 01:00 NBA run below: owner "NBA만 전부 1시");
+   - basketball: KBL, WKBL (NBA is handled only by the 07:00 NBA run below);
    - volleyball: V-리그 남녀 and KOVO컵;
    - baseball: KBO, NPB, MLB.
 
@@ -95,13 +95,11 @@ Pick independently; a game GPT also picked is fine (the site marks agreement wit
 8. Tell 형님 in one short message (SendUserMessage): the picks table (경기 · 픽 · 배당 · 한 줄 근거), cautions, and the
    record so far. Mention that it is on the 🤖 클로드추천 tab.
 
-## NBA 결장 체크 (one run a day, about 00:52 KST)
-The owner asked for a daily NBA absence check posted on 클로드추천 ("매일해줘서 클로드추천에 넣어주면 좋겟는데"), and later moved
-all NBA analysis to 01:00 ("새벽1시로 하자 그래야 새벽경기도 볼수있고 아침경기도 분석가능한 시간이니깐", "전부다 새벽1시로 하자").
-There is no morning run any more.
-- The run (about 00:52, post up around 01:00) covers every NBA game tipping off from 01:15 to 14:00 KST and is the NBA pick
-  run. Morning-game statuses are often not final yet: mark doubtful key players "(경기 전 확인)" and prefer games whose key
-  players' statuses are settled.
+## NBA 결장 체크 (one run a day, about 06:52 KST)
+The owner asked for a daily NBA absence check posted on 클로드추천 ("매일해줘서 클로드추천에 넣어주면 좋겟는데"). After a week
+he saw no early-morning NBA games and moved the run to 07:00 ("NBA 새벽시간은 없는듯하다 8시에 시작되니 매일 오전7시로 변경").
+- The run (about 06:52, post up around 07:00) covers every NBA game tipping off from 07:15 to 14:00 KST and is the only NBA
+  pick run. Most statuses are decided by then; mark a still-doubtful key player "(경기 전 확인)".
 1. `tools/claude-picks/snap.sh "slate&h=9" > slate.json`. Keep the NBA games (`sp` 농구, `lg` NBA) whose KST tip-off
    time is inside this run's window. If there are none, stop: publish nothing and send nothing. `inj` shows what the site itself has detected (key players Out = `h`/`a`, doubtful = `hq`/`aq`). `site` shows
    the site's pick and grade; a 추천 backing a team with a key player Out is dropped to 일반 automatically.
@@ -125,7 +123,7 @@ There is no morning run any more.
    **Read every candidate game's ESPN injuries first.** Never back a side whose key player is Out. (On 10/24 #92
    골든스테이트 승 was picked although Butler, Porzingis and Moody were Out.)
    Put the type in the label: "[일반승] 골든스테이트 승", "[핸디] 올랜도 +2.5 승", "[언오버] 레이커스-클리퍼스 언더 228.5".
-   3–4 NBA picks a day, all in the 01:00 run, one per game; skip games with
+   3–4 NBA picks a day, all in the 07:00 run, one per game; skip games with
    no edge. Groups are 안정형 and 가치형.
 4. Write a post with `"kind":"injury"`. It uses `"id":"YYYY-MM-DD-y-nba-injury"` and
    `"title":"M/D NBA 결장 체크·추천"`, with today's KST date.
