@@ -32,7 +32,7 @@ assert.equal(h(14).displayGrade,'일반');assert.match(h(14).r554.why,/오버 2.
 assert.equal(h(15).displayGrade,'추천','오버 1.5 kept');
 const ov=lg=>run("r695Over25({sport:'축구',marketFamily:'TOTAL',line:2.5,league:"+JSON.stringify(lg)+"},'오버',2.5)");
 for(const lg of ['UEFA 유로파리그','UECL','UCL','UEFA 챔피언스리그','일본 J2리그','J1리그','K리그1','K리그2','MLS','호주 A리그'])assert.equal(ov(lg),false,lg+' over 2.5 allowed');
-for(const lg of ['EPL','잉글랜드 프리미어리그','스페인 라리가','세리에A','에레디비','분데스리','프리그1','프랑스 리그1','EFL챔','잉글랜드 챔피언십','중국 슈퍼리그','CSL','AFC 챔피언스리그2','일본 리그컵'])assert.equal(ov(lg),true,lg+' over 2.5 blocked');
+for(const lg of ['EPL','잉글랜드 프리미어리그','스페인 라리가','세리에A','에레디비','분데스리','프리그1','프랑스 리그1','EFL챔','잉글랜드 챔피언십','중국 슈퍼리그','CSL','AFC 챔피언스리그2','ACLE','ACL2','일본 리그컵'])assert.equal(ov(lg),true,lg+' over 2.5 blocked');
 assert.equal(run("r695Blocked({sport:'축구',gmTs:'260127',marketFamily:'TOTAL',line:2.5,league:'EPL'},'오버')"),true);
 assert.equal(run("r695Blocked({sport:'농구',gmTs:'260127',marketFamily:'TOTAL',line:2.5},'오버')"),false);
 console.log('R642 rules OK');
