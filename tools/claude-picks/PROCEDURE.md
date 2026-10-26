@@ -34,7 +34,7 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
 3. Window: games starting between now+1 h and now+26 h that are not already picked in an earlier post (validate.cjs warns).
    Cover **every sport Betman lists**, not only soccer and NBA (owner: "축구 농구뿐만 아니라 좋아보이는 경기까지 국내것도 해줘"):
    - soccer: EPL, 분데스, 라리가, 세리에A, 리그1, UCL/UEL/UECL, K리그1·2, J리그, A리그, MLS and others;
-   - basketball: NBA, KBL, WKBL;
+   - basketball: KBL, WKBL (NBA is handled only by the 01:00 NBA run below: owner "NBA만 전부 1시");
    - volleyball: V-리그 남녀 and KOVO컵;
    - baseball: KBO, NPB, MLB.
 
@@ -120,7 +120,7 @@ There is no morning run any more.
    **Read every candidate game's ESPN injuries first.** Never back a side whose key player is Out. (On 10/24 #92
    골든스테이트 승 was picked although Butler, Porzingis and Moody were Out.)
    Put the type in the label: "[일반승] 골든스테이트 승", "[핸디] 올랜도 +2.5 승", "[언오버] 레이커스-클리퍼스 언더 228.5".
-   3–4 NBA picks a day in total across the 01:00 run and the 17:00 daily analysis, one per game; skip games with
+   3–4 NBA picks a day, all in the 01:00 run, one per game; skip games with
    no edge. Groups are 안정형 and 가치형.
 4. Write a post with `"kind":"injury"`. It uses `"id":"YYYY-MM-DD-y-nba-injury"` and
    `"title":"M/D NBA 결장 체크·추천"`, with today's KST date.
