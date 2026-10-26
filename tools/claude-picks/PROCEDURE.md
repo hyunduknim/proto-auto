@@ -64,7 +64,7 @@ Pick independently; a game GPT also picked is fine (the site marks agreement wit
    - Soccer 일반승 favorites lose mostly to draws. Prefer 핸디 -1/-2 패 (favorite by ≤1), 플핸 +1/+2, or a draw-proof
      market when a draw is likely.
    - No 유럽대항전 일반승 favorites (46% historically).
-   - No soccer 언더 ≤2.5.
+   - No soccer 언더 1.5 or lower. 언더 2.5 is allowed again (owner: "2.5언더 살려야되겟다 다 빼는게 아니엿네") when both teams' recent games are low-scoring and no attacking absences point the other way.
    - Minimum odds 1.20. Usually 4–8 picks; fewer is fine. Never pad.
    - At most one pick per game. Groups are `안정형` (확률 우선) and `가치형` (일정 피로 · 결장 · 시장 오차).
    - NBA: mix 일반승 / 핸디 / 언오버 (compare all three per game, pick the best). Put the type in the label, e.g. "[핸디] 올랜도 +2.5 승".
