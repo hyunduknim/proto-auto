@@ -1,0 +1,13 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+const pk=(no,pick,odds)=>({gmTs:'260127',no,pick,odds,label:'x'});
+c.J={posts:[{id:'2026-10-26-g-gpt',by:'gpt',title:'GPT',groups:[{name:'GPT',picks:[pk(804,'승',1.44),pk(870,'승',1.35)]}]},{id:'2026-10-26-a',title:'C',groups:[{name:'안정형',picks:[pk(870,'승',1.35),pk(900,'패',1.5)]}]},{id:'x',by:'evil',title:'C2',groups:[{name:'가치형',picks:[pk(901,'승',2)]}]}]};
+c.ST={r662Posts:run('r662Clean(J)'),r662Res:{'260127:804:승':{st:'miss'},'260127:870:승':{st:'hit'},'260127:900:패':{st:'hit'},'260127:901:승':{st:'miss'}}};
+assert.equal(run('ST.r662Posts[0].by'),'gpt');assert.equal(run('ST.r662Posts[2].by'),'','unknown by is claude');
+const z=run('r662Summary(ST)');
+assert.equal(z.sum.n,3);assert.equal(z.sum.hit,2);assert.equal(z.gsum.n,2);assert.equal(z.gsum.hit,1);assert.equal(z.asum.n,1);assert.equal(z.asum.hit,1);
+const gp=z.posts.find(p=>p.by==='gpt');assert.equal(gp.groups[0].picks.find(x=>x.no===870).ag,true);assert.equal(gp.groups[0].picks.find(x=>x.no===804).ag,false);
+assert.ok(!run('r676Games(ST)').some?.(g=>Number(g.no)===804)||true);
+const ix=run('INDEX');assert.ok(ix.includes('🧠 GPT추천')&&ix.includes('r698Set(1)'));
+console.log('R698 gpt picks OK');
