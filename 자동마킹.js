@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R699-PICK-CARRY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R700-GPT-GRADES";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4614,7 +4614,7 @@ const mkTot=()=>({n:0,hit:0,miss:0,void:0,ret:0,seen:new Set(),byG:{}}),T={c:mkT
 const keys={c:new Set(),g:new Set()};for(const p of posts)for(const g of p.groups)for(const x of g.picks)keys[p.by==='gpt'?'g':'c'].add(r662Key(x.gmTs,x.no,x.pick));
 const add=(t,k,r,o,gname)=>{if(t.seen.has(k))return;if(['hit','miss'].includes(r.st)){t.seen.add(k);t.n++;t[r.st]++;t.ret+=r.st==='hit'?o:0;if(gname!=null){const b=t.byG[gname]||(t.byG[gname]={n:0,hit:0,ret:0});b.n++;if(r.st==='hit'){b.hit++;b.ret+=o;}}}else if(r.st==='void'){t.seen.add(k);t.void++;}};
 const full=posts.map(p=>({...p,groups:p.groups.map(g=>({...g,picks:g.picks.map(x=>{const k=r662Key(x.gmTs,x.no,x.pick),r=res[k]||{st:'pre'},o=Number(x.odds||r.odds)||1,ag=keys.c.has(k)&&keys.g.has(k);
-add(p.by==='gpt'?T.g:T.c,k,r,o,p.by==='gpt'?null:g.name);if(ag)add(T.a,k,r,o,null);
+add(p.by==='gpt'?T.g:T.c,k,r,o,g.name);if(ag)add(T.a,k,r,o,null);
 return {...x,ag,rv:(state.r662Reviews||{})[k]||null,alts:r.alts||null,st:r.st,score:r.score||null,home:r.home||null,away:r.away||null,date:r.date||null,time:r.time||null,league:r.league||null,fam:r.fam||null,line:r.line??null,cur:r.odds||null};})})),
 combos:(p.combos||[]).map(c=>{const legs=c.nos.map(no=>{for(const g of p.groups)for(const x of g.picks)if(Number(x.no)===no&&(!c.gmTs||String(x.gmTs)===c.gmTs))return res[r662Key(x.gmTs,x.no,x.pick)]||{st:'pre'};return {st:'pre'};});
 const st=legs.some(l=>l.st==='miss')?'miss':legs.every(l=>['hit','void'].includes(l.st))?(legs.every(l=>l.st==='void')?'void':'hit'):legs.some(l=>l.st==='live'||['hit','void'].includes(l.st))?'live':'pre';return {...c,st};})}));
