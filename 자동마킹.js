@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R702-UNDER25-BACK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R703-SHOW-RESULTS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -10719,7 +10719,7 @@ return h+posts.slice(0,r662Show).map(post).join('')+(posts.length>r662Show?'<but
 let r662Show=5;
 /* R697 (owner: "클로드추천 지나간경기는 날짜 넘어가면 바로바로 삭제해줘"): picks whose KST game date is before today leave the tab (a game still live stays); a post with nothing left goes too. The record and 🔁 복기 keep them. */
 let r697Gone=0;function r697Today(){return new Date(Date.now()+9*3600000).toISOString().slice(0,10)}
-function r697Trim(p){const today=r697Today(),t0=Date.parse(p.at||''),pd=isFinite(t0)?new Date(t0+9*3600000).toISOString().slice(0,10):'',old=x=>!!x&&x.st!=='live'&&((!!x.date&&String(x.date)<today)||((x.st==='hit'||x.st==='miss'||x.st==='void')&&!!pd&&pd<today));let n=0,k=0;const keep=new Set();
+function r697Trim(p){const today=r697Today(),t0=Date.parse(p.at||''),pd=isFinite(t0)?new Date(t0+9*3600000).toISOString().slice(0,10):'',old=x=>!!x&&x.st!=='live'&&(x.date?String(x.date)<today:(x.st==='hit'||x.st==='miss'||x.st==='void')&&!!pd&&pd<today); /* R703: a settled pick stays (with ⭕/❌) through its own game day */let n=0,k=0;const keep=new Set();
 const groups=(p.groups||[]).map(g=>{const ps=(g.picks||[]).filter(x=>{n++;if(old(x)){r697Gone++;return false}k++;keep.add(String(x.no));return true});return Object.assign({},g,{picks:ps})}).filter(g=>g.picks.length||!n);
 if(n&&!k)return null;if(!n&&pd&&pd<today)return null;
 return Object.assign({},p,{groups,combos:(p.combos||[]).filter(c=>(c.nos||[]).every(x=>keep.has(String(x))))})}
