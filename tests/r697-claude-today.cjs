@@ -12,4 +12,6 @@ assert.deepEqual(r.groups[0].picks.map(x=>x.no),[3,4]);assert.deepEqual(r.combos
 assert.ok(k.T(P([{no:5,date:'2026-10-25',st:'live'}])),'live game stays');
 assert.equal(k.T({kind:'injury',groups:[],at:'2026-10-25T06:45:00+09:00'}),null,'old notes-only post removed');
 assert.ok(k.T({kind:'injury',groups:[],at:'2026-10-26T06:45:00+09:00'}),'today notes-only post stays');
+assert.equal(k.T(P([{no:6,st:'hit'}])),null,'settled pick without date from an old post removed');
+assert.ok(k.T(P([{no:7,st:'pre'}])),'pending pick without date stays');
 console.log('R697 claude today OK');

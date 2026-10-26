@@ -10682,9 +10682,9 @@ return h+posts.slice(0,r662Show).map(post).join('')+(posts.length>r662Show?'<but
 let r662Show=5;
 /* R697 (owner: "클로드추천 지나간경기는 날짜 넘어가면 바로바로 삭제해줘"): picks whose KST game date is before today leave the tab (a game still live stays); a post with nothing left goes too. The record and 🔁 복기 keep them. */
 let r697Gone=0;function r697Today(){return new Date(Date.now()+9*3600000).toISOString().slice(0,10)}
-function r697Trim(p){const today=r697Today(),old=x=>x&&x.date&&String(x.date)<today&&x.st!=='live';let n=0,k=0;const keep=new Set();
+function r697Trim(p){const today=r697Today(),t0=Date.parse(p.at||''),pd=isFinite(t0)?new Date(t0+9*3600000).toISOString().slice(0,10):'',old=x=>!!x&&x.st!=='live'&&(x.date?String(x.date)<today:(x.st==='hit'||x.st==='miss'||x.st==='void')&&!!pd&&pd<today);let n=0,k=0;const keep=new Set();
 const groups=(p.groups||[]).map(g=>{const ps=(g.picks||[]).filter(x=>{n++;if(old(x)){r697Gone++;return false}k++;keep.add(String(x.no));return true});return Object.assign({},g,{picks:ps})}).filter(g=>g.picks.length||!n);
-if(n&&!k)return null;if(!n){const t=Date.parse(p.at||'');const d=isFinite(t)?new Date(t+9*3600000).toISOString().slice(0,10):'';if(d&&d<today)return null}
+if(n&&!k)return null;if(!n&&pd&&pd<today)return null;
 return Object.assign({},p,{groups,combos:(p.combos||[]).filter(c=>(c.nos||[]).every(x=>keep.has(String(x))))})}
 function r618Lead(m){return Number(m&&m.gmTs||0)>=999999?45:60}
 function r622Hidden(m){if(!m||!m.pick||m.resultFinal||Number(m.gmTs||0)<999999)return false;const k=liveGameStartMs(m);return isFinite(k)&&Date.now()<k-r618Lead(m)*60000}
