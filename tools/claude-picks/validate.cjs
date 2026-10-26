@@ -6,7 +6,7 @@ const cur=curF&&fs.existsSync(curF)?JSON.parse(fs.readFileSync(curF,'utf8')):{po
 for(const g of sl.slate||[])for(const [no,fam,line,ch] of g.mk)mk.set(String(sl.gmTs)+':'+no,{g,fam,line,ch});
 const err=[],warn=[];if(!post.id||!post.title||!Array.isArray(post.groups)||(!post.groups.length&&!(post.cautions||[]).length))err.push('post needs id, title, and picks or cautions');
 if((cur.posts||[]).some(p=>p.id===post.id))warn.push('post id exists; it will be replaced: '+post.id);
-const old=new Set();for(const p of cur.posts||[])if(p.id!==post.id)for(const g of p.groups||[])for(const x of g.picks||[])old.add(x.gmTs+':'+x.no);
+const old=new Set();for(const p of cur.posts||[])if(p.id!==post.id&&(p.by==='gpt')===(post.by==='gpt'))for(const g of p.groups||[])for(const x of g.picks||[])old.add(x.gmTs+':'+x.no);
 const seen=new Set();
 for(const g of post.groups||[])for(const x of g.picks||[]){const k=x.gmTs+':'+x.no,m=mk.get(k);if(!m){err.push(k+' not in slate (started, other round, or wrong no)');continue;}
 const c=m.ch.find(c=>c[0]===x.pick);if(!c)err.push(k+' pick "'+x.pick+'" not a choice of '+JSON.stringify(m.ch));else if(Math.abs(c[1]-Number(x.odds))>0.011)warn.push(k+' odds '+x.odds+' vs Betman '+c[1]);

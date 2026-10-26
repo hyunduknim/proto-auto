@@ -12,6 +12,11 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
 - Do not change `자동마킹.js` or push to `main` from the daily run.
 - No Telegram messages for 클로드추천.
 
+## 🧠 GPT추천 posts (R698)
+Posts with `"by":"gpt"` in picks.json are ChatGPT's picks that 형님 pasted in chat; Claude only mapped them to Betman numbers.
+They are not 클로드추천: ignore them when checking "already picked", when counting the day's NBA picks and when writing 낙첨 복기.
+Pick independently; a game GPT also picked is fine (the site marks agreement with 🤝).
+
 ## Steps
 1. Repo: `/home/claude/proto-auto` (clone `hyunduknim/proto-auto` if it is missing). Work in a scratch directory.
 2. Slate + own record:
