@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R694-SLATE-FORM";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R695-OVER25-BAN";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4393,9 +4393,9 @@ if(n)state.r582Audit={at:nowIso(),kept:n+(state.r582Audit?.kept||0)};return n;}
    the full 추천 test (64%, odds floor, overseas move, league). Nothing is demoted, so the 추천 count stays the same. */
 const R588={from:260125,fams:["MONEYLINE","HANDICAP","TOTAL"],mixMinP:.58};
 function r588On(m){return Number(m?.gmTs||0)>=R588.from;}
-function r588Try(state,rep,fams){const ms=(state.markets||[]).filter(x=>x!==rep&&String(x.gmTs)===String(rep.gmTs)&&gameSeed(x)===gameSeed(rep)&&fams.includes(x.marketFamily)&&!x.resultFinal);
-const cands=[];for(const x of ms){let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}for(const q of rows){const odds=Number(q.odds),p=Number(q.calibratedP??q.decisionProbability);if(!(odds>=CFG.minRepOdds)||!Number.isFinite(p)||q.pick==="무")continue;cands.push({x,q,odds,p,fi:fams.indexOf(x.marketFamily)});}}
-cands.sort((a,b)=>a.fi-b.fi||b.p-a.p);
+function r588Try(state,rep,fams,opt){const ms=(state.markets||[]).filter(x=>x!==rep&&String(x.gmTs)===String(rep.gmTs)&&gameSeed(x)===gameSeed(rep)&&fams.includes(x.marketFamily)&&!x.resultFinal);
+const cands=[];for(const x of ms){let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}for(const q of rows){const odds=Number(q.odds),p=Number(q.calibratedP??q.decisionProbability);if(!(odds>=CFG.minRepOdds)||!Number.isFinite(p)||q.pick==="무"||r695Blocked(x,q.pick))continue;cands.push({x,q,odds,p,fi:fams.indexOf(x.marketFamily)});}}
+cands.sort((a,b)=>opt?.byP?b.p-a.p:a.fi-b.fi||b.p-a.p);
 for(const c of cands){const x=c.x,keep={marked:x.marked,representativeSelected:x.representativeSelected,finalPick:x.finalPick,finalOdds:x.finalOdds,hitProbability:x.hitProbability,displayGrade:x.displayGrade,r554:x.r554,r555:x.r555,r577Rec:x.r577Rec};
 x.marked=true;x.representativeSelected=true;x.finalPick=c.q.pick;x.finalOdds=c.odds;x.hitProbability=c.p;try{r554Apply({...state,markets:[x]});}catch(_){}
 /* R610: the strict 64% test almost never passes for a second market of the same game, so a mix also accepts the 58% bar used for 언오버 */
@@ -4424,7 +4424,7 @@ function r596IsRec(m){return m.marked&&m.representativeSelected&&(m.displayGrade
 function r596Total(state){let n=0;for(const ms of r596Day(state).values()){if(ms.some(m=>r596IsRec(m)&&m.marketFamily==="TOTAL"))continue;
 const games=new Map();for(const m of ms){const k=gameSeed(m);if(!games.has(k))games.set(k,[]);games.get(k).push(m);}
 const cands=[];for(const gm of games.values()){const rep=gm.find(m=>m.marked&&m.representativeSelected);if(rep&&(r596IsRec(rep)||rep.manualOverride))continue;if(gm.some(m=>started(m)||m.resultFinal))continue;
-for(const x of gm){if(x.marketFamily!=="TOTAL")continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}for(const q of rows){const odds=Number(q.odds),p=Number(q.calibratedP??q.decisionProbability);if(!(odds>=CFG.minRepOdds)||!Number.isFinite(p)||p<.5)continue;if(Number(x.gmTs||0)>=R642.from&&r642LowUnder(x,q.pick,x.line))continue;cands.push({x,rep,q,odds,p});}}}
+for(const x of gm){if(x.marketFamily!=="TOTAL")continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}for(const q of rows){const odds=Number(q.odds),p=Number(q.calibratedP??q.decisionProbability);if(!(odds>=CFG.minRepOdds)||!Number.isFinite(p)||p<.5)continue;if(r695Blocked(x,q.pick))continue;cands.push({x,rep,q,odds,p});}}}
 cands.sort((a,b)=>b.p-a.p);
 for(const c of cands){const x=c.x,keep={marked:x.marked,representativeSelected:x.representativeSelected,finalPick:x.finalPick,finalOdds:x.finalOdds,hitProbability:x.hitProbability,displayGrade:x.displayGrade,r554:x.r554,r555:x.r555,r577Rec:x.r577Rec};
 x.marked=true;x.representativeSelected=true;x.finalPick=c.q.pick;x.finalOdds=c.odds;x.hitProbability=c.p;try{r554Apply({...state,markets:[x]});}catch(_){}
@@ -4469,12 +4469,16 @@ if(n)state.r685Audit={at:nowIso(),down:n};return n;}
 const R642={from:260126};
 function r642Euro(m){return m?.sport==="축구"&&/UEFA|^UEL$|^UECL$|^UCL$|챔피언스리그|유로파|컨퍼런스/.test(String(m?.league||""))&&!/AFC|아시아/.test(String(m?.league||""));}
 function r642LowUnder(m,pick,line){return m?.sport==="축구"&&m?.marketFamily==="TOTAL"&&String(pick)==="언더"&&Number(line)<=2.5;}
-function r642Why(m){if(r642Euro(m)&&m.marketFamily==="MONEYLINE")return "유럽대항전 일반승 제외 (무승부 위험)";if(r642LowUnder(m,m.finalPick,m.line))return "언더 2.5 이하 제외 (기록 39%)";return null;}
-function r642Apply(state){let cut=0,down=0;for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R642.from||m.resultFinal||started(m)||m.manualOverride||!m.marked||!m.representativeSelected)continue;
+/* R695: soccer 오버 2.5 추천 hit 10/20 since round 122 (오버 추천 ROI -12%), so it is banned like 언더 ≤2.5; the game switches to its best other market at ≥58% instead of losing the pick */
+function r695Over25(m,pick,line){return m?.sport==="축구"&&m?.marketFamily==="TOTAL"&&String(pick)==="오버"&&Number(line)===2.5;}
+function r695Blocked(x,pick){if(Number(x?.gmTs||0)<R642.from)return false;return (r642Euro(x)&&x.marketFamily==="MONEYLINE"&&pick!=="무")||r642LowUnder(x,pick,x.line)||r695Over25(x,pick,x.line);}
+function r642Why(m){if(r642Euro(m)&&m.marketFamily==="MONEYLINE")return "유럽대항전 일반승 제외 (무승부 위험)";if(r642LowUnder(m,m.finalPick,m.line))return "언더 2.5 이하 제외 (기록 39%)";if(r695Over25(m,m.finalPick,m.line))return "오버 2.5 제외 (기록 50%)";return null;}
+function r642Apply(state){let cut=0,down=0,moved=0;for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R642.from||m.resultFinal||started(m)||m.manualOverride||!m.marked||!m.representativeSelected)continue;
 if(m.displayGrade!=="추천"&&m.displayGrade!=="가장추천")continue;const why=r642Why(m),at=nowIso();
-if(why){r652Note(state,m,why.startsWith('유럽')?'유럽대항전 일반승':'언더 2.5 이하');m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why};if(m.r577Rec)m.r577Rec.off={at,why};m.r642Cut={at,why};cut++;continue;}
+if(why){r652Note(state,m,why.startsWith('유럽')?'유럽대항전 일반승':why.startsWith('오버')?'오버 2.5':'언더 2.5 이하');
+const sw=r588Try(state,m,['HANDICAP','MONEYLINE','TOTAL'],{byP:true});if(sw){m.r642Cut={at,why,to:sw.no};sw.r695Switch={at,from:m.no,why};m.r554={...(m.r554||{}),selected:false,why};if(m.r577Rec)m.r577Rec.off={at,why};m.displayGrade="일반";moved++;continue;}m.displayGrade="일반";m.r554={...(m.r554||{}),selected:false,why};if(m.r577Rec)m.r577Rec.off={at,why};m.r642Cut={at,why};cut++;continue;}
 if(m.displayGrade==="가장추천"&&r642Euro(m)){m.displayGrade="추천";m.r642Down={at};down++;}}
-if(cut||down)state.r642Audit={at:nowIso(),cut,down};return cut+down;}
+if(cut||down||moved)state.r642Audit={at:nowIso(),cut,down,moved};return cut+down+moved;}
 /* R645 (owner: "축구 무승부를 넣었으면" -> all three): (1) every soccer game gets a draw probability = 75% market (무 odds,
    margin removed) + 25% the two teams' recent draw rate (shrunk to 26%); (2) round 126+: a 일반승 추천 whose game has a draw
    probability of 27%+ is moved to the same game's 언오버/핸디 (58%+) or else dropped to 일반 "무승부 위험"; (3) 무승부 후보: the 3
