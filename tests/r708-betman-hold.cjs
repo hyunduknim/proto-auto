@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+const base={gmTs:'260127',no:5,date:'2099-01-01',time:'04:00',marketFamily:'MONEYLINE',home:'A',away:'B',sport:'축구'};
+c.NEW=[{...base,choices:[{label:'승',odds:1.5},{label:'무',odds:3.9},{label:'패',odds:5.2}]}];
+const m1=run('mergeLastKnownOfficialMarkets([],NEW)')[0]||run('mergeLastKnownOfficialMarkets([],NEW).markets[0]');
+assert.ok(m1.r708Bet&&m1.r708Bet.odds['승']===1.5,'Betman pricing remembered');
+c.OLD=[m1];c.NEW2=[{...base,choices:[{label:'승',odds:null},{label:'무',odds:null},{label:'패',odds:null}]}];
+const r2=run('mergeLastKnownOfficialMarkets(OLD,NEW2)');const m2=Array.isArray(r2)?r2[0]:r2.markets[0];assert.ok(m2.r708Bet,'kept across a failed fetch');
+console.log('R708 betman hold OK');
