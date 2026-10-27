@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R707-FILL-DRAW";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R708-BETMAN-ONLY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5459,6 +5459,9 @@ m.lastFetchAt=at;m.lastGoodOddsAt=kept?(old?.lastGoodOddsAt||old?.domesticOddsFe
 m.lastGoodOdds=Object.fromEntries(validChoices(m).map(c=>[c.label,Number(c.odds)]));m.domesticOddsValid=validChoices(m).length>=2;
 m.oddsClosedOrMissing=kept>0||explicitMarketClosed(m);m.oddsSnapshotStatus=explicitMarketClosed(m)?"CLOSED":kept?"LAST_KNOWN":received?"OPEN":"MISSING";m.oddsSource=kept?"BETMAN_LAST_KNOWN_OFFICIAL":"BETMAN_OFFICIAL_CURRENT";
 m.oddsLastSeenAt=received?at:old?.oddsLastSeenAt||null;
+/* R708 (owner: "배당정밀분석에 가끔씩 시간마다 다른배당으로 주던데 ... 안바꾸게 해줘"): remember that Betman priced this market; from then on the
+   public backups (젠토토·스포갓 등) never replace Betman's numbers, even when a Betman fetch fails for a while. */
+if(received>=2&&kept===0)m.r708Bet={at,odds:Object.fromEntries(validChoices(m).map(c=>[c.label,Number(c.odds)]))};else if(old?.r708Bet)m.r708Bet=old.r708Bet;
 if(old){
 if((!Array.isArray(old.publicOddsHistory)||!old.publicOddsHistory.length)&&old.oddsSnapshotStatus==='OPEN'&&
 Number.isFinite(Date.parse(old.domesticOddsFetchedAt||''))&&validChoices(old).length>=2)
@@ -11434,7 +11437,7 @@ const officialAt=Date.parse(m.domesticOddsFetchedAt||''),provider=/betman/i.test
 if(provider)add({at:m.domesticOddsFetchedAt,source:provider,prices:m.choices});
 const ordered=[...merged.values()].filter(Boolean).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
 x.publicOddsHistory=ordered.length>24?[ordered[0],...ordered.slice(-23)]:ordered;
-if(!provider||!Number.isFinite(officialAt)||officialAt<Date.parse(prior.observedAt)){
+if(!x.r708Bet&&(!provider||!Number.isFinite(officialAt)||officialAt<Date.parse(prior.observedAt))){
 x.choices=prior.choices;x.domesticOddsSource='zentoto_public';x.domesticOddsFetchedAt=prior.observedAt;
 }
 }
@@ -11618,6 +11621,7 @@ state.markets.push(m);newlySeen.add(no);audit.seeded++;
 if(m.resultFinal||gameTimeMs(m)<=now)continue;
 if(!options.quoteOnly&&!m.r404ReferenceOnly&&m.domesticOddsValid&&m.oddsSnapshotStatus==='OPEN'&&
 oddsFresh(m)&&/BETMAN_OFFICIAL/.test(String(m.source||m.oddsSource||'')))continue;
+if(m.r708Bet)continue; /* R708: Betman priced it; the public page never overrides */
 audit.verified++;
 const at=new Date(now).toISOString();
 const previous=m.choices||[];r419RecordQuote(m,Date.parse(m.domesticOddsFetchedAt||at));
@@ -13927,6 +13931,7 @@ audit.preservedOfficialFresh++;add(audit.markets,{gmTs:m.gmTs,no:m.no,status:'OF
 audit.preserved++;m.oddsSnapshotStatus=(m.choices||[]).some(c=>Number(c.odds)>1)?'LAST_KNOWN':'MISSING';m.oddsFetchStatus='NO_VERIFIED_FRESH_DOMESTIC_SOURCE';m.domesticOddsValid=false;m.oddsClosedOrMissing=true;
 add(audit.markets,{gmTs:m.gmTs,no:m.no,status:m.oddsSnapshotStatus,reasons:reasons.slice(0,12)});continue;
 }
+if(m.r708Bet){audit.preservedOfficialFresh++;add(audit.markets,{gmTs:m.gmTs,no:m.no,status:'BETMAN_PRICED_KEPT_R708',source:m.oddsSource});continue;}
 const labels=r398OddsExpectedLabels(m),prices=r398OddsPrices(chosen,labels);
 for(const other of candidates.slice(1))if(labels.some(label=>prices[label]!==r398OddsPrices(other,labels)[label]))add(audit.conflicts,{gmTs:m.gmTs,no:m.no,sources:[chosen.source,other.source],observedAt:[chosen.observedAt,other.observedAt],prices:[prices,r398OddsPrices(other,labels)],reason:'CROSS_SOURCE_PRICES_DIFFER',action:'PRIORITY_SELECTED_NO_AVERAGE'});
 const oldChoices=new Map((m.choices||[]).map(c=>[String(c.label),c]));
