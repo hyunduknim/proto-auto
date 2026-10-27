@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R704-TEAM-MODEL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R705-TEAM-MODEL2";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4564,7 +4564,8 @@ return {...c,recent:L.slice(-20).reverse().map(x=>({status:x.status,home:x.home,
    - 야구: runs for/against + venue -> Poisson runs; 배구: set ratio -> logistic
    and gives every Betman choice (일반승·핸디·언오버) a 경기력 probability, next to the market's margin-free probability.
    Each game's 경기력 일반승 예상 and 경기력 베스트 픽 are fixed at kick-off and settled, so the menu shows how often it is right. */
-const R704={hadv:{축구:1.10,야구:1.03},sdM:{NBA:12.5,BB:11},sdT:{NBA:18,BB:15},decay:.85,lastFrom:260127};
+/* wM: weight of the pure 경기력 model in the 종합 probability; the market won 13 of 19 disagreements (R661), so it keeps the larger share */
+const R704={wM:.35,hadv:{축구:1.10,야구:1.03},sdM:{NBA:12.5,BB:11},sdT:{NBA:18,BB:15},decay:.85,lastFrom:260127};
 function r704Fact(n){let f=1;for(let i=2;i<=n;i++)f*=i;return f;}
 function r704Pois(l,k){return Math.exp(-l)*Math.pow(l,k)/r704Fact(k);}
 function r704W(rows,fn){let s=0,w=0;rows.forEach((r,i)=>{const v=fn(r);if(!Number.isFinite(v))return;const q=Math.pow(R704.decay,i);s+=v*q;w+=q;});return w?s/w:null;}
@@ -4591,9 +4592,10 @@ const ha=nba?1.5:1.8;ph+=ha;pa-=ha;const rs=r704Rest(ms);if(rs&&isFinite(rs.h)&&
 const n=Math.min(H.n||5,A.n||5),k=1+1.5/Math.max(2,n),sdM=(nba?R704.sdM.NBA:R704.sdM.BB)*k,sdT=(nba?R704.sdT.NBA:R704.sdT.BB)*k,mu=ph-pa,T=ph+pa;
 const prob=(fam,line,label)=>{if(fam==='MONEYLINE'){const p=r507Phi(mu/sdM);return label==='승'?p:label==='패'?1-p:null;}if(fam==='HANDICAP'){const p=r507Phi((mu+line)/sdM);return label==='승'?p:label==='패'?1-p:null;}if(fam==='TOTAL'){const p=1-r507Phi((line-T)/sdT);return label==='오버'?p:label==='언더'?1-p:null;}return null;};
 const pw=r507Phi(mu/sdM);return {exp:[Math.round(ph*10)/10,Math.round(pa*10)/10],top:null,p3:[pw,0,1-pw],prob,why};}
-function r704Base(state,ms,H,A){const lh=Math.max(.5,(H.gf+A.ga)/2*R704.hadv.야구),la=Math.max(.5,(A.gf+H.ga)/2/R704.hadv.야구),G=[];let ph=0,pd=0;
-for(let i=0;i<=20;i++)for(let j=0;j<=20;j++){const p=r704Pois(lh,i)*r704Pois(la,j);G.push([i,j,p]);if(i>j)ph+=p;else if(i===j)pd+=p;}const pw=ph+pd*.52;
-const prob=(fam,line,label)=>{if(fam==='MONEYLINE')return label==='승'?pw:label==='패'?1-pw:null;let q=0,s=0;for(const [i,j,p] of G){s+=p;if(fam==='HANDICAP'){const d=i+line-j;if((label==='승'&&d>0)||(label==='패'&&d<0))q+=p;}else if(fam==='TOTAL'){const t=i+j;if((label==='오버'&&t>line)||(label==='언더'&&t<line))q+=p;}}return q/s;};
+function r704Base(state,ms,H,A){const P=4.4,n=Math.min(H.n,A.n),gfh=r704Shrink(H.gf,H.n,P,4),gah=r704Shrink(H.ga,H.n,P,4),gfa=r704Shrink(A.gf,A.n,P,4),gaa=r704Shrink(A.ga,A.n,P,4);
+const lh=Math.max(1,(gfh+gaa)/2*R704.hadv.야구),la=Math.max(1,(gfa+gah)/2/R704.hadv.야구),mu=lh-la,T=lh+la,sd=4.3*(1+1/Math.max(2,n)),sdT=4.4*(1+1/Math.max(2,n));
+const cap=x=>Math.min(.85,Math.max(.15,x)),pw=cap(r507Phi(mu/sd));
+const prob=(fam,line,label)=>{if(fam==='MONEYLINE')return label==='승'?pw:label==='패'?1-pw:null;if(fam==='HANDICAP'){const q=cap(r507Phi((mu+line)/sd));return label==='승'?q:label==='패'?1-q:null;}if(fam==='TOTAL'){const q=1-r507Phi((line-T)/sdT);return label==='오버'?q:label==='언더'?1-q:null;}return null;};
 return {exp:[Math.round(lh*10)/10,Math.round(la*10)/10],top:null,p3:[pw,0,1-pw],prob,why:['최근 득점 '+H.gf.toFixed(1)+' : '+A.gf.toFixed(1)+' · 실점 '+H.ga.toFixed(1)+' : '+A.ga.toFixed(1)]};}
 function r704Volley(state,ms,H,A){const sr=t=>(t.gf+.5)/(t.gf+t.ga+1),z=Math.log(sr(H)/(1-sr(H)))-Math.log(sr(A)/(1-sr(A)))+.15,pw=1/(1+Math.exp(-1.6*z));
 return {exp:null,top:null,p3:[pw,0,1-pw],prob:(fam,line,label)=>fam==='MONEYLINE'?(label==='승'?pw:label==='패'?1-pw:null):null,why:['최근 세트 득실 '+H.gf.toFixed(1)+':'+H.ga.toFixed(1)+' vs '+A.gf.toFixed(1)+':'+A.ga.toFixed(1)]};}
@@ -4602,15 +4604,15 @@ const H=r704Side(td?.home,true),A=r704Side(td?.away,false),sp=ml.sport,nba=r644I
 const Hs=H||{n:0},As=A||{n:0};let mod=null;try{mod=sp==='축구'?r704Soccer(state,ms,Hs,As):sp==='농구'?r704Basket(state,ms,Hs,As,nba):sp==='야구'?(H&&A?r704Base(state,ms,Hs,As):null):sp==='배구'?(H&&A?r704Volley(state,ms,Hs,As):null):null;}catch(_){mod=null;}if(!mod)return null;
 const why=[];const rec=t=>t.w+'승 '+(sp==='축구'?t.d+'무 ':'')+t.l+'패';if(H&&A){why.push('최근 '+H.n+'·'+A.n+'경기 '+rec(H)+' vs '+rec(A));if(H.vn>=3&&A.vn>=3)why.push('홈팀 홈 '+H.vw+'승 '+(sp==='축구'?H.vd+'무 ':'')+H.vl+'패 · 원정팀 원정 '+A.vw+'승 '+(sp==='축구'?A.vd+'무 ':'')+A.vl+'패');}why.push(...mod.why);
 const mk=[];for(const m of ms){if(!['MONEYLINE','HANDICAP','TOTAL'].includes(m.marketFamily))continue;const ch=(m.choices||[]).filter(c=>Number(c.odds)>1);if(ch.length<2)continue;const ln=Number(m.line);if(m.marketFamily!=='MONEYLINE'&&!Number.isFinite(ln))continue;
-const inv=ch.reduce((a,c)=>a+1/Number(c.odds),0);const rows=[];for(const c of ch){const p=mod.prob(m.marketFamily,ln,String(c.label));if(p==null||!isFinite(p))continue;rows.push({l:String(c.label),o:Number(c.odds),p:Math.round(p*1000)/1000,mp:Math.round((1/Number(c.odds))/inv*1000)/1000});}
+const inv=ch.reduce((a,c)=>a+1/Number(c.odds),0);const rows=[];for(const c of ch){const p=mod.prob(m.marketFamily,ln,String(c.label));if(p==null||!isFinite(p))continue;const mpv=(1/Number(c.odds))/inv;rows.push({l:String(c.label),o:Number(c.odds),p:Math.round(p*1000)/1000,mp:Math.round(mpv*1000)/1000,pc:Math.round((R704.wM*p+(1-R704.wM)*mpv)*1000)/1000});}
 if(rows.length)mk.push({no:m.no,fam:m.marketFamily,line:m.marketFamily==='MONEYLINE'?null:ln,rows});}
-const mlr=mk.find(x=>x.fam==='MONEYLINE');let mlPick=null;if(mlr){const r=[...mlr.rows].sort((a,b)=>b.p-a.p)[0];mlPick={no:mlr.no,fam:'MONEYLINE',line:null,l:r.l,o:r.o,p:r.p,mp:r.mp};}
-let best=null;for(const x of mk)for(const r of x.rows){if(r.o<1.25||r.p<.55||r.p-r.mp<.03)continue;if(!best||r.p>best.p)best={no:x.no,fam:x.fam,line:x.line,l:r.l,o:r.o,p:r.p,mp:r.mp};}
+const mlr=mk.find(x=>x.fam==='MONEYLINE');let mlPick=null;if(mlr){const r=[...mlr.rows].sort((a,b)=>b.pc-a.pc)[0];mlPick={no:mlr.no,fam:'MONEYLINE',line:null,l:r.l,o:r.o,p:r.pc,pm:r.p,mp:r.mp};}
+let best=null;for(const x of mk)for(const r of x.rows){if(r.o<1.25||r.pc<.58||r.p-r.mp<.05)continue;if(!best||r.pc>best.p)best={no:x.no,fam:x.fam,line:x.line,l:r.l,o:r.o,p:r.pc,pm:r.p,mp:r.mp};}
 const n=Math.min(H?.n||0,A?.n||0),hasX=ms.some(x=>x.r663?.home&&x.r663?.away),conf=n>=5&&hasX?'상':n>=4?'중':'하';
-const mlm=mlr?Object.fromEntries(mlr.rows.map(r=>[r.l,r.mp])):null;const pickSide=mlPick?mlPick.l:null,mkSide=mlm?Object.entries(mlm).sort((a,b)=>b[1]-a[1])[0][0]:null;
+const mlm=mlr?Object.fromEntries(mlr.rows.map(r=>[r.l,r.mp])):null;const mlRaw=mlr?[...mlr.rows].sort((a,b)=>b.p-a.p)[0]:null,pickSide=mlRaw?mlRaw.l:null,mkSide=mlm?Object.entries(mlm).sort((a,b)=>b[1]-a[1])[0][0]:null;
 return {sp,exp:mod.exp,top:mod.top,p3:mod.p3.map(x=>Math.round(x*1000)/1000),mk,ml:mlPick,best,conf,n,why:why.slice(0,5),agree:pickSide&&mkSide?pickSide===mkSide:null};}
 function r704Games(state){const g=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||m.resultFinal)continue;const k=String(m.gmTs)+'|'+gameSeed(m);if(!g.has(k))g.set(k,[]);g.get(k).push(m);}return g;}
-function r704Step(state){const box=state.r704||(state.r704={list:[]});for(const [k,ms] of r704Games(state)){const t=gameTimeMs(ms[0]);if(t==null||Date.now()>=t)continue;let v=null;try{v=r704Model(state,ms);}catch(_){}
+function r704Step(state){if(state.r704V!==2){state.r704={list:[]};state.r704V=2;}const box=state.r704||(state.r704={list:[]});for(const [k,ms] of r704Games(state)){const t=gameTimeMs(ms[0]);if(t==null||Date.now()>=t)continue;let v=null;try{v=r704Model(state,ms);}catch(_){}
 const i=box.list.findIndex(x=>x.k===k);if(i>=0&&box.list[i].status!=='pre')continue;if(!v||v.few||!v.ml){if(i>=0)box.list.splice(i,1);continue;}
 const leg=x=>{const m=ms.find(y=>Number(y.no)===Number(x.no));return m?{...r554Leg(r554Opt(m,x.l,x.o,x.p,false)),p:x.p,mp:x.mp}:null;};
 const e={k,agree:v.agree,status:'pre',sport:ms[0].sport,league:ms[0].league,date:ms[0].date,time:ms[0].time,home:ms[0].home,away:ms[0].away,conf:v.conf,ml:leg(v.ml),mlSt:'pre',best:v.best?leg(v.best):null,bestSt:v.best?'pre':null};
@@ -10725,12 +10727,12 @@ const bar=(name,p,m)=>'<div class="r704B"><span class="n">'+e(name)+'</span><spa
 let h='<div class="r704"><div class="r704H"><b>🧮 경기력 예상</b><span class="r704C c'+(v.conf==='상'?'3':v.conf==='중'?'2':'1')+'">신뢰도 '+e(v.conf)+' · 자료 '+e(v.n)+'경기</span></div>';
 h+=bar(H+' 승',v.p3[0],mp['승'])+(soc?bar('무승부',v.p3[1],mp['무']):'')+bar(A+' 승',v.p3[2],mp['패']);
 if(v.exp)h+='<div class="r704E">'+(soc?'예상 득점 <b>'+v.exp[0]+' : '+v.exp[1]+'</b>'+(v.top?' · 가장 유력한 스코어 <b>'+e(v.top)+'</b>':''):'예상 점수 <b>'+v.exp[0]+' : '+v.exp[1]+'</b> · 합계 '+(Math.round((v.exp[0]+v.exp[1])*10)/10)+' · 점수차 '+(Math.round((v.exp[0]-v.exp[1])*10)/10))+'</div>';
-const pk=(x,t)=>x?'<div class="r704P'+(t?' best':'')+'"><span>'+(t?'⭐ 경기력 베스트':'일반승 예상')+'</span><b>['+r704Fam(x.fam)+'] '+e(r704Lbl(g,x.fam,x.line,x.l))+'</b><em>'+Number(x.o).toFixed(2)+'배 · 경기력 '+r704Pc(x.p)+' · 시장 '+r704Pc(x.mp)+' ('+(x.p-x.mp>=0?'+':'')+Math.round((x.p-x.mp)*100)+'%p)</em></div>':'';
-h+=pk(v.ml,false)+(v.best?pk(v.best,true):'<div class="r704P none"><span>⭐ 경기력 베스트</span><b>없음</b><em>55% 이상이면서 시장보다 3%p 이상 높게 보는 선택이 없음</em></div>');
+const pk=(x,t)=>x?'<div class="r704P'+(t?' best':'')+'"><span>'+(t?'⭐ 경기력 베스트':'일반승 예상')+'</span><b>['+r704Fam(x.fam)+'] '+e(r704Lbl(g,x.fam,x.line,x.l))+'</b><em>'+Number(x.o).toFixed(2)+'배 · 종합 '+r704Pc(x.p)+' (경기력 '+r704Pc(x.pm)+' · 시장 '+r704Pc(x.mp)+')</em></div>':'';
+h+=pk(v.ml,false)+(v.best?pk(v.best,true):'<div class="r704P none"><span>⭐ 경기력 베스트</span><b>없음</b><em>종합 58% 이상이면서 경기력이 시장보다 5%p 이상 높게 보는 선택이 없음</em></div>');
 if(v.agree===false)h+='<div class="r704W">⚠ 경기력과 시장(배당)의 일반승 예상이 엇갈립니다</div>';
 if((v.why||[]).length)h+='<ul class="r704Y">'+v.why.map(x=>'<li>'+e(x)+'</li>').join('')+'</ul>';
-const bk=v.best?v.best.no+'|'+v.best.l:'';h+='<details class="r704D"><summary>시장별 경기력 확률 (일반승·핸디·언오버)</summary><table class="r704T"><tr><th>종류</th><th>선택</th><th>배당</th><th>경기력</th><th>시장</th><th>차이</th></tr>'+
-(v.mk||[]).flatMap(x=>x.rows.map(r=>'<tr class="'+(bk===x.no+'|'+r.l?'best':'')+'"><td>'+r704Fam(x.fam)+'</td><td>'+e(r704Lbl(g,x.fam,x.line,r.l))+'</td><td>'+r.o.toFixed(2)+'</td><td><b>'+r704Pc(r.p)+'</b></td><td>'+r704Pc(r.mp)+'</td><td class="'+(r.p-r.mp>=.03?'up':r.p-r.mp<=-.03?'dn':'')+'">'+(r.p-r.mp>=0?'+':'')+Math.round((r.p-r.mp)*100)+'</td></tr>')).join('')+'</table><div class="ccNote">시장 = 베트맨 배당에서 수수료를 뺀 확률 · 차이(%p) = 경기력 − 시장</div></details></div>';return h}
+const bk=v.best?v.best.no+'|'+v.best.l:'';h+='<details class="r704D"><summary>시장별 경기력 확률 (일반승·핸디·언오버)</summary><table class="r704T"><tr><th>종류</th><th>선택</th><th>배당</th><th>경기력</th><th>시장</th><th>종합</th></tr>'+
+(v.mk||[]).flatMap(x=>x.rows.map(r=>'<tr class="'+(bk===x.no+'|'+r.l?'best':'')+'"><td>'+r704Fam(x.fam)+'</td><td>'+e(r704Lbl(g,x.fam,x.line,r.l))+'</td><td>'+r.o.toFixed(2)+'</td><td><b>'+r704Pc(r.p)+'</b></td><td>'+r704Pc(r.mp)+'</td><td class="'+(r.p-r.mp>=.05?'up':r.p-r.mp<=-.05?'dn':'')+'"><b>'+r704Pc(r.pc)+'</b></td></tr>')).join('')+'</table><div class="ccNote">경기력 = 팀 기록만으로 계산 · 시장 = 베트맨 배당에서 수수료를 뺀 확률 · 종합 = 경기력 35% + 시장 65% (경기력과 시장이 엇갈렸을 때 시장 쪽이 더 자주 맞았기 때문) · 초록/빨강 = 경기력이 시장보다 5%p 이상 높음/낮음</div></details></div>';return h}
 function r655Perf(st){const rows=orderCurrentRows((st&&st.markingGames)||[]).filter(g=>!g.gameStarted&&!g.resultFinal);
 const kd=d=>{try{return new Date(Date.now()+9*3600000+d*86400000).toISOString().slice(0,10)}catch(_){return ''}};const today=kd(0),tom=kd(1);
 const list=rows.filter(g=>(r655Day==='all'||(r655Day==='today'?g.date===today:g.date===tom))&&(r655Sport==='all'||g.sport===r655Sport)&&(r655Only==='all'||(r655Only==='best'?!!(r704Of(st,g)||{}).best:(r704Of(st,g)||{}).agree===false)));const shown=list.slice(0,r655Lim);
@@ -10757,7 +10759,7 @@ const v704=r704Of(st,g);return '<article class="r655C"><div class="r653H"><b>'+e
 (!hasT||H.n<3||A.n<3?'<div class="r655Few">팀 기록 수집 중 · 홈 '+e(H.n||0)+'경기 · 원정 '+e(A.n||0)+'경기'+(met.length?' · 있는 자료만 비교':'')+'</div>':'')+(met.length?'<table class="r655T"><tr><th>'+e(r560N(g.home))+'</th><th></th><th>'+e(r560N(g.away))+'</th></tr>'+met.map(x=>'<tr><td class="'+(!x.info&&x.win>0?'w':'')+'">'+e(x.ht)+'</td><td class="n">'+e(x.name)+'</td><td class="'+(!x.info&&x.win<0?'w':'')+'">'+e(x.at)+'</td></tr>').join('')+
 '</table>':'')+(met.length?'<div class="r655V"><span>지표 우세 <b>홈 '+hw+'</b> · <b>원정 '+aw+'</b></span></div></details>':'')+'</article>'};
 return '<div class="r653T">'+r655Btn('day','all',r655Day,'전체')+r655Btn('day','today',r655Day,'오늘')+r655Btn('day','tom',r655Day,'내일')+' '+r655Btn('sport','all',r655Sport,'전 종목')+r655Btn('sport','축구',r655Sport,'축구')+r655Btn('sport','농구',r655Sport,'농구')+r655Btn('sport','야구',r655Sport,'야구')+r655Btn('sport','배구',r655Sport,'배구')+' '+r655Btn('only','all',r655Only,'모든 경기')+r655Btn('only','best',r655Only,'⭐ 베스트 있음')+r655Btn('only','diff',r655Only,'⚠ 시장과 엇갈림')+'</div>'+r704SumHtml(st)+'<div class="r617T">'+list.length+'경기</div>'+
-'<div class="ccNote">두 팀 실제 경기 기록(최근 경기는 더 크게 반영 · 홈/원정 성적 · 슈팅·효율 · 휴식일)으로 득점을 예상하고, 일반승·핸디·언오버 확률을 계산합니다. 시장 = 베트맨 배당. ⭐ 경기력 베스트 = 경기력 55% 이상이면서 시장보다 3%p 이상 높게 보는 선택.</div>'+(shown.length?shown.map(card).join('')+(list.length>shown.length?'<div class="r653T" style="text-align:center">'+r655Btn('more','1','','더 보기 ('+(list.length-shown.length)+'경기 남음)')+'</div>':''):'<div class="pastEmpty">조건에 맞는 경기가 없습니다.</div>')}
+'<div class="ccNote">두 팀 실제 경기 기록(최근 경기는 더 크게 반영 · 홈/원정 성적 · 슈팅·효율 · 휴식일)으로 득점을 예상하고, 일반승·핸디·언오버 확률을 계산합니다. 시장 = 베트맨 배당. ⭐ 경기력 베스트 = 종합 58% 이상이면서 경기력이 시장보다 5%p 이상 높게 보는 선택.</div>'+(shown.length?shown.map(card).join('')+(list.length>shown.length?'<div class="r653T" style="text-align:center">'+r655Btn('more','1','','더 보기 ('+(list.length-shown.length)+'경기 남음)')+'</div>':''):'<div class="pastEmpty">조건에 맞는 경기가 없습니다.</div>')}
 function r655DataHtml(st){const x=st&&st.r655Data;if(!x)return '<div class="pastEmpty">자료를 불러오는 중입니다.</div>';
 const T=(title,rows)=>'<div class="r655D"><b>'+e(title)+'</b><table class="r614T"><tr><th>구분</th><th>경기</th><th>적중</th><th>적중률</th><th>수익률</th></tr>'+rows.map(r=>'<tr><td>'+e(r.k)+'</td><td>'+e(r.n)+'</td><td>'+e(r.h)+'</td><td class="'+(r.pct>=65?'ccUp':r.pct<50?'ccDn':'')+'">'+e(Math.round(r.pct))+'%</td><td class="'+(r.roi>=0?'ccUp':'ccDn')+'">'+(r.roi>=0?'+':'')+e(Math.round(r.roi))+'%</td></tr>').join('')+'</table></div>';
 return '<div class="ccNote">'+e(x.from)+'부터 정산된 '+e(x.n)+'경기 · 수익률 = 같은 금액씩 걸었을 때 (적중 시 배당만큼 돌려받는다고 계산)</div><div class="r655G">'+T('종류별 · 추천 이상',x.fam.rec)+T('종류별 · 전체',x.fam.all)+T('배당 구간별 · 추천 이상',x.odds.rec)+T('배당 구간별 · 전체',x.odds.all)+T('종목별 · 추천 이상',x.sport.rec)+T('종목별 · 전체',x.sport.all)+T('회차 · 등급별',x.round)+'</div>'}
