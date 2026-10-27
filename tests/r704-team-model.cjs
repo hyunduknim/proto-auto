@@ -20,4 +20,6 @@ c.TD={home:{n:0,matches:[]},away:{n:0,matches:[]}};const mo=run('r704Model({mark
 c.TD={home:team([1,0,1,1,0],[1,0,1,1,0]),away:team([1,0,1,0,1],[1,0,1,0,1])};c.MD=[mk(1,'MONEYLINE',null,[['승',2.5],['무',3.2],['패',2.9]])];const dr=run('r704Model({markets:MD},MD)');assert.ok(dr.draw&&dr.draw.l==='무','R707: draw candidate in a tight low-scoring game');
 const ix=run('INDEX');assert.ok(ix.includes('function r704Card')&&ix.includes('style="display:none">💰 내 베팅'));
 assert.ok(v.dlev&&['높음','보통','낮음'].includes(v.dlev.lv),'R710: soccer draw level');assert.ok(dr.dlev.lv!=='낮음');
+c.TD={home:team([3,2,2,1,2],[0,1,0,1,1]),away:team([1,1,1,0,1],[1,2,1,1,2])};c.CS={markets:c.MS,performanceModel:{teams:{'축구|태국리그|아스널':{recent:[1,2,3]},'축구|j1|번리':{recent:[1,2,3,4]}}}};
+const cr=run('r704Model(CS,MS)');assert.ok(cr.cross,'R712: different leagues detected');assert.ok(Math.abs(cr.ml.p-(.3*cr.mk[0].rows[0].pd+.7*cr.mk[0].rows[0].mp))<.01||cr.ml.l!=='승','blend toward the price');
 console.log('R704 team model OK',JSON.stringify({soc:v.p3,exp:v.exp,top:v.top,best:v.best&&[v.best.fam,v.best.l,v.best.p,v.best.mp]}));
