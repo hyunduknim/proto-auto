@@ -15,6 +15,8 @@ const t=v.mk.find(x=>x.fam==='TOTAL');assert.ok(Math.abs(t.rows.reduce((a,r)=>a+
 c.TD={home:team([110,115,108,120,112],[100,104,101,109,99]),away:team([98,101,95,104,100],[112,110,108,115,109])};
 const bm=(no,fam,line,ch)=>({...mk(no,fam,line,ch),sport:'농구',league:'KBL'});c.MB=[bm(1,'MONEYLINE',null,[['승',1.3],['패',3.2]]),bm(2,'HANDICAP',-7.5,[['승',1.75],['패',1.75]]),bm(3,'TOTAL',210.5,[['언더',1.75],['오버',1.75]])];
 const b=run('r704Model({markets:MB},MB)');assert.ok(b.p3[0]>.7);assert.ok(b.exp[0]-b.exp[1]>5);
-c.TD={home:team([1],[0]),away:team([1],[1])};assert.equal(run('r704Model({markets:MS},MS)').few,true,'too few records');
+c.TD={home:team([1],[0]),away:team([1],[1])};const f=run('r704Model({markets:MS},MS)');assert.ok(!f.few&&f.conf==='하','R707: 1 game each still modelled');
+c.TD={home:{n:0,matches:[]},away:{n:0,matches:[]}};const mo=run('r704Model({markets:MS},MS)');assert.equal(mo.mkOnly,true,'no records -> market only');assert.equal(mo.ml.l,'승');
+c.TD={home:team([1,0,1,1,0],[1,0,1,1,0]),away:team([1,0,1,0,1],[1,0,1,0,1])};c.MD=[mk(1,'MONEYLINE',null,[['승',2.5],['무',3.2],['패',2.9]])];const dr=run('r704Model({markets:MD},MD)');assert.ok(dr.draw&&dr.draw.l==='무','R707: draw candidate in a tight low-scoring game');
 const ix=run('INDEX');assert.ok(ix.includes('function r704Card')&&ix.includes('style="display:none">💰 내 베팅'));
 console.log('R704 team model OK',JSON.stringify({soc:v.p3,exp:v.exp,top:v.top,best:v.best&&[v.best.fam,v.best.l,v.best.p,v.best.mp]}));
