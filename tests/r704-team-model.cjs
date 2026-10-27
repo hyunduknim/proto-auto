@@ -1,0 +1,20 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+const team=(gf,ga,home)=>{const matches=gf.map((g,i)=>({date:'2026-10-2'+i,home:i%2===0,opponent:'x'+i,gf:g,ga:ga[i]}));const w=matches.filter(r=>r.gf>r.ga).length,d=matches.filter(r=>r.gf===r.ga).length;
+return {n:matches.length,wins:w,draws:d,losses:matches.length-w-d,matches,ha:{home:{n:3,w:2,d:1,l:0,gf:6,ga:2},away:{n:3,w:1,d:1,l:1,gf:3,ga:4}}};};
+c.TD={home:team([3,2,2,1,2],[0,1,0,1,1]),away:team([0,1,1,0,1],[2,2,1,3,2])};
+run("r482TeamData=()=>TD");
+const mk=(no,fam,line,ch)=>({gmTs:'260127',no,sport:'축구',league:'EPL',home:'아스널',away:'번리',date:'2099-01-01',time:'04:00',marketFamily:fam,line,choices:ch.map(([label,odds])=>({label,odds}))});
+c.MS=[mk(1,'MONEYLINE',null,[['승',1.35],['무',4.8],['패',8]]),mk(2,'HANDICAP',-1,[['승',1.9],['무',3.6],['패',3.1]]),mk(3,'TOTAL',2.5,[['언더',2.0],['오버',1.75]])];
+const v=run('r704Model({markets:MS},MS)');
+assert.ok(v.p3[0]>v.p3[2]&&v.p3[0]>.6,'strong home side');assert.ok(Math.abs(v.p3.reduce((a,b)=>a+b,0)-1)<.01);assert.equal(v.ml.l,'승');assert.ok(v.exp[0]>v.exp[1]);
+const h=v.mk.find(x=>x.fam==='HANDICAP');assert.ok(Math.abs(h.rows.reduce((a,r)=>a+r.p,0)-1)<.01,'handicap 3-way sums to 1');
+const t=v.mk.find(x=>x.fam==='TOTAL');assert.ok(Math.abs(t.rows.reduce((a,r)=>a+r.p,0)-1)<.01);
+// basketball
+c.TD={home:team([110,115,108,120,112],[100,104,101,109,99]),away:team([98,101,95,104,100],[112,110,108,115,109])};
+const bm=(no,fam,line,ch)=>({...mk(no,fam,line,ch),sport:'농구',league:'KBL'});c.MB=[bm(1,'MONEYLINE',null,[['승',1.3],['패',3.2]]),bm(2,'HANDICAP',-7.5,[['승',1.75],['패',1.75]]),bm(3,'TOTAL',210.5,[['언더',1.75],['오버',1.75]])];
+const b=run('r704Model({markets:MB},MB)');assert.ok(b.p3[0]>.7);assert.ok(b.exp[0]-b.exp[1]>5);
+c.TD={home:team([1],[0]),away:team([1],[1])};assert.equal(run('r704Model({markets:MS},MS)').few,true,'too few records');
+const ix=run('INDEX');assert.ok(ix.includes('function r704Card')&&ix.includes('style="display:none">💰 내 베팅'));
+console.log('R704 team model OK',JSON.stringify({soc:v.p3,exp:v.exp,top:v.top,best:v.best&&[v.best.fam,v.best.l,v.best.p,v.best.mp]}));
