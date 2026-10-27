@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R710-DRAW-LEVEL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R711-REST-VERDICT";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4572,13 +4572,18 @@ function r704W(rows,fn){let s=0,w=0;rows.forEach((r,i)=>{const v=fn(r);if(!Numbe
 function r704Side(t,venueHome){if(!t||!t.n)return null;const rows=t.matches||[];const gf=r704W(rows,r=>r.gf),ga=r704W(rows,r=>r.ga);const v=venueHome?t.ha?.home:t.ha?.away;
 const vgf=v&&v.n>=3?v.gf/v.n:null,vga=v&&v.n>=3?v.ga/v.n:null;return {n:t.n,gf:vgf==null?gf:.7*gf+.3*vgf,ga:vga==null?ga:.7*ga+.3*vga,w:t.wins,d:t.draws||0,l:t.losses,vn:v?.n||0,vw:v?.w||0,vd:v?.d||0,vl:v?.l||0};}
 function r704Shrink(x,n,prior,k){return x==null?prior:(x*n+prior*k)/(n+k);}
-function r704Rest(ms){const r=ms.find(x=>x.r649?.home&&x.r649?.away)?.r649;return r?{h:Number(r.home.days),a:Number(r.away.days)}:null;}
+/* R711 (owner: "휴식일이 잘못나온듯"): r649 only sees games of the same competition, so for 아챔·컵 games it counted the last 아챔 game
+   (13–15 days). Rest is now the shorter of that and the days since the team's latest game in ANY league; still over 9 days = unknown. */
+function r711Days(state,ml,name){try{const k=gameTimeMs(ml);const x=r707Any(state,ml,name);const d=x?.matches?.[0]?.date;if(!d||k==null)return null;const t=Date.parse(d+'T12:00:00+09:00');return isFinite(t)?(k-t)/86400000:null;}catch(_){return null;}}
+function r704Rest(ms,state){const r=ms.find(x=>x.r649?.home&&x.r649?.away)?.r649,ml=ms[0];let h=r?Number(r.home.days):null,a=r?Number(r.away.days):null;
+if(state&&ml){const dh=r711Days(state,ml,ml.home),da=r711Days(state,ml,ml.away);if(dh!=null&&dh>0)h=h==null||!isFinite(h)?dh:Math.min(h,dh);if(da!=null&&da>0)a=a==null||!isFinite(a)?da:Math.min(a,da);}
+if(h==null||a==null||!isFinite(h)||!isFinite(a)||h>9||a>9)return null;return {h:Math.round(h*10)/10,a:Math.round(a*10)/10};}
 function r704Soccer(state,ms,H,A){const m3=ms.find(x=>x.r663?.home||x.r663?.away)?.r663,P=1.3;
 let ah=r704Shrink(H.gf,H.n,P,2),dh=r704Shrink(H.ga,H.n,P,2),aa=r704Shrink(A.gf,A.n,P,2),da=r704Shrink(A.ga,A.n,P,2);const why=[];
 const xg=t=>t&&t.n>=3&&Number.isFinite(t.sot)?{f:.30*t.sot+.035*Math.max(0,(t.sh||t.sot)-t.sot),a:Number.isFinite(t.sota)?.30*t.sota+.035*Math.max(0,(t.sha||t.sota)-t.sota):null}:null;
 const xh=xg(m3?.home),xa=xg(m3?.away);if(xh){ah=.6*ah+.4*xh.f;if(xh.a!=null)dh=.6*dh+.4*xh.a;}if(xa){aa=.6*aa+.4*xa.f;if(xa.a!=null)da=.6*da+.4*xa.a;}
 if(xh&&xa)why.push('유효슈팅 '+m3.home.sot+' : '+m3.away.sot+' · 허용 '+(m3.home.sota??'-')+' : '+(m3.away.sota??'-'));
-let lh=Math.sqrt(ah*da)*R704.hadv.축구,la=Math.sqrt(aa*dh)/R704.hadv.축구;const rs=r704Rest(ms);
+let lh=Math.sqrt(ah*da)*R704.hadv.축구,la=Math.sqrt(aa*dh)/R704.hadv.축구;const rs=r704Rest(ms,state);
 if(rs&&isFinite(rs.h)&&isFinite(rs.a)){if(rs.h<3&&rs.a>=4){lh*=.95;la*=1.04;why.push('홈 휴식 '+rs.h.toFixed(1)+'일 (원정 '+rs.a.toFixed(1)+'일)');}else if(rs.a<3&&rs.h>=4){la*=.95;lh*=1.04;why.push('원정 휴식 '+rs.a.toFixed(1)+'일 (홈 '+rs.h.toFixed(1)+'일)');}}
 lh=Math.min(4,Math.max(.2,lh));la=Math.min(4,Math.max(.2,la));const rho=-.08,G=[];let ph=0,pd=0,pa=0,top=null;
 for(let i=0;i<=10;i++)for(let j=0;j<=10;j++){let p=r704Pois(lh,i)*r704Pois(la,j);if(i===0&&j===0)p*=1-lh*la*rho;else if(i===0&&j===1)p*=1+lh*rho;else if(i===1&&j===0)p*=1+la*rho;else if(i===1&&j===1)p*=1-rho;G.push([i,j,p]);if(i>j)ph+=p;else if(i===j)pd+=p;else pa+=p;if(!top||p>top[2])top=[i,j,p];}
@@ -4588,7 +4593,7 @@ function r704Basket(state,ms,H,A,nba){const m3=ms.find(x=>x.r663?.home&&x.r663?.
 if(nba&&m3&&m3.home.n>=2&&m3.away.n>=2){const pace=(m3.home.pace+m3.away.pace)/2;ph=pace*(m3.home.ortg+m3.away.drtg)/200;pa=pace*(m3.away.ortg+m3.home.drtg)/200;why.push('공격효율 '+m3.home.ortg+' : '+m3.away.ortg+' · 수비효율 '+m3.home.drtg+' : '+m3.away.drtg+' · 페이스 '+pace.toFixed(1));}
 else if(m51&&m51.home.n>=2&&m51.away.n>=2){ph=(m51.home.pf+m51.away.pa)/2;pa=(m51.away.pf+m51.home.pa)/2;why.push('최근 득점 '+m51.home.pf+' : '+m51.away.pf+' · 실점 '+m51.home.pa+' : '+m51.away.pa);}
 else if(H.gf!=null&&A.gf!=null){ph=(H.gf+A.ga)/2;pa=(A.gf+H.ga)/2;why.push('최근 득점 '+H.gf.toFixed(1)+' : '+A.gf.toFixed(1)+' · 실점 '+H.ga.toFixed(1)+' : '+A.ga.toFixed(1));}else return null;
-const ha=nba?1.5:1.8;ph+=ha;pa-=ha;const rs=r704Rest(ms);if(rs&&isFinite(rs.h)&&isFinite(rs.a)){if(rs.h<1.5&&rs.a>=2){ph-=1.5;pa+=.5;why.push('홈 백투백');}else if(rs.a<1.5&&rs.h>=2){pa-=1.5;ph+=.5;why.push('원정 백투백');}}
+const ha=nba?1.5:1.8;ph+=ha;pa-=ha;const rs=r704Rest(ms,state);if(rs&&isFinite(rs.h)&&isFinite(rs.a)){if(rs.h<1.5&&rs.a>=2){ph-=1.5;pa+=.5;why.push('홈 백투백');}else if(rs.a<1.5&&rs.h>=2){pa-=1.5;ph+=.5;why.push('원정 백투백');}}
 const n=Math.min(H.n||5,A.n||5),k=1+1.5/Math.max(2,n),sdM=(nba?R704.sdM.NBA:R704.sdM.BB)*k,sdT=(nba?R704.sdT.NBA:R704.sdT.BB)*k,mu=ph-pa,T=ph+pa;
 const prob=(fam,line,label)=>{if(fam==='MONEYLINE'){const p=r507Phi(mu/sdM);return label==='승'?p:label==='패'?1-p:null;}if(fam==='HANDICAP'){const p=r507Phi((mu+line)/sdM);return label==='승'?p:label==='패'?1-p:null;}if(fam==='TOTAL'){const p=1-r507Phi((line-T)/sdT);return label==='오버'?p:label==='언더'?1-p:null;}return null;};
 const pw=r507Phi(mu/sdM);return {exp:[Math.round(ph*10)/10,Math.round(pa*10)/10],top:null,p3:[pw,0,1-pw],prob,why};}
@@ -4611,7 +4616,7 @@ mk.push({no:m.no,fam:m.marketFamily,line:m.marketFamily==='MONEYLINE'?null:Numbe
 /* R709 (owner: "팀 경기력비교를 경기력 데이터중심으로 보고 다시 제대로 만들어줘"): every comparison is a share of the gap between the
    two teams on a typical spread (0.5 = equal), grouped into 폼 · 공격 · 수비 · 홈/원정 · 컨디션; the weighted mean is the 경기력 점수. */
 function r709Sh(h,a,S,low){if(h==null||a==null||!isFinite(h)||!isFinite(a))return null;const d=(low?a-h:h-a)/(2*S);return Math.min(.95,Math.max(.05,.5+d));}
-function r709Cats(sp,H,A,td,ms){const M=[],f1=v=>v==null||!isFinite(v)?'-':(Math.round(v*10)/10).toFixed(1),add=(cat,name,hv,av,S,low,ht,at)=>{const sh=r709Sh(hv,av,S,low);if(sh==null)return;M.push({cat,name,ht:ht??f1(hv),at:at??f1(av),sh:Math.round(sh*1000)/1000,low:!!low});};
+function r709Cats(sp,H,A,td,ms,REST){const M=[],f1=v=>v==null||!isFinite(v)?'-':(Math.round(v*10)/10).toFixed(1),add=(cat,name,hv,av,S,low,ht,at)=>{const sh=r709Sh(hv,av,S,low);if(sh==null)return;M.push({cat,name,ht:ht??f1(hv),at:at??f1(av),sh:Math.round(sh*1000)/1000,low:!!low});};
 const soc=sp==='축구',bb=sp==='농구',base=sp==='야구',vb=sp==='배구',th=td?.home||{},ta=td?.away||{};
 const ppg=t=>t&&t.n?(soc?(3*t.w+t.d)/t.n:t.w/t.n):null,rec=t=>t.w+'승'+(soc?t.d+'무':'')+t.l+'패';
 if(H&&A&&H.n&&A.n){add('폼','최근 '+H.n+'·'+A.n+'경기',ppg(H),ppg(A),soc?3:1,false,rec(H),rec(A));
@@ -4623,7 +4628,7 @@ if(th.halves&&ta.halves){add('공격','전반 득점',th.halves.h1f,ta.halves.h1
 const x=ms.find(m=>m.r663?.home&&m.r663?.away)?.r663;if(x){const a=x.home,b=x.away;add('공격','슈팅 (최근 '+a.n+'·'+b.n+')',a.sh,b.sh,8);add('공격','유효슈팅',a.sot,b.sot,4);add('수비','허용 슈팅',a.sha,b.sha,8,true);add('수비','허용 유효슈팅',a.sota,b.sota,4,true);if(a.pos!=null&&b.pos!=null)add('공격','점유율',a.pos,b.pos,25,false,Math.round(a.pos)+'%',Math.round(b.pos)+'%');add('공격','코너킥',a.cor,b.cor,5);}}
 if(bb){const x=ms.find(m=>m.r663?.home&&m.r663?.away)?.r663;if(x){const a=x.home,b=x.away;add('공격','공격 효율 (100포제션 득점)',a.ortg,b.ortg,12);add('수비','수비 효율 (100포제션 실점)',a.drtg,b.drtg,12,true);add('폼','순 효율 (공격−수비)',a.net,b.net,15);}
 const y=ms.find(m=>m.r651?.home&&m.r651?.away)?.r651;if(y){const a=y.home,b=y.away;if(!(H&&A&&H.n&&A.n)){add('공격','최근 '+a.n+'·'+b.n+'경기 평균 득점',a.pf,b.pf,15);add('수비','평균 실점',a.pa,b.pa,15,true);}add('공격','전반 득점',a.h1f,b.h1f,10);add('공격','후반 득점',a.h2f,b.h2f,10);if(a.h1a!=null&&b.h1a!=null)add('수비','전반 실점',a.h1a,b.h1a,10,true);if(a.h2a!=null&&b.h2a!=null)add('수비','후반 실점',a.h2a,b.h2a,10,true);}}
-const r=ms.find(m=>m.r649?.home&&m.r649?.away)?.r649;if(r){const dh=Number(r.home.days),da=Number(r.away.days);if(isFinite(dh)&&isFinite(da))add('컨디션','휴식일',Math.min(dh,5),Math.min(da,5),3,false,dh.toFixed(1)+'일',da.toFixed(1)+'일');}
+const r=REST;if(r){const dh=r.h,da=r.a;add('컨디션','휴식일 (직전 경기 후)',Math.min(dh,5),Math.min(da,5),3,false,dh.toFixed(1)+'일',da.toFixed(1)+'일');}
 const W={'폼':.25,'공격':.25,'수비':.25,'홈/원정':.15,'컨디션':.10},cats=[];let sw=0,sv=0;for(const c of Object.keys(W)){const xs=M.filter(m=>m.cat===c);if(!xs.length)continue;const v=xs.reduce((a,m)=>a+m.sh,0)/xs.length;cats.push({c,h:Math.round(v*100),a:100-Math.round(v*100),n:xs.length});sw+=W[c];sv+=W[c]*v;}
 const score=sw?Math.round(sv/sw*100):null;return {metrics:M,cats,score:score==null?null:[score,100-score]};}
 function r704Model(state,ms){const ml=ms.find(x=>x.marketFamily==='MONEYLINE')||ms[0];if(!ml)return null;let td=null;try{td=r482TeamData(state,ml);}catch(_){}
@@ -4647,7 +4652,7 @@ dlev={p:dp==null?null:Math.round(dp*1000)/1000,rate:dr==null?null:Math.round(dr*
 if(d&&d.o>=2.5&&dp>=.27&&gap<=.5&&tot<=3.0)draw={no:mlr.no,fam:'MONEYLINE',line:null,l:'무',o:d.o,p:dp,pm:dp,mp:d.mp,rate:dr,gap:Math.round(gap*100)/100,tot:Math.round(tot*100)/100};
 if(!draw)for(const x of mk){if(x.fam!=='HANDICAP')continue;const hd=x.rows.find(r=>r.l==='무');if(hd&&hd.o>=2.6&&hd.p>=.28&&(!draw||hd.p>draw.pm))draw={no:x.no,fam:'HANDICAP',line:x.line,l:'무',o:hd.o,p:hd.p,pm:hd.p,mp:hd.mp};}}
 const mlm=mlr?Object.fromEntries(mlr.rows.map(r=>[r.l,r.mp])):null;const mlRaw=mlr?[...mlr.rows].sort((a,b)=>b.p-a.p)[0]:null,pickSide=mlRaw?mlRaw.l:null,mkSide=mlm?Object.entries(mlm).sort((a,b)=>b[1]-a[1])[0][0]:null;
-let cx=null;try{cx=r709Cats(sp,H,A,td,ms);}catch(_){}return {sp,cx,exp:mod.exp,top:mod.top,p3:mod.p3.map(x=>Math.round(x*1000)/1000),mk,ml:mlPick,best,draw,dlev,conf,n,why:why.slice(0,5),agree:pickSide&&mkSide?pickSide===mkSide:null};}
+let cx=null;try{cx=r709Cats(sp,H,A,td,ms,r704Rest(ms,state));}catch(_){}return {sp,cx,exp:mod.exp,top:mod.top,p3:mod.p3.map(x=>Math.round(x*1000)/1000),mk,ml:mlPick,best,draw,dlev,conf,n,why:why.slice(0,5),agree:pickSide&&mkSide?pickSide===mkSide:null};}
 function r704Games(state){const g=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||m.resultFinal)continue;const k=String(m.gmTs)+'|'+gameSeed(m);if(!g.has(k))g.set(k,[]);g.get(k).push(m);}return g;}
 function r704Step(state){if(state.r704V!==3){state.r704={list:[]};state.r704V=3;}const box=state.r704||(state.r704={list:[]});for(const [k,ms] of r704Games(state)){const t=gameTimeMs(ms[0]);if(t==null||Date.now()>=t)continue;let v=null;try{v=r704Model(state,ms);}catch(_){}
 const i=box.list.findIndex(x=>x.k===k);if(i>=0&&box.list[i].status!=='pre')continue;if(!v||v.few||v.mkOnly||!v.ml){if(i>=0)box.list.splice(i,1);continue;}
@@ -10766,7 +10771,7 @@ function r704Card(g,v){if(!v)return '';if(v.few)return '<div class="r655Few">경
 const soc=v.sp==='축구',H=r560N(g.home),A=r560N(g.away),K=g.gmTs+'|'+g.home+'|'+g.away,ml=(v.mk||[]).find(x=>x.fam==='MONEYLINE'),mp=ml?Object.fromEntries(ml.rows.map(r=>[r.l,r.mp])):{};
 if(v.mkOnly){return '<div class="r704"><div class="r704H"><b>🏟 경기력 비교</b><span class="r704C c1">팀 기록 없음</span></div><div class="r655Few">두 팀 경기 기록이 아직 없습니다. 기록이 들어오면 자동으로 경기력 비교가 채워집니다.</div><details class="r704D" data-k="'+e(K+'|mko')+'"><summary>참고: 배당 확률</summary>'+(ml?ml.rows.map(r=>'<div class="r704Rc">'+e(r704Lbl(g,'MONEYLINE',null,r.l))+' '+r.o.toFixed(2)+'배 · '+r704Pc(r.mp)+'</div>').join(''):'')+'</details></div>'}
 const cx=v.cx||{metrics:[],cats:[],score:null};let h='<div class="r704"><div class="r704H"><b>🏟 경기력 비교</b><span class="r704C c'+(v.conf==='상'?'3':v.conf==='중'?'2':'1')+'">자료 '+e(v.n)+'경기 · 신뢰도 '+e(v.conf)+'</span></div>';
-if(cx.score){const d=cx.score[0]-50,who=d>0?H:A,ad=Math.abs(d)*2;h+='<div class="r709Top"><div class="r709Sc"><span><em>'+e(H)+'</em><b>'+cx.score[0]+'</b></span><span class="vs">경기력 점수</span><span><b>'+cx.score[1]+'</b><em>'+e(A)+'</em></span></div>'+r709Split(cx.score[0],'big')+'<div class="r709V">'+(ad>=40?'🔥 '+e(who)+' 뚜렷한 우세':ad>=20?'✅ '+e(who)+' 우세':'⚖ 경기력 비슷')+'</div></div>';}
+if(cx.score){const d=cx.score[0]-50,who=d>0?H:A,ad=Math.abs(d)*2;h+='<div class="r709Top"><div class="r709Sc"><span><em>'+e(H)+'</em><b>'+cx.score[0]+'</b></span><span class="vs">경기력 점수</span><span><b>'+cx.score[1]+'</b><em>'+e(A)+'</em></span></div>'+r709Split(cx.score[0],'big')+'<div class="r709V">'+(Math.abs(d)>=15?'🔥 '+e(who)+' 뚜렷한 우세':Math.abs(d)>=7?'✅ '+e(who)+' 우세':Math.abs(d)>=3?'↗ '+e(who)+' 약간 우세':'⚖ 경기력 비슷')+' <small>('+cx.score[0]+' : '+cx.score[1]+')</small></div></div>';}
 h+='<div class="r709Fm"><span>'+e(H)+' 최근</span>'+r573Dots(g,'home')+'</div><div class="r709Fm"><span>'+e(A)+' 최근</span>'+r573Dots(g,'away')+'</div>';
 if(cx.cats.length)h+='<div class="r709Cs">'+cx.cats.map(c=>'<div class="r709C"><b class="'+(c.h>c.a?'w':'')+'">'+c.h+'</b><span class="n">'+e(c.c)+'</span><b class="'+(c.a>c.h?'w':'')+'">'+c.a+'</b>'+r709Split(c.h)+'</div>').join('')+'</div>';
 if(cx.metrics.length){const order=['폼','공격','수비','홈/원정','컨디션'];h+='<details class="r704D" data-k="'+e(K+'|met2')+'" open><summary>📋 경기력 세부 데이터 ('+cx.metrics.length+'개)</summary><div class="r709Mh"><span>'+e(H)+'</span><span></span><span>'+e(A)+'</span></div>'+
