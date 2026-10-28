@@ -7041,7 +7041,7 @@ return best||r482Summarize([],{name,sport:m.sport,source:'저장된 공식 결�
    전반/후반 split (or has no rows at all), find the game on ESPN, read each team's last games from the pre-match summary and each game's
    half scores from its own summary. One fixture a minute, at most 10 game summaries a tick, each game's halves cached for reuse. */
 const R633={tickMs:60000,maxDays:120,perTickEvents:10,retryMs:15*60000,timeout:8000,perTickFixtures:4,budgetMs:25000};
-const R633_EXTRA_SLUG={"UEL":"uefa.europa","UECL":"uefa.europa.conf","UCL":"uefa.champions","A리그":"aus.1","코파리베":"conmebol.libertadores","코파수다":"conmebol.sudamericana"};
+const R633_EXTRA_SLUG={"ACLE":"afc.champions","AFC 챔피언스리그 엘리트":"afc.champions","UEL":"uefa.europa","UECL":"uefa.europa.conf","UCL":"uefa.champions","A리그":"aus.1","코파리베":"conmebol.libertadores","코파수다":"conmebol.sudamericana"};
 function r633Slug(m){return m?.sport==="축구"?(r532Slug(m)||R633_EXTRA_SLUG[String(m.league||"").trim()]||null):null;}
 async function r633Json(url){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),R633.timeout);try{const r=await fetch(url,{headers:{accept:"application/json"},signal:ac.signal});if(!r.ok)throw Error("ESPN_HTTP_"+r.status);const t=await r.text();if(t.length>4000000)throw Error("ESPN_SIZE");return JSON.parse(t);}finally{clearTimeout(tm);}}
 const R633_ALIAS={"FK츠르베나 즈베즈다":"red star belgrade","츠르베나 즈베즈다":"red star belgrade","코펜하겐":"f.c. københavn","인터클럽드 에스칼데스":"inter d'escaldes","우니베르시타테아 크라이오바":"csu craiova","이베리아1999 트빌리시":"iberia 1999","야기엘로니아 비아위스토크":"jagiellonia bialystok","하포엘 베르셰바":"hapoel be'er","신트 트라위던VV":"sint-truidense","하트오브 미들로디언":"heart of midlothian"};
