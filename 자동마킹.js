@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R724-BEST-KEEP-ORDER";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R725-BEST-TODAY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4800,7 +4800,7 @@ if(box.log.length>R676.keep)box.log.splice(0,box.log.length-R676.keep);}
 function r676Summary(state){let G=[];try{G=r676Games(state).filter(g=>!g.started);}catch(_){}const L=state?.r676?.log||[];const t=(f)=>{const xs=L.filter(f).filter(x=>x.st==='hit'||x.st==='miss');const h=xs.filter(x=>x.st==='hit').length,ret=xs.filter(x=>x.st==='hit').reduce((a,x)=>a+(Number(x.bet?.odds)||0),0);return {n:xs.length,h,roi:xs.length?Math.round((ret/xs.length-1)*1000)/10:null};};
 /* R724 (owner: "베스트 왜 자꾸 순서가 밀려? 경기시작하면 순서가 지나가버리네"): today's games that already started stay in their time slot
    (frozen at kick-off, with ⏳/⭕/❌) instead of jumping to the history list. */
-const today=new Date(Date.now()+9*3600000).toISOString().slice(0,10),yest=new Date(Date.now()-15*3600000).toISOString().slice(0,10);const T=L.filter(x=>String(x.d)===today||(String(x.d)>=yest&&x.st==='live'));
+const today=new Date(Date.now()+9*3600000).toISOString().slice(0,10),yest=new Date(Date.now()-15*3600000).toISOString().slice(0,10);const T=L.filter(x=>String(x.d)===today); /* owner: today's games stay all day with ⭕/❌, gone after midnight */
 return {games:G,today:T,rec:{all:t(()=>true),top:t(x=>x.top)},recent:L.slice(-30).reverse()};}
 /* R680: 💰 내 베팅 (owner: "내 배팅기록 있어야겟네"). The owner's own slips ("22승 245패 250승" + stake) are kept in Durable Object
    storage (key r680:bets), never in the public state; every endpoint needs the admin token. Each leg is settled from Betman's
