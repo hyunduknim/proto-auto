@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R722-FAST-SETTLE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R723-DROP-POSTPONED";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5350,7 +5350,7 @@ if(n){state.r570Audit={at,fixed:n+(state.r570Audit?.fixed||0)};state.updatedAt=a
 const R561_REMOVED=[["260123",8959],["260124",9425],["260124",9427],["260124",9428]]; /* R608: owner asked to drop the 서울SK vs 안양정관장 game (9425·9427·9428, no pick after R598B) from 배당 정밀분석 */
 function r561Gone(m){return !!m&&R561_REMOVED.some(([g,n])=>String(m.gmTs||"")===g&&Number(m.no)===n);}
 /* R620: owner asked to delete five pick-less UCL game cards of 10-22 04:00 (whole games, every market). */
-const R620_GAMES=[["260125",9677],["260125",9685],["260125",9693],["260125",9702],["260125",9726]];
+const R620_GAMES=[["260125",9677],["260125",9685],["260125",9693],["260125",9702],["260125",9726],["260126",567],["260126",753]]; /* R723: owner ("그냥 빼는게 나을 듯"): postponed 10/25 삼성–KIA and 10/26 PSG–리옹 removed instead of waiting */
 function r620Seeds(state){const out=new Set();for(const [g,no] of R620_GAMES){const a=(state?.markets||[]).find(x=>String(x.gmTs)===g&&Number(x.no)===no);if(a)out.add(g+"|"+gameSeed(a));else if(state?.r620Seeds)for(const k of state.r620Seeds)out.add(k);}if(out.size)state.r620Seeds=[...out];return out;}
 function r561RemovePhantom(state){if(!state)return 0;let n=0;const seeds=r620Seeds(state),gone620=x=>!!x&&seeds.has(String(x.gmTs)+"|"+gameSeed(x));const keep=a=>{const b=a.filter(x=>!r561Gone(x)&&!gone620(x));n+=a.length-b.length;return b;};
 if(Array.isArray(state.markets))state.markets=keep(state.markets);if(Array.isArray(state.settlementLedger))state.settlementLedger=keep(state.settlementLedger);
