@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R727-LEAGUE-ALIAS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R728-TG-OFF";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -13574,7 +13574,9 @@ const msgs=(ups||[]).map(u=>u.message).filter(x=>x&&x.chat&&x.chat.type==="priva
 const last=msgs[msgs.length-1];if(!last)return null;cfg.chatId=last.chat.id;cfg.chatName=String(last.chat.first_name||last.chat.username||"");cfg.linkUntil=0;
 const maxId=Math.max(...(ups||[]).map(u=>Number(u.update_id)||0));if(maxId>0){try{await r569Call(cfg.token,"getUpdates",{offset:maxId+1,limit:1,timeout:0});}catch(_){}}
 await r569Save(cfg);await r569Call(cfg.token,"sendMessage",{chat_id:cfg.chatId,parse_mode:"HTML",text:"✅ <b>프로토 알림 연결 완료</b>\n이제 아래 알림을 보내드립니다.\n⏰ 추천 경기 시작 1시간 전 (확정 시점)\n⭕❌ 추천 경기 결과"});return cfg;}
-async function r569Tick(env){const cfg=await r569Cfg();if(!cfg||!cfg.token)return {status:"OFF"};const now=Date.now();if(now-Number(MEM.r569At||0)<R569.gapMs)return {status:"WAIT"};MEM.r569At=now;
+/* R728 (owner: "스포츠 픽알람 삭제해줘 계속 틀리네" → 텔레그램 추천 알림): Telegram pick and result messages are switched off. The saved token stays so it can be turned back on. */
+let R728_TG_OFF=true;
+async function r569Tick(env){if(R728_TG_OFF)return {status:"OFF_BY_OWNER"};const cfg=await r569Cfg();if(!cfg||!cfg.token)return {status:"OFF"};const now=Date.now();if(now-Number(MEM.r569At||0)<R569.gapMs)return {status:"WAIT"};MEM.r569At=now;
 try{if(!cfg.chatId){if(Number(cfg.linkUntil)>now)await r569Link(cfg);return {status:cfg.chatId?"LINKED":"WAITING_FOR_CHAT"};}
 const st=MEM.state;if(!st)return {status:"NO_STATE"};const ds=doStorage();const sent=MEM.r569Sent||(MEM.r569Sent=(ds?await ds.get("r569:sent"):null)||{best:{},pre:{},res:{}});
 const reps=(st.markets||[]).filter(m=>currentRoundMarket(m,st)&&m.marked&&m.representativeSelected&&["추천","가장추천","수동"].includes(r569Grade(m)));

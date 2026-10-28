@@ -6,7 +6,7 @@ if(url.includes('/botBAD'))return new Response(JSON.stringify({ok:false,error_co
 if(m==='getMe')return ok({id:1,username:'proto_bot'});if(m==='getWebhookInfo')return ok({url:''});
 if(m==='getUpdates')return ok(updates);if(m==='sendMessage')return ok({message_id:1});return ok(true);};
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto,fetch:fetchMock});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);run('R728_TG_OFF=false');
 c.STORE={get:async k=>store.get(k),put:async(k,v)=>{store.set(k,v);}};run('MEM.doStorage=STORE');
 const TOK='123456789:'+'A'.repeat(35);
 const post=async(fn,b)=>{c.REQ=new Request('https://x/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});return (await run(fn+'(REQ)')).json();};
