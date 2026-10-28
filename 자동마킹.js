@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R715-COMPACT-CHART";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R716-SCORE-PICK";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4588,6 +4588,9 @@ if(rs&&isFinite(rs.h)&&isFinite(rs.a)){if(rs.h<3&&rs.a>=4){lh*=.95;la*=1.04;why.
 if(H.eloD!=null){const f=Math.exp(.0016*H.eloD);lh*=Math.sqrt(f);la/=Math.sqrt(f);why.push('Elo(상대 수준 반영) 홈 '+(H.eloD>=0?'+':'')+Math.round(H.eloD));}
 lh=Math.min(4,Math.max(.2,lh));la=Math.min(4,Math.max(.2,la));const rho=-.08,G=[];let ph=0,pd=0,pa=0,top=null;
 for(let i=0;i<=10;i++)for(let j=0;j<=10;j++){let p=r704Pois(lh,i)*r704Pois(la,j);if(i===0&&j===0)p*=1-lh*la*rho;else if(i===0&&j===1)p*=1+lh*rho;else if(i===1&&j===0)p*=1+la*rho;else if(i===1&&j===1)p*=1-rho;G.push([i,j,p]);if(i>j)ph+=p;else if(i===j)pd+=p;else pa+=p;if(!top||p>top[2])top=[i,j,p];}
+/* R716 (owner: "예측 스코어는 왜 전부 다 1대1 임?"): with ~1.3 goals a side the single most likely exact score is almost always 1-1, even when
+   one team is clearly ahead. Show the most likely score inside the most likely result (home win → best home-win score). */
+{const outc=ph>=pd&&ph>=pa?'h':pa>=pd?'a':'d';let bt=null;for(const [i,j,p] of G){const o=i>j?'h':i<j?'a':'d';if(o===outc&&(!bt||p>bt[2]))bt=[i,j,p];}if(bt)top=bt;}
 const s=ph+pd+pa;const prob=(fam,line,label)=>{let q=0;for(const [i,j,p] of G){if(fam==='MONEYLINE'){if((label==='승'&&i>j)||(label==='무'&&i===j)||(label==='패'&&i<j))q+=p;}else if(fam==='HANDICAP'){const d=i+line-j;if((label==='승'&&d>0)||(label==='무'&&d===0)||(label==='패'&&d<0))q+=p;}else if(fam==='TOTAL'){const t=i+j;if((label==='오버'&&t>line)||(label==='언더'&&t<line))q+=p;}}return q/s;};
 return {exp:[Math.round(lh*100)/100,Math.round(la*100)/100],top:top?top[0]+'-'+top[1]:null,p3:[ph/s,pd/s,pa/s],prob,why};}
 function r704Basket(state,ms,H,A,nba){const m3=ms.find(x=>x.r663?.home&&x.r663?.away)?.r663,m51=ms.find(x=>x.r651?.home&&x.r651?.away)?.r651,why=[];let ph,pa;
