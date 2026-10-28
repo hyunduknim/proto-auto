@@ -1,0 +1,11 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+const t=Date.now()-130*60000,d=new Date(t+9*3600000).toISOString();
+const m=(no,fam,line,pick)=>({gmTs:'260128',no,sport:'축구',league:'EPL',home:'아스널',away:'첼시',date:d.slice(0,10),time:d.slice(11,16),marketFamily:fam,line,choices:[{label:'승',odds:1.8},{label:'무',odds:3.5},{label:'패',odds:4},{label:'언더',odds:1.8},{label:'오버',odds:1.9}],marked:true,representativeSelected:true,finalPick:pick,finalOdds:1.8,displayGrade:'추천'});
+c.ST={gmTs:'260128',round:128,markets:[m(1,'MONEYLINE',null,'승')],settlementLedger:[]};
+const ev={date:new Date(t).toISOString(),status:{type:{completed:true,name:'STATUS_FULL_TIME'}},competitions:[{competitors:[{homeAway:'home',score:'2',team:{displayName:'Arsenal'}},{homeAway:'away',score:'1',team:{displayName:'Chelsea'}}]}]};
+c.EV=ev;run("r722Board=async()=>({events:[EV]});r633Find=(s,m,evs)=>({e:evs[0],h:evs[0].competitions[0].competitors[0],a:evs[0].competitions[0].competitors[1]});r633Slug=()=>'eng.1';");
+(async()=>{const a=await run('r722FastSettle(ST,{})');assert.equal(a.settled,1,JSON.stringify(a));assert.equal(run('ST.markets[0].resultFinal'),true);assert.equal(run('ST.markets[0].hit'),true);assert.equal(run('ST.markets[0].resultScoreText||ST.markets[0].score'),'2:1');
+c.ST2={gmTs:'260128',round:128,markets:[m(2,'MONEYLINE',null,'승')],settlementLedger:[]};run("EV.status.type.name='STATUS_FINAL_AET'");const b=await run('r722FastSettle(ST2,{})');assert.equal(b.settled,0,'extra time never settles');
+console.log('R722 fast settle OK');})().catch(e=>{console.error(e);process.exit(1)});
