@@ -4612,7 +4612,7 @@ return {exp:null,top:null,p3:[pw,0,1-pw],prob:(fam,line,label)=>fam==='MONEYLINE
    league; with 1–2 games the model leans hard on the prior; with none at all the card still shows the market. */
 function r707Any(state,ml,name){const k=gameTimeMs(ml);if(k==null)return null;const sp=norm(ml.sport),nm=norm(name);let best=null;
 for(const [key,pr] of Object.entries(state?.performanceModel?.teams||{})){const p=key.split('|');if(p[0]!==sp||p[2]!==nm)continue;const rows=(pr?.recent||[]).filter(r=>typeof r.at==='number'&&r.at<k&&r.gf!=null&&r.ga!=null);if(!best||rows.length>best.length)best=rows;}
-if(!best||!best.length)return null;best=best.sort((a,b)=>b.at-a.at);const rows=best.slice(0,5).map(r=>({date:kstDateFromMs(r.at),home:!!r.home,opponent:r.opp,gf:r.gf,ga:r.ga}));
+if(r644Is(ml))best=(best||[]).filter(r=>kstDateFromMs(r.at)>=R729.nbaStart);if(!best||!best.length)return null;best=best.sort((a,b)=>b.at-a.at);const rows=best.slice(0,5).map(r=>({date:kstDateFromMs(r.at),home:!!r.home,opponent:r.opp,gf:r.gf,ga:r.ga}));
 const w=rows.filter(r=>r.gf>r.ga).length,d=rows.filter(r=>r.gf===r.ga).length,sp2=h=>{const xs=best.filter(r=>!!r.home===h).slice(0,5);return {n:xs.length,w:xs.filter(r=>r.gf>r.ga).length,d:xs.filter(r=>r.gf===r.ga).length,l:xs.filter(r=>r.gf<r.ga).length,gf:xs.reduce((a,r)=>a+r.gf,0),ga:xs.reduce((a,r)=>a+r.ga,0)};};
 return {n:rows.length,wins:w,draws:d,losses:rows.length-w-d,matches:rows,ha:{home:sp2(true),away:sp2(false)},anyLeague:true};}
 function r707Market(ms){const mk=[];for(const m of ms){if(!['MONEYLINE','HANDICAP','TOTAL'].includes(m.marketFamily))continue;const ch=(m.choices||[]).filter(c=>Number(c.odds)>1);if(ch.length<2)continue;const inv=ch.reduce((a,c)=>a+1/Number(c.odds),0);
@@ -7031,11 +7031,15 @@ rows.push({date:day,home,opponent,gf,ga,scoreBasis:'PROVIDER_REPORTED_SCORE',sco
 }
 return rows.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
 }
+const R729={nbaStart:'2026-10-21'};
 function r483SelectForm(state,m,name,local,seed){
 const cached=state.r483TeamForms?.[r483FixtureKey(m)]?.teams?.find(x=>x.name===name);
 const boot=R483_TEAM_BOOTSTRAP.find(x=>r483FixtureKey(x)===r483FixtureKey(m))?.teams?.find(x=>x.name===name);
 const espn=state.r633Forms?.[r483FixtureKey(m)]?.teams?.find(x=>x.name===name);
-const candidates=[cached,boot,seed,local,espn].filter(Boolean).map(x=>r482Summarize(x.matches,{...x,sport:m.sport},m));
+/* R729 (owner: NBA 승패가 다 틀리게 나옴 — 순위표 캡처): the public 최근 경기 list for NBA teams still held 10월 preseason games
+   (애틀랜타 4승1패 instead of 2승2패), and it won because it had more rows. NBA rows before the regular season are dropped. */
+const r729=x=>r644Is(m)?(x||[]).filter(r=>String(r.date||'')>=R729.nbaStart):x;
+const candidates=[cached,boot,seed,local,espn].filter(Boolean).map(x=>r482Summarize(r729(x.matches),{...x,sport:m.sport},m));
 candidates.sort((a,b)=>b.n-a.n||Number(b.ha?.depth||0)-Number(a.ha?.depth||0)||((b.matches[0]?.at||Date.parse(b.matches[0]?.date||'')||0)-(a.matches[0]?.at||Date.parse(a.matches[0]?.date||'')||0)));
 /* R714 (owner: "토토캔이랑 비교해봤는데 틀린게 너무 많은데"): our own records only hold games that were on the Proto slate, so a team's
    cup / continental / unlisted league games were missing and its 최근 5경기 differed from other sites. ESPN's list covers every
@@ -7222,7 +7226,7 @@ audit.status=sIds.length||nIds.length?'UPDATED':'NONE_DUE';audit.errors=audit.er
 function r663SoccerTeam(state,ids,tid){const rows=(ids||[]).map(id=>state.r663Ev?.[id]).filter(x=>x&&x[tid]).slice(0,R663.lastN);if(rows.length<2)return null;
 const me=rows.map(r=>r[tid]),op=rows.map(r=>Object.entries(r).find(([k])=>k!==tid)?.[1]).filter(Boolean),av=(a,i)=>{const v=a.map(x=>x[i]).filter(Number.isFinite);return v.length?Math.round(v.reduce((x,y)=>x+y,0)/v.length*10)/10:null;};
 return {n:rows.length,sh:av(me,0),sha:av(op,0),sot:av(me,1),sota:av(op,1),pos:av(me,2),cor:av(me,3),cora:av(op,3),fo:av(me,4)};}
-function r663NbaTeam(state,tid,before){const gs=Object.entries(state.r651Games||{}).filter(([,g])=>(g.h===tid||g.a===tid)&&g.t<before).sort((a,b)=>b[1].t-a[1].t).slice(0,R663.nbaN);let P=0,M=0,F=0,A=0,n=0;
+function r663NbaTeam(state,tid,before){const gs=Object.entries(state.r651Games||{}).filter(([,g])=>(g.h===tid||g.a===tid)&&g.t<before&&g.t>=Date.parse(R729.nbaStart+'T00:00:00+09:00')).sort((a,b)=>b[1].t-a[1].t).slice(0,R663.nbaN);let P=0,M=0,F=0,A=0,n=0;
 for(const [id,g] of gs){const b=state.r663Nb?.[id];if(!b)continue;const home=g.h===tid,mine=b[tid],opp=b[home?g.a:g.h];if(!mine||!opp)continue;const ps=x=>x[0]+.44*x[1]-x[2]+x[3],poss=(ps(mine)+ps(opp))/2,mins=48+5*Math.max(0,(g.hq||[]).length-4);
 if(!(poss>60&&poss<160))continue;P+=poss;M+=mins;F+=home?g.hs:g.as;A+=home?g.as:g.hs;n++;}
 if(n<2)return null;const r=x=>Math.round(x*10)/10;return {n,pace:r(P/M*48),ortg:r(F/P*100),drtg:r(A/P*100),net:r((F-A)/P*100)};}
@@ -7270,7 +7274,7 @@ for(const m of needIds){const ev=r644Find(m,evs);if(ev){state.r651Ids[r483Fixtur
 const cut=now-(R651.days+5)*86400000;for(const [k,g] of Object.entries(state.r651Games))if(!(g.t>=cut))delete state.r651Games[k];for(const k of Object.keys(state.r651Dates))if(Number(state.r651Dates[k].at)<cut)delete state.r651Dates[k];
 const ik=Object.keys(state.r651Ids);if(ik.length>200)for(const k of ik.slice(0,ik.length-200))delete state.r651Ids[k];
 audit.status='OK';state.r651Audit=audit;return audit;}
-function r651Team(state,tid,before){const gs=Object.values(state.r651Games||{}).filter(g=>(g.h===tid||g.a===tid)&&g.t<before).sort((a,b)=>b.t-a.t).slice(0,R651.lastN);if(!gs.length)return null;
+function r651Team(state,tid,before){const gs=Object.values(state.r651Games||{}).filter(g=>(g.h===tid||g.a===tid)&&g.t<before&&g.t>=Date.parse(R729.nbaStart+'T00:00:00+09:00')).sort((a,b)=>b.t-a.t).slice(0,R651.lastN);if(!gs.length)return null;
 const rows=gs.map(g=>{const home=g.h===tid,f=home?g.hq:g.aq,a=home?g.aq:g.hq,pf=home?g.hs:g.as,pa=home?g.as:g.hs;return {t:g.t,home,f,a,pf,pa,opp:home?g.an:g.hn};});
 const avg=(fn)=>{const v=rows.map(fn).filter(Number.isFinite);return v.length?Math.round(v.reduce((x,y)=>x+y,0)/v.length*10)/10:null;};const q=[0,1,2,3].map(i=>({f:avg(r=>r.f[i]),a:avg(r=>r.a[i])}));
 return {n:rows.length,q,h1f:avg(r=>r.f[0]+r.f[1]),h1a:avg(r=>r.a[0]+r.a[1]),h2f:avg(r=>r.f[2]+r.f[3]),h2a:avg(r=>r.a[2]+r.a[3]),pf:avg(r=>r.pf),pa:avg(r=>r.pa),tot:avg(r=>r.pf+r.pa),margins:rows.map(r=>r.pf-r.pa)};}
