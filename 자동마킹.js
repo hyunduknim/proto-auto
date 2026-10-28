@@ -7039,12 +7039,16 @@ const espn=state.r633Forms?.[r483FixtureKey(m)]?.teams?.find(x=>x.name===name);
 /* R729 (owner: NBA 승패가 다 틀리게 나옴 — 순위표 캡처): the public 최근 경기 list for NBA teams still held 10월 preseason games
    (애틀랜타 4승1패 instead of 2승2패), and it won because it had more rows. NBA rows before the regular season are dropped. */
 const r729=x=>r644Is(m)?(x||[]).filter(r=>String(r.date||'')>=R729.nbaStart):x;
-const candidates=[cached,boot,seed,local,espn].filter(Boolean).map(x=>r482Summarize(r729(x.matches),{...x,sport:m.sport},m));
+let nbaEspn=null;if(r644Is(m)){try{const ids=state.r651Ids?.[r483FixtureKey(m)],tid=ids?.[name===m.home?'home':'away'],t0=Date.parse(R729.nbaStart+'T00:00:00+09:00'),tk=gameTimeMs(m);
+if(tid){const rows=Object.values(state.r651Games||{}).filter(g=>(g.h===tid||g.a===tid)&&g.t>=t0&&g.t<tk&&Number.isFinite(g.hs)&&Number.isFinite(g.as)).sort((a,b)=>b.t-a.t).map(g=>{const h=g.h===tid;return {date:kstDateFromMs(g.t),at:g.t,home:h,opponent:h?g.an:g.hn,gf:h?g.hs:g.as,ga:h?g.as:g.hs};});if(rows.length)nbaEspn={name,matches:rows,sport:m.sport,source:'ESPN NBA 정규시즌',scope:'ESPN_NBA_REGULAR'};}}catch(_){}}
+const candidates=[cached,boot,seed,local,espn,nbaEspn].filter(Boolean).map(x=>r482Summarize(r729(x.matches),{...x,sport:m.sport},m));
 candidates.sort((a,b)=>b.n-a.n||Number(b.ha?.depth||0)-Number(a.ha?.depth||0)||((b.matches[0]?.at||Date.parse(b.matches[0]?.date||'')||0)-(a.matches[0]?.at||Date.parse(a.matches[0]?.date||'')||0)));
 /* R714 (owner: "토토캔이랑 비교해봤는데 틀린게 너무 많은데"): our own records only hold games that were on the Proto slate, so a team's
    cup / continental / unlisted league games were missing and its 최근 5경기 differed from other sites. ESPN's list covers every
    competition, so it wins whenever it has 3+ games. */
 const ex=espn?candidates.find(c=>c.source===espn.source&&c.n>=3):null;if(ex){const i=candidates.indexOf(ex);candidates.splice(i,1);candidates.unshift(ex);}
+/* R730b: ESPN's NBA scoreboard lists every regular-season game, so it is the NBA record whenever it has at least as many games */
+{const ne=nbaEspn?candidates.find(c=>c.source==='ESPN NBA 정규시즌'):null;if(ne&&candidates.every(c=>c===ne||c.n<=ne.n)){candidates.splice(candidates.indexOf(ne),1);candidates.unshift(ne);}}
 const best=candidates[0];if(best&&m.sport==='축구'&&!best.halves){const alt=candidates.find(c=>c.halves);if(alt)best.halves={...alt.halves,src:alt.source||null};}
 return best||r482Summarize([],{name,sport:m.sport,source:'저장된 공식 결과'},m);
 }
