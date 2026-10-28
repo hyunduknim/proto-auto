@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R716-SCORE-PICK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R717-NO-SCORE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -10797,7 +10797,7 @@ h+='<div class="r709Fm"><span>'+e(H)+' 최근</span>'+r573Dots(g,'home')+'</div>
 if(cx.cats.length)h+='<div class="r709Cs">'+cx.cats.map(c=>'<div class="r709C"><b class="'+(c.h>c.a?'w':'')+'">'+c.h+'</b><span class="n">'+e(c.c)+'</span><b class="'+(c.a>c.h?'w':'')+'">'+c.a+'</b>'+r709Split(c.h)+'</div>').join('')+'</div>';
 if(cx.metrics.length){const order=['폼','공격','수비','홈/원정','컨디션'];h+='<details class="r704D" data-k="'+e(K+'|met2')+'" open><summary>📋 경기력 세부 데이터 ('+cx.metrics.length+'개)</summary><div class="r709Mh"><span>'+e(H)+'</span><span></span><span>'+e(A)+'</span></div>'+
 order.map(c=>{const xs=cx.metrics.filter(m=>m.cat===c);return xs.length?'<div class="r709G">'+e(c)+'</div>'+xs.map(m=>'<div class="r709M"><span class="'+(m.sh>.52?'w':'')+'">'+e(m.ht)+'</span><span class="n">'+e(m.name)+(m.low?' ↓':'')+'</span><span class="'+(m.sh<.48?'w':'')+'">'+e(m.at)+'</span>'+r709Split(Math.round(m.sh*100),'thin')+'</div>').join(''):''}).join('')+'<div class="ccNote">초록 = 더 나은 쪽 · ↓ = 낮을수록 좋음 · 막대 = 두 팀 차이를 보통 차이 기준으로 환산</div></details>';}
-h+='<div class="r709G big">🧮 경기력 예측</div>';if(v.exp)h+='<div class="r704E">'+(soc?'예상 득점 <b>'+v.exp[0]+' : '+v.exp[1]+'</b>'+(v.top?' · 가장 유력한 스코어 <b>'+e(v.top)+'</b>':''):'예상 점수 <b>'+v.exp[0]+' : '+v.exp[1]+'</b> · 합계 '+(Math.round((v.exp[0]+v.exp[1])*10)/10)+' · 점수차 '+(Math.round((v.exp[0]-v.exp[1])*10)/10))+'</div>';
+h+='<div class="r709G big">🧮 경기력 예측</div>';
 const bar=(name,p)=>'<div class="r704B"><span class="n">'+e(name)+'</span><span class="t"><i style="width:'+Math.round((p||0)*100)+'%"></i></span><b>'+r704Pc(p)+'</b><small></small></div>';
 h+=bar(H+' 승',v.p3[0])+(soc?bar('무승부',v.p3[1]):'')+bar(A+' 승',v.p3[2]);
 const pk=(x,t,lab)=>'<div class="r704P'+(t?' '+t:'')+'"><span>'+lab+'</span><b>['+r704Fam(x.fam)+'] '+e(x.l==='무'&&x.fam==='MONEYLINE'?'무승부':r704Lbl(g,x.fam,x.line,x.l))+'</b><em>'+Number(x.o).toFixed(2)+'배 · 경기력 '+r704Pc(x.pm!=null?x.pm:x.p)+(x.tot!=null?' · 예상 합계 '+x.tot+'골 · 득점차 '+x.gap:'')+'</em></div>';
@@ -10816,7 +10816,7 @@ if(sc){const d=sc[0]-50,ad=Math.abs(d),who=d>0?H:A,lv=ad>=15?['🔥 뚜렷한 �
 h+='<div class="r715Top"><b class="hs">'+sc[0]+'</b><div class="mid"><span class="pill '+lv[1]+'">'+(ad>=3?e(who)+' ':'')+lv[0]+'</span>'+r709Split(sc[0],'big')+'</div><b class="as">'+sc[1]+'</b></div>';}
 if(cx.cats.length)h+='<div class="r715Cats">'+cx.cats.map(c=>'<div class="r715C"><span class="n">'+e(c.c)+'</span>'+r709Split(c.h)+'<span class="v"><b class="'+(c.h>=c.a?'w':'')+'">'+c.h+'</b>:<b class="'+(c.a>c.h?'w':'')+'">'+c.a+'</b></span></div>').join('')+'</div>';
 h+='<div class="r715F"><div>'+r573Dots(g,'home')+'</div><small>최근 5경기</small><div>'+r573Dots(g,'away')+'</div></div>';
-h+='<div class="r715P"><div class="r715Pt">예측'+(v.top&&soc?' · 스코어 <b>'+e(v.top)+'</b>':v.exp&&!soc?' · <b>'+v.exp[0]+' : '+v.exp[1]+'</b>':'')+'</div>'+r715Seg(v.p3,soc,H,A)+'</div>';
+h+='<div class="r715P"><div class="r715Pt">예측</div>'+r715Seg(v.p3,soc,H,A)+'</div>';
 const chip=(x,cls,lab)=>'<div class="r715K '+cls+'"><span>'+lab+'</span><b>'+e(x.l==='무'&&x.fam==='MONEYLINE'?'무승부':r704Lbl(g,x.fam,x.line,x.l))+'</b><em>'+Number(x.o).toFixed(2)+'배 · '+r704Pc(x.pm!=null?x.pm:x.p)+'</em></div>';
 h+='<div class="r715Ks">'+(v.best?chip(v.best,'best','⭐ 베스트'):'')+(v.draw?chip(v.draw,'draw','🤝 무승부'):'')+(!v.best&&v.ml?chip(v.ml,'ml','경기력 예상'):'')+(!v.best&&!v.draw&&!v.ml?'<div class="r715K none"><span>판단</span><b>보류</b><em>뚜렷한 차이 없음</em></div>':'')+'</div>';
 const srcT=(v.src&&(String(v.src.h||'').indexOf('ESPN')>=0||String(v.src.a||'').indexOf('ESPN')>=0))?'ESPN 전 대회 기록':'프로토 경기 기록';
