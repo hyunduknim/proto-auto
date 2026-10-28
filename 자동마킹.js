@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R726-PERF-TODAY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R727-LEAGUE-ALIAS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4639,7 +4639,11 @@ const score=sw?Math.round(sv/sw*100):null;return {metrics:M,cats,score:score==nu
    against its own league, so a Thai or Indian side that wins at home looks as strong as a J리그 side (랏차부리 49% vs 시장 15%).
    For those games the 경기력 numbers stay on screen but the prediction leans on the price (30% 경기력 · 70% 배당). */
 const R712_CUP=/AFC|ACL|ACLE|아시아|UEFA|UCL|UEL|UECL|챔피언스리그|유로파|컨퍼런스|코파|FA컵|컵|일본시리즈|클럽월드/i;
-function r712Lg(state,sport,name){const sp=norm(sport),nm=norm(name),c=new Map();for(const [key,pr] of Object.entries(state?.performanceModel?.teams||{})){const p=key.split('|');if(p[0]!==sp||p[2]!==nm)continue;c.set(p[1],(pr?.recent||[]).length);}let b=null,n=-1;for(const [k,v] of c)if(v>n&&!R712_CUP.test(k)){b=k;n=v;}return b;}
+/* R727 (owner: "세리에A팀 끼리 경기하는데 서로 다른 리그팀이라 ... 이게 왜 나오지?"): Betman wrote the same league two ways over time
+   ("이탈리아 세리에A" / "세리에A", "잉글랜드 프리미어리그" / "EPL" ...), so two Serie A teams looked like different leagues. Names are folded. */
+const R727_ALIAS=[[/프리미어리그|^epl$/,'EPL'],[/챔피언십|efl챔/,'EFL챔피언십'],[/라리가/,'라리가'],[/세리에a|세리에/,'세리에A'],[/분데스리가2|분데스2/,'분데스2'],[/분데스/,'분데스리가'],[/에레디비/,'에레디비시'],[/메이저리그사커|^mls$/,'MLS'],[/슈퍼리그|^csl$/,'중국슈퍼리그'],[/j1/,'J1'],[/j2/,'J2'],[/k리그1/,'K리그1'],[/k리그2/,'K리그2'],[/a리그/,'A리그'],[/리그1|프리그1/,'리그1'],[/프리메이라/,'프리메이라']];
+function r727Lg(x){const k=String(x||'').toLowerCase().replace(/\s+/g,'');for(const [re,v] of R727_ALIAS)if(re.test(k))return v;return k.replace(/^(잉글랜드|스페인|이탈리아|독일|프랑스|네덜란드|포르투갈|일본|중국|미국|호주|한국|스코틀랜드|벨기에|터키|튀르키예)/,'');}
+function r712Lg(state,sport,name){const sp=norm(sport),nm=norm(name),c=new Map();for(const [key,pr] of Object.entries(state?.performanceModel?.teams||{})){const p=key.split('|');if(p[0]!==sp||p[2]!==nm)continue;const lk=R712_CUP.test(p[1])?p[1]:r727Lg(p[1]);c.set(lk,(c.get(lk)||0)+(pr?.recent||[]).length);}let b=null,n=-1;for(const [k,v] of c)if(v>n&&!R712_CUP.test(k)){b=k;n=v;}return b;}
 function r712Cross(state,ml){const lh=r712Lg(state,ml.sport,ml.home),la=r712Lg(state,ml.sport,ml.away);if(lh&&la)return lh!==la?{h:lh,a:la}:null;return R712_CUP.test(String(ml.league||''))?{h:lh,a:la}:null;}
 /* R712b: same-league games add each team's Elo (built from all its results, so it knows who the opponents were) */
 function r712EloOf(state,ml){try{const t=state?.performanceModel?.teams||{},h=t[perfTeamKey(ml.sport,ml.league,ml.home)],a=t[perfTeamKey(ml.sport,ml.league,ml.away)];if(!h||!a||(h.games||0)<5||(a.games||0)<5||!isFinite(h.elo)||!isFinite(a.elo))return null;return {h:Math.round(h.elo),a:Math.round(a.elo),d:h.elo-a.elo};}catch(_){return null;}}
