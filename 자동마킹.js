@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R712-CROSS-LEAGUE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R713-RELAY-ROLLOVER";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -12846,6 +12846,11 @@ const scoreTrainingRows=[...officialRows,...officialTrainingRows];
 if(scoreTrainingRows.length)learned=ingestPerformanceRows(state,scoreTrainingRows);
 if(officialRows.length)jbAdded=ingestJeongbaedangOfficialRows(state,officialRows).markets;
 let priceRelay={accepted:false,fresh:0,priced:0,preserved:0,reason:"NO_VALID_CURRENT_ROUND_GAMEINFO"};
+/* R713 (owner: "128회차 왜 안되지?"): Betman blocks the Worker and 젠토토 had no 128 odds yet, so the round never advanced. The relay now sends
+   the next round's official GameInfo; when it lists 10+ future priced markets, move to that round (prior markets and the ledger are kept). */
+if(validGameInfo&&/^\d{6}$/.test(String(state.gmTs||""))&&Number(gmTs)===Number(state.gmTs)+1){try{const nm=parseBetmanMarkets(gameInfo,gmTs),now=Date.now();
+const fut=nm.filter(m=>validChoices(m).length>=2&&gameTimeMs(m)!=null&&gameTimeMs(m)>now).length;
+if(fut>=10){const from=state.gmTs;state.gmTs=gmTs;state.round=roundFromGmTs(gmTs);state.r481RoundTransitionAudit={at:nowIso(),from,to:gmTs,source:'BETMAN_OFFICIAL_GAMEINFO_VIA_RELAY',verifiedQuotes:fut,policy:'R713_RELAY_NEXT_ROUND_ALL_PRIOR_MARKETS_AND_LEDGER_PRESERVED'};MEM.publicCacheKey=null;MEM.publicCache=null;}}catch(_){}}
 if(validGameInfo&&String(state.gmTs||"")===gmTs){
 const parsedMarkets=parseBetmanMarkets(gameInfo,gmTs)
 .filter(m=>!isArchivedMarket(state,m));

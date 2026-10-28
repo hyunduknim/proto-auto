@@ -165,6 +165,9 @@ jobs:
               ...(/^\d{6}$/.test(activeGmTs)?[activeGmTs,String(Number(activeGmTs)-1)]:[])
             ].filter(x=>/^\d{6}$/.test(x)))].sort((a,b)=>Number(b)-Number(a)).slice(0,4);
             if(!rounds.length){console.log("No known G101 round and no pending settlements; skipping relay.");return;}
+            // R713: Betman blocks the Worker, so the next sale round can only be discovered here. Probe active+1 quietly
+            // (no failure if it is not on sale yet); when Betman lists it, it goes first and the Worker rolls over.
+            if(/^\d{6}$/.test(activeGmTs)){const nx=String(Number(activeGmTs)+1);try{const gi=await officialGameInfo(nx);const n=(gi?.compSchedules?.datas||[]).length;console.log("NEXT_ROUND_PROBE="+JSON.stringify({gmTs:nx,rows:n}));if(n>0&&!rounds.includes(nx))rounds.unshift(nx);}catch(e){console.log("NEXT_ROUND_PROBE="+JSON.stringify({gmTs:nx,error:String(e.message||e).slice(0,80)}));}}
             const token=await signedToken();
             const zenStatus=await Promise.allSettled([zentotoFinished()]);
             const zen=zenStatus[0].status==="fulfilled"?zenStatus[0].value:[];
