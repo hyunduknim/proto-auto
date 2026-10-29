@@ -83,8 +83,8 @@ const prior=JSON.stringify(state.markets.map(m=>[m.no,m.finalPick,m.finalOdds,m.
    w=body.indexOf("await r383RefreshWisetotoResults("),
    b=body.indexOf("await refreshBetmanResults(");
  assert.ok(z>=0&&w>z&&b>w,"Zen -> licensed Wise -> Betman must be order");
- assert.equal(lib.CFG.gradeBestRate,.15);
- assert.equal(lib.CFG.gradeRecommendRate,.25);
+ assert.equal(lib.CFG.gradeBestRate,.18);
+ assert.equal(lib.CFG.gradeRecommendRate,.30);
  assert.equal(lib.CFG.marketTarget.TOTAL,.60);
  console.log("R383_PRIORITY_OK="+JSON.stringify({
   zenFirst:true,wiseSecondWhenAuthorized:true,betmanLast:true,

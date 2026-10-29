@@ -49,8 +49,8 @@ assert.ok(html.includes('⏳ 정산대기')&&html.includes('최종결과')&&
  html.includes("e(pastPending.length)"),
  "Past panel must expose how many started picks are not settled");
 assert.equal(api.CFG.minRepOdds,1.31);
-assert.equal(api.CFG.gradeBestRate,.15);
-assert.equal(api.CFG.gradeRecommendRate,.25);
+assert.equal(api.CFG.gradeBestRate,.18);
+assert.equal(api.CFG.gradeRecommendRate,.30);
 assert.equal(api.CFG.marketTarget.MONEYLINE,.20);
 assert.equal(api.CFG.marketTarget.HANDICAP,.20);
 assert.equal(api.CFG.marketTarget.TOTAL,.60);

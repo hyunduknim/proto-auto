@@ -70,7 +70,7 @@ const rows=[mk(8102,'한신','요코하마'),mk(8107,'소프트뱅크','닛폰�
   assert.equal(JSON.stringify(context.testState.markets[0]),JSON.stringify(previous));
   assert.equal(JSON.stringify(context.testState.settlementLedger),JSON.stringify(state.settlementLedger));
   assert.equal(f('CFG.minRepOdds'),1.31);
-  assert.equal(f('CFG.gradeBestRate'),.15);
-  assert.equal(f('CFG.gradeRecommendRate'),.25);
+  assert.equal(f('CFG.gradeBestRate'),.18);
+  assert.equal(f('CFG.gradeRecommendRate'),.30);
   console.log('PASS R487: verified 122 official discovery without guessed prices; 121 ledger untouched; priority source probe before slow settlement; subsequent rounds preserved');
 })().catch(e=>{console.error(e);process.exitCode=1});

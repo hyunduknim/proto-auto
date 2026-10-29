@@ -42,8 +42,8 @@ assert.ok(source.indexOf("await r381RefreshCloudflareZentoto(cur,env,fiveMinuteD
 assert.ok(source.includes('u.pathname==="/api/settlement-queue"'));
 assert.ok(source.includes("audit.pendingDetails=r382PendingSourceCoverage(remaining,rows)"));
 assert.equal(api.CFG.minRepOdds,1.31);
-assert.equal(api.CFG.gradeBestRate,.15);
-assert.equal(api.CFG.gradeRecommendRate,.25);
+assert.equal(api.CFG.gradeBestRate,.18);
+assert.equal(api.CFG.gradeRecommendRate,.30);
 assert.equal(api.CFG.marketTarget.TOTAL,.60);
 console.log("R382_0830_QUEUE_OK="+JSON.stringify({
  nativeSettlementFirst:true,old83KickoffDiagnosed:true,

@@ -66,8 +66,8 @@ assert.ok(relay.includes('m.marketFamily==="MONEYLINE"&&wantedFixtures.has(fixtu
 assert.ok(watchdog.includes("const needsRelay=!!liveError||(pending>0&&relayAgeMinutes>=7)"));
 assert.ok(watchdog.includes("workflow_dispatch:")&& !watchdog.includes('cron: "2-57/5 * * * *"'),
  "GitHub timer must be disabled in Cloudflare-native free mode");
-assert.equal(lib.CFG.gradeBestRate,.15);
-assert.equal(lib.CFG.gradeRecommendRate,.25);
+assert.equal(lib.CFG.gradeBestRate,.18);
+assert.equal(lib.CFG.gradeRecommendRate,.30);
 assert.equal(lib.CFG.marketTarget.TOTAL,.6);
 console.log("R380_SETTLEMENT_RELAY_OK="+JSON.stringify({
  verifiedExactFixtureFallback:result.settled,

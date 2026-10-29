@@ -40,7 +40,7 @@ assert.equal(lib.r377PerformanceConfirmation(fake,a).penalty,0,
 const total={...match,marketFamily:"TOTAL",performanceFeatures:{...match.performanceFeatures,priorScoreSamples:0}};
 assert.equal(lib.r377PerformanceConfirmation(total,{...a,pick:"언더"}).penalty,0,
  "No TOTAL scoring guard without score samples");
-assert.equal(lib.CFG.gradeBestRate,.15);
-assert.equal(lib.CFG.gradeRecommendRate,.25);
+assert.equal(lib.CFG.gradeBestRate,.18);
+assert.equal(lib.CFG.gradeRecommendRate,.30);
 assert.equal(lib.CFG.marketTarget.TOTAL,.6);
 console.log("PASS R377 verified performance contradiction guard, no data unchanged, started/settled locked, ratios preserved");

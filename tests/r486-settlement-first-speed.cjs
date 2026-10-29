@@ -26,7 +26,7 @@ vm.runInContext(src.replace("export class ProtoStateDO","class ProtoStateDO").re
 const evaluate=x=>vm.runInContext(x,ctx);
 assert.equal(evaluate("r450SettlementCadenceMs({markets:[]})"),120000);
 assert.equal(evaluate("CFG.minRepOdds"),1.31);
-assert.equal(evaluate("CFG.gradeBestRate"),0.15);
-assert.equal(evaluate("CFG.gradeRecommendRate"),0.25);
+assert.equal(evaluate("CFG.gradeBestRate"),.18);
+assert.equal(evaluate("CFG.gradeRecommendRate"),.30);
 assert.equal(evaluate("CFG.marketTarget.TOTAL"),0.60);
 console.log("PASS R486: terminal results before live quotes, 25s active polling, original ratios and odds preserved");

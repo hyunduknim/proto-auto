@@ -7,6 +7,7 @@ S.markets.push({...b,no:i*10+1,marketFamily:"HANDICAP",line:1,choices:[{label:"�
 S.markets.push({...b,no:i*10+2,marketFamily:"MONEYLINE",choices:[{label:"승",odds:2.0,p:.42},{label:"패",odds:1.5,p:g.ml}]});});
 r554Apply(S);r588Balance(S);r611CapPlus(S);return S};
 cnt=S=>{const r=S.markets.filter(m=>m.marked&&m.representativeSelected&&/추천/.test(m.displayGrade));return {n:r.length,plus:r.filter(r611Plus).length,ml:r.filter(m=>m.marketFamily==="MONEYLINE").length}}`);
+assert.equal(run('R611.maxPerDay'),5,'R744: owner raised the daily 플핸 cap to 5');run('R611.maxPerDay=3');
 const A=JSON.parse(run('JSON.stringify(cnt(A=mk("260126",[{h:.70,ml:.60},{h:.71,ml:.5},{h:.72,ml:.5},{h:.73,ml:.5},{h:.74,ml:.5}])))'));
 assert.equal(A.plus,3,'at most 3 plus handicaps per day: '+JSON.stringify(A));
 assert.ok(run('A.markets.some(m=>m.r611Cut&&m.r554.why==="플핸 하루 3경기 제한")'),'others taken out with a visible reason');

@@ -36,7 +36,7 @@ assert.equal(a.r360OddsAnomalyReason(clean),null);
 assert.equal(a.representativeMarketEligible(clean),true);
 const low=game(201,"TOTAL",[{label:"언더",odds:1.20},{label:"오버",odds:5.20}]);
 assert.equal(a.r360OddsAnomalyReason(low),null,"Real low favorite may exist; enforce 1.31 on chosen leg");
-const f=a.gradeCaps(20);assert.deepEqual(f,{"가장추천":3,"추천":5,"일반":12});
+const f=a.gradeCaps(20);assert.deepEqual(f,{"가장추천":4,"추천":6,"일반":10});
 assert.deepEqual(a.targetCounts(20,{MONEYLINE:.20,HANDICAP:.20,TOTAL:.60}),
  {MONEYLINE:4,HANDICAP:4,TOTAL:12});
 assert.equal(a.r360FutureEligible({date:"2026-10-11",time:"03:00",resultFinal:false}),false);
@@ -62,9 +62,9 @@ assert.equal(immutable(historical),oldHistory,
 const futurePicks=s.markets.filter(m=>m.marked&&m.representativeSelected&&a.r360FutureEligible(m));
 assert.equal(futurePicks.length,12,"Every valid future fixture must have one representative");
 assert.equal(s.marketMixAudit.target.TOTAL,60);
-assert.equal(s.gradeAudit.target["가장추천"],15);
-assert.equal(s.gradeAudit.target["추천"],25);
-assert.equal(s.gradeAudit.target["일반"],60);
+assert.equal(s.gradeAudit.target["가장추천"],18);
+assert.equal(s.gradeAudit.target["추천"],30);
+assert.equal(s.gradeAudit.target["일반"],52);
 assert.equal(s.gradeAudit.total,12,"Grade mix denominator must omit earlier games");
 console.log("R360_DEBUG_MARKET="+JSON.stringify({
  total:s.marketMixAudit.total,

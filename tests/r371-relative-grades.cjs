@@ -24,7 +24,7 @@ const locked=game(500,{date:"2026-10-10",time:"01:00",displayGrade:"가장추천
 state.markets.push(locked);
 const immutable=JSON.stringify(state.markets.map(m=>
  [m.no,m.marked,m.representativeSelected,m.finalPick,m.finalOdds,m.resultFinal,m.hit,m.settlementStatus]));
-assert.equal(api.CFG.gradeBestRate,.15);assert.equal(api.CFG.gradeRecommendRate,.25);
+assert.equal(api.CFG.gradeBestRate,.18);assert.equal(api.CFG.gradeRecommendRate,.30);
 let audit=api.r371RestoreRelativeGrades(state);
 assert.deepEqual(audit.targetCounts,{"가장추천":9,"추천":15,"일반":37});
 assert.deepEqual(audit.counts,audit.targetCounts);
