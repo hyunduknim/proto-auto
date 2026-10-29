@@ -19,7 +19,7 @@ run('ST.markets[3].date="2000-01-01";ST.markets[3].resultFinal=true;ST.markets[3
 assert.equal(run('ST.r662Res["260126:413:승"].st'),'miss');assert.equal(run('r662Summary(ST)').posts[0].combos[0].st,'miss');
 assert.equal(run('ST.r662Res["260126:392:패"].st'),'hit','final results are kept');
 const sl=run('ST.markets.forEach(m=>{m.date="2099-01-01"});r662Slate(ST,1e9)');assert.equal(sl.length,2);assert.ok(sl[0].mk.length>=1);
-const ix=vm.runInContext('INDEX',c);assert.ok(ix.includes('🤖 클로드추천')&&ix.includes('function r662Html')&&!ix.includes('🎯 조합</button>'));
+const ix=vm.runInContext('INDEX',c);assert.ok(ix.includes('🤖 클로드추천')&&ix.includes('function r662Html')&&ix.includes('function r732Html'));
 c.J2={posts:[{id:'2026-10-25-z-nba-injury',kind:'injury',title:'아침 NBA 결장 체크',groups:[],cautions:['보스턴: 테이텀 Out']}]};assert.equal(run('r662Clean(J2).length'),1,'notes-only morning post kept');assert.equal(run('r662Clean(J2)[0].kind'),'injury');
 // R670: a 언오버 market's official score is the total ("257:0") and must not settle a 승패 pick
 const nb={gmTs:'260126',sport:'농구',league:'NBA',date:'2000-01-02',time:'05:00',home:'밀워키 벅스',away:'시카고 불스'};
