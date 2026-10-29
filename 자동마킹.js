@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R745b-PATTERN-NOYEAR";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R746-DROP-1029-COMBO";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4880,7 +4880,10 @@ if(p<LV.minP&&votes.length<2)continue;const k=seed+'|'+m.marketFamily;if(!best.h
 return [...best.values()];}
 function r732Pick(cands){const top=f=>cands.filter(x=>x.fam===f).sort((a,b)=>b.sc-a.sc).slice(0,8);const A=top('MONEYLINE'),B=top('HANDICAP'),C=top('TOTAL');let best=null;
 for(const a of A)for(const b of B){if(b.seed===a.seed)continue;for(const c of C){if(c.seed===a.seed||c.seed===b.seed)continue;const v=Math.min(.95,a.sc)*Math.min(.95,b.sc)*Math.min(.95,c.sc);if(!best||v>best.v)best={v,legs:[a,b,c]};}}return best?best.legs:null;}
+const R746_DROP=['2026-10-29'];
 function r732Step(state,now=Date.now()){if(!state)return null;let box=state.r732Combos;if(!box||!Array.isArray(box.list))box=state.r732Combos={list:[],tally:{hit:0,miss:0,void:0},slots:{}};box.slots=box.slots||{};
+/* R746 (owner: "29일 조합 삭제"): drop those combos and take them out of the tally */
+for(const c of box.list.filter(c=>R746_DROP.includes(String(c.day)))){if(c.counted&&box.tally[c.status])box.tally[c.status]--;}box.list=box.list.filter(c=>!R746_DROP.includes(String(c.day)));
 for(const c of box.list){let hit=0,miss=0,vd=0,live=0;for(const leg of c.legs){const r=r554LegStatus(state,leg);leg.status=r.status;leg.score=r.score||leg.score||null;if(r.status==='hit')hit++;else if(r.status==='miss')miss++;else if(r.status==='void')vd++;else if(r.status==='live')live++;}
 const prev=c.status;c.status=miss?'miss':(hit+vd===c.legs.length?(vd===c.legs.length?'void':'hit'):(live||hit||vd?'live':'pre'));
 if(['hit','miss','void'].includes(c.status)&&prev!==c.status&&!c.counted){box.tally[c.status]=(box.tally[c.status]||0)+1;c.counted=true;c.settledAt=nowIso();}}
