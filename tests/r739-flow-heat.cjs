@@ -4,7 +4,7 @@ vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class 
 run('currentRoundMarket=()=>true');
 const t=new Date(Date.now()+9*3600e3+5*3600e3).toISOString();
 const m={gmTs:'260128',no:1,sport:'야구',league:'KBO',date:t.slice(0,10),time:t.slice(11,16),home:'KIA',away:'삼성',marketFamily:'MONEYLINE',
- choices:[{label:'승',odds:1.59,openingOdds:1.64,betShare:.86},{label:'패',odds:1.92,openingOdds:1.85,betShare:.14}]};
+ choices:[{label:'승',odds:1.59,openingOdds:1.64,betShare:.92},{label:'패',odds:1.92,openingOdds:1.85,betShare:.08}]};
 c.ST={gmTs:'260128',markets:[m]};
 let S=run('r739Summary(ST)');assert.equal(S.list.length,1);assert.equal(S.list[0].flow.l,'승');assert.equal(S.list[0].heat.l,'승');
 run('r739Step(ST)');assert.ok(c.ST.r739.snap['260128:1']);
