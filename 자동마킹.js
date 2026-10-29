@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R745-PATTERN-BLUE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R745b-PATTERN-NOYEAR";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11168,7 +11168,7 @@ const tag=d.family==='HANDICAP'&&d.line!=null?'(H'+(Number(d.line)>0?'+':'')+d.l
 const sum=all.map(l=>{const pr=P.find(x=>x.label===l);return '<div class="r735Sm"><span>'+e(l)+(pr?' '+Number(pr.odds).toFixed(2):'')+'</span><b>'+(cnt[l]||0)+'회</b><small>'+(tot?Math.round((cnt[l]||0)*100/tot):0)+'%</small></div>'}).join('');
 const stages=[];for(let i=0;i<=Number(d.latestChange||0);i++)stages.push('<button type="button" class="'+(Number(d.changeNo)===i?'on':'')+'" onclick="r735Open(&quot;'+e(gm)+'&quot;,'+Number(no)+','+i+')">'+(i===0?'초기배당':i+'차 변경')+'</button>');
 const mb=(m,t,n)=>'<button type="button" class="'+(r743Mode===m?'on':'')+'" onclick="r743Set(&quot;'+m+'&quot;)">'+t+' '+n+'</button>';
-const rows=L.map(x=>{const exa=ex.includes(x);return '<tr class="'+(exa?'':'sim')+'"><td class="y">'+e(String(x.year||'').slice(2))+'<small>'+e(x.league||'')+'</small></td>'+(x.prices||[]).map(p=>'<td class="od'+(String(x.result)===String(p.label)?' hit':'')+'">'+Number(p.odds).toFixed(2)+'</td>').join('')+'<td class="h">'+e(x.home)+'<small>'+e(tag)+'</small></td><td class="sc">'+e(x.score||'-')+'</td><td class="aw">'+e(x.away)+'</td></tr>'}).join('');
+const rows=L.map(x=>{const exa=ex.includes(x);return '<tr class="'+(exa?'':'sim')+'"><td class="y"><small>'+e(x.league||'')+'</small></td>'+(x.prices||[]).map(p=>'<td class="od'+(String(x.result)===String(p.label)?' hit':'')+'">'+Number(p.odds).toFixed(2)+'</td>').join('')+'<td class="h">'+e(x.home)+'<small>'+e(tag)+'</small></td><td class="sc">'+e(x.score||'-')+'</td><td class="aw">'+e(x.away)+'</td></tr>'}).join('');
 ov.innerHTML='<div class="r735Box"><div class="r735Hd"><b>'+e(title)+'</b><button type="button" onclick="document.getElementById(&quot;r735Ov&quot;).remove()">✕</button></div><div class="r735Tab"><span>국내 ['+P.map(x=>Number(x.odds).toFixed(2)).join('-')+']</span>'+(stages.length>1?stages.join(''):'')+'</div>'+
 '<div class="r735Tab r743M">'+mb('exact','똑같은 배당',ex.length)+mb('sim','비슷한 배당',sim.length)+mb('all','전체',ex.length+sim.length)+'</div><div class="r735Sum">'+sum+'</div>'+
 (rows?'<div class="r735Tw"><table class="r735T">'+rows+'</table></div>':'<div class="r735St">'+(r743Mode==='exact'?'똑같은 배당이었던 과거 경기가 없습니다. 비슷한 배당을 눌러 보세요.':'기록이 없습니다.')+'</div>')+'<div class="r735Ft">파란색 = 실제로 맞은 쪽'+(r743Mode==='all'?' · 흐린 줄 = 비슷한 배당':'')+(d.priceDiff?' · 베트맨 배당이 방금 바뀌어 젠토토 배당 기준으로 표시':'')+(cnt['미확인']?' · 결과 미확인 '+cnt['미확인']:'')+' · 젠토토 공개자료</div></div>';}
