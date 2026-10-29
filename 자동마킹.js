@@ -11131,7 +11131,7 @@ async function r735Open(gm,no,change){let ov=$('r735Ov');if(!ov){ov=document.cre
 let g=null;for(const x of (state&&state.markingGames)||[])for(const y of x.marketRows||[])if(Number(y.no)===Number(no))g=x;
 const title=no+'. '+(g?r560N(g.home)+' vs '+r560N(g.away):'');ov.innerHTML='<div class="r735Box"><div class="r735Hd"><b>'+e(title)+'</b><button type="button" onclick="document.getElementById(&quot;r735Ov&quot;).remove()">✕</button></div><div class="r735St">배당 기록을 불러오는 중입니다…</div></div>';
 try{const res=await fetch('/api/odds-history?gmTs='+encodeURIComponent(gm)+'&no='+encodeURIComponent(no)+(change==null?'':'&change='+encodeURIComponent(change)));const d=await res.json();if(!res.ok)throw Error(d.error||'x');r743D={d,gm,no,title};if(change==null)r743Mode=(d.rows||[]).length?'exact':'sim';r743Show();}
-catch(err){const m=String(err&&err.message||'');const st=ov.querySelector('.r735St');if(st)st.textContent=m.includes('PRICE')?'배당이 방금 바뀌었습니다. 잠시 후 다시 눌러 주세요.':m.includes('NOT_FOUND')?'이 경기는 배당 기록이 없습니다.':'배당 기록을 가져오지 못했습니다. 잠시 후 다시 눌러 주세요.';}}
+catch(err){const m=String(err&&err.message||'');const st=ov.querySelector('.r735St');if(st)st.textContent=m.includes('NOT_FOUND')?'이 경기는 배당 기록이 없습니다.':'배당 기록을 가져오지 못했습니다. 잠시 후 다시 눌러 주세요.';}}
 function r743Set(m){r743Mode=m;r743Show()}
 function r743Show(){const ov=$('r735Ov');if(!ov||!r743D)return;const {d,gm,no,title}=r743D,P=d.prices||[],labels=P.map(x=>x.label),ex=d.rows||[],sim=d.similar||[];
 const L=r743Mode==='exact'?ex:r743Mode==='sim'?sim:[...ex,...sim];const cnt={};for(const x of L)cnt[x.result]=(cnt[x.result]||0)+1;const all=[...labels,...(cnt['무']&&!labels.includes('무')?['무']:[])],tot=all.reduce((a,l)=>a+(cnt[l]||0),0);
