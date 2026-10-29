@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R735-SAME-ODDS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R736-COMBO-TWO";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4864,14 +4864,17 @@ const R617={minP:.6,perDay:2,minOdds:2.3,fallbackOdds:2.0};
 const R732={per:2,minP:.55,oMin:1.35,oMax:1.95,fams:['MONEYLINE','HANDICAP','TOTAL']};
 function r732Window(now){const d=new Date(now+9*3600e3),day=d.toISOString().slice(0,10),min=d.getUTCHours()*60+d.getUTCMinutes(),base=Date.parse(day+'T00:00:00+09:00');
 if(min>=17*60+30)return {key:day+'|pm',day,label:'저녁',to:base+(31*60+45)*60000};if(min>=7*60+30)return {key:day+'|am',day,label:'아침',to:base+(17*60+45)*60000};return null;}
-function r732Cands(state,now,to,usedSeeds){const cl=new Map(),gp=new Map();for(const p of state.r662Posts||[])for(const g of p.groups||[])for(const x of g.picks||[])(p.by==='gpt'?gp:cl).set(String(x.gmTs)+':'+Number(x.no),String(x.pick));
+/* R736 (owner: "2조합 달라 했는데 왜 한조합임?"): when the strict rules can't fill both combos, a second pass relaxes them
+   (model 50%+, odds 1.30~2.10) so two combos are always made when the games exist; such a combo is labelled 기준 완화. */
+const R736_LOOSE={minP:.5,oMin:1.3,oMax:2.1};
+function r732Cands(state,now,to,usedSeeds,lv){const LV=lv||R732;const cl=new Map(),gp=new Map();for(const p of state.r662Posts||[])for(const g of p.groups||[])for(const x of g.picks||[])(p.by==='gpt'?gp:cl).set(String(x.gmTs)+':'+Number(x.no),String(x.pick));
 const best=new Map();for(const ms of groupMarkets((state.markets||[]).filter(m=>currentRoundMarket(m,state))).values()){const t=gameTimeMs(ms[0]);if(t==null||t<now+10*60000||t>to)continue;if(ms.some(m=>started(m)||m.resultFinal))continue;
 let v=null;try{v=r704Model(state,ms);}catch(_){}const rep=ms.find(x=>x.marked&&x.representativeSelected&&x.finalPick);
 for(const m of ms){if(!R732.fams.includes(m.marketFamily)||m.r616Wild)continue;const seed=String(m.gmTs)+'|'+gameSeed(m);if(usedSeeds.has(seed))continue;const cs=validChoices(m),inv=cs.reduce((a,x)=>a+1/Number(x.odds),0),row=(v?.mk||[]).find(x=>Number(x.no)===Number(m.no)),ck=String(m.gmTs)+':'+Number(m.no),cp=cl.get(ck),gq=gp.get(ck);
-for(const c of cs){const pick=String(c.label),o=Number(c.odds);if(pick==='무'||!(o>=R732.oMin&&o<=R732.oMax))continue;if(r695Blocked(m,pick)||(r642Euro(m)&&m.marketFamily==='MONEYLINE'))continue;
+for(const c of cs){const pick=String(c.label),o=Number(c.odds);if(pick==='무'||!(o>=LV.oMin&&o<=LV.oMax))continue;if(r695Blocked(m,pick)||(r642Euro(m)&&m.marketFamily==='MONEYLINE'))continue;
 const r=row?.rows?.find(r=>String(r.l)===pick);let p=Number(r?.p);if(!Number.isFinite(p)||v?.cross||v?.mkOnly)p=Number(r?.mp);if(!Number.isFinite(p)&&inv>0)p=(1/o)/inv;if(!Number.isFinite(p))continue;
 let sc=p;const votes=[];if(rep&&Number(rep.no)===Number(m.no)&&String(rep.finalPick)===pick){sc+=.05;votes.push('사이트');}if(cp!=null){if(cp===pick){sc+=.07;votes.push('클로드');}else sc-=.1;}if(gq!=null){if(gq===pick){sc+=.07;votes.push('GPT');}else sc-=.1;}
-if(p<R732.minP&&votes.length<2)continue;const k=seed+'|'+m.marketFamily;if(!best.has(k)||best.get(k).sc<sc)best.set(k,{m,pick,o,p,sc,votes,seed,fam:m.marketFamily});}}}
+if(p<LV.minP&&votes.length<2)continue;const k=seed+'|'+m.marketFamily;if(!best.has(k)||best.get(k).sc<sc)best.set(k,{m,pick,o,p,sc,votes,seed,fam:m.marketFamily});}}}
 return [...best.values()];}
 function r732Pick(cands){const top=f=>cands.filter(x=>x.fam===f).sort((a,b)=>b.sc-a.sc).slice(0,8);const A=top('MONEYLINE'),B=top('HANDICAP'),C=top('TOTAL');let best=null;
 for(const a of A)for(const b of B){if(b.seed===a.seed)continue;for(const c of C){if(c.seed===a.seed||c.seed===b.seed)continue;const v=Math.min(.95,a.sc)*Math.min(.95,b.sc)*Math.min(.95,c.sc);if(!best||v>best.v)best={v,legs:[a,b,c]};}}return best?best.legs:null;}
@@ -4880,9 +4883,9 @@ for(const c of box.list){let hit=0,miss=0,vd=0,live=0;for(const leg of c.legs){c
 const prev=c.status;c.status=miss?'miss':(hit+vd===c.legs.length?(vd===c.legs.length?'void':'hit'):(live||hit||vd?'live':'pre'));
 if(['hit','miss','void'].includes(c.status)&&prev!==c.status&&!c.counted){box.tally[c.status]=(box.tally[c.status]||0)+1;c.counted=true;c.settledAt=nowIso();}}
 const w=r732Window(now);if(w){const mine=box.list.filter(c=>c.slot===w.key);if(mine.length<R732.per){const used=new Set(mine.flatMap(c=>c.legs.map(l=>String(l.gmTs)+'|'+l.seed)));
-for(let i=mine.length;i<R732.per;i++){const legs0=r732Pick(r732Cands(state,now,w.to,used));if(!legs0)break;legs0.forEach(x=>used.add(x.seed));
+for(let i=mine.length;i<R732.per;i++){let loose=false,legs0=r732Pick(r732Cands(state,now,w.to,used));if(!legs0){legs0=r732Pick(r732Cands(state,now,w.to,used,R736_LOOSE));loose=!!legs0;}if(!legs0)break;legs0.forEach(x=>used.add(x.seed));
 const legs=legs0.slice().sort((a,b)=>gameTimeMs(a.m)-gameTimeMs(b.m)).map(x=>({...r554Leg(r554Opt(x.m,x.pick,x.o,x.p,false)),votes:x.votes}));
-box.list.push({id:w.key+':'+(i+1),slot:w.key,day:w.day,label:w.label,n:i+1,legs,p:r3(legs0.reduce((a,x)=>a*x.p,1)),odds:r3(legs.reduce((a,l)=>a*Number(l.odds||1),1)),status:'pre',createdAt:nowIso()});}
+box.list.push({id:w.key+':'+(i+1),slot:w.key,day:w.day,label:w.label,n:i+1,loose,legs,p:r3(legs0.reduce((a,x)=>a*x.p,1)),odds:r3(legs.reduce((a,l)=>a*Number(l.odds||1),1)),status:'pre',createdAt:nowIso()});}
 box.slots[w.key]=box.list.filter(c=>c.slot===w.key).length;}}
 const done=box.list.filter(c=>['hit','miss','void'].includes(c.status));if(done.length>60)box.list=box.list.filter(c=>!['hit','miss','void'].includes(c.status)||done.slice(-60).includes(c));
 for(const k of Object.keys(box.slots))if(k.slice(0,10)<new Date(now+9*3600e3-5*86400e3).toISOString().slice(0,10))delete box.slots[k];box.at=nowIso();return box;}
@@ -10996,7 +10999,7 @@ let r706Open={},r706Hooked=false;
 function r732Html(st){const box=st&&st.r732Combos,L=(box&&box.list)||[],t=(box&&box.tally)||{},d=(t.hit||0)+(t.miss||0),today=r697Today();
 const fam={MONEYLINE:'일반승',HANDICAP:'핸디',TOTAL:'언오버'};const leg=l=>{const icon=l.status==='hit'?'⭕':l.status==='miss'?'❌':l.status==='void'?'⚪':l.status==='live'?'⏳':'·';let pk=l.pick;if(l.marketFamily==='HANDICAP'&&l.line!=null){const x=l.pick==='승'?Number(l.line):l.pick==='패'?-Number(l.line):null;if(x!=null&&isFinite(x))pk=(x>0?'플핸 +':'마핸 ')+x+' · '+l.pick;}else if(l.marketFamily==='TOTAL'&&l.line!=null)pk=l.pick+' '+l.line;
 return '<div class="r617L"><span class="i">'+icon+'</span><div class="g"><b>'+e(r560N(l.home)+' vs '+r560N(l.away))+'</b><small>#'+e(l.no)+' · '+e(String(l.date||'').slice(5))+' '+e(String(l.time||'').slice(0,5))+' · '+e(l.league||'')+(l.score?' · '+e(l.score):'')+'</small>'+((l.votes||[]).length?'<small class="r732V">'+e(l.votes.join('·'))+' 같은 선택</small>':'')+'</div><div class="p"><b>'+e(pk)+'</b><small>'+e(fam[l.marketFamily]||'')+' · '+Number(l.odds).toFixed(2)+' · '+Math.round(Number(l.ps)*100)+'%</small></div></div>'};
-const card=c=>{const sl={pre:'대기',live:'진행 중',hit:'⭕ 적중',miss:'❌ 낙첨',void:'⚪ 적특'}[c.status]||c.status;return '<article class="r617C '+e(c.status)+'"><div class="r617H"><b>'+e(String(c.day||'').slice(5).replace('-','/')+' '+(c.label||'')+' 조합 '+(c.n===2?'②':'①'))+'</b><span class="s">'+e(sl)+'</span></div>'+c.legs.map(leg).join('')+'<div class="r617F"><span>세 경기 다 맞을 확률 <b>'+Math.round(Number(c.p)*100)+'%</b></span><span>합산 배당 <b>'+Number(c.odds).toFixed(2)+'</b></span></div></article>'};
+const card=c=>{const sl={pre:'대기',live:'진행 중',hit:'⭕ 적중',miss:'❌ 낙첨',void:'⚪ 적특'}[c.status]||c.status;return '<article class="r617C '+e(c.status)+'"><div class="r617H"><b>'+e(String(c.day||'').slice(5).replace('-','/')+' '+(c.label||'')+' 조합 '+(c.n===2?'②':'①'))+'</b><span class="s">'+e(sl)+'</span></div>'+c.legs.map(leg).join('')+(c.loose?'<div class="r617T">⚠ 조건 맞는 경기가 적어 기준 완화 (확률 50%+, 배당 1.30~2.10)</div>':'')+'<div class="r617F"><span>세 경기 다 맞을 확률 <b>'+Math.round(Number(c.p)*100)+'%</b></span><span>합산 배당 <b>'+Number(c.odds).toFixed(2)+'</b></span></div></article>'};
 const cur=L.filter(c=>!['hit','miss','void'].includes(c.status)||String(c.day)>=today||(c.legs||[]).some(l=>String(l.date)>=today)).sort((a,b)=>String(a.slot).localeCompare(String(b.slot))||a.n-b.n);
 const past=L.filter(c=>!cur.includes(c));const byDay=new Map();for(const c of past.slice().reverse()){const k=String(c.day);if(!byDay.has(k))byDay.set(k,[]);byDay.get(k).push(c);}
 const old=st&&st.r617Combos&&st.r617Combos.tally;
