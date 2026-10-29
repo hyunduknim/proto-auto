@@ -11142,7 +11142,7 @@ const mb=(m,t,n)=>'<button type="button" class="'+(r743Mode===m?'on':'')+'" oncl
 const rows=L.map(x=>{const exa=ex.includes(x);return '<tr class="'+(exa?'':'sim')+'"><td class="y">'+e(String(x.year||'').slice(2))+'<small>'+e(x.league||'')+'</small></td><td class="h">'+e(x.home)+'<small>'+e(tag)+'</small></td><td class="sc">'+e(x.score||'-')+'</td><td class="aw">'+e(x.away)+'</td>'+(x.prices||[]).map(p=>'<td class="od'+(String(x.result)===String(p.label)?' hit':'')+'">'+Number(p.odds).toFixed(2)+'</td>').join('')+'</tr>'}).join('');
 ov.innerHTML='<div class="r735Box"><div class="r735Hd"><b>'+e(title)+'</b><button type="button" onclick="document.getElementById(&quot;r735Ov&quot;).remove()">✕</button></div><div class="r735Tab"><span>국내 ['+P.map(x=>Number(x.odds).toFixed(2)).join('-')+']</span>'+(stages.length>1?stages.join(''):'')+'</div>'+
 '<div class="r735Tab r743M">'+mb('exact','똑같은 배당',ex.length)+mb('sim','비슷한 배당',sim.length)+mb('all','전체',ex.length+sim.length)+'</div><div class="r735Sum">'+sum+'</div>'+
-(rows?'<div class="r735Tw"><table class="r735T">'+rows+'</table></div>':'<div class="r735St">'+(r743Mode==='exact'?'똑같은 배당이었던 과거 경기가 없습니다. 비슷한 배당을 눌러 보세요.':'기록이 없습니다.')+'</div>')+'<div class="r735Ft">분홍색 = 실제로 맞은 쪽'+(r743Mode==='all'?' · 흐린 줄 = 비슷한 배당':'')+(cnt['미확인']?' · 결과 미확인 '+cnt['미확인']:'')+' · 젠토토 공개자료</div></div>';}
+(rows?'<div class="r735Tw"><table class="r735T">'+rows+'</table></div>':'<div class="r735St">'+(r743Mode==='exact'?'똑같은 배당이었던 과거 경기가 없습니다. 비슷한 배당을 눌러 보세요.':'기록이 없습니다.')+'</div>')+'<div class="r735Ft">분홍색 = 실제로 맞은 쪽'+(r743Mode==='all'?' · 흐린 줄 = 비슷한 배당':'')+(d.priceDiff?' · 베트맨 배당이 방금 바뀌어 젠토토 배당 기준으로 표시':'')+(cnt['미확인']?' · 결과 미확인 '+cnt['미확인']:'')+' · 젠토토 공개자료</div></div>';}
 function r738Render(st){const el=$('r738Panel');if(!el)return;const X=(st&&st.r738Value)||{},A=X.list||[],L=A.filter(x=>x.val),G=A.filter(x=>!x.val);const today=r697Today();
 const lab=x=>{if(x.fam==='MONEYLINE')return x.pick==='승'?r560N(x.h)+' 승':x.pick==='패'?r560N(x.a)+' 승':'무승부';if(x.fam==='HANDICAP'){const v=x.pick==='승'?Number(x.line):x.pick==='패'?-Number(x.line):null;return x.pick==='무'?'핸디 무 ('+x.line+')':(x.pick==='승'?r560N(x.h):r560N(x.a))+' '+(v>0?'+':'')+v;}return x.pick+' '+x.line;};
 const row=x=>'<div class="r738R"><div class="g"><b>'+e(r560N(x.h)+' vs '+r560N(x.a))+'</b><small>#'+e(x.no)+' · '+e(String(x.d).slice(5)+' '+String(x.t).slice(0,5))+' · '+e(x.l)+'</small></div><div class="p"><b>'+e(lab(x))+(x.fam==='HANDICAP'?' 핸디':'')+' · '+Number(x.o).toFixed(2)+'배</b>'+(x.val?'<span>💎 가치 있음 +'+x.ev+'%</span>':'<span class="gd">👍 평균보다 +'+x.vs+'%p 좋음</span>')+'</div></div>';
@@ -13707,7 +13707,7 @@ if(labels.length<2||labels.length>3||labels.join('|')!==wanted.join('|')||hc.len
 const prices=labels.map((label,i)=>({label,odds:Number(hc[i+3].text)}));
 if(prices.some(c=>!Number.isFinite(c.odds)||c.odds<=1))throw Error('HISTORY_PRICE_INVALID');
 const same=(a,b)=>a.length===b.length&&a.every((p,i)=>p.label===b[i].label&&Math.round(Number(p.odds)*100)===Math.round(Number(b[i].odds)*100));
-if(changeNo===latestChange&&!same(prices,validChoices(m)))throw Error('HISTORY_PRICE_CHANGED');
+const priceDiff=changeNo===latestChange&&!same(prices,validChoices(m)); /* R743b: show the 젠토토 prices instead of failing */
 const rows=[],similar=[],seen=new Set();let excludedSimilar=0,duplicateRowsExcluded=0;
 for(const tr of trs){
 if(/\bbg-info\b/.test(tr[1]))continue;
@@ -13726,7 +13726,7 @@ const key=JSON.stringify(row);if(seen.has(key)){duplicateRowsExcluded++;continue
 const counts=Object.fromEntries([...new Set([...labels,...(family==='MONEYLINE'?['무']:[]),'미확인'])].map(l=>[l,0]));
 for(const row of rows)counts[row.result]++;const simCounts=Object.fromEntries(Object.keys(counts).map(l=>[l,0]));for(const row of similar)if(row.result in simCounts)simCounts[row.result]++;
 /* R743: 비슷한 배당 rows are kept too (owner: 배당패턴 다시 살려줘 기록 더 추가해서) */
-return {gmTs:String(m.gmTs),no:Number(m.no),family,line:m.line??null,changeNo,latestChange,prices,total:rows.length,counts,rows,similar,simCounts,excludedSimilar,duplicateRowsExcluded,source:'젠토토 공개자료',fetchedAt:new Date().toISOString()};
+return {gmTs:String(m.gmTs),no:Number(m.no),family,line:m.line??null,changeNo,latestChange,prices,priceDiff,total:rows.length,counts,rows,similar,simCounts,excludedSimilar,duplicateRowsExcluded,source:'젠토토 공개자료',fetchedAt:new Date().toISOString()};
 }
 async function r462FetchHtml(url){
 const c=new AbortController(),timer=setTimeout(()=>c.abort(),10000);
