@@ -14,6 +14,7 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
 
 ## 🧠 GPT추천 posts (R698)
 Posts with `"by":"gpt"` in picks.json are ChatGPT's picks that 형님 pasted in chat; Claude only mapped them to Betman numbers.
+When mapping a GPT 저녁 분석 (17:00 run), only enter games that start by 05:00 KST the next morning; later games are left out (owner, 10/30).
 They are not 클로드추천: ignore them when checking "already picked", when counting the day's NBA picks and when writing 낙첨 복기.
 Pick independently; a game GPT also picked is fine (the site marks agreement with 🤝).
 
