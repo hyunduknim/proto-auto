@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R750b-BOOKMAKER-ANALYSIS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R750c-BOOKMAKER-WORDS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11186,7 +11186,7 @@ tot='<div class="r750S">언오버 '+line+(bl?'':' <small>(베트맨 기준점 '+
 const C=g.cons,lab={승:r560N(g.h)+' 승',무:'무승부',패:r560N(g.a)+' 승'};let sum='';
 if(C){const ci={승:0,무:1,패:2};const bar='<div class="r750B">'+cols.map(c=>{const v=C[ci[c]];return '<i class="'+(c==='승'?'h':c==='무'?'d':'a')+'" style="width:'+Math.max(6,v*100)+'%">'+(v>=.12?e(c==='무'?'무':c==='승'?r560N(g.h):r560N(g.a))+' '+Math.round(v*100)+'%':'')+'</i>'}).join('')+'</div>';
 const val=cols.map(c=>{const v=C[ci[c]],o=g.bet&&g.bet[c];if(!o||!v)return null;const ev=v*o-1,fair=1/v;return {c,o,fair,ev};}).filter(Boolean);
-const vr=val.map(x=>'<div class="r750V"><span>'+e(lab[x.c])+'</span><b>'+x.o.toFixed(2)+'</b><small>적정 '+x.fair.toFixed(2)+'</small><em class="'+(x.ev>=-.03?'good':x.ev>=-.1?'mid':'bad')+'">'+(x.ev>=0?'💎 업체보다 비싸게 줌 +'+Math.round(x.ev*100)+'%':x.ev>=-.03?'👍 거의 제값':x.ev>=-.1?'보통 ('+Math.round(x.ev*100)+'%)':'❌ 많이 쌈 ('+Math.round(x.ev*100)+'%)')+'</em></div>').join('');
+const vr=val.map(x=>'<div class="r750V"><span>'+e(lab[x.c])+'</span><b>'+x.o.toFixed(2)+'</b><small>적정 '+x.fair.toFixed(2)+'</small><em class="'+(x.ev>=-.03?'good':x.ev>=-.1?'mid':'bad')+'">'+(x.ev>=0?'💎 해외보다 배당 더 줌 (+'+Math.round(x.ev*100)+'%)':x.ev>=-.03?'👍 해외랑 거의 같은 배당':x.ev>=-.1?'➖ 해외보다 배당 조금 덜 줌 ('+Math.round(-x.ev*100)+'% 손해)':'❌ 해외보다 배당 많이 덜 줌 ('+Math.round(-x.ev*100)+'% 손해)')+'</em></div>').join('');
 const fav=cols.reduce((a,c)=>C[ci[c]]>C[ci[a]]?c:a,cols[0]);
 const pk=(g.picks||[]).filter(x=>x.fam==='MONEYLINE').map(x=>{const ok=x.pick===fav;return '<span class="r744S '+(ok?'v':'h')+'">'+(ok?'✅':'⚠')+' '+e(x.who)+' '+e(lab[x.pick]||x.pick)+(ok?' (업체와 같음)':' (업체 반대)')+'</span>'}).join('');
 const tp=g.tc?(()=>{const u=g.tc.under,bl=(g.betTot||[]).find(x=>x.line===g.tc.line);const pks=(g.picks||[]).filter(x=>x.fam==='TOTAL'&&Number(x.line)===g.tc.line).map(x=>{const ok=(x.pick==='언더')===(u>=.5);return '<span class="r744S '+(ok?'v':'h')+'">'+(ok?'✅':'⚠')+' '+e(x.who)+' '+e(x.pick)+'</span>'}).join('');
@@ -11195,7 +11195,7 @@ const trust=g.spread>=.06?'<span class="r750W">⚠ 업체끼리 의견이 갈림
 const pinT=g.pin?'<small class="r750P">피나클(가장 정확한 업체): '+cols.map(c=>e(c==='승'?r560N(g.h):c==='패'?r560N(g.a):'무')+' '+Math.round(g.pin[ci[c]]*100)+'%').join(' · ')+'</small>':'';
 sum='<div class="r750K"><span>업체들이 보는 실제 확률</span>'+trust+'</div>'+bar+pinT+vr+(pk?'<div class="r744Sg">'+pk+'</div>':'')+tp;}
 return '<article class="r655C"><div class="r653H"><b>'+e(r560N(g.h)+' vs '+r560N(g.a))+'</b><span class="r734N">#'+e(g.no)+'</span></div><small>'+e((String(g.d)===today?'오늘 ':String(g.d).slice(5)+' ')+String(g.t).slice(0,5)+' · '+g.l+' · 업체 '+g.ml.length+'곳')+'</small>'+sum+'<details class="r704D" data-k="r750|'+e(g.no)+'"><summary>📋 업체별 배당표 보기</summary><div class="r750S">일반승</div><table class="r750T">'+head+bet+rows+av+'</table>'+tot+'</details></article>'};
-el.innerHTML='<div class="r617Hd"><b>📚 북메이커 분석</b><small>해외 업체 10곳 배당에서 수수료를 빼 "실제 확률"을 구하고, 베트맨 배당이 그에 비해 비싼지 싼지 · 우리 픽이 업체와 같은 쪽인지 보여줍니다</small></div><div class="r741G"><div><b>적정 배당</b> = 업체 확률대로라면 받아야 할 배당</div><div><em class="good">👍 거의 제값</em> 베트맨이 적정 배당에 가까움 · <em class="bad">❌ 많이 쌈</em> 손해가 큰 배당</div><div>✅ 우리 픽이 업체가 더 높게 보는 쪽 · ⚠ 반대쪽</div></div>'+
+el.innerHTML='<div class="r617Hd"><b>📚 북메이커 분석</b><small>해외 업체 10곳 배당에서 수수료를 빼 "실제 확률"을 구하고, 베트맨 배당이 그에 비해 비싼지 싼지 · 우리 픽이 업체와 같은 쪽인지 보여줍니다</small></div><div class="r741G"><div><b>적정 배당</b> = 업체 확률대로라면 받아야 할 배당</div><div><em class="good">👍 해외랑 거의 같은 배당</em> 베트맨이 손해 없이 주는 배당</div><div><em class="bad">❌ 해외보다 배당 많이 덜 줌</em> 같은 선택인데 해외보다 배당이 확 낮음 → 맞아도 손해 보는 구조</div><div>✅ 우리 픽이 업체가 더 높게 보는 쪽 · ⚠ 반대쪽</div></div>'+
 (L.length?L.slice(0,r750Lim).map(card).join('')+(L.length>r750Lim?'<div class="r653T" style="text-align:center"><button type="button" onclick="r750Lim+=10;r743Sig=&quot;&quot;;r743Render(state)">더 보기 ('+(L.length-r750Lim)+'경기 남음)</button></div>':''):'<div class="pastEmpty">아직 해외 업체 배당을 받은 경기가 없습니다. 해외 배당은 경기 6시간 전부터 순서대로 받아옵니다.</div>');
 try{el.querySelectorAll('details[data-k]').forEach(d=>{const k=d.dataset.k;if(k in r706Open)d.open=r706Open[k]})}catch(_){}if(Math.abs(window.scrollY-y0)>2)window.scrollTo({top:y0,behavior:'instant'})}
 let r743D=null,r743Mode='exact';
