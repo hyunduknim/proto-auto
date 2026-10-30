@@ -1,0 +1,11 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+run('currentRoundMarket=()=>true');
+const t=new Date(Date.now()+9*3600e3+5*3600e3).toISOString();
+const m={gmTs:'260129',no:1,sport:'축구',league:'EPL',date:t.slice(0,10),time:t.slice(11,16),home:'첼시',away:'토트넘',marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.9},{label:'무',odds:3.4},{label:'패',odds:3.8}]};
+c.ST={gmTs:'260129',markets:[m],r507Overseas:{}};
+c.EV={home_team:'Chelsea',away_team:'Tottenham',bookmakers:[{key:'pinnacle',markets:[{key:'h2h',outcomes:[{name:'Chelsea',price:2.05},{name:'Draw',price:3.6},{name:'Tottenham',price:3.9}]},{key:'totals',outcomes:[{name:'Over',price:1.9,point:2.5},{name:'Under',price:1.95,point:2.5}]}]},{key:'williamhill',markets:[{key:'h2h',outcomes:[{name:'Chelsea',price:2.0},{name:'Draw',price:3.5},{name:'Tottenham',price:3.7}]}]}]};
+run('r750Keep(ST.r507Overseas,{key:gameSeed(ST.markets[0]),kick:gameTimeMs(ST.markets[0])},EV,Date.now())');
+const S=run('r750Summary(ST)');assert.equal(S.length,1);assert.equal(S[0].ml.length,2);assert.equal(S[0].ml[0][0],'피나클');assert.equal(S[0].tot[0][1],2.5);
+console.log('r750 ok');
