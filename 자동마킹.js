@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R747-EASY-WORDS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R748-LIGHT-POLL";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11311,13 +11311,18 @@ sh.sourceCheckingFresh?('정산원 조회 작동 · '+Math.floor(Number(sh.sourc
 (sh.overdueForResult?' · 장기대기 '+sh.overdueForResult+'경기':'')):
 '공식 정산 보조수집 연결됨'):sh.directOk?(sh.officialDataPending?
 '공식결과 직접조회 중 · 최종 결과 미수신':'공식결과 직접조회 연결됨'):'공식결과 자동 재조회 중';$('notice').textContent=oddsMsg+' · '+(sh.npbOfficial?.verifiedFinalFresh?'NPB 공식 종료결과 확인':officialMsg)+' · ⭕ '+roundHits+' / ❌ '+roundMisses+' / 대기 '+Number(sh.pending??ra.pending??0);if(sh.livePending)$('notice').textContent+=' · MLB 진행 중 '+Number(sh.livePending)+'픽';if(sh.failedSources?.length)$('notice').textContent+=' · 수집 지연 '+sh.failedSources.map(x=>x.name+(x.status==='BACKOFF'?'(재시도 간격 조절)':'')).join(', ');if(s.r420PrecisionPolicy?.enabled){$('notice').textContent+=' · 정밀근거 자동변경 ON · 누적 '+Number(s.r420PrecisionAudit?.changedTotal||0)+'건';}const pp=sh.premiumPendingByGrade||{};if(Number(pp['가장추천']||0)+Number(pp['추천']||0)>0){$('notice').textContent+=' · 가장추천 정산대기 '+Number(pp['가장추천']||0)+' / 추천 정산대기 '+Number(pp['추천']||0);const ready=sh.premiumResultReadiness||{};if(Number(ready.unannounced||0)>0)$('notice').textContent+=' · 공식 결과 미발표 '+Number(ready.unannounced)+'건';}if(s.gradeAudit?.bestNegativeEvCount>0)$('notice').textContent+=' · 가장추천은 상대평가(양(+) 기대수익 미보장)';if(s.gradeAudit?.mode==='R324_EXACT_RELATIVE_20_30_50'){$('notice').textContent+=' · 등급 20/30/50 상대순위'+(s.gradeAudit.exact?' · 목표 개수 일치':' · 고정등급으로 목표 차이')+(s.gradeAudit.roundingRequired?' · 정수 반올림':'');}if(s.marketMixAudit?.exact===false){$('notice').textContent+=' · 시장 20/20/60 후보부족/고정픽 차이';}if(s.marketMixAudit?.drawVisibility){const d=s.marketMixAudit.drawVisibility;$('notice').textContent+=' · 축구 무승부 '+d.draws+'경기 · 근거충족 '+d.qualifiedSelected+'경기'+(d.shortfall?' · 후보부족 '+d.shortfall+'경기':'')+(d.excess?' · 고정/대안부족 초과 '+d.excess+'경기':'');}if(s.directionAudit?.warnings?.length)$('notice').textContent+=' · 방향 집중 참고 '+s.directionAudit.warnings.length+'건';$('meta').textContent='회차 '+e(s.round||'-')+' · '+e((s.updatedAt||'').replace('T',' ').slice(0,19));applyMarkMenu();renderPastSettlementPanel();$('diag').textContent=JSON.stringify({overseas:s.overseasSummary,source:s.sourceAudit,result:s.resultAudit,relay:s.relayAudit,settlementHealth:s.settlementHealth,grade:s.gradeAudit,market:s.marketMixAudit,analysis:s.analysisAudit,sharedAnalysis:s.sharedAnalysisAudit,learning:s.learningAudit,fiveApkOddsReferenceOnly:null,jeongbaedang:s.jeongbaedangAudit,aux:s.auxAudit,directions:s.directionAudit,performanceSummary:null},null,2);applyView()}let R501_LAST_ETAG='',R501_LAST_POLL_MS=3000;
-async function load(){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),12000);
+/* R748 (owner: "사이트가 너무 버벅되는것같은데"): the page pulled the whole 4MB state every 1.5s and redrew it. Now it refreshes every
+   15s (5s while a 새로고침/결과 job runs is still 1s), stops while the tab is hidden, refreshes at once when it comes back, and skips
+   the redraw when nothing changed. */
+const R748_POLL=15000;let R748_SIG='';
+try{document.addEventListener('visibilitychange',()=>{if(!document.hidden){clearTimeout(timer);load();}});}catch(_){}
+async function load(){if(document.hidden&&!pendingRefreshId){clearTimeout(timer);timer=setTimeout(load,R748_POLL);return;}const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),20000);
 try{const headers=R501_LAST_ETAG?{'If-None-Match':R501_LAST_ETAG}:{};
 const r=await fetch('/api/state',{cache:'no-store',headers,signal:ac.signal});
-if(r.status===304){clearTimeout(timer);timer=setTimeout(load,pendingRefreshId?1000:R501_LAST_POLL_MS);return;}
+if(r.status===304){clearTimeout(timer);timer=setTimeout(load,pendingRefreshId?1000:R748_POLL);return;}
 if(!r.ok)throw new Error('HTTP_'+r.status);
 R501_LAST_ETAG=r.headers.get('etag')||'';
-const s=await r.json();R501_LAST_POLL_MS=Math.max(1000,Number(s.pollAfterMs)||3000);render(s);const j=s.refreshRequest;if(!busy&&pendingRefreshId&&j&&j.id===pendingRefreshId){r442Feedback(j);if(j.status==='done'||j.status==='failed')pendingRefreshId=null}clearTimeout(timer);timer=setTimeout(load,pendingRefreshId?1000:Math.max(1000,Number(s.pollAfterMs)||3000))}catch(err){$('notice').className='notice err';$('notice').textContent='화면 데이터 불러오기 실패 · '+String(err?.name==='AbortError'?'시간초과':err?.message||err)+' · 자동 재시도 중';clearTimeout(timer);timer=setTimeout(load,5000)}finally{clearTimeout(tm)}}function r442Feedback(job){
+const txt=await r.text(),sig=txt.length+'|'+txt.slice(-400);const s=JSON.parse(txt);R501_LAST_POLL_MS=R748_POLL;if(sig!==R748_SIG||pendingRefreshId){R748_SIG=sig;render(s);}const j=s.refreshRequest;if(!busy&&pendingRefreshId&&j&&j.id===pendingRefreshId){r442Feedback(j);if(j.status==='done'||j.status==='failed')pendingRefreshId=null}clearTimeout(timer);timer=setTimeout(load,pendingRefreshId?1000:R748_POLL)}catch(err){$('notice').className='notice err';$('notice').textContent='화면 데이터 불러오기 실패 · '+String(err?.name==='AbortError'?'시간초과':err?.message||err)+' · 자동 재시도 중';clearTimeout(timer);timer=setTimeout(load,5000)}finally{clearTimeout(tm)}}function r442Feedback(job){
 const el=$('actionFeedback');if(!el||!job)return;
 const label={odds:'회차·배당 갱신',results:'결과 확인',marking:'자동마킹 재분석'}[job.kind]||'메뉴 작업';
 const d=job.report||{};el.style.display='block';
