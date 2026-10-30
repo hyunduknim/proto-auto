@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R748-LIGHT-POLL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R749-LIGHT-TABS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11028,7 +11028,7 @@ x.rules.map(r=>{const d=r.hit+r.miss;return '<tr><td>'+e(r.rule)+'</td><td>'+e(r
 function r650Render(st){const el=document.getElementById('r650Box');if(!el)return;const x=st&&st.r650Causes;if(!x||(!x.rec.n&&!x.all.n)){el.innerHTML='';return}
 const tb=t=>t.list.length?'<table class="r614T"><tr><th>원인</th><th>낙첨</th><th>비율</th></tr>'+t.list.map(r=>'<tr><td>'+e(r.cause)+'</td><td>'+e(r.n)+'</td><td>'+e(Math.round(r.pct))+'%</td></tr>').join('')+'</table>':'<div class="pastEmpty">아직 없음</div>';
 r559SetHtml(el,'<details class="r614D"><summary>🔍 낙첨 원인 <small>'+e(x.from)+'부터 · 추천↑ 낙첨 '+e(x.rec.n)+'경기 · 전체 낙첨 '+e(x.all.n)+'경기 · 한 경기에 원인 여러 개 가능</small></summary><div class="r650G"><div><b>추천·가장추천</b>'+tb(x.rec)+'</div><div><b>전체 (일반 포함)</b>'+tb(x.all)+'</div></div></details>')}
-let r655Sub='perf',r655Day='all',r655Sport='all',r655Only='all',r655Lim=40;function r704Of(st,g){const G=st&&st.r704&&st.r704.games;return G?G[String(g.gmTs)+'|'+g.home+'|'+g.away]||null:null}function r655Set(k,v){if(k==='sub')r655Sub=v;if(k==='day')r655Day=v;if(k==='sport')r655Sport=v;if(k==='only')r655Only=v;if(k==='more')r655Lim+=40;else r655Lim=40;if(activeView==='perf2')r737Render(state);else r655Render(state)}
+let r655Sub='perf',r655Day='all',r655Sport='all',r655Only='all',r655Lim=40;function r704Of(st,g){const G=st&&st.r704&&st.r704.games;return G?G[String(g.gmTs)+'|'+g.home+'|'+g.away]||null:null}function r655Set(k,v){if(k==='sub')r655Sub=v;if(k==='day')r655Day=v;if(k==='sport')r655Sport=v;if(k==='only')r655Only=v;if(k==='more'){r655Lim+=40;r737Lim+=10;}else{r655Lim=40;r737Lim=10;}r737Sig='';if(activeView==='perf2')r737Render(state);else r655Render(state)}
 function r655Btn(k,v,cur,label){return '<button type="button" class="'+(cur===v?'on':'')+'" onclick="r655Set(&quot;'+k+'&quot;,&quot;'+v+'&quot;)">'+label+'</button>'}
 function r704Lbl(g,fam,line,l){const H=r560N(g.home),A=r560N(g.away),sg=x=>(x>0?'+':'')+x;if(fam==='MONEYLINE')return l==='승'?H+' 승':l==='패'?A+' 승':'무승부';if(fam==='HANDICAP')return l==='승'?H+' '+sg(line):l==='패'?A+' '+sg(-line):'핸디 무 ('+H+' '+sg(line)+')';return l+' '+line}
 function r704Fam(f){return f==='MONEYLINE'?'일반승':f==='HANDICAP'?'핸디':'언오버'}
@@ -11081,11 +11081,14 @@ const done=g.resultFinal||g.gameFinished,sc=g.score&&String(g.score)!=='-'?Strin
 return {head:'<span class="r724S">'+(done?'경기 종료':'⏳ 진행 중')+'</span>',score:sc?' · 결과 <b>'+e(sc)+'</b>':'',chips:R?'<div class="r715Ks">'+chip(R.best,R.bestSt,'⭐ 베스트')+chip(R.draw?{...R.draw,l:'무',fam:R.draw.fam||'MONEYLINE'}:null,R.drawSt,'🤝 무승부')+(!R.best?chip(R.ml,R.mlSt,'경기력 예상'):'')+'</div>':''}}
 /* R737 (owner: "전에만든 경기력비교 필요할것같다 · 너무자세하게 안 만들어도되고 필요한것만큼만 차트그래프 형식으로"): its own tab again,
    showing only the chart card per game (경기력 점수·확률 막대·카테고리) — the long 세부 지표 table and extra filters are left out. */
-let r737Lite=false,r737Hooked=false;function r737Render(st){const el=$('r737Panel');if(!el)return;if(!r737Hooked){r737Hooked=true;el.addEventListener('toggle',ev=>{const d=ev.target;if(d&&d.dataset&&d.dataset.k)r706Open[d.dataset.k]=d.open},true)}const y=window.scrollY;r737Lite=true;try{el.innerHTML='<div class="r617Hd"><b>📊 팀 경기력 비교</b><small>경기력 점수와 승·무·패 확률만 간단히 · 자세히를 누르면 항목별 비교</small></div>'+r655Perf(st);}finally{r737Lite=false;}try{el.querySelectorAll('details[data-k]').forEach(d=>{const k=d.dataset.k;if(k in r706Open)d.open=r706Open[k]});if(Math.abs(window.scrollY-y)>2)window.scrollTo({top:y,behavior:'instant'})}catch(_){}}
+/* R749 (owner: "경기력이 느린듯", "배당패턴 ... 느린듯"): both tabs draw only 10 games first (더 보기 adds 10) and skip the redraw when
+   their own data did not change between refreshes. */
+let r737Lim=10,r737Sig='',r743Lim=12,r743Sig='';
+let r737Lite=false,r737Hooked=false;function r737Render(st){const el=$('r737Panel');if(!el)return;{const G=(st&&st.r704&&st.r704.games)||{},sg=Object.keys(G).length+'|'+((st&&st.markingGames)||[]).length+'|'+r655Day+r655Sport+r737Lim+'|'+JSON.stringify((st&&st.r704&&st.r704.sum)||'').length+'|'+((st&&st.markingGames)||[]).filter(g=>g.gameStarted||g.resultFinal).length;if(sg===r737Sig&&el.innerHTML)return;r737Sig=sg;}if(!r737Hooked){r737Hooked=true;el.addEventListener('toggle',ev=>{const d=ev.target;if(d&&d.dataset&&d.dataset.k)r706Open[d.dataset.k]=d.open},true)}const y=window.scrollY;r737Lite=true;try{el.innerHTML='<div class="r617Hd"><b>📊 팀 경기력 비교</b><small>경기력 점수와 승·무·패 확률만 간단히 · 자세히를 누르면 항목별 비교</small></div>'+r655Perf(st);}finally{r737Lite=false;}try{el.querySelectorAll('details[data-k]').forEach(d=>{const k=d.dataset.k;if(k in r706Open)d.open=r706Open[k]});if(Math.abs(window.scrollY-y)>2)window.scrollTo({top:y,behavior:'instant'})}catch(_){}}
 function r655Perf(st){const today0=r697Today(),seen0=new Set(),src0=[...((st&&st.markingGames)||[]),...((st&&st.pastGames)||[])].filter(g=>{const k=String(g.gmTs)+'|'+g.home+'|'+g.away;if(seen0.has(k))return false;seen0.add(k);return true;});
 const rows=orderCurrentRows(src0).filter(g=>{const k=liveGameStartMs(g),stt=g.gameStarted||g.resultFinal||(isFinite(k)&&Date.now()>=k);return stt?String(g.date)===today0&&(!r737Lite||!!r704Of(st,g)):true;});if(r737Lite){const stt=g=>{const k=liveGameStartMs(g);return g.gameStarted||g.resultFinal||(isFinite(k)&&Date.now()>=k)?1:0};rows.sort((a,b)=>stt(a)-stt(b));}
 const kd=d=>{try{return new Date(Date.now()+9*3600000+d*86400000).toISOString().slice(0,10)}catch(_){return ''}};const today=kd(0),tom=kd(1);
-const list=rows.filter(g=>(r655Day==='all'||(r655Day==='today'?g.date===today:g.date===tom))&&(r655Sport==='all'||g.sport===r655Sport)&&(r655Only==='all'||(r655Only==='best'?!!(r704Of(st,g)||{}).best:r655Only==='draw'?!!(r704Of(st,g)||{}).draw:(r704Of(st,g)||{}).agree===false)));const shown=list.slice(0,r655Lim);
+const list=rows.filter(g=>(r655Day==='all'||(r655Day==='today'?g.date===today:g.date===tom))&&(r655Sport==='all'||g.sport===r655Sport)&&(r655Only==='all'||(r655Only==='best'?!!(r704Of(st,g)||{}).best:r655Only==='draw'?!!(r704Of(st,g)||{}).draw:(r704Of(st,g)||{}).agree===false)));const shown=list.slice(0,r737Lite?Math.min(r655Lim,r737Lim):r655Lim);
 const f1=v=>v==null||!isFinite(v)?'-':Number(v).toFixed(1),ppg=x=>x&&x.n?(3*x.w+x.d)/x.n:null,rec=x=>x&&x.n?x.w+'승 '+x.d+'무 '+x.l+'패':'-';
 const card=g=>{let sg=null;{const k0=liveGameStartMs(g);if(g.gameStarted||g.resultFinal||(isFinite(k0)&&Date.now()>=k0))sg=r726Started(st,g);}const td=g.teamData||{},H0=td.home,A0=td.away,hasT=!!(H0&&A0&&H0.n>=1&&A0.n>=1),H=H0||{n:0},A=A0||{n:0},soc=g.sport==='축구',bb=g.sport==='농구';const met=[];const add=(name,hv,av,ht,at,better,info)=>{met.push({name,ht,at,info:!!info,win:(hv==null||av==null||!isFinite(hv)||!isFinite(av)||hv===av)?0:(better==='high'?(hv>av?1:-1):(hv<av?1:-1))});};const recT=x=>x&&x.n?x.w+'승 '+(soc?x.d+'무 ':'')+x.l+'패':'-';
 const p5=t=>t.n?(3*t.wins+(t.draws||0))/t.n:null;if(hasT){add(H.n===A.n?'최근 '+H.n+'경기':'최근 '+H.n+'·'+A.n+'경기',p5(H),p5(A),H.wins+'승'+(soc?H.draws+'무':'')+H.losses+'패',A.wins+'승'+(soc?A.draws+'무':'')+A.losses+'패','high');
@@ -11148,14 +11151,14 @@ el.innerHTML='<div class="r617Hd"><b>🌊 배당흐름</b><small>배당이 어�
 if(Math.abs(window.scrollY-y0)>2)window.scrollTo({top:y0,behavior:'instant'})}
 /* R743 (owner: "배당패턴 다시 살려줘 기록 더 추가해서 난 그게 보기 더 편함"): the 동일배당 list is back as its own tab; the popup now
    also shows 비슷한 배당 games (젠토토 유사배당) so there are more records, with exact and similar counted separately. */
-function r743Render(st){const el=$('r743Panel');if(!el)return;const y0=window.scrollY;const today=r697Today(),fn={MONEYLINE:'일반',HANDICAP:'핸디',TOTAL:'언오버'};
+function r743Render(st){const el=$('r743Panel');if(!el)return;{const M=(st&&st.markingGames)||[],sg=M.length+'|'+r743Lim+'|'+M.map(g=>(g.marketRows||[]).map(r=>(r.choices||[]).map(c=>c.odds).join(',')).join(';')).join('/').length+'|'+M.filter(g=>g.gameStarted||g.resultFinal).length;if(sg===r743Sig&&el.innerHTML)return;r743Sig=sg;}const y0=window.scrollY;const today=r697Today(),fn={MONEYLINE:'일반',HANDICAP:'핸디',TOTAL:'언오버'};
 const G=((st&&st.markingGames)||[]).filter(g=>{const k=liveGameStartMs(g);return !g.gameStarted&&!g.resultFinal&&!(isFinite(k)&&Date.now()>=k)}).sort((a,b)=>String(a.date+a.time).localeCompare(String(b.date+b.time)));
 const btn=(k,v,cur,t)=>'<button type="button" class="'+(cur===v?'on':'')+'" onclick="r735Set(&quot;'+k+'&quot;,&quot;'+v+'&quot;)">'+t+'</button>';
 const row=(g,r)=>{const cs=(r.choices||[]).filter(c=>Number(c.odds)>1);if(cs.length<2)return '';const tag=r.marketFamily==='HANDICAP'&&r.line!=null?'H'+(Number(r.line)>0?'+':'')+r.line:r.marketFamily==='TOTAL'&&r.line!=null?'U'+r.line:'일반';
 return '<button type="button" class="r735M" onclick="r735Open(&quot;'+e(String(r.gmTs||g.gmTs))+'&quot;,'+Number(r.no)+')"><span class="t">'+e(fn[r.marketFamily]||'')+'</span><span class="g">'+e(tag)+'</span><span class="o">'+cs.map(c=>e(c.label)+' <b>'+Number(c.odds).toFixed(2)+'</b>').join(' · ')+'</span><span class="a">동일배당 ›</span></button>'};
 const card=g=>{const rs=(g.marketRows||[]).filter(r=>['MONEYLINE','HANDICAP','TOTAL'].includes(r.marketFamily)).sort((a,b)=>Number(a.no)-Number(b.no));const inner=rs.map(r=>row(g,r)).join('');if(!inner)return '';
 return '<article class="r655C"><div class="r653H"><b>'+e(r560N(g.home)+' vs '+r560N(g.away))+'</b><span class="r734N">#'+e((rs[0]||{}).no||g.no)+'</span></div><small>'+e(String(g.date||'').slice(5)+' '+String(g.time||'').slice(0,5)+' · '+(g.league||''))+'</small>'+inner+'</article>'};
-const body=G.map(card).join('');
+const body=G.slice(0,r743Lim).map(card).join('')+(G.length>r743Lim?'<div class="r653T" style="text-align:center"><button type="button" onclick="r743Lim+=12;r743Sig=&quot;&quot;;r743Render(state)">더 보기 ('+(G.length-r743Lim)+'경기 남음)</button></div>':'');
 el.innerHTML='<div class="r617Hd"><b>📈 배당패턴 · 동일배당</b><small>경기를 누르면 똑같은 배당 · 비슷한 배당이었던 과거 경기와 결과가 나옵니다 (젠토토 공개자료)</small></div>'+(body||'<div class="pastEmpty">시작 전 경기가 없습니다.</div>');
 if(Math.abs(window.scrollY-y0)>2)window.scrollTo({top:y0,behavior:'instant'})}
 let r743D=null,r743Mode='exact';
@@ -13775,7 +13778,7 @@ if(!/^\d{6}$/.test(round||'')||!/^\d{1,6}$/.test(no||'')||(stage!==null&&!/^\d{1
 const s=await (readState?readState():loadState(env)),stored=(s?.markets||[]).find(m=>String(m.gmTs||s.gmTs)===round&&Number(m.no)===Number(no));
 if(!stored)return json({error:'HISTORY_MARKET_NOT_FOUND'},404);
 const m={...stored,gmTs:round},key=JSON.stringify([round,no,stage,m.date,m.time,m.home,m.away,m.marketFamily,m.line,validChoices(m)]),cached=r462HistoryCache.get(key);
-if(cached&&Date.now()-cached.at<120000)return json(cached.data);
+if(cached&&Date.now()-cached.at<600000)return json(cached.data);
 try{
 if(!r462HistoryPending.has(key)){
 if(r462HistoryPending.size>=12)return json({error:'HISTORY_BUSY'},429);
