@@ -8,4 +8,4 @@ c.ST={gmTs:'260129',markets:[m],r507Overseas:{}};
 c.EV={home_team:'Chelsea',away_team:'Tottenham',bookmakers:[{key:'pinnacle',markets:[{key:'h2h',outcomes:[{name:'Chelsea',price:2.05},{name:'Draw',price:3.6},{name:'Tottenham',price:3.9}]},{key:'totals',outcomes:[{name:'Over',price:1.9,point:2.5},{name:'Under',price:1.95,point:2.5}]}]},{key:'williamhill',markets:[{key:'h2h',outcomes:[{name:'Chelsea',price:2.0},{name:'Draw',price:3.5},{name:'Tottenham',price:3.7}]}]}]};
 run('r750Keep(ST.r507Overseas,{key:gameSeed(ST.markets[0]),kick:gameTimeMs(ST.markets[0])},EV,Date.now())');
 const S=run('r750Summary(ST)');assert.equal(S.length,1);assert.equal(S[0].ml.length,2);assert.equal(S[0].ml[0][0],'피나클');assert.equal(S[0].tot[0][1],2.5);
-console.log('r750 ok');
+assert.ok(S[0].models.length>=4,'models');assert.equal(S[0].mAgree.fav,0);console.log('r750 ok',JSON.stringify(S[0].models.map(m=>[m.k,m.p])));
