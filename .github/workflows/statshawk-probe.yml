@@ -22,6 +22,7 @@ jobs:
           set -e
           printf '%s' "$P" | grep -Eq '^/v1/[A-Za-z0-9/_.?=&,-]+$' || { echo bad path; exit 1; }
           mkdir out && cd out
+          RAWLEN=${#K}; K=$(printf '%s' "$K" | tr -d '[:space:]"'"'"); echo "{\"keyLen\":$RAWLEN,\"trimmedLen\":${#K}}" > key.json
           code=$(curl -sS -m 60 -o raw.json -w '%{http_code}' -H "X-API-Key: $K" -H "Accept: application/json" "https://api.statshawk.ai$P" || true)
           python3 - "$code" <<'PY'
           import json,sys
