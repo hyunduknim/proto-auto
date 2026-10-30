@@ -23,7 +23,7 @@ jobs:
           printf '%s' "$P" | grep -Eq '^(/v1/[A-Za-z0-9/_.?=&,-]+|/openapi.json)$' || { echo bad path; exit 1; }
           mkdir out && cd out
           RAWLEN=${#K}; K=$(printf '%s' "$K" | tr -d '[:space:]"'"'"); echo "{\"keyLen\":$RAWLEN,\"trimmedLen\":${#K}}" > key.json
-          code=$(curl -sS -m 60 -o raw.json -w '%{http_code}' -H "X-API-Key: $K" -H "Accept: application/json" "https://api.statshawk.ai$P" || true)
+          code=$(curl -sS -m 60 -o raw.json -w '%{http_code}' -H "X-API-Key: $K" -H "Accept: application/json" "$( [ "$P" = /openapi.json ] && echo https://statshawk.ai || echo https://api.statshawk.ai)$P" || true)
           if [ "$code" = "401" ]; then c2=$(curl -sS -m 60 -o raw2.json -w '%{http_code}' -H "Authorization: Bearer $K" -H "Accept: application/json" "https://api.statshawk.ai$P" || true); c3=$(curl -sS -m 60 -o raw3.json -w '%{http_code}' -H "Accept: application/json" "https://api.statshawk.ai$P?api_key=$K" || true); echo "{\"bearer\":\"$c2\",\"query\":\"$c3\"}" > alt.json; if [ "$c2" = "200" ]; then mv raw2.json raw.json; code=$c2; fi; rm -f raw2.json raw3.json; fi
           python3 - "$code" <<'PY'
           import json,sys
