@@ -42,7 +42,14 @@ jobs:
           try:
               it=d['data']['items'];slugs=[[x.get('slug') or x.get('id'),x.get('sport'),x.get('id')] for x in it][:120]
           except Exception: pass
-          json.dump({'status':code,'list':slugs,'sample':cut(d)},open('check.json','w'),ensure_ascii=False,indent=1)
+          shape=None
+          def sh(x,depth=0):
+              if depth>5: return '..'
+              if isinstance(x,dict): return {k:sh(v,depth+1) for k,v in list(x.items())[:30]}
+              if isinstance(x,list): return [sh(x[0],depth+1),len(x)] if x else []
+              return x
+          shape=sh(d)
+          json.dump({'status':code,'list':slugs,'shape':shape,'sample':cut(d)},open('check.json','w'),ensure_ascii=False,indent=1)
           PY
           rm -f raw.json
           git init -q -b diag
