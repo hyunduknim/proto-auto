@@ -20,7 +20,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -e
-          printf '%s' "$P" | grep -Eq '^/v1/[A-Za-z0-9/_.?=&,-]+$' || { echo bad path; exit 1; }
+          printf '%s' "$P" | grep -Eq '^(/v1/[A-Za-z0-9/_.?=&,-]+|/openapi.json)$' || { echo bad path; exit 1; }
           mkdir out && cd out
           RAWLEN=${#K}; K=$(printf '%s' "$K" | tr -d '[:space:]"'"'"); echo "{\"keyLen\":$RAWLEN,\"trimmedLen\":${#K}}" > key.json
           code=$(curl -sS -m 60 -o raw.json -w '%{http_code}' -H "X-API-Key: $K" -H "Accept: application/json" "https://api.statshawk.ai$P" || true)
@@ -36,6 +36,9 @@ jobs:
               if isinstance(x,str): return x[:200]
               return x
           slugs=None
+          if isinstance(d,dict) and 'paths' in d:
+              slugs=[[k,','.join(m for m in v.keys()),' '.join((v.get('get') or {}).get('summary','').split())[:90],[p.get('name') for p in (v.get('get') or {}).get('parameters',[]) if isinstance(p,dict)]] for k,v in d['paths'].items()]
+              d={'info':d.get('info')}
           try:
               it=d['data']['items'];slugs=[[x.get('slug') or x.get('id'),x.get('sport'),x.get('id')] for x in it][:120]
           except Exception: pass
