@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R746b-DROP-1029-COMBO";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R747-EASY-WORDS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -10936,7 +10936,7 @@ const tb='<details class="r667Tb"><summary>표로 보기</summary><table class="
 el.innerHTML='<div class="r667Hd"><b>📈 회차별 성적 추이</b><small>122회부터 · 적특 제외 · 수익률 = 같은 금액씩 걸었을 때</small></div>'+leg+'<div class="r667Wrap"><div class="r667T">적중률</div>'+r667Line(D)+'<div class="r667T">수익률</div>'+r667Roi(D)+'<div id="r667Tip" class="r667Tip"></div></div>'+tb}
 /* R744 (owner ④: 베스트·가치배당·배당흐름 다듬기): 베스트 cards show the 가치배당 / 배당흐름 signals of their own pick */
 function r744Sig(st,b){if(!b)return '';const no=Number(b.no),pk=String(b.pick),out=[];const V=((st&&st.r738Value&&st.r738Value.list)||[]).find(x=>Number(x.no)===no&&String(x.pick)===pk);if(V)out.push(V.val?'<span class="r744S v">💎 가치 +'+V.ev+'%</span>':'<span class="r744S g">👍 배당 좋은 편</span>');
-const F=((st&&st.r739&&st.r739.list)||[]).find(x=>Number(x.no)===no);if(F){if(F.flow&&F.flow.l===pk&&!(F.heat&&F.heat.l===pk))out.push('<span class="r744S f">🌊 돈 몰림 '+Number(F.flow.o0).toFixed(2)+'→'+Number(F.flow.o).toFixed(2)+'</span>');if(F.heat&&F.heat.l===pk)out.push('<span class="r744S h">⚠ 구매 과열 '+Math.round(F.heat.sh*100)+'%</span>');else if(F.heat)out.push('<span class="r744S f">🔄 반대쪽 과열 → 유리</span>');}
+const F=((st&&st.r739&&st.r739.list)||[]).find(x=>Number(x.no)===no);if(F){if(F.flow&&F.flow.l===pk&&!(F.heat&&F.heat.l===pk))out.push('<span class="r744S f">👍 좋은 신호 '+Number(F.flow.o0).toFixed(2)+'→'+Number(F.flow.o).toFixed(2)+'</span>');if(F.heat&&F.heat.l===pk)out.push('<span class="r744S h">⚠ 사람 너무 몰림 '+Math.round(F.heat.sh*100)+'%</span>');else if(F.heat)out.push('<span class="r744S f">🔄 반대쪽에 사람 몰림 → 이쪽 유리</span>');}
 return out.length?'<div class="r744Sg">'+out.join('')+'</div>':'';}
 function r676Render(st){const el=$('r676Panel');if(!el)return;const x=st&&st.r676;if(!x){el.innerHTML='<div class="pastEmpty">자료를 불러오는 중입니다.</div>';return}
 const fam={MONEYLINE:'일반승',HANDICAP:'핸디',TOTAL:'언오버'};const pk=o=>{if(!o)return '';if(o.label)return o.label;if(o.fam==='HANDICAP'&&o.line!=null){const v=o.pick==='승'?Number(o.line):o.pick==='패'?-Number(o.line):null;return v!=null&&isFinite(v)?(v>0?'플핸 +':'마핸 ')+v+' '+o.pick:'핸디 '+o.pick}if(o.fam==='TOTAL')return o.pick+' '+(o.line!=null?o.line:'');return '일반 '+o.pick};
@@ -11138,13 +11138,13 @@ const head=x=>'<div class="g"><b>'+e(r560N(x.h)+' vs '+r560N(x.a))+'</b><small>#
 const mv=x=>(x.odds||[]).filter(o=>o[0]!=='무'&&o[1]&&o[2]).map(o=>{const d=o[2]-o[1];return e(nm(x,o[0]))+' '+Number(o[1]).toFixed(2)+'→'+Number(o[2]).toFixed(2)+(Math.abs(d)<0.005?'':d<0?' <i class="dw">▼</i>':' <i class="uw">▲</i>')}).join(' · ');
 const opp=(x,l)=>{const o=(x.odds||[]).filter(q=>q[0]!=='무'&&q[0]!==l);return o.length===1&&!(x.odds||[]).some(q=>q[0]==='무')?o[0]:null;};
 const vd=x=>{const f=x.flow,h=x.heat;if(h){const o=opp(x,h.l),why=f&&f.l===h.l?'사람들이 몰려 배당만 깎임':'구매 '+Math.round(h.sh*100)+'% vs 실제 '+Math.round(h.p*100)+'%';
-return o?{c:'flip',t:'🔄 반대쪽 주목',m:nm(x,o[0])+' '+Number(o[2]).toFixed(2)+' — '+nm(x,h.l)+' 쪽은 '+why}:{c:'heat',t:'⚠ 과열',m:nm(x,h.l)+' — '+why+' · 이 쪽은 피하기'};}
-return {c:'info',t:'👍 주목',m:nm(x,f.l)+' '+Number(f.o).toFixed(2)+' — 과열 없이 배당이 내려감 (정보 반영 가능성)'};};
+return o?{c:'flip',t:'🔄 반대쪽이 나아요',m:nm(x,o[0])+' '+Number(o[2]).toFixed(2)+' — 사람들이 '+nm(x,h.l)+'에 너무 몰려서 반대쪽이 더 나아 보여요 ('+why+')'}:{c:'heat',t:'⚠ 이쪽은 피하세요',m:nm(x,h.l)+' — 실제 실력보다 사람만 많이 몰렸어요 ('+why+')'};}
+return {c:'info',t:'👍 좋은 신호',m:nm(x,f.l)+' '+Number(f.o).toFixed(2)+' — 사람들이 많이 사지도 않았는데 배당이 내려갔어요 (좋은 소식이 있었을 수 있음)'};};
 const row=x=>{const v=vd(x);return '<div class="r741R '+v.c+'"><div class="r741H"><b>'+e(r560N(x.h)+' vs '+r560N(x.a))+'</b><span class="r741B '+v.c+'">'+v.t+'</span></div><small>#'+e(x.no)+' · '+e((String(x.d)===today?'오늘 ':String(x.d).slice(5)+' ')+String(x.t).slice(0,5))+' · '+e(x.l)+'</small><div class="r741M">'+e(v.m)+'</div><div class="r741O">'+mv(x)+'</div></div>'};
 const order={info:0,flip:1,heat:2},LL=L.map(x=>({...x,flow:x.flow&&x.flow.l!=='무'?x.flow:null,heat:x.heat&&x.heat.l!=='무'?x.heat:null})).filter(x=>x.flow||x.heat).sort((a,b)=>order[vd(a).c]-order[vd(b).c]);
-el.innerHTML='<div class="r617Hd"><b>🌊 배당흐름</b><small>배당 움직임과 구매 쏠림으로 본 참고 신호 · 아직 검증 중이라 아래 적중 기록과 같이 보세요</small></div>'+
-'<div class="r741G"><div><span class="r741B info">👍 주목</span> 사람이 몰리지 않았는데 배당이 내려간 쪽 → 정보가 반영됐을 수 있음</div><div><span class="r741B flip">🔄 반대쪽 주목</span> 한쪽에 구매가 너무 몰림 → 덜 팔린 반대쪽이 상대적으로 유리</div><div><span class="r741B heat">⚠ 과열</span> 무승부가 있는 경기라 반대쪽을 정할 수 없을 때만 → 그 쪽 피하기</div></div>'+
-(LL.length?'<div class="r744C">'+['info','flip','heat'].map(c=>{const n=LL.filter(x=>vd(x).c===c).length;return n?'<span class="r741B '+c+'">'+({info:'👍 주목',flip:'🔄 반대쪽 주목',heat:'⚠ 과열'}[c])+' '+n+'</span>':''}).join('')+'</div>':'')+rec(X.flow,'💸 배당 내려간 쪽 실제 적중')+rec(X.heat,'⚠ 과열 쪽 실제 적중')+(LL.length?LL.map(row).join(''):'<div class="pastEmpty">지금 신호가 있는 경기가 없습니다.</div>');
+el.innerHTML='<div class="r617Hd"><b>🌊 배당흐름</b><small>배당이 어떻게 바뀌었는지, 사람들이 어디에 몰렸는지 보고 쉽게 알려드려요 · 아직 검증 중이라 아래 기록과 같이 보세요</small></div>'+
+'<div class="r741G"><div><span class="r741B info">👍 좋은 신호</span> 이쪽을 눈여겨보세요</div><div><span class="r741B flip">🔄 반대쪽이 나아요</span> 사람들이 한쪽만 사서, 반대쪽이 더 낫다는 뜻</div><div><span class="r741B heat">⚠ 이쪽은 피하세요</span> 인기만 많고 실제론 그만큼 아님</div></div>'+
+(LL.length?'<div class="r744C">'+['info','flip','heat'].map(c=>{const n=LL.filter(x=>vd(x).c===c).length;return n?'<span class="r741B '+c+'">'+({info:'👍 좋은 신호',flip:'🔄 반대쪽이 나아요',heat:'⚠ 피하세요'}[c])+' '+n+'</span>':''}).join('')+'</div>':'')+rec(X.flow,'👍 좋은 신호 쪽이 실제로 맞은 횟수')+rec(X.heat,'⚠ 사람 몰린 쪽이 실제로 맞은 횟수')+(LL.length?LL.map(row).join(''):'<div class="pastEmpty">지금 신호가 있는 경기가 없습니다.</div>');
 if(Math.abs(window.scrollY-y0)>2)window.scrollTo({top:y0,behavior:'instant'})}
 /* R743 (owner: "배당패턴 다시 살려줘 기록 더 추가해서 난 그게 보기 더 편함"): the 동일배당 list is back as its own tab; the popup now
    also shows 비슷한 배당 games (젠토토 유사배당) so there are more records, with exact and similar counted separately. */
