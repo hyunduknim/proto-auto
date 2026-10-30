@@ -1,0 +1,36 @@
+name: statshawk-nba
+on:
+  schedule:
+    - cron: "17 21 * * *"   # 06:17 KST, before the 07:00 NBA analysis
+    - cron: "17 5 * * *"    # 14:17 KST
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, sparse-checkout: tools/statshawk }
+      - uses: actions/cache@v4
+        with:
+          path: shcache
+          key: statshawk-nba-${{ github.run_id }}
+          restore-keys: statshawk-nba-
+      - name: Build NBA team summary
+        env:
+          STATSHAWK_KEY: ${{ secrets.STATSHAWK_KEY }}
+        run: |
+          mkdir -p shcache out
+          python3 tools/statshawk/nba_team.py shcache/games.json out/nba_team.json
+      - name: Publish summary to the statshawk branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd out
+          git init -q -b statshawk
+          git config user.name "statshawk-bot"; git config user.email "statshawk-bot@users.noreply.github.com"
+          git add nba_team.json && git commit -qm "nba team summary"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" statshawk
