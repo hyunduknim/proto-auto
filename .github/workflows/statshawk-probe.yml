@@ -40,7 +40,7 @@ jobs:
               slugs=[[k,','.join(m for m in v.keys()),' '.join((v.get('get') or {}).get('summary','').split())[:90],[p.get('name') for p in (v.get('get') or {}).get('parameters',[]) if isinstance(p,dict)]] for k,v in d['paths'].items()]
               d={'info':d.get('info')}
           try:
-              it=d['data']['items'];slugs=[[x.get('slug') or x.get('id'),x.get('sport'),x.get('id')] for x in it][:120]
+              it=d['data']['items'];slugs=[[x.get('slug') or x.get('id'),x.get('sport') or x.get('name') or x.get('display_name'),x.get('id')] for x in it][:120]
           except Exception: pass
           shape=None
           def sh(x,depth=0):
