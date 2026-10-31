@@ -1,0 +1,29 @@
+name: statshawk-compare
+on:
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: "comp|Home|Away;..."
+        required: true
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, sparse-checkout: tools/statshawk }
+      - name: Compare teams (derived summary to diag)
+        env:
+          STATSHAWK_KEY: ${{ secrets.STATSHAWK_KEY }}
+          PAIRS: ${{ github.event.inputs.pairs }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir out && cd out
+          python3 ../tools/statshawk/compare.py "$PAIRS"
+          git init -q -b diag
+          git config user.name "diag-bot"; git config user.email "diag-bot@users.noreply.github.com"
+          git add check.json && git commit -qm "statshawk compare"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" diag
