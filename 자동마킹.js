@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R756-NBA-RECORD-PICK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R757-HIT-FIRST";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -3022,6 +3022,10 @@ gaps.push({key,date:ms[0]?.date,time:ms[0]?.time,game:ms[0]?.game||`${ms[0]?.hom
 state.fullMarkAudit={at:nowIso(),policy:"ALL_PRICED_PREGAME_GAMES_MUST_HAVE_ONE_REPRESENTATIVE",minOdds:CFG.minRepOdds,pregameGames,pricedGames,markedGames,gapGames:gaps.length,waitingOddsGames:waiting.length,coverage:pricedGames?r3(markedGames/pricedGames*100):100,gaps:gaps.slice(0,50),waiting:waiting.slice(0,50),blockedAnomalyMarkets,blockedAnomalyGames,anomalyPolicy:"R360_STRICT_OUTLIER_ONLY_NO_FAKE_ODDS"};
 return state.fullMarkAudit;
 }
+/* R757 (owner: "적중확률 올려달라고 하지않았나? 근데 안한 듯"): R744's tilt was too small and the same release added 20% more 추천.
+   From round 130: 추천/가장추천 only at odds 1.70 or lower (record since 126: under 1.5 66%, 1.5-1.7 60%, 1.7+ 49%), and the
+   hit-chance bonus in the ranking is doubled. */
+const R757={maxRecOdds:1.70,tilt:.16};
 function gradeScore(m){
 const p=Number(m.hitProbability||0),safe=Number(m.safeHitProbability??p),mp=Number(m.marketProbability||0);
 const rel=Number(m.dataReliability||0),quality=Number(m.aiQuality||0),conf=Number(m.confidenceScore||0),cross=Number(m.crossAgreement||0);
@@ -3029,7 +3033,7 @@ const ev=p*Number(m.finalOdds||0)-1,edge=p-mp,axes=Math.max(1,Number(m.axisAvail
 const u=clamp(Number(m.crossMarketUtility||0),0,1),value=clamp(.5+ev/.18,0,1),edgeRank=clamp(.5+edge/.10,0,1),safeRank=clamp(.5+(safe-mp)/.10,0,1);
 const jb=m?.analysisLayers?.jeongbaedangAux||{},jbP=num(jb.probability),jbBonus=jb.available&&jbP!=null&&Number.isFinite(mp)?clamp(.5+(jbP-mp)/.05,0,1):.5;
 /* R744 (owner ⑥: 적중확률 소폭 증가): a small bonus for a higher absolute hit chance, so among similar candidates the safer one ranks first */
-const hitTilt=clamp((p-.55)/.25,0,1)*.08;
+const hitTilt=clamp((p-.55)/.25,0,1)*R757.tilt;
 return u*.25+value*.17+edgeRank*.15+safeRank*.14+rel*.10+quality*.06+conf*.05+cross*.04+clamp(support/axes,0,1)*.03+jbBonus*.01-Math.min(1,opp/axes)*.10+hitTilt;
 }
 function premiumGradeValuePasses(m,grade){
@@ -3280,6 +3284,7 @@ if(!m||!["가장추천","추천"].includes(grade)||started(m)||m.resultFinal||
 m.manualOverride||/^MANUAL/.test(String(m.selectionMode||""))||
 m.sportRisk?.gradeLimited||m.moneylineRiskFlag||
 Number(m.finalOdds)<CFG.minRepOdds||
+(Number(m.gmTs||0)>=260130&&Number(m.finalOdds)>R757.maxRecOdds)||
 !oddsFresh(m)||explicitMarketClosed(m))return false;
 if(grade==="추천"&&!r345CanRecommendMoneyline(m))return false;
 if(!r356PremiumValueSafety(m,grade).ok)return false;
