@@ -24,9 +24,17 @@ for item in sys.argv[1].split(';'):
         return next((x for x in names if norm(x) == m[0]), None) if m else None
     hn, an = find(h), find(a)
     if not hn or not an: out.append({'q': item, 'err': 'name', 'have': names}); continue
-    try:
-        d = get(f'/v1/analysis/compare-teams?a={teams[comp][hn]}&b={teams[comp][an]}')
-        out.append({'q': item, 'h': hn, 'a': an, 'data': cut(d.get('data'))})
-    except urllib.error.HTTPError as e:
-        out.append({'q': item, 'err': f'http {e.code}', 'body': e.read()[:300].decode('utf8', 'replace')})
+    res = {'q': item, 'h': hn, 'a': an}
+    for side, n in (('H', hn), ('A', an)):
+        tid = teams[comp][n]
+        try:
+            st = get(f'/v1/teams/{tid}/stats?competition={comp}&season=2026').get('data')
+            res[side + 'stats'] = cut(st)
+        except urllib.error.HTTPError as e: res[side + 'stats'] = f'http {e.code}'
+        try:
+            gl = get(f'/v1/teams/{tid}/game-log?competition={comp}&season=2026')['data']['items']
+            fin = [g for g in gl if g.get('status') == 'final'][-8:]
+            res[side + 'log'] = [[g['kickoff'][:10], 'H' if g['home'] else 'A', g['team_score'], g['opponent_score']] for g in fin]
+        except urllib.error.HTTPError as e: res[side + 'log'] = f'http {e.code}'
+    out.append(res)
 json.dump({'status': '200', 'results': out}, open('check.json', 'w'), ensure_ascii=False)
