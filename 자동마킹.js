@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R760-PIN-DAILY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R762-HIT-UP";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -3025,7 +3025,7 @@ return state.fullMarkAudit;
 /* R757 (owner: "적중확률 올려달라고 하지않았나? 근데 안한 듯"): R744's tilt was too small and the same release added 20% more 추천.
    From round 130: 추천/가장추천 only at odds 1.70 or lower (record since 126: under 1.5 66%, 1.5-1.7 60%, 1.7+ 49%), and the
    hit-chance bonus in the ranking is doubled. */
-const R757={maxRecOdds:1.70,tilt:.16};
+const R757={maxRecOdds:1.65,tilt:.22,mlBonus:.02};/* R762 (owner: 적중확률 상향): round 130+ 추천 odds cap 1.70 -> 1.65, hit tilt .16 -> .22, 일반승 +.02 (ledger: 일반승 68.6% vs 핸디 55.6%) */
 function gradeScore(m){
 const p=Number(m.hitProbability||0),safe=Number(m.safeHitProbability??p),mp=Number(m.marketProbability||0);
 const rel=Number(m.dataReliability||0),quality=Number(m.aiQuality||0),conf=Number(m.confidenceScore||0),cross=Number(m.crossAgreement||0);
@@ -3033,8 +3033,8 @@ const ev=p*Number(m.finalOdds||0)-1,edge=p-mp,axes=Math.max(1,Number(m.axisAvail
 const u=clamp(Number(m.crossMarketUtility||0),0,1),value=clamp(.5+ev/.18,0,1),edgeRank=clamp(.5+edge/.10,0,1),safeRank=clamp(.5+(safe-mp)/.10,0,1);
 const jb=m?.analysisLayers?.jeongbaedangAux||{},jbP=num(jb.probability),jbBonus=jb.available&&jbP!=null&&Number.isFinite(mp)?clamp(.5+(jbP-mp)/.05,0,1):.5;
 /* R744 (owner ⑥: 적중확률 소폭 증가): a small bonus for a higher absolute hit chance, so among similar candidates the safer one ranks first */
-const hitTilt=clamp((p-.55)/.25,0,1)*R757.tilt;/* R758 ⑤ (owner: 추천 너무 플핸 위주로 하지말것 · 빼는건 없음): plus handicaps rank a little lower, counts unchanged */const plusPen=(m.marketFamily==='HANDICAP'&&directionForPick(m)==='PLUS')?.04:0;
-return u*.25+value*.17+edgeRank*.15+safeRank*.14+rel*.10+quality*.06+conf*.05+cross*.04+clamp(support/axes,0,1)*.03+jbBonus*.01-Math.min(1,opp/axes)*.10+hitTilt-plusPen;
+const hitTilt=clamp((p-.55)/.25,0,1)*R757.tilt;/* R758 ⑤ (owner: 추천 너무 플핸 위주로 하지말것 · 빼는건 없음): plus handicaps rank a little lower, counts unchanged */const plusPen=(m.marketFamily==='HANDICAP'&&directionForPick(m)==='PLUS')?R761.pen:0;
+return u*.25+value*.17+edgeRank*.15+safeRank*.14+rel*.10+quality*.06+conf*.05+cross*.04+clamp(support/axes,0,1)*.03+jbBonus*.01-Math.min(1,opp/axes)*.10+hitTilt-plusPen+(m.marketFamily==='MONEYLINE'?R757.mlBonus:0);
 }
 function premiumGradeValuePasses(m,grade){
 if(grade==="일반")return true;
@@ -4483,7 +4483,16 @@ if(n)state.r600Audit={at:nowIso(),cleared:n};return n;}
    with the reason "플핸 하루 "+R611.maxPerDay+"경기 제한" shown on the card. */
 const R611={from:260126,maxPerDay:5};/* R744 (owner ③: 플핸 3개에서 5개로) *//* R687 owner: "한개는 박하다 3개까지는 인정" -> 플핸 추천(가장추천 포함) 하루 3개까지, 가장추천 플핸 별도 제한 없음 */
 function r611Plus(m){const pk=m?.r619Lock?.pick||m?.finalPick;return m?.marketFamily==="HANDICAP"&&Number(handicapEffectiveLine(m,pk))>0;}
-function r611CapPlus(state){let sw=0,cut=0;/* R684: locked / started 추천 count too (their grade is only restored later by r619Lock, so the cap never saw them and a day ended with 3+ 플핸) */const isRec=m=>m.marked&&m.representativeSelected&&(m.displayGrade==="추천"||m.displayGrade==="가장추천"||(m.r619Lock&&(m.r619Lock.grade==="추천"||m.r619Lock.grade==="가장추천")));
+/* R761 (owner, again: "추천 가장추천 너무 플핸위주로 하지말것 대신 빼는건 없음 · 다음회차에 무조건"): from round 130 plus handicaps rank lower
+   (penalty .04 -> .08) and once a game day holds more than 2 플핸 추천, the weakest extra ones are switched to the same game's
+   일반승/언오버 when that pick passes (58%+). A 플핸 with no such switch stays 추천 — nothing is taken out. The hard cap (5) is unchanged. */
+const R761={from:260130,pen:.08,soft:2};
+function r761Soft(state){let n=0;const isRec=m=>m.marked&&m.representativeSelected&&(m.displayGrade==="추천"||m.displayGrade==="가장추천");
+for(let g=0;g<40;g++){const by=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R761.from||!isRec(m)||!r611Plus(m))continue;if(!by.has(m.date))by.set(m.date,[]);by.get(m.date).push(m);}
+let target=null;for(const ms of by.values()){if(ms.length<=R761.soft)continue;const free=ms.filter(m=>!started(m)&&!m.manualOverride&&!m.r619Lock&&!(m.r761No&&Date.now()-Date.parse(m.r761No)<30*60e3)).sort((a,b)=>Number(a.r554?.ps||0)-Number(b.r554?.ps||0));if(free.length){target=free[0];break;}}
+if(!target)break;if(r588Try(state,target,["MONEYLINE","TOTAL"])){target.r761={at:nowIso()};n++;}else target.r761No=nowIso();}
+if(n)state.r761Audit={at:nowIso(),swapped:n+(state.r761Audit?.swapped||0)};return n;}
+function r611CapPlus(state){try{r761Soft(state);}catch(_){}let sw=0,cut=0;/* R684: locked / started 추천 count too (their grade is only restored later by r619Lock, so the cap never saw them and a day ended with 3+ 플핸) */const isRec=m=>m.marked&&m.representativeSelected&&(m.displayGrade==="추천"||m.displayGrade==="가장추천"||(m.r619Lock&&(m.r619Lock.grade==="추천"||m.r619Lock.grade==="가장추천")));
 for(let g=0;g<80;g++){const by=new Map();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R611.from||!isRec(m)||!r611Plus(m))continue;if(!by.has(m.date))by.set(m.date,[]);by.get(m.date).push(m);}
 let target=null;for(const ms of by.values()){if(ms.length<=R611.maxPerDay)continue;const free=ms.filter(m=>!started(m)&&!m.manualOverride&&!m.r619Lock&&(m.displayGrade==="추천"||m.displayGrade==="가장추천")).sort((a,b)=>Number(a.r554?.ps||0)-Number(b.r554?.ps||0));if(free.length){target=free[0];break;}
 /* R684b: if only locked-but-not-started ones are left, the latest kick-off loses its 추천 (lock kept, grade 일반) */
