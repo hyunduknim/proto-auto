@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R758-ROUND130";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R759-PIN-PICK";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -7580,8 +7580,8 @@ scope:'CONFIRMED_SOURCE_RECORDS_NOT_CALIBRATED_PREDICTION'};
 }
 /* R758 ⑥⑩: Pinnacle's own price for the shown market (일반승 always, 언오버 when the line matches) */
 function r758Pin(state,m){const bk=m&&state?.r507Overseas?.books?.[gameSeed(m)];if(!bk)return null;const ml=bk.ml.find(x=>x[0]==='pinnacle'),out={};
-if(ml)out.ml={승:ml[1],무:ml[2],패:ml[3]};if(m.marketFamily==='TOTAL'){const t=bk.tot.find(x=>x[0]==='pinnacle'&&Number(x[1])===Number(m.line));if(t)out.tot={line:t[1],언더:t[2],오버:t[3]};}
-else{const t=bk.tot.find(x=>x[0]==='pinnacle');if(t)out.totAny={line:t[1],언더:t[2],오버:t[3]};}return (out.ml||out.tot||out.totAny)?out:null;}
+if(ml)out.ml={승:ml[1],무:ml[2],패:ml[3]};if(m.marketFamily==='TOTAL'){const t=bk.tot.find(x=>x[0]==='pinnacle'&&Number(x[1])===Number(m.line));if(t)out.tot={line:t[1],언더:t[2],오버:t[3]};else{const n=bk.tot.filter(x=>x[0]==='pinnacle').sort((a,b)=>Math.abs(a[1]-m.line)-Math.abs(b[1]-m.line))[0];if(n)out.totN={line:n[1],언더:n[2],오버:n[3]};}}
+else{const t=bk.tot.find(x=>x[0]==='pinnacle');if(t)out.totAny={line:t[1],언더:t[2],오버:t[3]};}return (out.ml||out.tot||out.totN||out.totAny)?out:null;}
 function representativeGames(state){
 const out=[];
 for(const ms of groupMarkets((state.markets||[]).filter(m=>isAfterCutoff(m)&&!isPurgedMidnightMarket(m))).values()){
@@ -11382,8 +11382,12 @@ function r575Date(m){const d=String(m&&m.date||'');if(d.length!==10||d[4]!=='-'|
 /* R758 ⑥⑩ (owner: 추천·가장추천 밑에 예측분석글 3줄 이상 + 피나클 배당 + 주전휴식/선발 빠졌는지) */
 function r758On(m){return m&&(m.displayGrade==='추천'||m.displayGrade==='가장추천')}
 function r758Note(m){const g=m.displayGrade;if(!r758On(m))return '';const H=r560N(m.home),A=r560N(m.away),L=[],pk=r554PickText(m),ps=r554Ps(m),fam=m.marketFamily;
-const P=m.r758Pin;let pin='';if(P){if(fam==='TOTAL'&&P.tot){const o=P.tot[m.pick];pin='📌 피나클: 언더 '+Number(P.tot['언더']).toFixed(2)+' · 오버 '+Number(P.tot['오버']).toFixed(2)+(o?' → 고른 쪽 피나클 '+Number(o).toFixed(2)+' / 베트맨 '+Number(m.odds).toFixed(2):'');}
-else if(P.ml){const ks=['승','무','패'].filter(k=>Number(P.ml[k])>1);const inv=ks.reduce((a,k)=>a+1/P.ml[k],0);pin='📌 피나클 일반승: '+ks.map(k=>(k==='승'?H:k==='패'?A:'무')+' '+Number(P.ml[k]).toFixed(2)+' ('+Math.round(100/P.ml[k]/inv)+'%)').join(' · ');}}
+const P=m.r758Pin||{};let pin='';{/* R759 (owner: 피나클 일반승 말고 피나클 추천픽으로): Pinnacle odds of the picked side itself */const bo=Number(m.odds);let o=null,pr=null,note='';const vf=(obj,ks)=>{const v=ks.filter(k=>Number(obj[k])>1);const inv=v.reduce((a,k)=>a+1/obj[k],0);return inv?(1/obj[m.pick])/inv:null;};
+if(fam==='MONEYLINE'&&P.ml&&Number(P.ml[m.pick])>1){o=Number(P.ml[m.pick]);pr=vf(P.ml,['승','무','패']);}
+else if(fam==='TOTAL'&&P.tot&&Number(P.tot[m.pick])>1){o=Number(P.tot[m.pick]);pr=vf(P.tot,['언더','오버']);}
+else if(fam==='TOTAL'&&P.totN&&Number(P.totN[m.pick])>1){o=Number(P.totN[m.pick]);pr=vf(P.totN,['언더','오버']);note=' (피나클 기준점 '+P.totN.line+')';}
+else if(m.r507Probs&&Number(m.r507Probs[m.pick])>0){pr=Number(m.r507Probs[m.pick]);o=1/pr;note=' (피나클 확률로 계산)';}
+if(o){const cmp=bo>1?(bo>=o+.02?' → 베트맨이 더 많이 줌 👍':bo<=o-.1?' → 베트맨이 덜 줌':' → 비슷함'):'';pin='📌 피나클 추천픽: '+pk+' '+o.toFixed(2)+(pr?' ('+Math.round(pr*100)+'%)':'')+note+' · 베트맨 '+(bo>1?bo.toFixed(2):'-')+cmp;}}
 L.push('🎯 '+pk+' — 사이트 확률 '+(ps!=null?Math.round(ps*100)+'%':'-')+(m.r507Probs&&m.r507Probs[m.pick]?', 해외 '+Math.round(m.r507Probs[m.pick]*100)+'%':'')+' · 배당 '+(Number(m.odds)>1?Number(m.odds).toFixed(2):'-'));
 if(pin)L.push(pin);else L.push('📌 피나클: 아직 배당 없음 (경기 6시간 전부터 받아옴)');
 const f=m.r555||{},fs=x=>x&&x.n?x.w+'승 '+(m.sport==='축구'?x.d+'무 ':'')+x.l+'패 · 득점 '+(x.gf/x.n).toFixed(1)+' 실점 '+(x.ga/x.n).toFixed(1):null;if(f.home||f.away)L.push('📊 최근 '+(f.home&&f.home.n||5)+'경기: '+H+' '+(fs(f.home)||'-')+' / '+A+' '+(fs(f.away)||'-'));
