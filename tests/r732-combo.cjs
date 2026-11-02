@@ -3,7 +3,7 @@ const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncod
 vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run('currentRoundMarket=()=>true;r704Model=()=>null');
 // now = 2026-11-02 08:00 KST
-const now=Date.parse('2026-11-02T08:00:00+09:00');c.NOW=now;
+const now=Date.parse('2026-11-02T08:00:00+09:00');c.NOW=now;vm.runInContext('Date.now=()=>NOW',c);
 const mk=[];let no=1;
 for(let i=0;i<7;i++){const g={gmTs:'260130',sport:'농구',league:'KBL',date:'2026-11-02',time:String(12+i)+':00',home:'H'+i,away:'A'+i};
  mk.push({...g,no:no++,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.45+i*0.02},{label:'패',odds:2.6}]});
