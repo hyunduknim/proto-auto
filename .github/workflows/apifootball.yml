@@ -1,0 +1,36 @@
+name: apifootball
+on:
+  schedule:
+    - cron: "*/20 * * * *"   # every 20 min: fixtures + injuries (2 days) + lineups 75 min before kick-off
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency: { group: apifootball, cancel-in-progress: false }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, sparse-checkout: tools/apifootball }
+      - uses: actions/cache@v4
+        with:
+          path: afcache
+          key: apifootball-${{ github.run_id }}
+          restore-keys: apifootball-
+      - name: Build soccer summary
+        env:
+          AF_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          mkdir -p afcache out
+          python3 tools/apifootball/af_soccer.py afcache/cache.json out/af_soccer.json
+      - name: Publish to the apifootball branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd out
+          git init -q -b apifootball
+          git config user.name "apifootball-bot"; git config user.email "apifootball-bot@users.noreply.github.com"
+          git add af_soccer.json && git commit -qm "soccer summary"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" apifootball
