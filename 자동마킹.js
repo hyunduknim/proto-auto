@@ -4774,7 +4774,7 @@ const sc=f=>{const x=api.length===2?[r768Sim(api[0],f.h),r768Sim(api[1],f.a)]:[r
 const R=cs.map(f=>({f,...sc(f)})).sort((a,b)=>b.s-a.s);const b=R[0],n=R[1];
 if(!(b.s>=.55&&b.lo>=.3&&(!n||b.s-n.s>=.1))&&!(cs.length===1&&b.s>=.45&&b.lo>=.3))return null;
 const ks=Object.keys(map);if(ks.length>400)for(const k of ks.slice(0,ks.length-300))delete map[k];map[sk]=b.f.id;return b.f;}
-function r768Why(x){const r=String(x||'');return /red card/i.test(r)?'퇴장 징계':/yellow/i.test(r)?'경고 누적':/suspend/i.test(r)?'징계':/inactive/i.test(r)?'명단 제외':/ill/i.test(r)?'몸살':/injur|knock|muscle|knee|ankle|hamstring|groin|calf|thigh|back|foot|shoulder|achilles|fracture|surgery|ligament/i.test(r)?'부상':/international/i.test(r)?'대표팀':r?'기타':'';}
+function r768Why(x){const r=String(x||'');return /red card/i.test(r)?'퇴장 징계':/yellow/i.test(r)?'경고 누적':/suspend/i.test(r)?'징계':/inactive|off the roster/i.test(r)?'명단 제외':/coach/i.test(r)?'감독 결정':/illness|health/i.test(r)?'몸 상태':/fitness|overload/i.test(r)?'컨디션':/injur|knock|broken|strain|fracture|surgery|ligament|tendon/i.test(r)?'부상':/international/i.test(r)?'대표팀':r?'기타':'';}
 function r768Info(state,m){const f=r768Find(state,m);if(!f)return null;const side=a=>(a||[]).map(x=>({n:String(x[0]||''),q:/question|doubt/i.test(String(x[1]||'')),w:r768Why(x[2])}));
 return {id:f.id,lg:f.lg,inj:{h:side(f.inj?.h).slice(0,12),a:side(f.inj?.a).slice(0,12)},lu:f.lu?{h:f.lu.h?{f:f.lu.h.f,n:(f.lu.h.xi||[]).length}:null,a:f.lu.a?{f:f.lu.a.f,n:(f.lu.a.xi||[]).length}:null}:null};}
 const R755={url:'https://raw.githubusercontent.com/hyunduknim/proto-auto/statshawk/nba_team.json',tickMs:30*60000};
