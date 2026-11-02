@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R762-HIT-UP";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R763-PIN-RESET";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4848,7 +4848,7 @@ return out.slice(0,R760.max).sort((a,b)=>a.t-b.t);}
 function r760Build(state,now){const picks=r760Pick(r760Cands(state,now));const day=new Date(now+9*3600e3).toISOString().slice(0,10);const nm={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'};
 const groups=['MONEYLINE','HANDICAP','TOTAL'].map(f=>({name:nm[f],picks:picks.filter(x=>x.fam===f).map(({seed,t,ev,...x})=>x)})).filter(g=>g.picks.length);
 return {id:'pin-'+day,by:'pin',title:'📌 '+day.slice(5).replace('-','/')+' 피나클 추천픽',at:new Date(now).toISOString(),intro:'새벽 1시에 피나클 배당으로 계산한 맞을 확률이 높고, 베트맨 배당이 너무 짜지 않은 픽만 골랐습니다. 앞으로 24시간 안에 시작하는 경기 중 피나클 배당이 나온 경기만 들어갑니다.',groups};}
-function r760Update(state,now=Date.now()){const k=new Date(now+9*3600e3),hr=k.getUTCHours(),day=k.toISOString().slice(0,10);const posts=state.r760Posts||(state.r760Posts=[]);
+function r760Update(state,now=Date.now()){const k=new Date(now+9*3600e3),hr=k.getUTCHours(),day=k.toISOString().slice(0,10);/* R763 (owner 11/2: "피나클추천도 삭제뒤 새벽1시에 분석 뒤 추천픽 올려주기"): clear the old posts once at 11/3 00:00 KST */if(day>='2026-11-03'&&!state.r763Reset){state.r760Posts=[];state.r763Reset=new Date(now).toISOString();}const posts=state.r760Posts||(state.r760Posts=[]);
 if(hr<R760.hour||hr>=R760.lastHour||posts.some(p=>p.id==='pin-'+day))return {status:'IDLE',posts:posts.length};
 const post=r760Build(state,now);if(!post.groups.length)return {status:'EMPTY'};posts.unshift(post);if(posts.length>R760.keep)posts.length=R760.keep;try{r662Settle(state);}catch(_){}return {status:'POSTED',id:post.id,n:post.groups.reduce((a,g)=>a+g.picks.length,0)};}
 function r760Summary(state){const posts=state?.r760Posts||[];const res=state.r662Res||{};const T={n:0,hit:0,miss:0,void:0,ret:0},byF={};
