@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R765-REVIEW-STORY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R767-PIN-NBA";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4847,6 +4847,26 @@ why+=soccer?'피나클 기준 예상 점수 '+H+' '+F.lh.toFixed(1)+' : '+F.la.t
 why+='맞을 확률 약 '+Math.round(p*100)+'%'+(pinO?' · 피나클 '+pinO.toFixed(2):'')+' · 베트맨 '+o.toFixed(2)+(p*o>=1?' (베트맨이 더 줌 👍)':'');
 out.push({gmTs:String(m.gmTs),no:Number(m.no),line:L,pick:c.label,label,odds:o,p:Math.round(p*1000)/1000,ev:Math.round(p*o*1000)/1000,fam,seed:gameSeed(m0),t,why,home:m0.home,away:m0.away,date:m0.date,time:m0.time,league:m0.league});}}}
 return out;}
+/* R766 (owner: "NBA쪽 추천 가장추천 쫌 많이 올려줘 일반승 말고 핸디캡 언오버쪽도 보면서 분석해서"): for every NBA game not yet locked,
+   the Pinnacle bell-curve model of 📌 피나클추천 (R760) scores 일반승 · 핸디 · 언오버 together; when Betman's line is softer than
+   Pinnacle's the best one becomes the game's 추천 (핸디/언오버 57%+, 일반승 64%+) or 가장추천 (62%+ / 70%+). A game the site
+   already rates 추천 or higher is left alone. 핸디/언오버 are allowed up to odds 1.85 (the 1.65 cap is for the other sports). */
+const R766={hcRec:.57,hcBest:.62,mlRec:.64,mlBest:.70,minOdds:1.25,maxOdds:1.85,bestPerDay:2,famBonus:.02,shrink:.9};
+function r766Nba(state,now=Date.now()){let n=0;const C=r760Cands(state,now).filter(c=>c.league==='NBA'||/NBA/.test(String(c.league||'')));if(!C.length)return 0;
+const by=new Map();for(const c of C){if(!by.has(c.seed))by.set(c.seed,[]);by.get(c.seed).push(c);}
+const bestDay={};for(const m of state.markets||[])if(m.marked&&m.representativeSelected&&m.displayGrade==='가장추천'&&/NBA/.test(String(m.league||''))&&!m.resultFinal)bestDay[m.date]=(bestDay[m.date]||0)+1;
+for(const [seed,cs] of by){const ms=(state.markets||[]).filter(m=>gameSeed(m)===seed&&String(m.gmTs)===String(cs[0].gmTs));if(!ms.length||ms.some(m=>m.r619Lock||m.manualOverride||m.manualReview||m.resultFinal)||started(ms[0]))continue;
+const cur=ms.find(m=>m.marked&&m.representativeSelected);if(cur&&(cur.displayGrade==='추천'||cur.displayGrade==='가장추천')&&!cur.r766)continue;
+let best=null;for(const c of cs){const p=.5+(c.p-.5)*R766.shrink,ml=c.fam==='MONEYLINE';if(c.pick==='무'||c.odds<R766.minOdds||c.odds>R766.maxOdds)continue;const rec=ml?R766.mlRec:R766.hcRec;if(p<rec)continue;
+const sc=p+.8*(p*c.odds-.9)+(ml?0:R766.famBonus);if(!best||sc>best.sc)best={c,p,sc,grade:p>=(ml?R766.mlBest:R766.hcBest)?'가장추천':'추천'};}
+if(!best){if(cur&&cur.r766){cur.displayGrade='일반';delete cur.r766;}continue;}
+const x=ms.find(m=>String(m.gmTs)===String(best.c.gmTs)&&Number(m.no)===Number(best.c.no));if(!x)continue;
+if(best.grade==='가장추천'&&(bestDay[x.date]||0)>=R766.bestPerDay&&!(x.r766&&x.r766.grade==='가장추천'))best.grade='추천';
+for(const y of ms)if(y!==x&&y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;if(y.displayGrade!=='일반')y.displayGrade='일반';}
+const at=nowIso(),p=Math.round(best.p*1000)/1000;x.marked=true;x.representativeSelected=true;x.finalPick=best.c.pick;x.finalOdds=best.c.odds;x.hitProbability=p;x.calibratedProbability=p;
+if(best.grade==='가장추천'&&x.displayGrade!=='가장추천')bestDay[x.date]=(bestDay[x.date]||0)+1;x.displayGrade=best.grade;
+x.r554={...(x.r554||{}),ps:p,selected:true,why:null,r766:true};x.r766={at,p,grade:best.grade,why:best.c.why};if(!x.r577Rec||x.r577Rec.pick!==x.finalPick)x.r577Rec={at,pick:x.finalPick,odds:x.finalOdds,ps:p};else delete x.r577Rec.off;n++;}
+if(n)state.r766Audit={at:nowIso(),set:n};return n;}
 function r760N(x){return String(x||'').replace(/\s+/g,' ').trim();}
 function r760Pick(cands){const sc=c=>c.p+.8*(c.ev-.9);const ok=c=>c.p>=R760.minP&&c.ev>=R760.minEv&&c.odds>=R760.minOdds&&c.odds<=R760.maxOdds;const used=new Set(),out=[];
 for(const fam of ['MONEYLINE','HANDICAP','TOTAL']){const L=cands.filter(c=>c.fam===fam&&ok(c)).sort((a,b)=>sc(b)-sc(a));let n=0;for(const c of L){if(n>=R760.perFam)break;if(used.has(c.seed))continue;used.add(c.seed);out.push(c);n++;}}
@@ -4855,8 +4875,26 @@ return out.slice(0,R760.max).sort((a,b)=>a.t-b.t);}
 function r760Build(state,now){const picks=r760Pick(r760Cands(state,now));const day=new Date(now+9*3600e3).toISOString().slice(0,10);const nm={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'};
 const groups=['MONEYLINE','HANDICAP','TOTAL'].map(f=>({name:nm[f],picks:picks.filter(x=>x.fam===f).map(({seed,t,ev,...x})=>x)})).filter(g=>g.picks.length);
 return {id:'pin-'+day,by:'pin',title:'📌 '+day.slice(5).replace('-','/')+' 피나클 추천픽',at:new Date(now).toISOString(),intro:'새벽 1시에 피나클 배당으로 계산한 맞을 확률이 높고, 베트맨 배당이 너무 짜지 않은 픽만 골랐습니다. 앞으로 24시간 안에 시작하는 경기 중 피나클 배당이 나온 경기만 들어갑니다.',groups};}
+/* R767 (owner: "피나클추천도 똑같이 NBA 5경기 이상있을때 예약분석이랑 비슷한 시간으로 NBA픽 일반승 핸디캡 언오버 섞어서 3~4픽"):
+   at 07:00 KST, when 5+ NBA games tip off between 07:15 and 14:00, a second 📌 post carries 3~4 NBA picks mixed across
+   일반승 / 핸디 / 언오버 (one per game, best of each type first), from the same Pinnacle model. Games already in the 01:00 post are skipped. */
+const R767={hour:7,lastHour:12,minGames:5,from:[7,15],to:[14,0],min:3,max:4};
+function r767Build(state,now){const day=new Date(now+9*3600e3).toISOString().slice(0,10),t0=Date.parse(day+'T07:15:00+09:00'),t1=Date.parse(day+'T14:00:00+09:00');
+const nba=m=>/NBA/.test(String(m.league||''));const seeds=new Set();for(const m of state.markets||[]){if(!nba(m)||m.resultFinal)continue;const t=gameTimeMs(m);if(t!=null&&t>=t0&&t<=t1)seeds.add(gameSeed(m));}
+if(seeds.size<R767.minGames)return {skip:'NBA '+seeds.size+'경기'};
+const used=new Set();for(const p of state.r760Posts||[])if(String(p.id).endsWith(day))for(const g of p.groups||[])for(const x of g.picks||[])used.add(String(x.gmTs)+':'+x.no);
+const C=r760Cands(state,now).filter(c=>nba(c)&&c.t>=t0&&c.t<=t1&&c.pick!=='무'&&!used.has(c.gmTs+':'+c.no));
+const sc=c=>c.p+.8*(c.ev-.9);const ok=c=>c.odds>=1.25&&c.odds<=1.95&&c.ev>=.9&&c.p>=(c.fam==='MONEYLINE'?.6:.55);const ok2=c=>c.odds>=1.2&&c.odds<=2&&c.ev>=.88&&c.p>=(c.fam==='MONEYLINE'?.57:.52);
+const out=[],g=new Set();const take=c=>{if(g.has(c.seed))return false;g.add(c.seed);out.push(c);return true;};
+for(const fam of ['HANDICAP','TOTAL','MONEYLINE']){const b=C.filter(c=>c.fam===fam&&ok(c)).sort((a,b)=>sc(b)-sc(a));for(const c of b)if(take(c))break;}
+for(const c of C.filter(ok).sort((a,b)=>sc(b)-sc(a))){if(out.length>=R767.max)break;take(c);}
+if(out.length<R767.min)for(const c of C.filter(ok2).sort((a,b)=>sc(b)-sc(a))){if(out.length>=R767.min)break;take(c);}
+if(!out.length)return {skip:'조건 맞는 픽 없음'};const picks=out.sort((a,b)=>a.t-b.t);const nm={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'};
+const groups=['MONEYLINE','HANDICAP','TOTAL'].map(f=>({name:nm[f],picks:picks.filter(x=>x.fam===f).map(({seed,t,ev,...x})=>x)})).filter(g=>g.picks.length);
+return {id:'pin-nba-'+day,by:'pin',title:'🏀 '+day.slice(5).replace('-','/')+' NBA 피나클 추천픽',at:new Date(now).toISOString(),intro:'오전 7시에 오늘 NBA '+seeds.size+'경기를 피나클 배당으로 계산해서 일반승 · 핸디캡 · 언오버를 섞어 골랐습니다. 한 경기에 하나씩, 베트맨 기준점이 피나클보다 유리한 픽을 먼저 넣었습니다.',groups};}
 function r760Update(state,now=Date.now()){const k=new Date(now+9*3600e3),hr=k.getUTCHours(),day=k.toISOString().slice(0,10);/* R763 (owner 11/2: "피나클추천도 삭제뒤 새벽1시에 분석 뒤 추천픽 올려주기"): clear the old posts once at 11/3 00:00 KST */if(day>='2026-11-03'&&!state.r763Reset){state.r760Posts=[];state.r763Reset=new Date(now).toISOString();}const posts=state.r760Posts||(state.r760Posts=[]);
-if(hr<R760.hour||hr>=R760.lastHour||posts.some(p=>p.id==='pin-'+day))return {status:'IDLE',posts:posts.length};
+let nbaSt=null;if(hr>=R767.hour&&hr<R767.lastHour&&!posts.some(p=>p.id==='pin-nba-'+day)&&!(state.r767Skip===day)){const q=r767Build(state,now);if(q.id){posts.unshift(q);if(posts.length>R760.keep)posts.length=R760.keep;try{r662Settle(state);}catch(_){}nbaSt={status:'POSTED_NBA',id:q.id};}else if(hr>=8){state.r767Skip=day;nbaSt={status:'NBA_SKIP',why:q.skip};}}
+if(hr<R760.hour||hr>=R760.lastHour||posts.some(p=>p.id==='pin-'+day))return nbaSt||{status:'IDLE',posts:posts.length};
 const post=r760Build(state,now);if(!post.groups.length)return {status:'EMPTY'};posts.unshift(post);if(posts.length>R760.keep)posts.length=R760.keep;try{r662Settle(state);}catch(_){}return {status:'POSTED',id:post.id,n:post.groups.reduce((a,g)=>a+g.picks.length,0)};}
 function r760Summary(state){const posts=state?.r760Posts||[];const res=state.r662Res||{};const T={n:0,hit:0,miss:0,void:0,ret:0},byF={};
 const full=posts.map(p=>({...p,groups:p.groups.map(g=>({...g,picks:g.picks.map(x=>{const r=res[r662Key(x.gmTs,x.no,x.pick)]||{st:'pre'},o=Number(x.odds)||1;const b=byF[g.name]||(byF[g.name]={name:g.name,n:0,hit:0,ret:0});
@@ -5607,6 +5645,7 @@ try{r642Apply(state);}catch(_){}
 try{r596Total(state);}catch(_){}
 try{r596Best(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
+try{r766Nba(state);}catch(_){}
 try{r619Lock(state);}catch(_){}
 try{r643Apply(state);}catch(_){}
 try{r644Apply(state);}catch(_){}
