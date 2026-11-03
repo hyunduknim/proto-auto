@@ -1,15 +1,16 @@
 name: apifootball
 on:
   schedule:
-    - cron: "*/20 * * * *"   # every 20 min: fixtures + injuries (2 days) + lineups 75 min before kick-off
+    # GitHub runs short crons only every few hours, so each run loops for ~5h50m (every 15 min) and a new run takes over
+    - cron: "17 */2 * * *"
   workflow_dispatch: {}
 permissions:
   contents: write
-concurrency: { group: apifootball, cancel-in-progress: false }
+concurrency: { group: apifootball, cancel-in-progress: true }
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
         with: { ref: main, sparse-checkout: tools/apifootball }
@@ -18,19 +19,20 @@ jobs:
           path: afcache
           key: apifootball-${{ github.run_id }}
           restore-keys: apifootball-
-      - name: Build soccer summary
+      - name: Build and publish every 15 min (fixtures + injuries for 2 days, lineups 75 min before kick-off)
         env:
           AF_KEY: ${{ secrets.API_FOOTBALL_KEY }}
-        run: |
-          mkdir -p afcache out
-          python3 tools/apifootball/af_soccer.py afcache/cache.json out/af_soccer.json
-      - name: Publish to the apifootball branch
-        env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
-          cd out
-          git init -q -b apifootball
-          git config user.name "apifootball-bot"; git config user.email "apifootball-bot@users.noreply.github.com"
-          git add af_soccer.json && git commit -qm "soccer summary"
-          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" apifootball
+          mkdir -p afcache out
+          end=$(( $(date +%s) + 5*3600 + 45*60 ))
+          while :; do
+            python3 tools/apifootball/af_soccer.py afcache/cache.json out/af_soccer.json || true
+            if [ -s out/af_soccer.json ]; then
+              ( cd out && rm -rf .git && git init -q -b apifootball && git config user.name "apifootball-bot" && git config user.email "apifootball-bot@users.noreply.github.com" \
+                && git add af_soccer.json && git commit -qm "soccer summary" && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" apifootball ) || true
+            fi
+            [ $(( $(date +%s) + 15*60 )) -lt $end ] || break
+            sleep 900
+          done
