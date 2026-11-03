@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R769-NO-WITHDRAW-BADGE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R770-DAILY-RESET";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4912,7 +4912,7 @@ if(out.length<R767.min)for(const c of C.filter(ok2).sort((a,b)=>sc(b)-sc(a))){if
 if(!out.length)return {skip:'조건 맞는 픽 없음'};const picks=out.sort((a,b)=>a.t-b.t);const nm={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'};
 const groups=['MONEYLINE','HANDICAP','TOTAL'].map(f=>({name:nm[f],picks:picks.filter(x=>x.fam===f).map(({seed,t,ev,...x})=>x)})).filter(g=>g.picks.length);
 return {id:'pin-nba-'+day,by:'pin',title:'🏀 '+day.slice(5).replace('-','/')+' NBA 피나클 추천픽',at:new Date(now).toISOString(),intro:'오전 7시에 오늘 NBA '+seeds.size+'경기를 피나클 배당으로 계산해서 일반승 · 핸디캡 · 언오버를 섞어 골랐습니다. 한 경기에 하나씩, 베트맨 기준점이 피나클보다 유리한 픽을 먼저 넣었습니다.',groups};}
-function r760Update(state,now=Date.now()){const k=new Date(now+9*3600e3),hr=k.getUTCHours(),day=k.toISOString().slice(0,10);/* R763 (owner 11/2: "피나클추천도 삭제뒤 새벽1시에 분석 뒤 추천픽 올려주기"): clear the old posts once at 11/3 00:00 KST */if(day>='2026-11-03'&&!state.r763Reset){state.r760Posts=[];state.r763Reset=new Date(now).toISOString();}const posts=state.r760Posts||(state.r760Posts=[]);
+function r760Update(state,now=Date.now()){const k=new Date(now+9*3600e3),hr=k.getUTCHours(),day=k.toISOString().slice(0,10);/* R770 (owner: "매일 자정이후로는 클로드추천 과 피나클추천 초기화"): the 📌 posts are cleared at the first tick of every KST day */if(state.r770Day!==day){state.r760Posts=[];state.r770Day=day;}const posts=state.r760Posts||(state.r760Posts=[]);
 let nbaSt=null;if(hr>=R767.hour&&hr<R767.lastHour&&!posts.some(p=>p.id==='pin-nba-'+day)&&!(state.r767Skip===day)){const q=r767Build(state,now);if(q.id){posts.unshift(q);if(posts.length>R760.keep)posts.length=R760.keep;try{r662Settle(state);}catch(_){}nbaSt={status:'POSTED_NBA',id:q.id};}else if(hr>=8){state.r767Skip=day;nbaSt={status:'NBA_SKIP',why:q.skip};}}
 if(hr<R760.hour||hr>=R760.lastHour||posts.some(p=>p.id==='pin-'+day))return nbaSt||{status:'IDLE',posts:posts.length};
 const post=r760Build(state,now);if(!post.groups.length)return {status:'EMPTY'};posts.unshift(post);if(posts.length>R760.keep)posts.length=R760.keep;try{r662Settle(state);}catch(_){}return {status:'POSTED',id:post.id,n:post.groups.reduce((a,g)=>a+g.picks.length,0)};}

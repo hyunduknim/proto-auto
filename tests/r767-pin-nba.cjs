@@ -6,7 +6,7 @@ const mk=[];const books=[];let no=1;
 for(let i=0;i<5;i++){const b={gmTs:'260130',sport:'농구',league:'NBA',date:'2099-01-02',time:String(8+i).padStart(2,'0')+':30',home:'H'+i,away:'A'+i};
  mk.push({...b,no:no++,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.4},{label:'패',odds:2.3}]},{...b,no:no++,marketFamily:'HANDICAP',line:-4.5,choices:[{label:'승',odds:1.78},{label:'패',odds:1.7}]},{...b,no:no++,marketFamily:'TOTAL',line:228.5,choices:[{label:'언더',odds:1.75},{label:'오버',odds:1.73}]});
  books.push([mk.length-1,i]);}
-c.ST={gmTs:'260130',markets:mk,r507Overseas:{books:{}},r760Posts:[{id:'pin-2099-01-02',groups:[]}],r763Reset:'x'};
+c.ST={gmTs:'260130',markets:mk,r507Overseas:{books:{}},r760Posts:[{id:'pin-2099-01-02',groups:[]}],r770Day:'2099-01-02'};
 const ml=[[1.55,2.58],[1.3,3.6],[1.75,2.1],[1.5,2.7],[1.45,2.9]],tl=[224.5,232,228.5,226,230];
 for(const [idx,i] of books)run(`ST.r507Overseas.books[gameSeed(ST.markets[${idx}])]={ml:[["pinnacle",${ml[i][0]},0,${ml[i][1]}]],tot:[["pinnacle",${tl[i]},1.92,1.92]]}`);
 assert.equal(run('r760Update(ST,Date.parse("2099-01-02T06:50:00+09:00")).status'),'IDLE','not before 07:00');
