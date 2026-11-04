@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R779B-NBA-BALANCE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R780-LINEUP-SIDE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4921,12 +4921,14 @@ return {p:clamp(q,.01,.99),why};}
 function r771Pick(state,now=Date.now()){let n=0,hid=0;const hp771=[];const L=r771Learn(state);const pin=new Map();try{for(const c of r760Cands(state,now))pin.set(c.gmTs+':'+c.no+':'+c.pick,c.p);}catch(_){}
 for(const ms of groupMarkets((state.markets||[]).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs||0)>=R771.from)).values()){
 if(ms.some(m=>m.r619Lock||m.manualOverride||m.manualReview||m.resultFinal)||started(ms[0]))continue;
-let best=null;const all771=[];let I778=null;if(ms[0].sport==='축구'){try{I778=r778Info(state,ms[0]);}catch(_){}}for(const x of ms){if(!['MONEYLINE','HANDICAP','TOTAL'].includes(x.marketFamily))continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}
+let best=null;const all771=[];let I778=null,L780=null;if(ms[0].sport==='축구'){try{I778=r778Info(state,ms[0]);}catch(_){}try{const f=state.r643?.[r483FixtureKey(ms[0])];if(f&&f.home&&f.away)L780={h:Number(f.home.miss)||0,a:Number(f.away.miss)||0};}catch(_){}}for(const x of ms){if(!['MONEYLINE','HANDICAP','TOTAL'].includes(x.marketFamily))continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}
 for(const q of rows){const odds=Number(q.odds),p0=Number(q.calibratedP??q.decisionProbability);if(!(odds>=R771.minOdds)||!Number.isFinite(p0)||q.pick==='무'||r695Blocked(x,q.pick))continue;
 const pseudo={...x,finalPick:q.pick,finalOdds:odds};let a={adj:0};try{a=r554Adj(pseudo)||{adj:0};}catch(_){}try{if(r530Against(pseudo))continue;}catch(_){}
 const vc=validChoices(x),inv=vc.reduce((t,c)=>t+1/Number(c.odds),0),impl=inv>0?(1/odds)/inv:.5;/* R771d: never trust a chance far above what the prices say (KT 4.5 오버 1.73 showed 81%) */
 const site=Math.min(clamp(p0+(Number(a.adj)||0),.01,.99),impl+.10),pp=pin.get(String(x.gmTs)+':'+Number(x.no)+':'+q.pick);const blend=Math.min(pp!=null?site*(1-R771.pinW)+pp*R771.pinW:site,(pp!=null?Math.max(pp,impl):impl)+.08);
 const kd=r771Kind({marketFamily:x.marketFamily,pick:q.pick,odds,line:x.line}),la=r771Adj(L,x.league,x.marketFamily,kd);let p=clamp(blend+la.adj,.01,.99),w778=[];if(I778){const z=r778Adj(I778,x.marketFamily,q.pick,x.line,p);p=z.p;w778=z.why;}
+/* R780 (owner: "주전 대거 빠진 팀한테 플핸을 주는건지? 주전 안빠진 반대팀한테 가야"): the lineup check (ESPN, ~80 min before) — every regular a side is missing beyond the other side costs picks on that side 2.5%p (max 10%p) and helps the other side 1%p each (max 3%p) */
+if(L780&&(x.marketFamily==='MONEYLINE'||x.marketFamily==='HANDICAP')&&(q.pick==='승'||q.pick==='패')){const own=q.pick==='승'?L780.h:L780.a,opp=q.pick==='승'?L780.a:L780.h,net=own-opp;const d=net>0?-Math.min(.10,net*.025):Math.min(.03,-net*.01);if(d){p=clamp(p+d,.01,.99);w778=[...w778,(d<0?'선발: 이쪽 주전 '+own+'명 빠짐 (상대 '+opp+'명)':'선발: 상대 주전 '+opp+'명 빠짐 (이쪽 '+own+'명)')+' '+(d>0?'+':'')+Math.round(d*1000)/10+'%p'];}}
 const sc=p-(kd==='플핸'?R771.plusPen:0);const cand={x,pick:q.pick,odds,p,sc,site,pin:pp??null,learn:la,kind:kd,af:w778};all771.push(cand);if(!best||sc>best.sc)best=cand;}}
 /* R773 ③ (owner 11/4 "4번빼고 다 넣어줘"): a soccer 일반승 in a draw-prone game becomes the same side's "지지만 않으면" handicap (+1 for that team) when that line clears the bar */
 /* R779b (owner: "균형있게 가야지 하나만 자꾸 갈라하니"): basketball weighs 일반승 against 핸디·언오버 — a 핸디/언오버 within 3%p of the
@@ -5753,6 +5755,7 @@ try{r771Pick(state);}catch(e){state.r771Audit={at:nowIso(),err:String(e&&e.stack
 try{r772Track(state);}catch(_){}
 try{r619Lock(state);}catch(_){}
 try{r643Apply(state);}catch(_){}
+try{r780LineupCut(state);}catch(_){}
 try{r644Apply(state);}catch(_){}
 try{r649Apply(state);}catch(_){}
 try{r663Apply(state);}catch(_){}
@@ -7680,6 +7683,12 @@ const mp=Number(rep.r651?.mp),ps=Number(rep.r554?.ps);if(!Number.isFinite(mp)||!
 r652Note(state,rep,'NBA 득점 모델');if(r588Try(state,rep,['MONEYLINE','HANDICAP','TOTAL'].filter(f=>f!==rep.marketFamily))){sw++;continue;}const at=nowIso(),why='NBA 득점 모델과 어긋남 (모델 '+Math.round(mp*100)+'%)';rep.displayGrade='일반';rep.r554={...(rep.r554||{}),selected:false,why};if(rep.r577Rec)rep.r577Rec.off={at,why};rep.r651Cut={at,why};cut++;}
 if(sw||cut)state.r651ApplyAudit={at:nowIso(),swapped:sw,cut};return sw+cut;}
 function r643Side(m){const pk=String(m?.finalPick||'');if(m?.marketFamily!=='MONEYLINE'&&m?.marketFamily!=='HANDICAP')return null;return pk==='승'?'home':pk==='패'?'away':null;}
+/* R780b: a soccer pick already fixed (locked) on the side that turned out to miss clearly more regulars (3+ and 2+ more than the other side) is
+   withdrawn before kick-off — the game is no longer marked rather than backing the weakened team. */
+function r780LineupCut(state){let n=0;const at=nowIso();for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||Number(m.gmTs||0)<R771.from||m.sport!=='축구'||m.resultFinal||m.manualOverride||m.manualReview||!m.marked||!m.representativeSelected)continue;if(started(m))continue;
+const f=state.r643?.[r483FixtureKey(m)],side=r643Side(m);if(!f||!side||!f.home||!f.away)continue;const own=Number(f[side].miss)||0,opp=Number(f[side==='home'?'away':'home'].miss)||0;if(!(own>=3&&own-opp>=2))continue;
+const team=side==='home'?m.home:m.away;m.marked=false;m.representativeSelected=false;m.displayGrade='일반';delete m.r619Lock;m.r780Cut={at,why:'선발 확인: '+team+' 주전 '+own+'명 빠짐 (상대 '+opp+'명) → 마킹 취소'};m.finalPick=null;m.finalOdds=null;n++;}
+if(n)state.r780Audit={at,cut:n+(state.r780Audit?.cut||0)};return n;}
 function r643Apply(state){let n=0;for(const m of state?.markets||[]){if(!currentRoundMarket(m,state)||m.sport!=='축구')continue;const f=state.r643?.[r483FixtureKey(m)];if(!f){if(m.r643&&!m.resultFinal)delete m.r643;continue;}m.r643=f;
 if(m.resultFinal||m.manualOverride||!m.marked||!m.representativeSelected||(m.displayGrade!=='추천'&&m.displayGrade!=='가장추천'))continue;const k=gameTimeMs(m);if(k!=null&&Date.now()>=k)continue;
 const side=r643Side(m),x=side?f[side]:null;if(!x||!(Number(x.miss)>=R643.heavy))continue;
