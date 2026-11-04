@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+c.I={out:{h:['A','B'],a:[]},pred:{h:.7,d:.2,a:.1},xg:{h:1.8,a:1.2}};
+let z=run('r778Adj(I,"MONEYLINE","승",null,.6)');assert.ok(z.p<.6+.2*.1&&z.p>.55,'regulars out lower, prediction raises: '+z.p);assert.ok(z.why.length===2);
+z=run('r778Adj(I,"HANDICAP","패",1,.6)');assert.ok(z.p>.6,'opponent regulars out helps');
+z=run('r778Adj(I,"TOTAL","오버",2.5,.5)');assert.ok(z.p>.5,'3.0 expected goals favours over 2.5');
+assert.equal(run('r778Adj(null,"TOTAL","오버",2.5,.5).p'),.5);
+const ix=vm.runInContext('INDEX',c);assert.ok(ix.includes('API-Football 예측')&&ix.includes('🧮 API-Football 반영'));
+console.log('r778 ok');
