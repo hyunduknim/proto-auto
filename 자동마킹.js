@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R778-API-FOOTBALL-IN-MODEL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R779-NBA-MIX";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4929,6 +4929,7 @@ const site=Math.min(clamp(p0+(Number(a.adj)||0),.01,.99),impl+.10),pp=pin.get(St
 const kd=r771Kind({marketFamily:x.marketFamily,pick:q.pick,odds,line:x.line}),la=r771Adj(L,x.league,x.marketFamily,kd);let p=clamp(blend+la.adj,.01,.99),w778=[];if(I778){const z=r778Adj(I778,x.marketFamily,q.pick,x.line,p);p=z.p;w778=z.why;}
 const sc=p-(kd==='플핸'?R771.plusPen:0);const cand={x,pick:q.pick,odds,p,sc,site,pin:pp??null,learn:la,kind:kd,af:w778};all771.push(cand);if(!best||sc>best.sc)best=cand;}}
 /* R773 ③ (owner 11/4 "4번빼고 다 넣어줘"): a soccer 일반승 in a draw-prone game becomes the same side's "지지만 않으면" handicap (+1 for that team) when that line clears the bar */
+/* R779 (owner: "NBA는 죄다 일반승이고? 핸디캡 언오버는 어디다 갔다 버렸나?"): in basketball a 핸디 or 언오버 that clears the bar is taken before 일반승 (the 일반승 favourite always had the top chance) */let mix779=null;if(best&&best.x.sport==='농구'&&best.x.marketFamily==='MONEYLINE'){const alt=all771.filter(c=>c.x.marketFamily!=='MONEYLINE'&&c.p>=R771.show).sort((a,b)=>b.sc-a.sc)[0];if(alt){mix779={from:best.pick,fromOdds:best.odds,fromP:Math.round(best.p*1000)/1000};best=alt;}}
 let swap773=null;if(best&&best.x.sport==='축구'&&best.x.marketFamily==='MONEYLINE'&&(best.pick==='승'||best.pick==='패')){const bk=state?.r507Overseas?.books?.[gameSeed(best.x)],pr=bk&&(bk.ml||[]).find(r=>r[0]==='pinnacle');let pd=Number(best.x.r645?.p)||0;if(pr){const v=[1/pr[1],1/pr[2],1/pr[3]];pd=Math.max(pd,v[1]/(v[0]+v[1]+v[2]));}
 if(pd>=.27){const alt=all771.filter(c=>c.x.marketFamily==='HANDICAP'&&((best.pick==='승'&&c.pick==='승'&&Number(c.x.line)===1)||(best.pick==='패'&&c.pick==='패'&&Number(c.x.line)===-1))&&c.p>=R771.show).sort((a,b)=>b.p-a.p)[0];if(alt){swap773={from:best.pick,fromOdds:best.odds,draw:Math.round(pd*1000)/1000};best=alt;}}}
 const at=nowIso();
@@ -4938,7 +4939,7 @@ const x=best.x,p=Math.round(best.p*1000)/1000;let grade=r771Grade(best.p);const 
 /* R773 ②: a league under 50% (15+ settled picks) → one grade lower with a warning */const lgr=L.lgAll.get(String(x.league));const weak=lgr&&lgr.n>=15&&lgr.hit/lgr.n<.5?{n:lgr.n,rate:Math.round(lgr.hit/lgr.n*1000)/1000}:null;if(weak)grade=down(grade);
 for(const y of ms)if(y!==x){if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;}y.finalPick=null;y.finalOdds=null;if(y.displayGrade!=='일반')y.displayGrade='일반';delete y.r771Hide;}
 delete x.r771Hide;x.marked=true;x.representativeSelected=true;x.finalPick=best.pick;x.finalOdds=best.odds;x.hitProbability=p;x.calibratedProbability=p;x.displayGrade=grade;
-x.r554={...(x.r554||{}),ps:p,selected:grade!=='일반',why:null};x.r771={at,p,site:Math.round(best.site*1000)/1000,pin:best.pin==null?null:Math.round(best.pin*1000)/1000,learn:best.learn,kind:best.kind,agree,split,weak,swap:swap773,af:best.af||[],ai:I778?{out:I778.out,pred:I778.pred,xg:I778.xg,form:I778.form}:null};
+x.r554={...(x.r554||{}),ps:p,selected:grade!=='일반',why:null};x.r771={at,p,site:Math.round(best.site*1000)/1000,pin:best.pin==null?null:Math.round(best.pin*1000)/1000,learn:best.learn,kind:best.kind,agree,split,weak,swap:swap773,mix:mix779,af:best.af||[],ai:I778?{out:I778.out,pred:I778.pred,xg:I778.xg,form:I778.form}:null};
 if(grade!=='일반'){if(!x.r577Rec||x.r577Rec.pick!==x.finalPick)x.r577Rec={at,pick:x.finalPick,odds:x.finalOdds,ps:p};else delete x.r577Rec.off;}n++;}
 state.r771Audit={at:nowIso(),marked:n,hidden:hid,mid:Math.round((L.mid??0)*1000)/1000,hp:hp771.sort((a,b)=>b-a).slice(0,40)};return n;}
 /* R771 ③ (owner: "무승부후보도 너무 많이보지말고 클로드 or 피나클 추천만 무승부후보로 (3~4개 정도)"): 3–4 soccer games with the highest
