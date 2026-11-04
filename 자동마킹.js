@@ -4894,8 +4894,8 @@ if(n)state.r766Audit={at:nowIso(),set:n};return n;}
    ① Below 58% the game is not marked at all. 58–63% 일반 · 64–70% 추천 · 71%+ 가장추천. */
 const R771={from:260131,minOdds:1.31,show:.58,rec:.64,best:.71,plusPen:.015,pinW:.5,learnN:8,learnAllN:15,learnK:.35,learnLo:-.05,learnHi:.03};
 function r771Kind(x){const f=x.marketFamily||x.fam,pk=String(x.pick||x.finalPick||'');if(f==='TOTAL')return pk;if(f==='MONEYLINE')return pk==='무'?'무':Number(x.odds??x.finalOdds)<1.75?'정배':'역배';if(f==='HANDICAP'){const l=Number(x.line),e2=pk==='승'?l:pk==='패'?-l:0;return pk==='무'?'핸디무':e2>0?'플핸':'마핸';}return '';}
-function r771Learn(state){const lg=new Map(),all=new Map();for(const y of state?.settlementLedger||[]){if(Number(y?.gmTs||0)<260125||typeof y.hit!=='boolean')continue;const k=r771Kind(y),a=(y.marketFamily)+'|'+k,b=String(y.league)+'|'+a;for(const [M,key] of [[all,a],[lg,b]]){const r=M.get(key)||{n:0,hit:0};r.n++;if(y.hit)r.hit++;M.set(key,r);}}return {lg,all};}
-function r771Adj(L,league,fam,kind){const a=fam+'|'+kind,r=L.lg.get(String(league)+'|'+a);const use=r&&r.n>=R771.learnN?r:(L.all.get(a)?.n>=R771.learnAllN?L.all.get(a):null);if(!use)return {adj:0,n:0};const rate=use.hit/use.n;return {adj:Math.round(clamp((rate-.6)*R771.learnK,R771.learnLo,R771.learnHi)*1000)/1000,n:use.n,rate:Math.round(rate*1000)/1000};}
+function r771Learn(state){const lg=new Map(),all=new Map();for(const y of state?.settlementLedger||[]){if(Number(y?.gmTs||0)<260125||typeof y.hit!=='boolean')continue;const k=r771Kind(y),a=(y.marketFamily)+'|'+k,b=String(y.league)+'|'+a;for(const [M,key] of [[all,a],[lg,b],[all,'*']]){const r=M.get(key)||{n:0,hit:0};r.n++;if(y.hit)r.hit++;M.set(key,r);}}const t=all.get('*');return {lg,all,mid:t&&t.n>=30?t.hit/t.n:.6};}
+function r771Adj(L,league,fam,kind){const a=fam+'|'+kind,r=L.lg.get(String(league)+'|'+a);const use=r&&r.n>=R771.learnN?r:(L.all.get(a)?.n>=R771.learnAllN?L.all.get(a):null);if(!use)return {adj:0,n:0};const rate=use.hit/use.n;return {adj:Math.round(clamp((rate-(L.mid??.6))*R771.learnK,R771.learnLo,R771.learnHi)*1000)/1000,n:use.n,rate:Math.round(rate*1000)/1000};}
 function r771Grade(p){const v=Math.round(p*100)/100;return v>=R771.best?'가장추천':v>=R771.rec?'추천':v>=R771.show?'일반':null;}
 function r771Pick(state,now=Date.now()){let n=0,hid=0;const L=r771Learn(state);const pin=new Map();try{for(const c of r760Cands(state,now))pin.set(c.gmTs+':'+c.no+':'+c.pick,c.p);}catch(_){}
 for(const ms of groupMarkets((state.markets||[]).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs||0)>=R771.from)).values()){
@@ -4907,13 +4907,13 @@ const site=clamp(p0+(Number(a.adj)||0),.01,.99),pp=pin.get(String(x.gmTs)+':'+Nu
 const kd=r771Kind({marketFamily:x.marketFamily,pick:q.pick,odds,line:x.line}),la=r771Adj(L,x.league,x.marketFamily,kd);const p=clamp(blend+la.adj,.01,.99);
 const sc=p-(kd==='플핸'?R771.plusPen:0);if(!best||sc>best.sc)best={x,pick:q.pick,odds,p,sc,site,pin:pp??null,learn:la,kind:kd};}}
 const at=nowIso();
-if(!best||!r771Grade(best.p)){for(const y of ms)if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;y.displayGrade='일반';y.r771Hide={at,p:best?Math.round(best.p*1000)/1000:null};}hid++;continue;}
+if(!best||!r771Grade(best.p)){for(const y of ms){if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;}y.finalPick=null;y.finalOdds=null;y.displayGrade='일반';y.r771Hide={at,p:best?Math.round(best.p*1000)/1000:null};}hid++;continue;}
 const x=best.x,grade=r771Grade(best.p),p=Math.round(best.p*1000)/1000;
-for(const y of ms)if(y!==x&&y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;if(y.displayGrade!=='일반')y.displayGrade='일반';}
+for(const y of ms)if(y!==x){if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;}y.finalPick=null;y.finalOdds=null;if(y.displayGrade!=='일반')y.displayGrade='일반';delete y.r771Hide;}
 delete x.r771Hide;x.marked=true;x.representativeSelected=true;x.finalPick=best.pick;x.finalOdds=best.odds;x.hitProbability=p;x.calibratedProbability=p;x.displayGrade=grade;
 x.r554={...(x.r554||{}),ps:p,selected:grade!=='일반',why:null};x.r771={at,p,site:Math.round(best.site*1000)/1000,pin:best.pin==null?null:Math.round(best.pin*1000)/1000,learn:best.learn,kind:best.kind};
 if(grade!=='일반'){if(!x.r577Rec||x.r577Rec.pick!==x.finalPick)x.r577Rec={at,pick:x.finalPick,odds:x.finalOdds,ps:p};else delete x.r577Rec.off;}n++;}
-state.r771Audit={at:nowIso(),marked:n,hidden:hid};return n;}
+state.r771Audit={at:nowIso(),marked:n,hidden:hid,mid:Math.round((L.mid??0)*1000)/1000};return n;}
 /* R771 ③ (owner: "무승부후보도 너무 많이보지말고 클로드 or 피나클 추천만 무승부후보로 (3~4개 정도)"): 3–4 soccer games with the highest
    Pinnacle draw chance in the next 30 h (27%+), with Betman's 무 odds; games Claude also picked are marked. */
 function r771Draws(state,now=Date.now()){const B=state?.r507Overseas?.books||{},out=[],cl=new Set();for(const p of state?.r662Posts||[])for(const g of p.groups||[])for(const x of g.picks||[])cl.add(String(x.gmTs)+':'+x.no);
