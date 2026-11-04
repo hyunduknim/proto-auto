@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R774-ODDS-FILTERS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R776-NO-PART-GAME";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5723,7 +5723,14 @@ try{r663Apply(state);}catch(_){}
 try{r651Apply(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
 }
+/* R776 (owner: "1.5오버가 전반 1.5오버 맞음?"): the backup odds source lists part-game markets (축구 전반, 야구 5이닝 …) without saying so.
+   Betman numbers a game's full-time markets first and ends them with 언오버 then 홀짝, so anything numbered after 언오버+1 in the same game
+   is a part-game market. Those are dropped (unless already marked/locked/settled) so they are never analysed or marked as full-time. */
+function r776DropPartial(state){const drop=new Set();for(const ms of groupMarkets(state?.markets||[]).values()){const tots=ms.filter(m=>m.marketFamily==='TOTAL').sort((a,b)=>Number(a.no)-Number(b.no));if(!tots.length)continue;const t0=Number(tots[0].no);
+for(const m of ms)if(Number(m.no)>=t0+2&&!m.resultFinal&&!m.r619Lock&&!m.manualOverride&&!m.manualReview&&!(m.marked&&started(m)))drop.add(m);}
+if(drop.size){state.markets=state.markets.filter(m=>!drop.has(m));state.r776Audit={at:nowIso(),dropped:drop.size};}return drop.size;}
 function markState(state){
+try{r776DropPartial(state);}catch(_){}
 try{r602FlagLines(state);}catch(_){}
 r498WithdrawTwo(state);
 try{r561RemovePhantom(state);}catch(_){}
