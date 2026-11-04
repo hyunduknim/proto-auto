@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R773-AGREE-LEAGUE-DRAW";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R774-ODDS-FILTERS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4931,7 +4931,7 @@ return out.filter(x=>x.p>=.27).sort((a,b)=>b.p-a.p||b.ev-a.ev).slice(0,4).sort((
    ones seen and logs the change with the KST time (last 48 h, 500 rows). */
 function r772Track(state){const S=state.r772||(state.r772={last:{},log:[]}),now=Date.now(),seen=new Set();
 for(const m of state.markets||[]){if(!currentRoundMarket(m,state)||m.resultFinal||started(m))continue;const id=marketIdentity(m);seen.add(id);const cs=validChoices(m).map(c=>[String(c.label),Number(c.odds)]);if(!cs.length)continue;const sig=cs.map(c=>c[0]+':'+c[1]).join('|'),prev=S.last[id];
-if(prev&&prev.s!==sig){S.log.unshift({t:new Date(now).toISOString(),gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,lg:m.league,h:m.home,a:m.away,fam:m.marketFamily,line:m.line??null,from:prev.c,to:cs});}
+if(prev&&prev.s!==sig){S.log.unshift({t:new Date(now).toISOString(),sp:m.sport,gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,lg:m.league,h:m.home,a:m.away,fam:m.marketFamily,line:m.line??null,from:prev.c,to:cs});}
 S.last[id]={s:sig,c:cs};}
 for(const k of Object.keys(S.last))if(!seen.has(k))delete S.last[k];S.log=S.log.filter(x=>Date.parse(x.t)>now-48*3600e3).slice(0,500);return S.log.length;}
 function r760N(x){return String(x||'').replace(/\s+/g,' ').trim();}
@@ -11472,12 +11472,12 @@ return '<div class="r645Hd"><b>🤝 무승부 후보</b><small>피나클 배당 
 (L.length?L.map(c=>'<div class="r617L r645L"><span class="i">'+(c.claude?'🤖':'·')+'</span><div class="g"><b>'+e(r560N(c.home)+' vs '+r560N(c.away))+'</b><small>#'+e(c.no)+' · '+e(String(c.date||'').slice(5))+' '+e(String(c.time||'').slice(0,5))+' · '+e(c.league||'')+'</small></div><div class="p"><b>무</b><small>'+Number(c.odds).toFixed(2)+'배 · '+Math.round(c.p*100)+'%</small></div></div>').join(''):'<div class="pastEmpty">피나클 무승부 확률 27% 이상인 경기가 아직 없습니다 (피나클 배당은 경기 6시간 전부터)</div>')+
 '<div class="ccNote">무 배당은 3배 이상이라 3~4경기 중 1경기 정도 맞으면 평균입니다.</div>'}
 function r772Render(st){const el=$('r734Panel');if(!el)return;el.innerHTML=r772Html(st)}
-let r772Lim=80;
-function r772Html(st){const L=((st&&st.r772)||[]),fm={MONEYLINE:'일반승',HANDICAP:'핸디',TOTAL:'언오버'};const kt=t=>{const d=new Date(Date.parse(t)+9*3600000);return String(d.getUTCMonth()+1)+'/'+d.getUTCDate()+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')};
+let r772Lim=80,r772Fam='all',r772Sp='all';function r772Set(k,v){if(k==='fam')r772Fam=v;else r772Sp=v;r772Lim=80;r772Render(state)}
+function r772Html(st){const A=((st&&st.r772)||[]),spOf=x=>x.sp||(/NBA|KBL|WKBL|EASL|농/.test(String(x.lg||''))?'농구':/KBO|MLB|NPB/.test(String(x.lg||''))?'야구':/KOVO|V리그/.test(String(x.lg||''))?'배구':'축구'),L=A.filter(x=>(r772Fam==='all'||x.fam===r772Fam)&&(r772Sp==='all'||spOf(x)===r772Sp)),fm={MONEYLINE:'일반승',HANDICAP:'핸디',TOTAL:'언오버'};const kt=t=>{const d=new Date(Date.parse(t)+9*3600000);return String(d.getUTCMonth()+1)+'/'+d.getUTCDate()+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')};
 const row=x=>{const prev=new Map((x.from||[]).map(c=>[c[0],c[1]]));const tag=x.fam==='HANDICAP'&&x.line!=null?' H'+(Number(x.line)>0?'+':'')+x.line:x.fam==='TOTAL'&&x.line!=null?' '+x.line:'';
 const cs=(x.to||[]).map(c=>{const o=prev.get(c[0]),d=o!=null?Math.round((c[1]-o)*100)/100:0;return '<span class="r772c">'+e(c[0])+' '+(o!=null&&d?'<s>'+Number(o).toFixed(2)+'</s> → ':'')+'<b class="'+(d<0?'dn':d>0?'up':'')+'">'+Number(c[1]).toFixed(2)+(d?(d<0?' ▼':' ▲'):'')+'</b></span>'}).join('');
 return '<div class="r772R"><div class="r772T">'+e(kt(x.t))+'</div><div class="r772G"><b>'+e(r560N(x.h)+' vs '+r560N(x.a))+'</b><small>#'+e(x.no)+' · '+e(fm[x.fam]||'')+e(tag)+' · '+e(String(x.date||'').slice(5))+' '+e(String(x.time||'').slice(0,5))+' 경기 · '+e(x.lg||'')+'</small><div>'+cs+'</div></div></div>'};
-return '<div class="r617Hd"><b>📉 실시간 배당 변경</b><small>베트맨(프로토) 배당이 바뀔 때마다 바뀐 시각(한국시간)과 이전 → 지금 배당을 기록 · ▼ 내려감(그쪽으로 돈이 몰림) · ▲ 올라감 · 최근 48시간</small><div class="r617T">변경 <b>'+L.length+'건</b></div></div>'+
+return '<div class="r617Hd"><b>📉 실시간 배당 변경</b><small>베트맨(프로토) 배당이 바뀔 때마다 바뀐 시각(한국시간)과 이전 → 지금 배당을 기록 · ▼ 내려감(그쪽으로 돈이 몰림) · ▲ 올라감 · 최근 48시간</small>'+(()=>{const b=(k,v,cur,t)=>'<button type="button" class="'+(cur===v?'on':'')+'" onclick="r772Set(&quot;'+k+'&quot;,&quot;'+v+'&quot;)">'+t+'</button>';return '<div class="r653T">'+b('fam','all',r772Fam,'전체')+b('fam','MONEYLINE',r772Fam,'일반승')+b('fam','HANDICAP',r772Fam,'핸디캡')+b('fam','TOTAL',r772Fam,'언오버')+'</div><div class="r653T">'+b('sp','all',r772Sp,'전 종목')+b('sp','축구',r772Sp,'⚽ 축구')+b('sp','농구',r772Sp,'🏀 농구')+b('sp','야구',r772Sp,'⚾ 야구')+b('sp','배구',r772Sp,'🏐 배구')+'</div>'})()+'<div class="r617T">변경 <b>'+L.length+'건</b>'+(L.length!==A.length?' (전체 '+A.length+'건 중)':'')+'</div></div>'+
 (L.length?L.slice(0,r772Lim).map(row).join('')+(L.length>r772Lim?'<button type="button" class="r662More" onclick="r772Lim+=80;r772Render(state)">더 보기</button>':''):'<div class="pastEmpty">아직 바뀐 배당이 없습니다. 배당이 바뀌면 여기에 바로 쌓입니다.</div>')}
 function r738Render(st){const el=$('r738Panel');if(!el)return;el.innerHTML=r738Html(st)}
 function r738Html(st){const el={};const X=(st&&st.r738Value)||{},A=X.list||[],L=A.filter(x=>x.val),G=A.filter(x=>!x.val);const today=r697Today();
