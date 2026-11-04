@@ -4903,7 +4903,8 @@ if(ms.some(m=>m.r619Lock||m.manualOverride||m.manualReview||m.resultFinal)||star
 let best=null;for(const x of ms){if(!['MONEYLINE','HANDICAP','TOTAL'].includes(x.marketFamily))continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}
 for(const q of rows){const odds=Number(q.odds),p0=Number(q.calibratedP??q.decisionProbability);if(!(odds>=R771.minOdds)||!Number.isFinite(p0)||q.pick==='무'||r695Blocked(x,q.pick))continue;
 const pseudo={...x,finalPick:q.pick,finalOdds:odds};let a={adj:0};try{a=r554Adj(pseudo)||{adj:0};}catch(_){}try{if(r530Against(pseudo))continue;}catch(_){}
-const site=clamp(p0+(Number(a.adj)||0),.01,.99),pp=pin.get(String(x.gmTs)+':'+Number(x.no)+':'+q.pick);const blend=pp!=null?site*(1-R771.pinW)+pp*R771.pinW:site;
+const vc=validChoices(x),inv=vc.reduce((t,c)=>t+1/Number(c.odds),0),impl=inv>0?(1/odds)/inv:.5;/* R771d: never trust a chance far above what the prices say (KT 4.5 오버 1.73 showed 81%) */
+const site=Math.min(clamp(p0+(Number(a.adj)||0),.01,.99),impl+.10),pp=pin.get(String(x.gmTs)+':'+Number(x.no)+':'+q.pick);const blend=Math.min(pp!=null?site*(1-R771.pinW)+pp*R771.pinW:site,(pp!=null?Math.max(pp,impl):impl)+.08);
 const kd=r771Kind({marketFamily:x.marketFamily,pick:q.pick,odds,line:x.line}),la=r771Adj(L,x.league,x.marketFamily,kd);const p=clamp(blend+la.adj,.01,.99);
 const sc=p-(kd==='플핸'?R771.plusPen:0);if(!best||sc>best.sc)best={x,pick:q.pick,odds,p,sc,site,pin:pp??null,learn:la,kind:kd};}}
 const at=nowIso();
