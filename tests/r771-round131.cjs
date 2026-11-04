@@ -1,7 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
 vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
-assert.equal(run('r771Grade(.575)'),null);assert.equal(run('r771Grade(.58)'),'일반');assert.equal(run('r771Grade(.634)'),'일반');assert.equal(run('r771Grade(.64)'),'추천');assert.equal(run('r771Grade(.705)'),'가장추천'===run('r771Grade(.705)')?'가장추천':'추천');assert.equal(run('r771Grade(.71)'),'가장추천');
+assert.equal(run('r771Grade(.574)'),null);assert.equal(run('r771Grade(.575)'),'일반');assert.equal(run('r771Grade(.58)'),'일반');assert.equal(run('r771Grade(.634)'),'일반');assert.equal(run('r771Grade(.64)'),'추천');assert.equal(run('r771Grade(.705)'),'가장추천'===run('r771Grade(.705)')?'가장추천':'추천');assert.equal(run('r771Grade(.71)'),'가장추천');
 // learning: a weak kind lowers, a strong kind raises (capped)
 c.ST={settlementLedger:[...Array(10)].map((_,i)=>({gmTs:'260130',league:'KBL',marketFamily:'HANDICAP',pick:'승',line:3.5,odds:1.7,hit:i<3})).concat([...Array(10)].map((_,i)=>({gmTs:'260130',league:'NBA',marketFamily:'MONEYLINE',pick:'승',odds:1.4,hit:i<8})))};
 run('L=r771Learn(ST)');assert.ok(run('r771Adj(L,"KBL","HANDICAP","플핸").adj')<0);assert.equal(run('r771Adj(L,"NBA","MONEYLINE","정배").adj'),.03);
