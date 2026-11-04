@@ -9,6 +9,7 @@ if((cur.posts||[]).some(p=>p.id===post.id))warn.push('post id exists; it will be
 const old=new Set();for(const p of cur.posts||[])if(p.id!==post.id&&(p.by==='gpt')===(post.by==='gpt'))for(const g of p.groups||[])for(const x of g.picks||[])old.add(x.gmTs+':'+x.no);
 const seen=new Set();
 for(const g of post.groups||[])for(const x of g.picks||[]){const k=x.gmTs+':'+x.no,m=mk.get(k);if(!m){err.push(k+' not in slate (started, other round, or wrong no)');continue;}
+/* R771 ⑥ (owner: 클로드·피나클·GPT 모든 픽 배당 1.31 미만은 안 나오게) */if(Number(x.odds)<1.31)err.push(k+' odds '+x.odds+' under 1.31 — owner rule: no pick below 1.31');
 const c=m.ch.find(c=>c[0]===x.pick);if(!c)err.push(k+' pick "'+x.pick+'" not a choice of '+JSON.stringify(m.ch));else if(Math.abs(c[1]-Number(x.odds))>0.011)warn.push(k+' odds '+x.odds+' vs Betman '+c[1]);
 const gk=m.g.d+m.g.t+m.g.h;if(seen.has(gk))warn.push(k+' second pick in the same game');seen.add(gk);
 if(old.has(k))warn.push(k+' already picked in an earlier post');console.log('ok',k,m.g.d,m.g.t,m.g.h,'vs',m.g.a,m.fam,m.line??'',x.pick,x.odds,'|',x.label);}
