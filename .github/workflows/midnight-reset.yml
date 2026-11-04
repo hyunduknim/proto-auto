@@ -3,7 +3,13 @@ name: midnight-reset
 # posts are cleared (reviews kept); the scheduled runs then post fresh ones. 📌 피나클추천 is cleared by the Worker itself (R770).
 on:
   schedule:
-    - cron: "0 15 * * *"   # 00:00 KST
+    # 00:00 KST; GitHub often delays or skips crons, so it runs again at 00:20 / 00:40 / 01:30 / 03:00.
+    # Only posts made before today (KST) are removed, so the 01:00 run's fresh post is never touched.
+    - cron: "0 15 * * *"
+    - cron: "20 15 * * *"
+    - cron: "40 15 * * *"
+    - cron: "30 16 * * *"
+    - cron: "0 18 * * *"
   workflow_dispatch: {}
 permissions:
   contents: write
@@ -22,8 +28,16 @@ jobs:
           python3 - <<'PY'
           import json, datetime
           d = json.load(open('picks.json', encoding='utf8'))
-          n = len(d.get('posts', []))
-          d['posts'] = []
+          kst = datetime.timezone(datetime.timedelta(hours=9))
+          today = datetime.datetime.now(kst).date().isoformat()
+          def day(p):
+              try: return datetime.datetime.fromisoformat(str(p.get('at')).replace('Z', '+00:00')).astimezone(kst).date().isoformat()
+              except Exception: return str(p.get('id', ''))[:10]
+          keep = [p for p in d.get('posts', []) if day(p) >= today]
+          n = len(d.get('posts', [])) - len(keep)
+          if n == 0:
+              print('nothing to clear'); raise SystemExit(0)
+          d['posts'] = keep
           d['updatedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')
           with open('picks.json', 'w', encoding='utf8') as f:
               json.dump(d, f, ensure_ascii=False, indent=1); f.write('\n')
