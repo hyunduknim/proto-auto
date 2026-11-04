@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R776-NO-PART-GAME";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R777-MIDNIGHT-WORKER";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4787,7 +4787,7 @@ for(const m of state.markets||[]){if(!r644Is(m)||m.marketFamily!=='MONEYLINE'||!
 return {at:state.r755.at,games:out};}
 async function r662Refresh(state,env,options={}){const now=options.nowMs??Date.now(),prev=state.r662Audit;if(!options.force&&now-Date.parse(prev?.at||'')<R662.tickMs)return prev;
 const audit={at:new Date(now).toISOString(),source:'CLAUDE_PICKS',status:'IDLE',posts:0,error:null};
-try{const j=await r633Json(R662.url+'?t='+Math.floor(now/R662.tickMs));const posts=r662Clean(j);state.r662Posts=posts;state.r662Reviews=r662CleanReviews(j?.reviews);audit.posts=posts.length;audit.reviews=Object.keys(state.r662Reviews).length;audit.status='OK';}
+try{const j=await r633Json(R662.url+'?t='+Math.floor(now/R662.tickMs));/* R777 (owner: "시간되면 빨리빨리"): posts made before today (KST) are dropped by the Worker itself at midnight — the GitHub midnight job is only a backup */const today777=new Date(now+9*3600e3).toISOString().slice(0,10),day777=p=>{const t=Date.parse(p&&p.at||'');return isFinite(t)?new Date(t+9*3600e3).toISOString().slice(0,10):String(p&&p.id||'').slice(0,10);};const posts=r662Clean(j).filter(p=>day777(p)>=today777);state.r662Posts=posts;state.r662Reviews=r662CleanReviews(j?.reviews);audit.posts=posts.length;audit.reviews=Object.keys(state.r662Reviews).length;audit.status='OK';}
 catch(e){audit.status='ERROR';audit.error=String(e?.message||e).slice(0,120);}
 try{r662Settle(state);}catch(_){}state.r662Audit=audit;return audit;}
 /* R673 (owner: "클로드추천을 낙첨복기로 참고하고 분발해야될듯"): picks.json may carry reviews = {"gmTs:no:pick": "복기 한 줄"} written by the
