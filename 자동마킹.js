@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R785-OWNER-VOID";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R786-UNDO-VOID";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5673,6 +5673,14 @@ return true;
 }
 /* R785 (owner 11/5 19:58: "라이언시티 애들레이드 경기취소됨 적특처리"): owner-confirmed cancelled games in R701_OWNER_VOID with settle:true
    settle every market of the game as 적특 (void) — marked picks go to the ledger as 적특, 클로드/GPT/피나클 picks on them settle as 적특. */
+/* R786 (owner 20:44: "아니다 하고있네 적특취소"): the 라이언시티–애들레이드 game is being played — undo the R785 적특 so it settles normally. */
+const R786_UNDO=[{gmTs:'260131',nos:[2615,2616,2617]}];
+function r786UndoVoid(state){let n=0;for(const u of R786_UNDO){for(const m of state?.markets||[]){if(String(m.gmTs)!==u.gmTs||!u.nos.includes(Number(m.no))||m.resultResolutionSource!=='USER_REPORTED_CANCELLED')continue;
+for(const k of ['result','hit','settlementStatus','settlementType','resultSpecialStatus','resultSource','resultResolutionSource','resultStatus','resultVerifiedAt','manualVoidAt','resultScoreText'])delete m[k];m.resultFinal=false;n++;}
+const keys=new Set(u.nos.map(no=>u.gmTs+':'+no));if(Array.isArray(state.settlementLedger))state.settlementLedger=state.settlementLedger.filter(x=>!keys.has(settlementLedgerKey(x)));
+try{const h=ensureSettledCards(state);h.rows=h.rows.filter(x=>!keys.has(String(x.gmTs)+':'+x.no));}catch(_){}
+const res=state.r662Res||{};for(const k of Object.keys(res))if([...keys].some(kk=>k.startsWith(kk+':')))delete res[k];}
+if(n)state.r786Audit={at:nowIso(),undone:n};return n;}
 function r785OwnerVoid(state){let n=0;const at=nowIso();for(const v of R701_OWNER_VOID){if(!v.settle)continue;for(const m of state?.markets||[]){if(String(m.gmTs)!==String(v.gmTs)||!v.nos.includes(Number(m.no))||m.resultFinal)continue;
 m.result='적특';m.resultFinal=true;m.hit=null;m.settlementStatus='적특';m.settlementType='USER_REQUESTED_VOID';m.resultSpecialStatus='취소';m.resultSource='USER_REQUESTED_VOID_NOT_OFFICIAL';m.resultResolutionSource='USER_REPORTED_CANCELLED';m.resultStatus=v.why+' · 사용자 요청 적특';m.resultVerifiedAt=at;m.manualVoidAt=at;m.resultScoreText=null;
 if(m.marked&&m.representativeSelected){try{recordSettlementLedger(state,m);upsertSettledCard(state,m);}catch(_){}}n++;}}if(n)state.r785Audit={at,voided:n};return n;}
@@ -5789,6 +5797,7 @@ function r776DropPartial(state){const drop=new Set();for(const ms of groupMarket
 for(const m of ms)if(Number(m.no)>=t0+2&&!m.resultFinal&&!m.r619Lock&&!m.manualOverride&&!m.manualReview&&!(m.marked&&started(m)))drop.add(m);}
 if(drop.size){state.markets=state.markets.filter(m=>!drop.has(m));state.r776Audit={at:nowIso(),dropped:drop.size};}return drop.size;}
 function markState(state){
+try{r786UndoVoid(state);}catch(_){}
 try{r785OwnerVoid(state);}catch(_){}
 try{r776DropPartial(state);}catch(_){}
 try{r602FlagLines(state);}catch(_){}
@@ -8368,7 +8377,7 @@ function r501StrongViewETag(body){
 // Do not repeat internal all-choice analysis trees inside every market row.
 /* R701 (owner: "적특메뉴 추가하고 나스르경기는 적특으로 표시해줘"): games the owner confirmed as postponed/cancelled are shown as 적특
    (a ⚪ badge on the cards and the ⚪ 적특 tab). Nothing about picks or settlement changes for them: they have no odds and no picks. */
-const R701_OWNER_VOID=[{gmTs:'260127',nos:[833,834,835],why:'AFC 공식 연기',at:'2026-10-26T17:40:00+09:00'},{gmTs:'260131',nos:[2615,2616,2617],why:'경기 취소',at:'2026-11-05T19:58:00+09:00',settle:true}];
+const R701_OWNER_VOID=[{gmTs:'260127',nos:[833,834,835],why:'AFC 공식 연기',at:'2026-10-26T17:40:00+09:00'}];
 function r701Why(card){const nos=[Number(card?.no),...(card?.marketRows||[]).map(r=>Number(r.no))];const v=R701_OWNER_VOID.find(x=>String(x.gmTs)===String(card?.gmTs)&&nos.some(n=>x.nos.includes(n)));return v?v.why:null;}
 function r701Box(state){const owner=[];for(const v of R701_OWNER_VOID){const m=(state?.markets||[]).find(x=>String(x.gmTs)===v.gmTs&&v.nos.includes(Number(x.no)));owner.push({gmTs:v.gmTs,nos:v.nos,why:v.why,at:v.at,date:m?.date||null,time:m?.time||null,sport:m?.sport||null,league:m?.league||null,home:m?.home||null,away:m?.away||null});}
 const seen=new Set(),settled=[];for(const x of [...(state?.settlementLedger||[]),...(state?.markets||[]).filter(m=>m.resultFinal&&m.marked&&m.representativeSelected).map(compactSettlementResult)]){if(Number(x?.gmTs||0)<260121||x.settlementStatus!=='적특'||!x.pick)continue;const k=String(x.gmTs)+':'+x.no;if(seen.has(k))continue;seen.add(k);
