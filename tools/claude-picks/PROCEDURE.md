@@ -27,6 +27,12 @@ Pick independently; a game GPT also picked is fine (the site marks agreement wit
      Pinnacle and other sharp books when available.
    - `site`: the site's own pick. `rest`: days since the last game (`r649`; under 3.5 = 휴식 부족). `inj`: NBA key players
      Out/doubtful. `rot`: missing regulars (only about 1 h before kick-off).
+   - `af` also carries (R778, owner's paid plan — USE THEM, they are the reason it was bought):
+     `keyOut.h/.a` = REGULARS (60%+ starts) out, or missing from the published XI when `keyOut.xi` is true;
+     `pred` = API-Football's own 1X2 chances {h,d,a}; `xg` = goals expected from home/away averages {h,a}; `form` = last 5 (W/D/L);
+     `lineupMiss` = regulars missing in the ESPN lineup check (~80 min before). Never back a side that misses clearly more regulars
+     than the other (the owner was angry when a 플핸 went to the weakened team). For 언오버 compare `xg.h+xg.a` with the line.
+     For 일반승/핸디 compare `pred` with Pinnacle and Betman. Say in `why` which of these you used.
    - `af` (soccer, R768, from the owner's paid API-Football plan): `h`/`a` = players out, each "name(이유)" — 이유 is 부상 / 경고 누적 / 퇴장 징계 / 징계 / 명단 제외 …, a trailing `?` = doubtful; `xi` = starting XI already published. Use it as the main soccer 결장 source: never back a side missing key starters, and say who is out in `why`.
    - `rec`: the 클로드추천 record so far (`sum`) and recent settled picks. Read it: learn from the misses.
 2b. **낙첨 복기 first** (owner: "클로드추천을 낙첨복기로 참고하고 분발해야될듯").
