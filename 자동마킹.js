@@ -5675,7 +5675,7 @@ return true;
    settle every market of the game as 적특 (void) — marked picks go to the ledger as 적특, 클로드/GPT/피나클 picks on them settle as 적특. */
 /* R786 (owner 20:44: "아니다 하고있네 적특취소"): the 라이언시티–애들레이드 game is being played — undo the R785 적특 so it settles normally. */
 const R786_UNDO=[{gmTs:'260131',nos:[2615,2616,2617]}];
-function r786UndoVoid(state){let n=0;for(const u of R786_UNDO){for(const m of state?.markets||[]){if(String(m.gmTs)!==u.gmTs||!u.nos.includes(Number(m.no))||m.resultResolutionSource!=='USER_REPORTED_CANCELLED')continue;
+function r786UndoVoid(state){let n=0;for(const u of R786_UNDO){for(const m of state?.markets||[]){if(String(m.gmTs)!==u.gmTs||!u.nos.includes(Number(m.no))||!(m.resultResolutionSource==='USER_REPORTED_CANCELLED'||(m.settlementType==='USER_REQUESTED_VOID'&&m.resultSpecialStatus==='취소')))continue;
 for(const k of ['result','hit','settlementStatus','settlementType','resultSpecialStatus','resultSource','resultResolutionSource','resultStatus','resultVerifiedAt','manualVoidAt','resultScoreText'])delete m[k];m.resultFinal=false;n++;}
 const keys=new Set(u.nos.map(no=>u.gmTs+':'+no));if(Array.isArray(state.settlementLedger))state.settlementLedger=state.settlementLedger.filter(x=>!keys.has(settlementLedgerKey(x)));
 try{const h=ensureSettledCards(state);h.rows=h.rows.filter(x=>!keys.has(String(x.gmTs)+':'+x.no));}catch(_){}
@@ -5768,6 +5768,7 @@ state.r602Audit={at:nowIso(),badLines:bad};return bad;}
 /* R686: the grade rules after r554Apply as one chain. r553Step re-ran r554Apply alone right after every restart, which brought
    back the 추천 / 가장추천 the later rules (플핸 caps, 무승부, 모델, 유럽대항전 …) had removed until the next full markState. */
 function r686Rules(state){
+try{r786UndoVoid(state);}catch(_){}
 try{r554Apply(state);}catch(_){}
 try{if(r582KeepRec(state)>0)r554Apply(state);}catch(_){}
 try{r588Balance(state);}catch(_){}
