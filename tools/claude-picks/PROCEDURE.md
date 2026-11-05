@@ -29,7 +29,7 @@ Pick independently; a game GPT also picked is fine (the site marks agreement wit
      Out/doubtful. `rot`: missing regulars (only about 1 h before kick-off).
    - `af` also carries (R778, owner's paid plan — USE THEM, they are the reason it was bought):
      `keyOut.h/.a` = REGULARS (60%+ starts) out, or missing from the published XI when `keyOut.xi` is true;
-     `pred` = API-Football's own 1X2 chances {h,d,a}; `xg` = goals expected from home/away averages {h,a}; `form` = last 5 (W/D/L);
+     `pred` = API-Football's own 1X2 chances {h,d,a} (null when it is only a template like 10/45/45 — then ignore it); `xg` = goals expected from home/away averages {h,a}; `form` = last 5 (W/D/L);
      `lineupMiss` = regulars missing in the ESPN lineup check (~80 min before). Never back a side that misses clearly more regulars
      than the other (the owner was angry when a 플핸 went to the weakened team). For 언오버 compare `xg.h+xg.a` with the line.
      For 일반승/핸디 compare `pred` with Pinnacle and Betman. Say in `why` which of these you used.

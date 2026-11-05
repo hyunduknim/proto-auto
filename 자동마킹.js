@@ -4912,7 +4912,8 @@ const keyOut=s=>(f.inj?.[s]||[]).filter(r=>r&&r[4]&&r[4].key&&!/question|doubt/i
 const miss=s=>f.lu&&f.lu[s]&&Array.isArray(f.lu[s].miss)?f.lu[s].miss:null;
 const out={h:miss('h')??keyOut('h'),a:miss('a')??keyOut('a'),xi:!!(f.lu&&f.lu.h&&f.lu.a)};
 let xg=null;const ts=f.ts||{};if(ts.h&&ts.a&&ts.h.pl?.[0]>=2&&ts.a.pl?.[1]>=2){const lh=(ts.h.gf[0]+ts.a.ga[1])/2,la=(ts.a.gf[1]+ts.h.ga[0])/2;if(lh>0&&la>0)xg={h:Math.round(lh*100)/100,a:Math.round(la*100)/100};}
-return {out,pred:f.pred&&f.pred.h+f.pred.d+f.pred.a>.5?f.pred:null,xg,form:{h:ts.h?.form||'',a:ts.a?.form||''}};}
+/* R787: API-Football's percent is often a template (10/45/45, 50/50/0) — only a real three-way spread is used */const P=f.pred,pv=P&&[P.h,P.d,P.a],okP=pv&&pv.every(v=>v>=.08&&v<=.85)&&!(Math.abs(pv[1]-.45)<1e-6&&Math.abs(pv[2]-.45)<1e-6)&&!(Math.abs(pv[0]-.45)<1e-6&&Math.abs(pv[1]-.45)<1e-6)&&Math.abs(pv[0]+pv[1]+pv[2]-1)<.05;
+return {out,pred:okP?P:null,xg,form:{h:ts.h?.form||'',a:ts.a?.form||''}};}
 function r778Pois(l,k){let p=Math.exp(-l);for(let i=1;i<=k;i++)p*=l/i;return p;}
 function r778Over(lt,line){let under=0;for(let k=0;k<=Math.floor(line);k++)under+=r778Pois(lt,k);return 1-under;}
 /* chance change for one candidate pick (fam, pick, line) */
