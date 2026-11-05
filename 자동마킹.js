@@ -4993,7 +4993,12 @@ function r760Pick(cands){const sc=c=>c.p+.8*(c.ev-.9);const ok=c=>c.p>=R760.minP
 for(const fam of ['MONEYLINE','HANDICAP','TOTAL']){const L=cands.filter(c=>c.fam===fam&&ok(c)).sort((a,b)=>sc(b)-sc(a));let n=0;for(const c of L){if(n>=R760.perFam)break;if(used.has(c.seed))continue;used.add(c.seed);out.push(c);n++;}}
 if(out.length<R760.min){const L=cands.filter(c=>c.p>=.5&&c.ev>=.85&&c.odds>=1.31&&c.odds<=2.1&&!used.has(c.seed)).sort((a,b)=>sc(b)-sc(a));for(const c of L){if(out.length>=R760.min)break;if(used.has(c.seed))continue;used.add(c.seed);out.push(c);}}
 return out.slice(0,R760.max).sort((a,b)=>a.t-b.t);}
-function r760Build(state,now){const picks=r760Pick(r760Cands(state,now));const day=new Date(now+9*3600e3).toISOString().slice(0,10);const nm={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'};
+/* R788 (owner: "피나클추천도 같은시간에" — UEL/UECL night): 📌 picks drop a 승/패 side that misses 2+ more regulars than the other
+   (API-Football regulars out, or the lineup check) so Pinnacle picks never back the weakened team. */
+function r788Weak(state,c){if(c.fam==='TOTAL'||!(c.pick==='승'||c.pick==='패'))return false;const m=(state.markets||[]).find(x=>String(x.gmTs)===String(c.gmTs)&&Number(x.no)===Number(c.no));if(!m||m.sport!=='축구')return false;
+let h=null,a=null;try{const f=state.r643?.[r483FixtureKey(m)];if(f&&f.home&&f.away){h=Number(f.home.miss)||0;a=Number(f.away.miss)||0;}}catch(_){}if(h==null){try{const I=r778Info(state,m);if(I){h=(I.out.h||[]).length;a=(I.out.a||[]).length;}}catch(_){}}
+if(h==null)return false;const own=c.pick==='승'?h:a,opp=c.pick==='승'?a:h;return own-opp>=2;}
+function r760Build(state,now){const picks=r760Pick(r760Cands(state,now).filter(c=>!r788Weak(state,c)));const day=new Date(now+9*3600e3).toISOString().slice(0,10);const nm={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'};
 const groups=['MONEYLINE','HANDICAP','TOTAL'].map(f=>({name:nm[f],picks:picks.filter(x=>x.fam===f).map(({seed,t,ev,...x})=>x)})).filter(g=>g.picks.length);
 return {id:'pin-'+day,by:'pin',title:'📌 '+day.slice(5).replace('-','/')+' 피나클 추천픽',at:new Date(now).toISOString(),intro:'새벽 1시에 피나클 배당으로 계산한 맞을 확률이 높고, 베트맨 배당이 너무 짜지 않은 픽만 골랐습니다. 앞으로 24시간 안에 시작하는 경기 중 피나클 배당이 나온 경기만 들어갑니다.',groups};}
 /* R767 (owner: "피나클추천도 똑같이 NBA 5경기 이상있을때 예약분석이랑 비슷한 시간으로 NBA픽 일반승 핸디캡 언오버 섞어서 3~4픽"):
