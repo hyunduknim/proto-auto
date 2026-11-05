@@ -9,4 +9,4 @@ const ix=vm.runInContext('INDEX',c);
 assert.ok(ix.includes('function r792Box')&&ix.includes('function r792Story')&&ix.includes('r720Rounds(list,r=>r.gmTs,card,r792Round)'));
 assert.ok(ix.includes("'경기력 예상'")&&!ix.includes('일반승 예상 (경기력)'));
 const src=fs.readFileSync('자동마킹.js','utf8');assert.ok(src.includes('if(r.o<1.31||r.l===\'무\'||r.p<(nMin<3?.65:.60))'));
-console.log('r792 ok');
+assert.ok(ix.includes('function r793Box'));console.log('r792 ok');
