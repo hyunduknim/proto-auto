@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R820-NO-NODATA";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R822-LIVE-3TABS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4836,10 +4836,10 @@ if(hit){const m=hit.m0;o.bm={no:m.no,home:m.home,away:m.away,league:m.league};co
 /* R811 (owner 11/7 "프로토 전경기 문자중계"): the board shows proto games only — every proto game from 2 h before kick-off until it ends;
    a proto game the live sources do not cover still gets its card ("중계 자료 없음") */
 const seen=new Set(out.filter(o=>o.bm).map(o=>String(o.bm.no)));const extra=[];
-for(const x of idx){const m=x.m0;if(seen.has(String(m.no))||x.t==null||m.resultFinal)continue;const dtm=x.t-now;/* R820 (owner: "더비카운티 볼턴 중계 삭제해줘"): a started game with no live source is not shown */if(dtm>2*3600e3||dtm<=0)continue;
+for(const x of idx){const m=x.m0;if(seen.has(String(m.no))||x.t==null||m.resultFinal)continue;const dtm=x.t-now;/* R820 (owner: "더비카운티 볼턴 중계 삭제해줘"): a started game with no live source is not shown */if(dtm>3600e3||dtm<=0)continue;
 const mk=x.ms.find(r804Pick);const o={id:'bm'+m.no,sp:m.sport,src:'bm',lg:m.league,t:x.t,h:m.home,a:m.away,bm:{no:m.no,home:m.home,away:m.away,league:m.league},live:false,fin:false,hs:null,as:null,feed:[],stx:dtm>0?'':'진행 중 · 중계 자료 없음'};if(mk)o.pick=r804Pick(mk);if(dtm<=0)o.nodata=true;extra.push(o);}
 /* R812 (owner: "14시 껄로 지금 나와있는데?"): games not yet started appear only from 2 h before kick-off */
-const soon=o=>o.live||o.fin||o.nodata||(o.t!=null&&o.t-now<=2*3600e3);
+const soon=o=>o.live||o.fin||o.nodata||(o.t!=null&&o.t-now<=3600e3);/* R822: 경기 시작 전 = from 1 h before */
 const games=[...out.filter(o=>o.bm),...extra].filter(soon);
 return {at:j.at||null,now:new Date(now).toISOString(),games,err:j.err||null};}
 /* R815 (owner 11/7 "경기력비교있으니 배당비교도 만들어줘"): per game, Betman's odds next to Pinnacle and the other overseas books.
@@ -10257,6 +10257,9 @@ body .app .r817T td{padding:8px 2px;text-align:center;border-bottom:1px solid rg
 body .app .r817T td.b{font:900 17px/1 "Outfit",sans-serif;color:#ffd36b}body .app .r817T td.p{font:700 16px/1 "Outfit",sans-serif;color:#c9d3ee}body .app .r817T td.w{font-size:12px;color:#7f8aa8;text-align:right;white-space:nowrap}
 body .app .r817T tr.up td.w{color:#3cf5a8;font-weight:800}body .app .r817T tr.up td.b{color:#3cf5a8}
 body .app .r817S{margin-top:9px;font-size:13px;color:#a9b6d6}body .app .r817S.g{color:#3cf5a8;font-weight:700}body .app .r817S b{color:#fff}
+/* R822 */
+body .app .r822M{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:4px 0 12px}body .app .r822M button{padding:11px 4px;border-radius:14px;font-weight:900;font-size:13.5px;color:#c9d3ee;background:rgba(255,255,255,.04);border:1px solid rgba(150,170,255,.18)}body .app .r822M button b{display:block;font:900 18px/1.2 "Outfit",sans-serif;color:#fff;margin-top:2px}
+body .app .r822M button.p.on{background:linear-gradient(135deg,rgba(56,225,255,.85),rgba(139,92,246,.75));color:#fff;border-color:transparent}body .app .r822M button.l.on{background:linear-gradient(135deg,#ff3b5c,#ff4fd8);color:#fff;border-color:transparent;box-shadow:0 6px 20px rgba(255,59,92,.35)}body .app .r822M button.f.on{background:linear-gradient(135deg,#5d6890,#8b96b8);color:#fff;border-color:transparent}
 </style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></head><body><div class="app"><section class="hero"><div id="roundBadge" class="r540Round">-</div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div><div id="r507Ver" class="r507Ver">R507</div></div></section><section class="scoreWrap"><div class="scoreTitle r535Title"><span>📊 자동마킹 현황</span><button id="exportJson" type="button" class="r535Json">JSON 저장</button></div><div id="scoreGrid" class="scoreGrid nStats"></div></section><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">✅ 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs r554Tabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button><button id="tabCombo" type="button" onclick="setView('combo')">🤖 클로드추천</button><button id="tabReview" type="button" onclick="setView('review')">🔁 복기</button><button id="tabPerf" type="button" onclick="setView('perf')" style="display:none">🎯 조합</button><button id="tabBest" type="button" onclick="setView('best')" style="display:none">🏆 베스트</button><button id="tabBets" type="button" onclick="setView('bets')" style="display:none">💰 내 베팅</button><button id="tabVoid" type="button" onclick="setView('void')" style="display:none">⚪ 적특</button><button id="tabPerf2" type="button" onclick="setView('perf2')">📊 경기력</button><button id="tabOddsCmp" type="button" onclick="setView('oddscmp')" style="display:none">💱 배당비교</button><button id="tabValue" type="button" onclick="setView('value')">📌 피나클추천</button><button id="tabSame" type="button" onclick="setView('same')" style="display:none">📚 북메이커 분석</button><button id="tabOddsPat" type="button" onclick="setView('odds')">📉 배당변경</button><button id="tabLive" type="button" onclick="setView('live')">📡 실시간 중계</button><button id="manualMode" type="button" aria-pressed="false">✏️ 수동마킹</button></div><section id="r617Panel" class="r617Panel"></section><section id="r676Panel" class="r617Panel"></section><section id="r680Panel" class="r617Panel"></section><section id="r701Panel" class="r617Panel"></section><section id="r734Panel" class="r617Panel"></section><section id="r804Panel" class="r617Panel"></section><section id="r815Panel" class="r617Panel"></section><section id="r737Panel" class="r617Panel"></section><section id="r738Panel" class="r617Panel"></section><section id="r743Panel" class="r617Panel"></section><section id="r653Panel" class="r617Panel"></section><section id="r655Panel" class="r617Panel"></section>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 국내·해외배당 핵심 비교와 업체별 상세 자료를 확인합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
@@ -11846,7 +11849,7 @@ return '<div class="r645Hd"><b>🤝 무승부 후보</b><small>피나클 배당 
 (L.length?L.map(c=>'<div class="r617L r645L"><span class="i">'+(c.claude?'🤖':'·')+'</span><div class="g"><b>'+e(r560N(c.home)+' vs '+r560N(c.away))+'</b><small>#'+e(c.no)+' · '+e(String(c.date||'').slice(5))+' '+e(String(c.time||'').slice(0,5))+' · '+e(c.league||'')+'</small></div><div class="p"><b>무</b><small>'+Number(c.odds).toFixed(2)+'배 · '+Math.round(c.p*100)+'%</small></div></div>').join(''):'<div class="pastEmpty">피나클 무승부 확률 27% 이상인 경기가 아직 없습니다 (피나클 배당은 경기 6시간 전부터)</div>')+
 '<div class="ccNote">무 배당은 3배 이상이라 3~4경기 중 1경기 정도 맞으면 평균입니다.</div>'}
 /* R804 client: 📡 실시간 중계 tab — refreshes every 20 s while open */
-let r804Data=null,r804Timer=null,r804F='all',r804Open={};
+let r804Data=null,r804Timer=null,r804F='all',r804Open={},r822T='live';
 let r804Busy=false,r804Got=0;async function r804Load(){r804Busy=true;const b=$('r804Btn');if(b)b.classList.add('spin');try{const r=await fetch('/api/live?t='+Date.now(),{cache:'no-store'});r804Data=await r.json();r804Got=Date.now();}catch(_){}r804Busy=false;if(activeView==='live')r804Render();}
 function r804Start(){r804Load();if(!r804Timer)r804Timer=setInterval(()=>{if(activeView==='live')r804Load();else{clearInterval(r804Timer);r804Timer=null;}},20000);}
 const R804E={'축구':'⚽','농구':'🏀','배구':'🏐','야구':'⚾'};
@@ -11875,15 +11878,14 @@ r804Xtra(g)+r804Per(g)+pk+fd+'</article>';}
 function r804Render(){const el=$('r804Panel');if(!el)return;const D=r804Data;if(!D){el.innerHTML='<div class="r617Hd"><b>📡 실시간 중계</b><small>불러오는 중…</small></div>';return;}
 let L=D.games||[];const n={all:L.length,mine:L.filter(g=>g.pick).length};for(const k of ['축구','농구','배구','야구'])n[k]=L.filter(g=>g.sp===k).length;
 if(r804F==='mine')L=L.filter(g=>g.pick);else if(r804F!=='all')L=L.filter(g=>g.sp===r804F);
-const live=L.filter(g=>g.live||g.nodata),pre=L.filter(g=>!g.live&&!g.fin&&!g.nodata).sort((a,b)=>a.t-b.t),fin=L.filter(g=>g.fin);
+const live=L.filter(g=>g.live||g.nodata),pre=L.filter(g=>!g.live&&!g.fin&&!g.nodata).sort((a,b)=>a.t-b.t),fin=L.filter(g=>g.fin).sort((a,b)=>(b.finAt||0)-(a.finAt||0)||b.t-a.t);
+const T3=(k,t,n,c)=>'<button type="button" class="'+c+(r822T===k?' on':'')+'" onclick="r822T=\\''+k+'\\';r804Render()">'+t+' <b>'+n+'</b></button>';const cur=r822T==='pre'?pre:r822T==='fin'?fin:live;
 const chip=(k,t)=>'<button type="button" class="'+(r804F===k?'on':'')+'" onclick="r804F=\\''+k+'\\';r804Render()">'+t+' <b>'+(n[k]||0)+'</b></button>';
 const up=D.at?r804Kt(Date.parse(D.at)):'-';
 el.innerHTML='<button type="button" id="r804Btn" class="r804R'+(r804Busy?' spin':'')+'" onclick="r804Load()"><i>🔄</i> 새로고침<small>'+(r804Got?r804Kt(r804Got)+':'+String(new Date(r804Got).getSeconds()).padStart(2,'0'):'')+'</small></button><div class="r617Hd"><b>📡 실시간 중계</b><small>해외축구·K리그·NBA 1분 · 국내 농구·배구·야구 3분마다 갱신 · 마지막 갱신 '+up+' · 이 화면은 20초마다 새로고침</small></div>'+
 '<div class="r804Fl">'+chip('all','전체')+chip('mine','🎯 내 마킹')+chip('축구','⚽ 축구')+chip('농구','🏀 농구')+chip('배구','🏐 배구')+chip('야구','⚾ 야구')+'</div>'+
-(live.length?'<div class="r804Sec"><i></i>진행 중 '+live.length+'경기</div>'+live.map(r804Card).join(''):'')+
-(pre.length?'<div class="r804Sec pre">곧 시작 '+pre.length+'경기</div>'+pre.map(r804Card).join(''):'')+
-(fin.length?'<div class="r804Sec fin">경기 종료 '+fin.length+'경기</div>'+fin.map(r804Card).join(''):'')+
-(!L.length?'<div class="pastEmpty">지금 중계 중인 경기가 없습니다. 경기가 시작되면 자동으로 나타납니다.</div>':'')+
+'<div class="r822M">'+T3('pre','⏳ 경기 시작 전',pre.length,'p')+T3('live','🔴 경기 중',live.length,'l')+T3('fin','🏁 경기 종료',fin.length,'f')+'</div>'+
+(cur.length?cur.map(r804Card).join(''):'<div class="pastEmpty">'+(r822T==='pre'?'1시간 안에 시작하는 경기가 없습니다.':r822T==='fin'?'끝난 경기가 없습니다.':'지금 진행 중인 경기가 없습니다.')+'</div>')+
 '<div class="ccNote">국내 농구·배구·야구 중계 문장은 점수 변화를 보고 자동으로 씁니다 (장면 설명 자료 없음). 해외축구는 골·카드·교체·VAR, NBA는 득점 장면이 실제 기록 그대로 나옵니다.</div>';}
 /* R815 client: 💱 배당비교 tab */
 let r815Sp='all',r815Day='all',r815Only='all',r815Lim=20;

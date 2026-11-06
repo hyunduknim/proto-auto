@@ -33,17 +33,26 @@ log = []
 
 DAY0 = dt.datetime.fromtimestamp(NOW, KST).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
 WEEKDAY = dt.datetime.fromtimestamp(NOW, KST).weekday()  # Mon=0 … Sat=5, Sun=6
+# R822 (owner 11/7): 평일 = finished games stay until midnight; 토·일 (and the Monday morning after) = they stay until the owner says
+# "초기화" (tools/live/reset_at.txt, fetched every pass), at most 3 days.
+try:
+    RESET = dt.datetime.fromisoformat(open('reset_at.txt').read().strip().replace('Z', '+00:00')).timestamp()
+except Exception:
+    RESET = 0
+WEEKEND = WEEKDAY in (5, 6, 0)
 def keep(g):
-    """games stay on the board until 3 h after they finish; at KST midnight the board is cleared
-    (owner 11/6 "실시간중계도 자정시간되면 초기화해줘") — only games still in play carry over"""
-    if g.get('fin') and NOW - g.get('finAt', NOW) > 3 * 3600:
+    fin_at = g.get('finAt', NOW)
+    if g.get('fin'):
+        if fin_at < RESET or NOW - fin_at > 3 * 86400:
+            return False
+        if not WEEKEND and fin_at < DAY0:
+            return False
+        return True
+    if not g.get('live') and g.get('t', 0) / 1000 < min(DAY0, NOW - 8 * 3600):
         return False
-    # R819 (owner 11/7 "토요일 일요일은 끊김없이"): no midnight clear going into Sat, Sun and Mon — weekend games run through the night
-    if g.get('fin') and g.get('finAt', NOW) < DAY0 and WEEKDAY not in (5, 6, 0):
+    if g.get('live') and g.get('t', 0) / 1000 < RESET - 6 * 3600:
         return False
-    if not g.get('live') and not g.get('fin') and g.get('t', 0) / 1000 < DAY0:
-        return False
-    return NOW - g.get('t', NOW) / 1000 < 8 * 3600
+    return NOW - g.get('t', NOW) / 1000 < 10 * 3600
 
 def feed_add(g, line, kind='info', key=None, replace=False):
     f = g.setdefault('feed', [])

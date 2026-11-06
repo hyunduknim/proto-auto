@@ -34,6 +34,7 @@ jobs:
             t0=$(date +%s)
             rm -rf prev af out && mkdir -p prev af
             [ -s keep/live.json ] && cp keep/live.json prev/live.json
+            curl -sf "https://raw.githubusercontent.com/$REPO/main/tools/live/reset_at.txt?t=$t0" -o reset_at.txt || true
             curl -sf "https://raw.githubusercontent.com/$REPO/apifootball/af_soccer.json?t=$t0" -o af/af_soccer.json || true
             python3 tools/live/live.py || true
             if [ -s out/live.json ]; then
