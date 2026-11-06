@@ -45,11 +45,14 @@ def keep(g):
         return False
     return NOW - g.get('t', NOW) / 1000 < 8 * 3600
 
-def feed_add(g, line, kind='info', key=None):
+def feed_add(g, line, kind='info', key=None, replace=False):
     f = g.setdefault('feed', [])
     k = key or line
-    if any(x.get('k') == k for x in f):
-        return
+    for x in f:
+        if x.get('k') == k:
+            if replace and x.get('x') != line:
+                x['x'] = line; x['kind'] = kind
+            return
     f.append({'at': int(NOW * 1000), 'k': k, 'x': line, 'kind': kind})
     del f[:-60]
 
@@ -103,10 +106,15 @@ if win and KEY:
             g.update({'hs': hs, 'as': as_, 'st': st.get('short'), 'clock': (f"{st.get('elapsed')}'" + (f"+{st['extra']}" if st.get('extra') else '')) if st.get('elapsed') is not None else '', 'stx': {'1H': '전반', 'HT': '하프타임', '2H': '후반', 'ET': '연장', 'BT': '연장 휴식', 'P': '승부차기', 'LIVE': '진행 중', 'INT': '중단', 'SUSP': '중단'}.get(st.get('short'), st.get('long')), 'live': True, 'fin': False, 'up': int(NOW * 1000)})
             ht = (it.get('score') or {}).get('halftime') or {}
             g['per'] = [[ht.get('home'), ht.get('away')]] if ht.get('home') is not None else []
+            # R821: one line per event, keyed by its order among events of that type (the API fills in player/assist later)
+            if it.get('events'):
+                g['feed'] = [x for x in g.get('feed', []) if not str(x.get('k', '')).startswith('[')]
+            _n = {}
             for e in it.get('events') or []:
                 line, kind = ev_line(e, g)
+                _n[e.get('type')] = _n.get(e.get('type'), 0) + 1
                 if line:
-                    feed_add(g, line, kind, key=json.dumps([e.get('time'), e.get('type'), (e.get('player') or {}).get('id'), (e.get('assist') or {}).get('id')]))
+                    feed_add(g, line, kind, key=f"ev-{e.get('type')}-{_n[e.get('type')]}", replace=True)
             if st.get('short') == 'HT':
                 feed_add(g, f'⏸ 전반 종료 {hs}:{as_}', 'period', key='HT')
             G[gid] = g
@@ -146,10 +154,15 @@ if win and KEY:
                     if it:
                         st = it['fixture']['status']['short']
                         g['hs'], g['as'] = it['goals']['home'] or 0, it['goals']['away'] or 0
+                        # R821: one line per event, keyed by its order among events of that type (the API fills in player/assist later)
+                        if it.get('events'):
+                            g['feed'] = [x for x in g.get('feed', []) if not str(x.get('k', '')).startswith('[')]
+                        _n = {}
                         for e in it.get('events') or []:
                             line, kind = ev_line(e, g)
+                            _n[e.get('type')] = _n.get(e.get('type'), 0) + 1
                             if line:
-                                feed_add(g, line, kind, key=json.dumps([e.get('time'), e.get('type'), (e.get('player') or {}).get('id'), (e.get('assist') or {}).get('id')]))
+                                feed_add(g, line, kind, key=f"ev-{e.get('type')}-{_n[e.get('type')]}", replace=True)
                         if st in ('FT', 'AET', 'PEN'):
                             g.update({'live': False, 'fin': True, 'finAt': NOW, 'st': st, 'stx': '경기 종료', 'clock': ''})
                             feed_add(g, f"🏁 경기 종료 {g['hs']}:{g['as']}", 'end', key='FT')
