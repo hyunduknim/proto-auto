@@ -266,9 +266,13 @@ for sport in ('basketball', 'volleyball', 'baseball'):
             if sport == 'basketball':
                 prevper = g.get('_per') or []
                 brk = short in ('HT', 'BT')
+                # a quarter that has not started yet (0:0 at a break) is not "finished"
+                if per and (per[-1][0] or 0) + (per[-1][1] or 0) == 0 and not fin:
+                    per = per[:-1]; brk = True
+                g['feed'] = [x for x in g.get('feed', []) if not (str(x.get('k', '')).startswith('q') and '이 쿼터' in x.get('x', '') and ' 0:0 ' in x.get('x', ''))]
                 for i, q in enumerate(per):
                     done = i < len(per) - 1 or fin or brk
-                    if done and (i >= len(prevper) or not prevper[i][2:]):
+                    if done and (i >= len(prevper) or not prevper[i][2:] or (prevper[i][0] or 0) + (prevper[i][1] or 0) == 0):
                         nm = f'{i+1}쿼터' if i < 4 else '연장'
                         cum = [sum(x[0] or 0 for x in per[:i+1]), sum(x[1] or 0 for x in per[:i+1])]
                         lead = H if cum[0] > cum[1] else A if cum[1] > cum[0] else None
@@ -291,8 +295,8 @@ for sport in ('basketball', 'volleyball', 'baseball'):
                 g['_sets'] = done
                 if per and not fin:
                     cur = per[-1]; pc = g.get('_cur') or [0, 0]
-                    if cur != pc and len(per) == g.get('_curn', 0):
-                        dh, da = (cur[0] or 0) - pc[0], (cur[1] or 0) - pc[1]
+                    dh, da = (cur[0] or 0) - pc[0], (cur[1] or 0) - pc[1]
+                    if cur != pc and len(per) == g.get('_curn', 0) and dh >= 0 and da >= 0:
                         run = H if dh - da >= 4 else A if da - dh >= 4 else None
                         sh = sum(1 for x in per[:-1] if x[0] > x[1]); sa = sum(1 for x in per[:-1] if x[1] > x[0])
                         feed_add(g, f'🏐 {len(per)}세트 {H} {cur[0]}:{cur[1]} {A} (이번에 {dh}:{da} 득점 · 세트 {sh}:{sa})' + (f' · 🔥 {run} {max(dh,da)}:{min(dh,da)} 연속 득점' if run else '') + (' · 세트포인트!' if max(cur) >= 24 and abs(cur[0]-cur[1]) >= 1 and len(per) < 5 or max(cur) >= 14 and len(per) == 5 else ''), 'run' if run else 'score', key=f'c{len(per)}-{cur[0]}-{cur[1]}')
