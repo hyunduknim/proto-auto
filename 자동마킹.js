@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R807-LIVE-PUSH";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R808-LIVE-TIDY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11778,8 +11778,8 @@ x+='<tr><td class="n">'+H+'</td>'+P.map((r,i)=>cell(r,i,0)).join('')+(sp==='야�
 x+='<tr><td class="n">'+A+'</td>'+P.map((r,i)=>cell(r,i,1)).join('')+(sp==='야구'?'<td class="t">'+c(g.as)+'</td><td>'+c((g.hits||[])[1])+'</td>':'')+'</tr></table>';return x;}
 function r804Xtra(g){if(g.sp==='축구'&&g.stat){const S=g.stat,f=(i,a)=>'<span>'+i+' <b>'+(a||[0,0])[0]+'</b>:<b>'+(a||[0,0])[1]+'</b></span>';return '<div class="r807X">'+f('🚩 코너',S.cor)+f('🟨',S.yc)+f('🟥',S.rc)+f('🎯 유효슈팅',S.sot)+(S.pos&&S.pos[0]?'<span>점유 <b>'+e(S.pos[0])+'</b>:<b>'+e(S.pos[1])+'</b></span>':'')+'</div>';}
 if(g.sp==='축구'&&(g.feed||[]).length){let y=[0,0],r=[0,0];const H=g.h;for(const x of g.feed){if(x.kind==='card'||x.kind==='red'){const i=String(x.x).endsWith('('+H+')')?0:1;(x.kind==='red'?r:y)[i]++;}}return '<div class="r807X"><span>🟨 <b>'+y[0]+'</b>:<b>'+y[1]+'</b></span><span>🟥 <b>'+r[0]+'</b>:<b>'+r[1]+'</b></span></div>';}
-if(g.sp==='배구'&&g.live&&(g.per||[]).length){const c=g.per[g.per.length-1];return '<div class="r807X v"><span>지금 <b>'+g.per.length+'세트</b></span><span class="big"><b>'+(c[0]??0)+'</b> : <b>'+(c[1]??0)+'</b></span><span>세트 스코어 <b>'+g.hs+'</b>:<b>'+g.as+'</b></span></div>';}
-if(g.sp==='농구'&&g.live)return '<div class="r807X"><span>🏀 <b>'+e(g.stx||'')+'</b>'+(g.clock?' · 남은 '+e(g.clock):'')+'</span></div>';return '';}
+if(g.sp==='배구'&&g.live&&(g.per||[]).length){const c=g.per[g.per.length-1];return '<div class="r807X v"><span class="big"><b>'+(c[0]??0)+'</b> : <b>'+(c[1]??0)+'</b></span></div>';}
+/* R808 (owner: "지금 몇세트 이 글 삭제 두개 나오네 작은글씨는 삭제"): the set / quarter is already in the header, so no second line */return '';}
 function r804PickT(P,g){const H=r560N(g.bm&&g.src!=='as'?g.bm.home:g.h),A=r560N(g.bm&&g.src!=='as'?g.bm.away:g.a);const side=P.pick==='승'?H:P.pick==='패'?A:'';
 if(P.fam==='MONEYLINE')return P.pick==='무'?'무승부':side+' 승';if(P.fam==='HANDICAP'){const l=Number(P.line);return '핸디 '+(l>0?'+':'')+l+' '+P.pick+' ('+(P.pick==='승'?H:A)+')';}if(P.fam==='TOTAL')return P.pick+' '+P.line;return P.pick;}
 function r804Card(g){const H=r560N(g.bm&&g.src!=='as'?g.bm.home:g.h),A=r560N(g.bm&&g.src!=='as'?g.bm.away:g.a),hs=g.hs,as=g.as,has=hs!=null&&as!=null;const lead=has?(hs>as?'h':as>hs?'a':''):'';
