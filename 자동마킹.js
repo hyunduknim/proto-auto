@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R816-VALUE-BOARD";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R817-ODDS-SIMPLE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4851,7 +4851,7 @@ const mk=new Map();for(const m of state.markets||[])mk.set(String(m.gmTs)+':'+Nu
 for(const c of C){const k=c.gmTs+'|'+c.seed;if(!G.has(k))G.set(k,{k,gmTs:c.gmTs,seed:c.seed,t:c.t,date:c.date,time:c.time,league:c.league,home:c.home,away:c.away,rows:[]});
 const m=mk.get(c.gmTs+':'+c.no);let impl=null;if(m){const ch=validChoices(m),s=ch.reduce((a,x)=>a+1/Number(x.odds),0),me=ch.find(x=>x.label===c.pick);if(me&&s>0)impl=(1/Number(me.odds))/s;}
 const plus=c.fam==='HANDICAP'&&((c.pick==='승'&&Number(c.line)>0)||(c.pick==='패'&&Number(c.line)<0));
-G.get(k).rows.push({no:c.no,fam:c.fam,line:c.line,pick:c.pick,label:c.label,odds:c.odds,p:c.p,ev:c.ev,impl:impl==null?null:Math.round(impl*1000)/1000,diff:impl==null?null:Math.round((c.p-impl)*1000)/1000,plus});}
+G.get(k).rows.push({no:c.no,fam:c.fam,line:c.line,pick:c.pick,label:c.label,odds:c.odds,pinO:c.pinO??null,p:c.p,ev:c.ev,impl:impl==null?null:Math.round(impl*1000)/1000,diff:impl==null?null:Math.round((c.p-impl)*1000)/1000,plus});}
 const out=[];for(const g of G.values()){const ms=(state.markets||[]).filter(m=>String(m.gmTs)===String(g.gmTs)&&gameSeed(m)===g.seed);const m0=ms[0];if(!m0)continue;g.sport=m0.sport;
 const b=B[g.seed];const ml=(b?.ml||[]).filter(r=>r[0]!=='pinnacle'&&r[1]>1&&r[3]>1);if(ml.length){const soc=g.sport==='축구';let a=[0,0,0];for(const r of ml){const v=soc&&r[2]>1?[1/r[1],1/r[2],1/r[3]]:[1/r[1],0,1/r[3]],s=v[0]+v[1]+v[2];a=a.map((x,i)=>x+v[i]/s);}g.world={n:ml.length,p:a.map(x=>Math.round(x/ml.length*1000)/1000)};}
 const pin=(b?.ml||[]).find(r=>r[0]==='pinnacle');if(pin)g.pinO=[pin[1],pin[2]||null,pin[3]];
@@ -4945,7 +4945,7 @@ const label=fam==='MONEYLINE'?(c.label==='무'?'무승부':team+' 승'):fam==='H
 let why=fam==='HANDICAP'?r760HcText(H,A,L,c.label,soccer)+'. ':'';
 why+=soccer?'피나클 기준 예상 점수 '+H+' '+F.lh.toFixed(1)+' : '+F.la.toFixed(1)+' '+A+(F.tl!=null?' · 피나클 골 기준점 '+F.tl:'')+'. ':'피나클 기준 '+(Math.abs(mu)<1?'거의 비슷한 전력':(mu>0?H:A)+' 약 '+Math.abs(mu).toFixed(1)+'점 우세')+(tm!=null?' · 예상 합계 '+tm.toFixed(0)+'점':'')+'. ';
 why+='맞을 확률 약 '+Math.round(p*100)+'%'+(pinO?' · 피나클 '+pinO.toFixed(2):'')+' · 베트맨 '+o.toFixed(2)+(p*o>=1?' (베트맨이 더 줌 👍)':'');
-out.push({gmTs:String(m.gmTs),no:Number(m.no),line:L,pick:c.label,label,odds:o,p:Math.round(p*1000)/1000,ev:Math.round(p*o*1000)/1000,fam,seed:gameSeed(m0),t,why,home:m0.home,away:m0.away,date:m0.date,time:m0.time,league:m0.league});}}}
+out.push({gmTs:String(m.gmTs),no:Number(m.no),line:L,pick:c.label,label,odds:o,pinO,p:Math.round(p*1000)/1000,ev:Math.round(p*o*1000)/1000,fam,seed:gameSeed(m0),t,why,home:m0.home,away:m0.away,date:m0.date,time:m0.time,league:m0.league});}}}
 return out;}
 /* R766 (owner: "NBA쪽 추천 가장추천 쫌 많이 올려줘 일반승 말고 핸디캡 언오버쪽도 보면서 분석해서"): for every NBA game not yet locked,
    the Pinnacle bell-curve model of 📌 피나클추천 (R760) scores 일반승 · 핸디 · 언오버 together; when Betman's line is softer than
@@ -10248,6 +10248,15 @@ body .app .r816Ti.g2{border-color:rgba(60,245,168,.45)}body .app .r816Ti.lo{opac
 body .app .r816My{margin-top:10px;padding-top:9px;border-top:1px dashed rgba(150,170,255,.18);font-size:12.5px;color:#c9d3ee}body .app .r816My b{color:#fff}body .app .r816My.g{color:#3cf5a8}body .app .r816My.r{color:#ff8fa3}body .app .r816My.n{color:#7f8aa8}
 body .app .r816Top{margin:6px 0 12px;padding:12px;border-radius:18px;background:linear-gradient(135deg,rgba(255,201,77,.10),rgba(60,245,168,.06));border:1px solid rgba(255,201,77,.35)}body .app .r816Top .h{font-weight:900;color:#ffd36b;margin-bottom:8px}
 body .app .r816Top .it{display:grid;grid-template-columns:20px minmax(0,1fr) 104px;gap:8px;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,.05)}body .app .r816Top .it:first-of-type{border-top:0}body .app .r816Top .n{font:900 15px/1 "Outfit",sans-serif;color:#ffd36b}body .app .r816Top .g{font-size:12.5px;font-weight:800;color:#fff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}body .app .r816Top .g small{display:block;color:#7f8aa8;font-weight:500}
+/* R817 */
+body .app .r817C{margin:10px 0;padding:13px 14px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(150,170,255,.16)}
+body .app .r817H b{display:block;font-size:15.5px;font-weight:900;color:#fff}body .app .r817H small{color:#a9b6d6}
+body .app table.r817T{width:100%!important;display:table!important;border-collapse:collapse;margin-top:8px;font-size:14px}
+body .app .r817T th{color:#8fa0c4;font-size:12px;font-weight:700;padding:4px 2px;text-align:center;border-bottom:1px solid rgba(150,170,255,.15)}body .app .r817T th:first-child{text-align:left}
+body .app .r817T td{padding:8px 2px;text-align:center;border-bottom:1px solid rgba(150,170,255,.06)}body .app .r817T td.n{text-align:left;color:#e9eeff;font-weight:700}
+body .app .r817T td.b{font:900 17px/1 "Outfit",sans-serif;color:#ffd36b}body .app .r817T td.p{font:700 16px/1 "Outfit",sans-serif;color:#c9d3ee}body .app .r817T td.w{font-size:12px;color:#7f8aa8;text-align:right;white-space:nowrap}
+body .app .r817T tr.up td.w{color:#3cf5a8;font-weight:800}body .app .r817T tr.up td.b{color:#3cf5a8}
+body .app .r817S{margin-top:9px;font-size:13px;color:#a9b6d6}body .app .r817S.g{color:#3cf5a8;font-weight:700}body .app .r817S b{color:#fff}
 </style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></head><body><div class="app"><section class="hero"><div id="roundBadge" class="r540Round">-</div><div class="clockPanel"><div id="clock" class="clock">--:--:--</div><div id="clockDate" class="clockDate">KST</div><div id="r507Ver" class="r507Ver">R507</div></div></section><section class="scoreWrap"><div class="scoreTitle r535Title"><span>📊 자동마킹 현황</span><button id="exportJson" type="button" class="r535Json">JSON 저장</button></div><div id="scoreGrid" class="scoreGrid nStats"></div></section><section id="manualPanel" class="manualPanel" hidden><b>수동 선택 확인</b><p id="manualPreview"></p><button id="manualApply" type="button">✅ 적용</button><button id="manualCancel" type="button">취소</button></section><div id="notice" class="notice">Betman 데이터를 불러오는 중입니다.</div><div id="actionFeedback" class="notice" role="status" aria-live="polite" style="display:none;margin-top:7px"></div><div class="viewTabs r554Tabs"><button id="tabMarking" class="on" type="button">자동마킹</button><button id="tabPast" type="button">정산확인</button><button id="tabExperiment" type="button">배당 정밀분석</button><button id="tabCombo" type="button" onclick="setView('combo')">🤖 클로드추천</button><button id="tabReview" type="button" onclick="setView('review')">🔁 복기</button><button id="tabPerf" type="button" onclick="setView('perf')" style="display:none">🎯 조합</button><button id="tabBest" type="button" onclick="setView('best')" style="display:none">🏆 베스트</button><button id="tabBets" type="button" onclick="setView('bets')" style="display:none">💰 내 베팅</button><button id="tabVoid" type="button" onclick="setView('void')" style="display:none">⚪ 적특</button><button id="tabPerf2" type="button" onclick="setView('perf2')">📊 경기력</button><button id="tabOddsCmp" type="button" onclick="setView('oddscmp')">💱 배당비교</button><button id="tabValue" type="button" onclick="setView('value')">📌 피나클추천</button><button id="tabSame" type="button" onclick="setView('same')" style="display:none">📚 북메이커 분석</button><button id="tabOddsPat" type="button" onclick="setView('odds')">📉 배당변경</button><button id="tabLive" type="button" onclick="setView('live')">📡 실시간 중계</button><button id="manualMode" type="button" aria-pressed="false">✏️ 수동마킹</button></div><section id="r617Panel" class="r617Panel"></section><section id="r676Panel" class="r617Panel"></section><section id="r680Panel" class="r617Panel"></section><section id="r701Panel" class="r617Panel"></section><section id="r734Panel" class="r617Panel"></section><section id="r804Panel" class="r617Panel"></section><section id="r815Panel" class="r617Panel"></section><section id="r737Panel" class="r617Panel"></section><section id="r738Panel" class="r617Panel"></section><section id="r743Panel" class="r617Panel"></section><section id="r653Panel" class="r617Panel"></section><section id="r655Panel" class="r617Panel"></section>
 <section id="expPanel" class="expPanel" aria-label="경기별 배당 정밀분석">
 <div class="expIntro"><b>배당 정밀분석 PRO</b> · 국내·해외배당 핵심 비교와 업체별 상세 자료를 확인합니다. <small>일반승 · 핸디캡 · 언더오버 · 실제 경기 자료가 없는 확률은 표시하지 않음</small></div>
@@ -11880,34 +11889,24 @@ el.innerHTML='<button type="button" id="r804Btn" class="r804R'+(r804Busy?' spin'
 let r815Sp='all',r815Day='all',r815Only='all',r815Lim=20;
 function r815Pc(v){return v==null?'-':Math.round(v*100)+'%'}
 function r815Lb(g,r){try{return r704Lbl(g,r.fam,r.line,r.pick)}catch(_){return r.label||r.pick}}
-/* R816 (owner: "다시 만들어줘 너무 똑같이 만들었네"): 💱 배당비교 is now a value board, not a second prediction screen.
-   Each choice is a tile: Betman's odds big, the fair odds from Pinnacle under it, and how much more (green) or less (red) Betman pays.
-   On top: the day's best-value tiles across all games. */
-function r816Edge(r){return r&&r.p>0?Math.round((r.p*r.odds-1)*1000)/10:null}
-function r816Tile(g,r,cls){const ed=r816Edge(r),fair=r.p>0?1/r.p:null;let lb=r.pick;const H=r560N(g.home),A=r560N(g.away);
-if(r.fam==='TOTAL')lb=r.pick;else if(r.pick==='무')lb='무';else lb=(r.pick==='승'?H:A)+' '+(r.fam==='MONEYLINE'?'승':r.pick==='승'?'':'');
-if(r.fam==='HANDICAP'&&r.pick!=='무'){const L=Number(r.line),eff=r.pick==='승'?L:-L;lb=(r.pick==='승'?H:A)+' '+(eff>0?'+':'')+eff;}
-const k=ed==null?'':ed>=3?'g2':ed>=0?'g1':ed>=-6?'r1':'r2';const lo=r.odds<1.31;
-return '<div class="r816Ti '+k+(lo?' lo':'')+(cls?' '+cls:'')+'"><span class="nm">'+e(lb)+'</span><b class="od">'+Number(r.odds).toFixed(2)+'</b><span class="fr">공정 '+(fair?fair.toFixed(2):'-')+'</span><span class="ed">'+(ed==null?'-':(ed>0?'▲ +':ed<0?'▼ ':'')+ed.toFixed(1)+'%')+'</span></div>';}
-function r816Mk(g){const G=new Map();for(const r of g.rows){const key=r.fam+'|'+(r.line??'');if(!G.has(key))G.set(key,[]);G.get(key).push(r);}
-const order=['승','무','패','오버','언더'];const nm=(f,l)=>f==='MONEYLINE'?'일반승':f==='HANDICAP'?'핸디 '+(Number(l)>0?'+':'')+l+' (홈 기준)':'언오버 '+l;
-return [...G.entries()].map(([k,rs])=>{const [f,l]=k.split('|');rs.sort((a,b)=>order.indexOf(a.pick)-order.indexOf(b.pick));const bst=g.best&&rs.find(r=>r.no===g.best.no&&r.pick===g.best.pick);
-return '<div class="r816Mk"><div class="h">'+e(nm(f,l))+'</div><div class="row">'+rs.map(r=>r816Tile(g,r,bst===r&&g.best.ev>=1?'top':'')).join('')+'</div></div>';}).join('');}
-function r815Card(g){const H=r560N(g.home),A=r560N(g.away);const top=g.best&&g.best.ev>=1?r816Edge(g.best):null;
-const mk=g.mark;let mline='<div class="r816My n">자동마킹 없음</div>';if(mk){const r=g.rows.find(x=>Number(x.no)===Number(mk.no)&&x.pick===mk.pick);const ed=r816Edge(r);let t=mk.pick;try{t=r704Lbl(g,mk.fam,mk.line,mk.pick)}catch(_){}
-mline='<div class="r816My '+(ed==null?'n':ed>=0?'g':'r')+'">🎯 자동마킹 <b>'+e(t)+'</b> '+(mk.odds?Number(mk.odds).toFixed(2)+'배':'')+' · '+(ed==null?'피나클 비교 불가':ed>=0?'피나클보다 '+ed.toFixed(1)+'% 후한 배당 👍':'피나클보다 '+Math.abs(ed).toFixed(1)+'% 박한 배당')+'</div>';}
-return '<article class="r816C"><div class="r816H"><div><b>'+e(H)+' <i>vs</i> '+e(A)+'</b><small>'+e(String(g.date||'').slice(5)+' '+String(g.time||'').slice(0,5)+' · '+(g.league||''))+'</small></div>'+(top!=null?'<span class="v g">가치 +'+top.toFixed(1)+'%</span>':'<span class="v">가치 없음</span>')+'</div>'+r816Mk(g)+mline+'</article>';}
+/* R817 (owner: "아니 더 어렵게 만들었네"): plain side-by-side — 베트맨 배당 next to 피나클 배당 for 일반승 and the 언오버 line Pinnacle also
+   prices, and in words which one pays more. No percentages. */
+function r815Card(g){const H=r560N(g.home),A=r560N(g.away);const rows=g.rows.filter(r=>r.pinO>1&&(r.fam==='MONEYLINE'||r.fam==='TOTAL'));
+const nm=r=>r.fam==='TOTAL'?r.pick+' '+r.line:r.pick==='무'?'무승부':(r.pick==='승'?H:A)+' 승';
+const tr=rows.map(r=>{const d=Math.round((r.odds-r.pinO)*100)/100;return '<tr class="'+(d>0?'up':'')+'"><td class="n">'+e(nm(r))+'</td><td class="b">'+Number(r.odds).toFixed(2)+'</td><td class="p">'+Number(r.pinO).toFixed(2)+'</td><td class="w">'+(d>0?'👍 베트맨이 더 줌':d<0?'피나클이 더 줌':'같음')+'</td></tr>'}).join('');
+const good=rows.filter(r=>r.odds>r.pinO&&r.odds>=1.31).sort((a,b)=>(b.odds-b.pinO)-(a.odds-a.pinO))[0];
+return '<article class="r817C"><div class="r817H"><b>'+e(H)+' vs '+e(A)+'</b><small>'+e(String(g.date||'').slice(5)+' '+String(g.time||'').slice(0,5)+' · '+(g.league||''))+'</small></div>'+
+(tr?'<table class="r817T"><tr><th>선택</th><th>베트맨</th><th>피나클</th><th></th></tr>'+tr+'</table>':'<div class="r816My n">피나클 배당이 아직 없습니다</div>')+
+'<div class="r817S '+(good?'g':'')+'">'+(good?'👍 베트맨이 더 주는 선택: <b>'+e(nm(good))+'</b> ('+Number(good.odds).toFixed(2)+' vs 피나클 '+Number(good.pinO).toFixed(2)+')':'이 경기는 베트맨이 모두 덜 줍니다')+'</div></article>';}
 function r815Render(st){const el=$('r815Panel');if(!el)return;const X=st&&st.r815;if(!X||!X.games){el.innerHTML='<div class="pastEmpty">배당 자료를 불러오는 중입니다.</div>';return;}
 const kd=d=>{const x=new Date(Date.now()+9*3600000+d*86400000);return x.toISOString().slice(0,10)};let L=X.games.slice();
 if(r815Sp!=='all')L=L.filter(g=>g.sport===r815Sp);if(r815Day==='today')L=L.filter(g=>g.date===kd(0));else if(r815Day==='tom')L=L.filter(g=>g.date===kd(1));
-if(r815Only==='val')L=L.filter(g=>g.best&&g.best.ev>=1);
-const all=[];for(const g of L)for(const r of g.rows)if(r.odds>=1.31&&r.pick!=='무'&&r.p>0)all.push({g,r,ed:r816Edge(r)});const tops=all.filter(x=>x.ed>0).sort((a,b)=>b.ed-a.ed).slice(0,6);
+const has=g=>g.rows.some(r=>r.pinO>1&&(r.fam==='MONEYLINE'||r.fam==='TOTAL')&&r.odds>r.pinO&&r.odds>=1.31);if(r815Only==='val')L=L.filter(has);
 const B=(k,v,cur,t)=>'<button type="button" class="'+(cur===v?'on':'')+'" onclick="'+k+'=\\''+v+'\\';r815Lim=20;r815Render(state)">'+t+'</button>';
-el.innerHTML='<div class="r617Hd"><b>💱 배당비교 · 가치 배당판</b><small>베트맨 배당 ↔ 피나클 기준 공정 배당 · ▲ 초록 = 베트맨이 더 줌 · ▼ 빨강 = 베트맨이 덜 줌</small></div>'+
-'<div class="r804Fl">'+B('r815Day','all',r815Day,'전체')+B('r815Day','today',r815Day,'오늘')+B('r815Day','tom',r815Day,'내일')+B('r815Sp','all',r815Sp,'전 종목')+B('r815Sp','축구',r815Sp,'⚽ 축구')+B('r815Sp','농구',r815Sp,'🏀 농구')+B('r815Only','all',r815Only,'모든 경기')+B('r815Only','val',r815Only,'👍 가치 있는 경기만')+'</div>'+
-(tops.length?'<div class="r816Top"><div class="h">🏆 지금 가장 후한 베트맨 배당 TOP '+tops.length+'</div>'+tops.map((x,i)=>'<div class="it"><span class="n">'+(i+1)+'</span><span class="g">'+e(r560N(x.g.home)+' vs '+r560N(x.g.away))+'<small>'+e(String(x.g.time||'').slice(0,5)+' · '+(x.g.league||''))+'</small></span>'+r816Tile(x.g,x.r,'')+'</div>').join('')+'</div>':'')+
-'<div class="r617T">'+L.length+'경기</div>'+(L.length?L.slice(0,r815Lim).map(r815Card).join('')+(L.length>r815Lim?'<button type="button" class="r662More" onclick="r815Lim+=20;r815Render(state)">더 보기 ('+(L.length-r815Lim)+')</button>':''):'<div class="pastEmpty">조건에 맞는 경기가 없습니다. 피나클 배당은 보통 경기 하루 전부터 나옵니다.</div>')+
-'<div class="ccNote">공정 배당 = 피나클 배당에서 수수료를 빼고 베트맨 기준점으로 환산한 "원래 받아야 할 배당" · % = 베트맨 배당이 공정 배당보다 많이(▲) 또는 적게(▼) 주는 정도 · 흐린 칸 = 1.31배 미만 · 금색 테두리 = 이 경기에서 가장 후한 선택</div>'}
+el.innerHTML='<div class="r617Hd"><b>💱 배당비교</b><small>같은 선택에 베트맨과 피나클(해외 대표 업체)이 주는 배당을 나란히 비교</small></div>'+
+'<div class="r804Fl">'+B('r815Day','all',r815Day,'전체')+B('r815Day','today',r815Day,'오늘')+B('r815Day','tom',r815Day,'내일')+B('r815Sp','all',r815Sp,'전 종목')+B('r815Sp','축구',r815Sp,'⚽ 축구')+B('r815Sp','농구',r815Sp,'🏀 농구')+B('r815Only','all',r815Only,'모든 경기')+B('r815Only','val',r815Only,'👍 베트맨이 더 주는 경기')+'</div>'+
+'<div class="r617T">'+L.length+'경기</div>'+(L.length?L.slice(0,r815Lim).map(r815Card).join('')+(L.length>r815Lim?'<button type="button" class="r662More" onclick="r815Lim+=20;r815Render(state)">더 보기 ('+(L.length-r815Lim)+')</button>':''):'<div class="pastEmpty">조건에 맞는 경기가 없습니다.</div>')+
+'<div class="ccNote">베트맨 배당이 피나클보다 높으면 같은 선택에 돈을 더 받는다는 뜻입니다. 보통은 피나클이 더 줍니다.</div>'}
 function r772Render(st){const el=$('r734Panel');if(!el)return;el.innerHTML=r772Html(st)}
 let r772Lim=80,r772Fam='all',r772Sp='all';function r772Set(k,v){if(k==='fam')r772Fam=v;else r772Sp=v;r772Lim=80;r772Render(state)}
 function r772Html(st){const A=((st&&st.r772)||[]),spOf=x=>x.sp||(/NBA|KBL|WKBL|EASL|농/.test(String(x.lg||''))?'농구':/KBO|MLB|NPB/.test(String(x.lg||''))?'야구':/KOVO|V리그/.test(String(x.lg||''))?'배구':'축구'),L=A.filter(x=>(r772Fam==='all'||x.fam===r772Fam)&&(r772Sp==='all'||spOf(x)===r772Sp)),fm={MONEYLINE:'일반승',HANDICAP:'핸디',TOTAL:'언오버'};const kt=t=>{const d=new Date(Date.parse(t)+9*3600000);return String(d.getUTCMonth()+1)+'/'+d.getUTCDate()+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')};
