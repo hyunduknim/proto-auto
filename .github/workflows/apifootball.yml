@@ -38,6 +38,9 @@ jobs:
             # (11/6 08:20-11:40 no odds updates). This loop already runs all day, so it restarts the relay when none is running.
             n=$(gh run list -R "$REPO" -w official-settlement-relay.yml -L 5 --json status --jq '[.[]|select(.status!="completed")]|length' 2>/dev/null || echo x)
             if [ "$n" = "0" ]; then gh workflow run official-settlement-relay.yml -R "$REPO" --ref main && echo "relay restarted"; fi
+            # R819: same for the live board
+            n2=$(gh run list -R "$REPO" -w live.yml -L 5 --json status --jq '[.[]|select(.status!="completed")]|length' 2>/dev/null || echo x)
+            if [ "$n2" = "0" ]; then gh workflow run live.yml -R "$REPO" --ref main && echo "live restarted"; fi
             [ $(( $(date +%s) + 15*60 )) -lt $end ] || break
             sleep 900
           done

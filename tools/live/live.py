@@ -32,12 +32,14 @@ last = prev.get('last') or {}
 log = []
 
 DAY0 = dt.datetime.fromtimestamp(NOW, KST).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+WEEKDAY = dt.datetime.fromtimestamp(NOW, KST).weekday()  # Mon=0 … Sat=5, Sun=6
 def keep(g):
     """games stay on the board until 3 h after they finish; at KST midnight the board is cleared
     (owner 11/6 "실시간중계도 자정시간되면 초기화해줘") — only games still in play carry over"""
     if g.get('fin') and NOW - g.get('finAt', NOW) > 3 * 3600:
         return False
-    if g.get('fin') and g.get('finAt', NOW) < DAY0:
+    # R819 (owner 11/7 "토요일 일요일은 끊김없이"): no midnight clear going into Sat, Sun and Mon — weekend games run through the night
+    if g.get('fin') and g.get('finAt', NOW) < DAY0 and WEEKDAY not in (5, 6, 0):
         return False
     if not g.get('live') and not g.get('fin') and g.get('t', 0) / 1000 < DAY0:
         return False

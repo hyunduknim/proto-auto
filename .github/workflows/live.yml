@@ -7,6 +7,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  actions: write
 concurrency:
   group: live
   cancel-in-progress: false
@@ -26,7 +27,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
-          end=$(( $(date +%s) + 345*60 ))
+          end=$(( $(date +%s) + 340*60 ))
           mkdir -p keep
           curl -sf "https://raw.githubusercontent.com/$REPO/live/live.json?t=$(date +%s)" -o keep/live.json || true
           while [ $(date +%s) -lt $end ]; do
@@ -44,3 +45,5 @@ jobs:
             fi
             s=$(( 60 - ($(date +%s) - t0) )); [ $s -gt 0 ] && sleep $s
           done
+          # R819: hand over to the next run straight away (GitHub's schedule can skip for hours) — retried, queued behind this one
+          for i in 1 2 3 4 5; do gh workflow run live.yml -R "$REPO" --ref main && break; sleep $((i*15)); done
