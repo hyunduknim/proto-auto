@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R805-LIVE-REFRESH";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R806-FREEZE-AT-KICKOFF";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5842,6 +5842,21 @@ let b=false;if(pm!=null&&ph!=null&&Number.isFinite(L)&&L!==0)b=L>0?ph<pm-.03:ph>
 state.r602Audit={at:nowIso(),badLines:bad};return bad;}
 /* R686: the grade rules after r554Apply as one chain. r553Step re-ran r554Apply alone right after every restart, which brought
    back the 추천 / 가장추천 the later rules (플핸 caps, 무승부, 모델, 유럽대항전 …) had removed until the next full markState. */
+/* R806 (owner 11/6 "정밀분석에 픽이 가끔씩 이상하게 바껴있는것같음"): from round 131 the R771 pick decides the marking, but R771 stops
+   touching a game once it starts while the older R554 rules still run every refresh — so at kick-off they re-marked the game with their own
+   pick (an 분석만 game got marked, 일반 turned into 추천, a 핸디 became 일반승). Now the marking as it stood just before kick-off is saved
+   for every game, and from kick-off to settlement exactly that marking is put back after all rules have run. */
+const R806_FIELDS=['finalPick','finalOdds','displayGrade','hitProbability','calibratedProbability','r554','r771','r771Ana','r577Rec','r796','r554Why'];
+function r806Freeze(state){const S=state.r806||(state.r806={});const now=Date.now();let kept=0,fixed=0;
+for(const ms of groupMarkets((state.markets||[]).filter(m=>Number(m.gmTs||0)>=260131)).values()){if(ms.some(m=>m.manualOverride||m.manualReview))continue;const k=String(ms[0].gmTs)+'|'+ms[0].home+'|'+ms[0].away;const r806Id=m=>String(m.no)+'|'+m.marketFamily+'|'+(m.line??'');
+if(!started(ms[0])&&!ms.some(m=>m.resultFinal)){const mk=ms.find(m=>m.marked&&m.representativeSelected&&m.finalPick),an=ms.find(m=>m.r771Ana&&m.finalPick);const src=mk||an||null;
+S[k]={at:now,id:src?r806Id(src):null,marked:!!mk,f:src?Object.fromEntries(R806_FIELDS.filter(f=>src[f]!==undefined).map(f=>[f,JSON.parse(JSON.stringify(src[f]))])):null};kept++;continue;}
+const z=S[k];if(!z)continue;
+for(const m of ms){const me=z.id&&r806Id(m)===z.id;
+if(me){if(z.marked&&!(m.marked&&m.representativeSelected&&m.finalPick===z.f.finalPick&&m.displayGrade===z.f.displayGrade))fixed++;Object.assign(m,JSON.parse(JSON.stringify(z.f)));m.marked=z.marked;m.representativeSelected=z.marked;if(!z.marked&&m.marked)m.marked=false;}
+else if(m.marked||m.representativeSelected){m.marked=false;m.representativeSelected=false;if(m.displayGrade!=='일반')m.displayGrade='일반';fixed++;}}}
+for(const [k,v] of Object.entries(S))if(now-v.at>4*86400e3)delete S[k];
+state.r806Audit={at:nowIso(),kept,fixed};return fixed;}
 function r686Rules(state){
 try{r786UndoVoid(state);}catch(_){}
 try{r554Apply(state);}catch(_){}
@@ -5865,6 +5880,7 @@ try{r649Apply(state);}catch(_){}
 try{r663Apply(state);}catch(_){}
 try{r651Apply(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
+try{r806Freeze(state);}catch(e){state.r806Audit={at:nowIso(),err:String(e&&e.message||e).slice(0,200)};}
 }
 /* R776 (owner: "1.5오버가 전반 1.5오버 맞음?"): the backup odds source lists part-game markets (축구 전반, 야구 5이닝 …) without saying so.
    Betman numbers a game's full-time markets first and ends them with 언오버 then 홀짝, so anything numbered after 언오버+1 in the same game
