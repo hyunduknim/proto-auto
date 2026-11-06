@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R795-NBA-MIX";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R796-NBA-ALL";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4961,10 +4961,13 @@ if(pd>=.27){const alt=all771.filter(c=>c.x.marketFamily==='HANDICAP'&&((best.pic
 /* R792 ④ (owner: "배당정밀분석 픽 과 자동마킹 픽이 서로다른데 왜"): the top 3 options with the same final chance the marking used */
 const cands792=[...all771].sort((a,b)=>b.sc-a.sc).slice(0,3).map(c=>({fam:c.x.marketFamily,line:c.x.line??null,no:c.x.no,pick:c.pick,odds:c.odds,p:Math.round(c.p*1000)/1000,site:Math.round(c.site*1000)/1000,pin:c.pin==null?null:Math.round(c.pin*1000)/1000,kind:c.kind}));
 const at=nowIso();
-if(!best||!r782Ok(best)){hp771.push(best?Math.round(best.p*1000)/1000:0);for(const y of ms){if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;}y.finalPick=null;y.finalOdds=null;y.displayGrade='일반';delete y.r771Ana;y.r771Hide={at,p:best?Math.round(best.p*1000)/1000:null};}
+/* R796 (owner 11/6: "NBA는 예외로 전부 다 분석해줘 적중률 높으면 좋겠지만"): every priced NBA game is marked with its best pick, even under
+   57.5% (then 일반); 추천/가장추천 still need 63%/70%. */
+const nba796=!!(best&&best.x.league==='NBA');
+if(!best||(!r782Ok(best)&&!nba796)){hp771.push(best?Math.round(best.p*1000)/1000:0);for(const y of ms){if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;}y.finalPick=null;y.finalOdds=null;y.displayGrade='일반';delete y.r771Ana;y.r771Hide={at,p:best?Math.round(best.p*1000)/1000:null};}
 /* R784 (owner: "배당정밀분석에 왜 배당이 안나와있지?"): a game under the bar is not marked, but its best pick stays as an analysis-only pick so 배당 정밀분석 still shows the pick, odds and chance */if(best){const pp=Math.round(best.p*1000)/1000;best.x.finalPick=best.pick;best.x.finalOdds=best.odds;best.x.r554={...(best.x.r554||{}),ps:pp,selected:false,why:'적중확률 57.5% 미만 · 분석만'};best.x.r771Ana={at,p:pp,cands:cands792};}
 hid++;continue;}
-const x=best.x,p=Math.round(best.p*1000)/1000;let grade=r782Grade(best);const down=g=>g==='가장추천'?'추천':'일반';
+const x=best.x,p=Math.round(best.p*1000)/1000;let grade=r782Grade(best)||'일반';if(nba796&&!r782Ok(best))x.r796={at,p};else delete x.r796;const down=g=>g==='가장추천'?'추천':'일반';
 /* R773 ① 🤝: site and Pinnacle agree (within 5%p) → badge; far apart → one grade lower (the game stays) */const agree=best.pin!=null&&Math.abs(best.site-best.pin)<.05,split=best.pin!=null&&Math.abs(best.site-best.pin)>=.05;if(split)grade=down(grade);
 /* R773 ②: a league under 50% (15+ settled picks) → one grade lower with a warning */const lgr=L.lgAll.get(String(x.league));const weak=lgr&&lgr.n>=15&&lgr.hit/lgr.n<.5?{n:lgr.n,rate:Math.round(lgr.hit/lgr.n*1000)/1000}:null;if(weak)grade=down(grade);
 for(const y of ms)if(y!==x){if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;}y.finalPick=null;y.finalOdds=null;if(y.displayGrade!=='일반')y.displayGrade='일반';delete y.r771Hide;}
