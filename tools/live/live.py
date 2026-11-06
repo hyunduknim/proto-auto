@@ -221,7 +221,7 @@ except Exception as e:
 # ---------------- 국내 (API-Sports free: basketball / volleyball / baseball) ----------------
 KR = {
  'basketball': [('JungKwanJang', '정관장'), ('Knights', 'SK'), ('Thunders', '삼성'), ('KCC', 'KCC'), ('Sakers', 'LG'), ('Sono', '소노'), ('Sonicboom', 'KT'), ('Promy', 'DB'), ('Wonju', 'DB'), ('Suwon KT', 'KT'), ('Seoul SK', 'SK'), ('Seoul Samsung', '삼성'), ('Changwon', 'LG'), ('Goyang', '소노'), ('Busan KCC', 'KCC'), ('Anyang', '정관장'), ('Ulsan', '현대모비스'), ('Daegu', '가스공사'), ('Mobis', '현대모비스'), ('Pegasus', '가스공사'), ('KOGAS', '가스공사'),
-                ('Hana', '하나은행'), ('KB Stars', 'KB'), ('Woori', '우리은행'), ('Samsung Life', '삼성생명'), ('Blue Minx', '삼성생명'), ('Shinhan', '신한은행'), ('BNK', 'BNK')],
+                ('Hana', '하나은행'), ('KB Stars', 'KB'), ('Woori', '우리은행'), ('Samsung Life', '삼성생명'), ('Blue Minx', '삼성생명'), ('Shinhan', '신한은행'), ('S-Birds', '신한은행'), ('BNK', 'BNK')],
  'volleyball': [('KAL', '대한항공'), ('Korean Air', '대한항공'), ('Kepco', '한국전력'), ('Hyundai Capital', '현대캐피탈'), ('Samsung Fire', '삼성화재'), ('OK', 'OK'), ('Woori', '우리카드'), ('KB Insurance', 'KB손해보험'),
                 ('IBK', 'IBK'), ('GS Caltex', 'GS칼텍스'), ('Hyundai E', '현대건설'), ('Heungkuk', '흥국생명'), ('Expressway', '도로공사'), ('Gimcheon', '도로공사'), ('Red Sparks', '정관장'), ('JKJ', '정관장'), ('Daejeon', '정관장'), ('Hwaseong', 'IBK'), ('Incheon', '흥국생명'), ('Suwon Hyundai', '현대건설'), ('Gwangju', '페퍼'), ('Pepper', '페퍼')],
  'baseball': [('Samsung', '삼성'), ('KT Wiz', 'KT'), ('LG', 'LG'), ('Doosan', '두산'), ('SSG', 'SSG'), ('Kiwoom', '키움'), ('Hanwha', '한화'), ('Lotte', '롯데'), ('NC', 'NC'), ('Kia', 'KIA')]}
