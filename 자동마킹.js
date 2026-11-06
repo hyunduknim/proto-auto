@@ -4797,10 +4797,10 @@ function r755Norm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')
 const R797={w:.2,sdT:18,sdM:13,hca:1.5,k:12,keyEach:.02,keyMax:.06,oppEach:.01,oppMax:.03};
 function r797Phi(z){const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2),q=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-q:q;}
 function r797Ctx(state){const T=state?.r755?.teams;if(!T)return null;const V=Object.values(T).map(t=>t.all).filter(Boolean);if(!V.length)return null;const avg=k=>V.reduce((a,t)=>a+(Number(t[k])||0),0)/V.length;
-const lg={ortg:avg('ortg'),drtg:avg('drtg'),pace:avg('pace')};let G={};try{G=r755Games(state)?.games||{};}catch(_){}return {lg,G};}
+const lg={ortg:avg('ortg'),drtg:avg('drtg'),pace:avg('pace')};let G={};try{G=r755Games(state)?.games||{};}catch(_){}return {lg,G,inj:state.r644||{}};}
 function r797Team(C,t){const a=t.all||{},l=t.last5||{},n=Number(a.n)||0,mix=k=>(Number(l.n)>=3?.6*Number(a[k])+.4*Number(l[k]):Number(a[k]));const sh=k=>(n*mix(k)+R797.k*C.lg[k])/(n+R797.k);return {o:sh('ortg'),d:sh('drtg'),pace:sh('pace'),n};}
 function r797Info(C,m){if(!C||m.league!=='NBA')return null;const g=C.G[String(m.gmTs)+'|'+m.home+'|'+m.away];if(!g||!g.h||!g.a)return null;const H=r797Team(C,g.h),A=r797Team(C,g.a);if(!(H.n>=3&&A.n>=3))return null;
-const pace=(H.pace+A.pace)/2,ph=pace*(H.o+A.d)/200+R797.hca,pa=pace*(A.o+H.d)/200-R797.hca;const k=m.r644||{};
+const pace=(H.pace+A.pace)/2,ph=pace*(H.o+A.d)/200+R797.hca,pa=pace*(A.o+H.d)/200-R797.hca;let k={};try{k=m.r644||C.inj[r483FixtureKey(m)]||{};}catch(_){}
 return {ph:Math.round(ph*10)/10,pa:Math.round(pa*10)/10,t:Math.round((ph+pa)*10)/10,mg:Math.round((ph-pa)*10)/10,n:[H.n,A.n],ko:{h:(k.home?.keyOut||[]).length,a:(k.away?.keyOut||[]).length}};}
 function r797Adj(I,fam,pick,line,p){if(!I)return {p,why:[]};let pm=null;const L=Number(line);
 if(fam==='TOTAL'&&Number.isFinite(L)){const po=1-r797Phi((L-I.t)/R797.sdT);pm=pick==='오버'?po:pick==='언더'?1-po:null;}
