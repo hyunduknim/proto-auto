@@ -275,7 +275,7 @@ for sport in ('basketball', 'volleyball', 'baseball'):
                     for side, idx, nm in ((A, 1, '초'), (H, 0, '말')):
                         r = q[idx]
                         if r is not None and (i >= len(prevr) or prevr[i][idx] != r) and r > 0:
-                            feed_add(g, f'⚾ {i+1}회{nm} {side} {r}점! · {H} {hs}:{as_} {A}', 'score', key=f'i{i}{idx}{r}')
+                            feed_add(g, f'⚾ {i+1}회{nm} {side} {r}점!' + (f' · {H} {hs}:{as_} {A}' if prevr else ''), 'score', key=f'i{i}{idx}{r}')
                 g['_inn'] = per
             if fin:
                 if not g.get('finAt'):
@@ -287,6 +287,9 @@ for sport in ('basketball', 'volleyball', 'baseball'):
     except Exception as e:
         log.append(sport + ' ' + str(e)[:120])
 
+LGK = {'Volleyball League': 'V리그 남자', 'Volleyball League Women': 'V리그 여자', 'WKBL W': 'WKBL', 'KBL': 'KBL', 'KBO': 'KBO'}
+for g in G.values():
+    g['lg'] = LGK.get(g.get('lg'), g.get('lg'))
 games = [g for g in G.values() if keep(g)]
 games.sort(key=lambda g: (not g.get('live'), g.get('fin', False), g.get('t', 0)))
 out = {'at': dt.datetime.utcfromtimestamp(NOW).isoformat() + 'Z', 'games': games, 'calls': calls, 'last': last, 'sched': sched, 'log': log[-10:]}
