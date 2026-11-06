@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R818-NO-ODDSCMP";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R820-NO-NODATA";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4836,7 +4836,7 @@ if(hit){const m=hit.m0;o.bm={no:m.no,home:m.home,away:m.away,league:m.league};co
 /* R811 (owner 11/7 "프로토 전경기 문자중계"): the board shows proto games only — every proto game from 2 h before kick-off until it ends;
    a proto game the live sources do not cover still gets its card ("중계 자료 없음") */
 const seen=new Set(out.filter(o=>o.bm).map(o=>String(o.bm.no)));const extra=[];
-for(const x of idx){const m=x.m0;if(seen.has(String(m.no))||x.t==null||m.resultFinal)continue;const dtm=x.t-now;if(dtm>2*3600e3||dtm<-3*3600e3)continue;
+for(const x of idx){const m=x.m0;if(seen.has(String(m.no))||x.t==null||m.resultFinal)continue;const dtm=x.t-now;/* R820 (owner: "더비카운티 볼턴 중계 삭제해줘"): a started game with no live source is not shown */if(dtm>2*3600e3||dtm<=0)continue;
 const mk=x.ms.find(r804Pick);const o={id:'bm'+m.no,sp:m.sport,src:'bm',lg:m.league,t:x.t,h:m.home,a:m.away,bm:{no:m.no,home:m.home,away:m.away,league:m.league},live:false,fin:false,hs:null,as:null,feed:[],stx:dtm>0?'':'진행 중 · 중계 자료 없음'};if(mk)o.pick=r804Pick(mk);if(dtm<=0)o.nodata=true;extra.push(o);}
 /* R812 (owner: "14시 껄로 지금 나와있는데?"): games not yet started appear only from 2 h before kick-off */
 const soon=o=>o.live||o.fin||o.nodata||(o.t!=null&&o.t-now<=2*3600e3);
