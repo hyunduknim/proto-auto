@@ -221,7 +221,7 @@ for sport in ('basketball', 'volleyball', 'baseball'):
                 S = it['scores']; hs, as_ = S['home']['total'], S['away']['total']
                 qs = [[S['home'].get(k), S['away'].get(k)] for k in ('quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'over_time')]
                 per = [q for q in qs if q[0] is not None]
-                g.update({'per': per, 'clock': (f"{st.get('timer')}분" if st.get('timer') else ''), 'stx': {'Q1': '1쿼터', 'Q2': '2쿼터', 'Q3': '3쿼터', 'Q4': '4쿼터', 'OT': '연장', 'BT': '쿼터 휴식', 'HT': '하프타임'}.get(short, st.get('long'))})
+                g.update({'per': per, 'clock': (f"{st.get('timer')}분" if st.get('timer') and short not in ('HT', 'BT') else ''), 'stx': {'Q1': '1쿼터', 'Q2': '2쿼터', 'Q3': '3쿼터', 'Q4': '4쿼터', 'OT': '연장', 'BT': '쿼터 휴식', 'HT': '하프타임'}.get(short, st.get('long'))})
             elif sport == 'volleyball':
                 S = it['scores']; hs, as_ = S['home'], S['away']; P = it.get('periods') or {}
                 per = [[P[k]['home'], P[k]['away']] for k in ('first', 'second', 'third', 'fourth', 'fifth') if P.get(k) and P[k].get('home') is not None]
@@ -238,14 +238,15 @@ for sport in ('basketball', 'volleyball', 'baseball'):
             # ---- 중계 문장 (점수 변화로 작성) ----
             if sport == 'basketball':
                 prevper = g.get('_per') or []
+                brk = short in ('HT', 'BT')
                 for i, q in enumerate(per):
-                    done = i < len(per) - 1 or fin
+                    done = i < len(per) - 1 or fin or brk
                     if done and (i >= len(prevper) or not prevper[i][2:]):
                         nm = f'{i+1}쿼터' if i < 4 else '연장'
                         cum = [sum(x[0] or 0 for x in per[:i+1]), sum(x[1] or 0 for x in per[:i+1])]
                         lead = H if cum[0] > cum[1] else A if cum[1] > cum[0] else None
                         feed_add(g, f'⏸ {nm} 종료 · 이 쿼터 {H} {q[0]}:{q[1]} {A} · 누적 {cum[0]}:{cum[1]}' + (f' ({lead} {abs(cum[0]-cum[1])}점 리드)' if lead else ' (동점)'), 'period', key=f'q{i}')
-                g['_per'] = [q + ['d'] if (i < len(per) - 1 or fin) else q for i, q in enumerate(per)]
+                g['_per'] = [q + ['d'] if (i < len(per) - 1 or fin or brk) else q for i, q in enumerate(per)]
                 if ph is not None and (hs, as_) != (ph, pa) and not fin:
                     dh, da = hs - ph, as_ - pa
                     run = H if dh - da >= 7 else A if da - dh >= 7 else None
