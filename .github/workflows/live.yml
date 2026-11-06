@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  id-token: write
 concurrency:
   group: live
   cancel-in-progress: false
@@ -34,6 +35,9 @@ jobs:
             python3 tools/live/live.py || true
             if [ -s out/live.json ]; then
               cp out/live.json keep/live.json
+              # R807: push straight to the site (the raw GitHub address served copies several minutes old)
+              tok=$(curl -sf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=protonumber-official-settlement" | python3 -c "import json,sys;print(json.load(sys.stdin)['value'])" 2>/dev/null || true)
+              [ -n "$tok" ] && curl -sS -m 20 -o /dev/null -w "push %{http_code}\n" -X POST -H "Authorization: Bearer $tok" -H "content-type: application/json" --data-binary @out/live.json https://protonumber.mystyle276.workers.dev/api/live-push || true
               ( cd out && git init -q -b live && git config user.name live-bot && git config user.email live-bot@users.noreply.github.com && git add live.json && git commit -qm live && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" live ) || echo push-failed
             fi
             s=$(( 60 - ($(date +%s) - t0) )); [ $s -gt 0 ] && sleep $s

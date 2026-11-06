@@ -94,6 +94,28 @@ if win and KEY:
             if st.get('short') == 'HT':
                 feed_add(g, f'⏸ 전반 종료 {hs}:{as_}', 'period', key='HT')
             G[gid] = g
+        # corners / cards / shots every 2 min (owner: "옐로카드 레드카드 · 코너킥 표시")
+        for gid, g in G.items():
+            if g.get('sp') != '축구' or not g.get('live') or g.get('af') not in live_ids or NOW - g.get('_statAt', 0) < 110:
+                continue
+            try:
+                r = get(f"https://v3.football.api-sports.io/fixtures/statistics?fixture={g['af']}", key=True)
+                calls['fb'] = calls.get('fb', 0) + 1; g['_statAt'] = NOW
+                T = {}
+                for side in r.get('response') or []:
+                    k = 'h' if side['team']['id'] == g.get('hid') else 'a'
+                    for x in side.get('statistics') or []:
+                        T.setdefault(x['type'], {})[k] = x.get('value')
+                v = lambda t: [int(T.get(t, {}).get('h') or 0), int(T.get(t, {}).get('a') or 0)]
+                old = g.get('stat') or {}
+                st2 = {'cor': v('Corner Kicks'), 'yc': v('Yellow Cards'), 'rc': v('Red Cards'), 'sot': v('Shots on Goal'), 'sh': v('Total Shots'), 'pos': [str(T.get('Ball Possession', {}).get('h') or ''), str(T.get('Ball Possession', {}).get('a') or '')]}
+                oc = old.get('cor') or [0, 0]
+                for i, nm in ((0, g['h']), (1, g['a'])):
+                    if st2['cor'][i] > oc[i] and old:
+                        feed_add(g, f"{g.get('clock','')} 🚩 코너킥 {nm} (+{st2['cor'][i]-oc[i]}) · 코너 누적 {st2['cor'][0]}:{st2['cor'][1]}", 'corner', key=f"cor{i}-{st2['cor'][i]}")
+                g['stat'] = st2
+            except Exception as e:
+                log.append('fb stat ' + str(e)[:80])
         # tracked games that left the live list → fetch the final once
         for gid, g in list(G.items()):
             if g.get('sp') == '축구' and g.get('live') and g.get('af') not in live_ids:
@@ -198,7 +220,12 @@ def dom_due(sport):
         return True  # first look of the day
     ts = sch.get('t') or []
     on = any(t / 1000 - 10 * 60 <= NOW <= t / 1000 + 4 * 3600 for t in ts) and any(not G.get(i, {}).get('fin') for i in sch.get('ids', [])) if ts else False
-    return on and NOW - last.get(sport, 0) >= 170 and calls.get(sport, 0) < 90
+    left = 92 - calls.get(sport, 0)
+    if not on or left <= 0:
+        return False
+    span = (max(ts) / 1000 + (3.6 if sport == 'baseball' else 2.4) * 3600) - NOW  # until the last game should end
+    gap = min(300, max(60, span / left))
+    return NOW - last.get(sport, 0) >= gap - 5
 sched = prev.get('sched') or {}
 for sport in ('basketball', 'volleyball', 'baseball'):
     if not KEY or not dom_due(sport):
@@ -253,7 +280,7 @@ for sport in ('basketball', 'volleyball', 'baseball'):
                     flip = (ph - pa) * (hs - as_) < 0
                     tag = '🔥 ' + run + f' {max(dh,da)}:{min(dh,da)} 몰아치기! ' if run else ''
                     tag += '🔄 역전! ' if flip else '🤝 동점! ' if hs == as_ else ''
-                    feed_add(g, f"{g.get('stx','')} {g.get('clock','')} · {tag}{H} {hs}:{as_} {A} (최근 {dh}:{da})".strip(), 'run' if run or flip else 'score', key=f's{hs}-{as_}')
+                    feed_add(g, f"🏀 {g.get('stx','')} {g.get('clock','')} · {tag}{H} {hs}:{as_} {A} (득점 {H} +{dh} · {A} +{da})".replace('  ', ' '), 'run' if run or flip else 'score', key=f's{hs}-{as_}')
             elif sport == 'volleyball':
                 prevn = g.get('_sets', 0)
                 done = len(per) if fin else max(0, len(per) - 1)
@@ -267,15 +294,18 @@ for sport in ('basketball', 'volleyball', 'baseball'):
                     if cur != pc and len(per) == g.get('_curn', 0):
                         dh, da = (cur[0] or 0) - pc[0], (cur[1] or 0) - pc[1]
                         run = H if dh - da >= 4 else A if da - dh >= 4 else None
-                        feed_add(g, f'{len(per)}세트 {H} {cur[0]}:{cur[1]} {A}' + (f' · 🔥 {run} {max(dh,da)}:{min(dh,da)} 연속 득점' if run else '') + (' · 세트포인트!' if max(cur) >= 24 and abs(cur[0]-cur[1]) >= 1 and len(per) < 5 or max(cur) >= 14 and len(per) == 5 else ''), 'run' if run else 'score', key=f'c{len(per)}-{cur[0]}-{cur[1]}')
+                        sh = sum(1 for x in per[:-1] if x[0] > x[1]); sa = sum(1 for x in per[:-1] if x[1] > x[0])
+                        feed_add(g, f'🏐 {len(per)}세트 {H} {cur[0]}:{cur[1]} {A} (이번에 {dh}:{da} 득점 · 세트 {sh}:{sa})' + (f' · 🔥 {run} {max(dh,da)}:{min(dh,da)} 연속 득점' if run else '') + (' · 세트포인트!' if max(cur) >= 24 and abs(cur[0]-cur[1]) >= 1 and len(per) < 5 or max(cur) >= 14 and len(per) == 5 else ''), 'run' if run else 'score', key=f'c{len(per)}-{cur[0]}-{cur[1]}')
                     g['_cur'] = [cur[0] or 0, cur[1] or 0]; g['_curn'] = len(per)
             else:
                 prevr = g.get('_inn') or []
                 for i, q in enumerate(per):
                     for side, idx, nm in ((A, 1, '초'), (H, 0, '말')):
                         r = q[idx]
-                        if r is not None and (i >= len(prevr) or prevr[i][idx] != r) and r > 0:
-                            feed_add(g, f'⚾ {i+1}회{nm} {side} {r}점!' + (f' · {H} {hs}:{as_} {A}' if prevr else ''), 'score', key=f'i{i}{idx}{r}')
+                        pr = prevr[i][idx] if i < len(prevr) and prevr[i][idx] is not None else 0
+                        if r is not None and r > pr:
+                            add = r - pr
+                            feed_add(g, f'⚾ {i+1}회{nm} {side} 득점! +{add}점' + (f' (이번 회 {r}점)' if pr else '') + (f' · {H} {hs}:{as_} {A}' if prevr else ''), 'score', key=f'i{i}{idx}{r}')
                 g['_inn'] = per
             if fin:
                 if not g.get('finAt'):
