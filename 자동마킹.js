@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R798-KR-58";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R799-PIN-NBA-DAILY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5048,7 +5048,8 @@ return {id:'pin-'+day,by:'pin',title:'📌 '+day.slice(5).replace('-','/')+' 피
 /* R767 (owner: "피나클추천도 똑같이 NBA 5경기 이상있을때 예약분석이랑 비슷한 시간으로 NBA픽 일반승 핸디캡 언오버 섞어서 3~4픽"):
    at 07:00 KST, when 5+ NBA games tip off between 07:15 and 14:00, a second 📌 post carries 3~4 NBA picks mixed across
    일반승 / 핸디 / 언오버 (one per game, best of each type first), from the same Pinnacle model. Games already in the 01:00 post are skipped. */
-const R767={hour:7,lastHour:12,minGames:5,from:[7,15],to:[14,0],min:3,max:4};
+/* R799 (owner 11/6 "피나클추천은 축구 농구 둘 다 해줘"): the 07:00 NBA 📌 post now goes up whenever there is at least one NBA game in the window (was 5+), 2~4 picks */
+const R767={hour:7,lastHour:12,minGames:1,from:[7,15],to:[14,0],min:2,max:4};
 function r767Build(state,now){const day=new Date(now+9*3600e3).toISOString().slice(0,10),t0=Date.parse(day+'T07:15:00+09:00'),t1=Date.parse(day+'T14:00:00+09:00');
 const nba=m=>/NBA/.test(String(m.league||''));const seeds=new Set();for(const m of state.markets||[]){if(!nba(m)||m.resultFinal)continue;const t=gameTimeMs(m);if(t!=null&&t>=t0&&t<=t1)seeds.add(gameSeed(m));}
 if(seeds.size<R767.minGames)return {skip:'NBA '+seeds.size+'경기'};

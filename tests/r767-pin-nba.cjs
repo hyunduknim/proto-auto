@@ -16,5 +16,5 @@ assert.ok(picks.length>=3&&picks.length<=4,'3~4 picks: '+picks.length);assert.ok
 assert.equal(new Set(picks.map(x=>x.home)).size,picks.length,'one per game');
 assert.equal(run('r760Update(ST,NOW+600e3).status'),'IDLE','once a day');
 // fewer than 5 games -> no post
-run('ST.markets=ST.markets.filter(m=>m.home!=="H4");ST.r760Posts=[{id:"pin-2099-01-02",groups:[]}]');assert.ok(!run('r760Update(ST,NOW).id'));assert.equal(run('ST.r760Posts.length'),1);
+run('ST.markets=ST.markets.filter(m=>m.home!=="H4");ST.r760Posts=[{id:"pin-2099-01-02",groups:[]}]');/* R799: fewer than 5 NBA games now still get the post */assert.equal(run('r760Update(ST,NOW).id'),'pin-nba-2099-01-02');assert.equal(run('ST.r760Posts.length'),2);
 console.log('r767 ok',picks.map(x=>x.label+' '+x.odds+' '+x.p).join(' | '));
