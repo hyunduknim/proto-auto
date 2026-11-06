@@ -6,6 +6,7 @@ on:
   workflow_dispatch: {}
 permissions:
   contents: write
+  actions: write
 concurrency: { group: apifootball, cancel-in-progress: true }
 jobs:
   build:
@@ -33,6 +34,10 @@ jobs:
               ( cd out && rm -rf .git && git init -q -b apifootball && git config user.name "apifootball-bot" && git config user.email "apifootball-bot@users.noreply.github.com" \
                 && git add af_soccer.json && git commit -qm "soccer summary" && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" apifootball ) || true
             fi
+            # R794: the Betman odds/result relay keeps itself going by dispatching its next run; if one dispatch fails the chain stops
+            # (11/6 08:20-11:40 no odds updates). This loop already runs all day, so it restarts the relay when none is running.
+            n=$(gh run list -R "$REPO" -w official-settlement-relay.yml -L 5 --json status --jq '[.[]|select(.status!="completed")]|length' 2>/dev/null || echo x)
+            if [ "$n" = "0" ]; then gh workflow run official-settlement-relay.yml -R "$REPO" --ref main && echo "relay restarted"; fi
             [ $(( $(date +%s) + 15*60 )) -lt $end ] || break
             sleep 900
           done

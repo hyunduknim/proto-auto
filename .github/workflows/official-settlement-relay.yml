@@ -354,8 +354,8 @@ jobs:
               core.info("OFFICIAL_LIVE_QUEUED="+other.map(w=>w.id).join(","));
               return;
             }
-            await github.rest.actions.createWorkflowDispatch({
+            // R794: one failed dispatch used to end the chain for hours, so retry before giving up
+            for(let i=1;i<=5;i++){try{await github.rest.actions.createWorkflowDispatch({
               owner:context.repo.owner,repo:context.repo.repo,
               workflow_id:"official-settlement-relay.yml",ref:"main"
-            });
-            core.info("OFFICIAL_LIVE_NEXT_DISPATCHED=1");
+            });core.info("OFFICIAL_LIVE_NEXT_DISPATCHED="+i);break;}catch(e){core.warning("dispatch attempt "+i+" failed: "+String(e&&e.message||e));if(i===5)throw e;await new Promise(r=>setTimeout(r,15000*i));}}
