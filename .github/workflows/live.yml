@@ -1,0 +1,37 @@
+name: live
+# R804 실시간 중계: one pass a minute for ~5h45m; a new run is queued by the schedule and starts when the previous ends.
+on:
+  schedule:
+    - cron: "7 */2 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: live
+  cancel-in-progress: false
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/live
+      - name: Loop
+        env:
+          K: ${{ secrets.API_FOOTBALL_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          end=$(( $(date +%s) + 345*60 ))
+          while [ $(date +%s) -lt $end ]; do
+            t0=$(date +%s)
+            rm -rf prev af out && mkdir -p prev af
+            curl -sf "https://raw.githubusercontent.com/$REPO/live/live.json?t=$t0" -o prev/live.json || true
+            curl -sf "https://raw.githubusercontent.com/$REPO/apifootball/af_soccer.json?t=$t0" -o af/af_soccer.json || true
+            python3 tools/live/live.py || true
+            if [ -s out/live.json ]; then
+              ( cd out && git init -q -b live && git config user.name live-bot && git config user.email live-bot@users.noreply.github.com && git add live.json && git commit -qm live && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" live ) || echo push-failed
+            fi
+            s=$(( 60 - ($(date +%s) - t0) )); [ $s -gt 0 ] && sleep $s
+          done
