@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R797-NBA-STATS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R798-KR-58";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4926,7 +4926,10 @@ function r771Learn(state){const lg=new Map(),all=new Map(),lgAll=new Map();for(c
 function r771Adj(L,league,fam,kind){const a=fam+'|'+kind,r=L.lg.get(String(league)+'|'+a);const use=r&&r.n>=R771.learnN?r:(L.all.get(a)?.n>=R771.learnAllN?L.all.get(a):null);if(!use)return {adj:0,n:0};const rate=use.hit/use.n;return {adj:Math.round(clamp((rate-(L.mid??.6))*R771.learnK,R771.learnLo,R771.learnHi)*1000)/1000,n:use.n,rate:Math.round(rate*1000)/1000};}
 /* R782 (owner: "알아서 최적화로"): NBA·농구 핸디/언오버 pay ~1.70–1.78 and rarely reach 57.5%; from 55% (and chance×odds ≥ 0.96) they are
    marked as 일반 so basketball mixes 일반승 · 핸디 · 언오버. */
-function r782Ok(c){return !!(r771Grade(c.p)||(c.x&&c.x.sport==='농구'&&c.x.marketFamily!=='MONEYLINE'&&c.p>=.55&&c.p*c.odds>=.96));}
+/* R798 (owner 11/6 15:40 "국내경기 58프로도 안되면 패스하고 되는것만 해줘" · "지금말고 오후6시에 예약"): from 11/6 18:00 KST Korean
+   domestic games are marked only from 58% (other games keep 57.5%). */
+const R798_KR=new Set(['KBO','KBL','WKBL','KOVO남','KOVO여','K리그1','K리그2']);
+function r782Ok(c){if(c&&c.x&&R798_KR.has(String(c.x.league))&&Date.now()>=Date.parse('2026-11-06T09:00:00Z')&&!(c.p>=.58-1e-9))return false;return !!(r771Grade(c.p)||(c.x&&c.x.sport==='농구'&&c.x.marketFamily!=='MONEYLINE'&&c.p>=.55&&c.p*c.odds>=.96));}
 function r782Grade(c){return r771Grade(c.p)||(r782Ok(c)?'일반':null);}
 function r771Grade(p){const v=Math.round(p*100)/100;return v>=R771.best?'가장추천':v>=R771.rec?'추천':p>=R771.show-1e-9?'일반':null;}
 /* R778 (owner: "유료 api 했는데 별차이를 못 느끼겠는데"): API-Football now changes the soccer marking itself, not only the text.
