@@ -17,7 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: tools/live
+          sparse-checkout: |
+            tools/live
+            tools/apifootball
       - name: Loop
         env:
           K: ${{ secrets.API_FOOTBALL_KEY }}

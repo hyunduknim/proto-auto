@@ -54,7 +54,15 @@ def feed_add(g, line, kind='info', key=None):
 # ---------------- 해외축구 · K리그 (API-Football) ----------------
 af = load('af/af_soccer.json', {})
 fx = {int(x['id']): x for x in af.get('fx', []) if x.get('id')}
-win = [x for x in fx.values() if x.get('t') and -5 * 60 <= NOW - x['t'] / 1000 <= 150 * 60]
+# R811 (owner 11/7 "이시간이후 프로토 전경기 문자중계"): every live game in the leagues Betman lists, not only the ones in af_soccer.json
+try:
+    import ast as _ast
+    _src = open('tools/apifootball/af_soccer.py', encoding='utf-8').read()
+    LEAGUES = _ast.literal_eval(re.search(r'LEAGUES\s*=\s*(\{[^}]*\})', _src).group(1))
+except Exception:
+    LEAGUES = set()
+LEAGUES |= {int(x.get('lgid')) for x in fx.values() if x.get('lgid')}
+win = [1] if KEY else []
 EVK = {'Goal': 'goal', 'Card': 'card', 'subst': 'sub', 'Var': 'var'}
 def ev_line(e, g):
     m = (e.get('time') or {}).get('elapsed'); ex = (e.get('time') or {}).get('extra')
@@ -83,10 +91,10 @@ if win and KEY:
         live_ids = set()
         for it in j.get('response', []):
             fid = it['fixture']['id']
-            if fid not in fx:
+            if fid not in fx and it['league']['id'] not in LEAGUES:
                 continue
             live_ids.add(fid)
-            x = fx[fid]; st = it['fixture']['status']
+            x = fx.get(fid) or {'t': int(it['fixture']['timestamp']) * 1000}; st = it['fixture']['status']
             gid = f'fb{fid}'
             g = G.get(gid) or {'id': gid, 'sp': '축구', 'src': 'af', 'af': fid, 't': x['t'], 'lg': it['league']['name'], 'h': it['teams']['home']['name'], 'a': it['teams']['away']['name'], 'hid': it['teams']['home']['id'], 'aid': it['teams']['away']['id']}
             hs, as_ = it['goals']['home'] or 0, it['goals']['away'] or 0
@@ -100,10 +108,14 @@ if win and KEY:
             if st.get('short') == 'HT':
                 feed_add(g, f'⏸ 전반 종료 {hs}:{as_}', 'period', key='HT')
             G[gid] = g
-        # corners / cards / shots every 2 min (owner: "옐로카드 레드카드 · 코너킥 표시")
+        stat_n = 0
+        # corners / cards / shots every 3 min (owner: "옐로카드 레드카드 · 코너킥 표시")
         for gid, g in G.items():
-            if g.get('sp') != '축구' or not g.get('live') or g.get('af') not in live_ids or NOW - g.get('_statAt', 0) < 110:
+            if g.get('sp') != '축구' or not g.get('live') or g.get('af') not in live_ids or NOW - g.get('_statAt', 0) < 170:
                 continue
+            if stat_n >= 6:  # at most 6 statistics calls a pass (oldest first next pass)
+                continue
+            stat_n += 1
             try:
                 r = get(f"https://v3.football.api-sports.io/fixtures/statistics?fixture={g['af']}", key=True)
                 calls['fb'] = calls.get('fb', 0) + 1; g['_statAt'] = NOW
@@ -208,10 +220,10 @@ except Exception as e:
 
 # ---------------- 국내 (API-Sports free: basketball / volleyball / baseball) ----------------
 KR = {
- 'basketball': [('JungKwanJang', '정관장'), ('Knights', 'SK'), ('Thunders', '삼성'), ('KCC', 'KCC'), ('Sakers', 'LG'), ('Sono', '소노'), ('Sonicboom', 'KT'), ('Promy', 'DB'), ('Mobis', '현대모비스'), ('Pegasus', '가스공사'), ('KOGAS', '가스공사'),
-                ('Hana', '하나은행'), ('KB Stars', 'KB'), ('Woori', '우리은행'), ('Samsung Life', '삼성생명'), ('Shinhan', '신한은행'), ('BNK', 'BNK')],
- 'volleyball': [('KAL', '대한항공'), ('Kepco', '한국전력'), ('Hyundai Capital', '현대캐피탈'), ('Samsung Fire', '삼성화재'), ('OK', 'OK'), ('Woori Card', '우리카드'), ('KB Insurance', 'KB손해보험'),
-                ('IBK', 'IBK'), ('GS Caltex', 'GS칼텍스'), ('Hyundai E', '현대건설'), ('Heungkuk', '흥국생명'), ('Expressway', '도로공사'), ('Red Sparks', '정관장'), ('Pepper', '페퍼')],
+ 'basketball': [('JungKwanJang', '정관장'), ('Knights', 'SK'), ('Thunders', '삼성'), ('KCC', 'KCC'), ('Sakers', 'LG'), ('Sono', '소노'), ('Sonicboom', 'KT'), ('Promy', 'DB'), ('Wonju', 'DB'), ('Suwon KT', 'KT'), ('Seoul SK', 'SK'), ('Seoul Samsung', '삼성'), ('Changwon', 'LG'), ('Goyang', '소노'), ('Busan KCC', 'KCC'), ('Anyang', '정관장'), ('Ulsan', '현대모비스'), ('Daegu', '가스공사'), ('Mobis', '현대모비스'), ('Pegasus', '가스공사'), ('KOGAS', '가스공사'),
+                ('Hana', '하나은행'), ('KB Stars', 'KB'), ('Woori', '우리은행'), ('Samsung Life', '삼성생명'), ('Blue Minx', '삼성생명'), ('Shinhan', '신한은행'), ('BNK', 'BNK')],
+ 'volleyball': [('KAL', '대한항공'), ('Korean Air', '대한항공'), ('Kepco', '한국전력'), ('Hyundai Capital', '현대캐피탈'), ('Samsung Fire', '삼성화재'), ('OK', 'OK'), ('Woori', '우리카드'), ('KB Insurance', 'KB손해보험'),
+                ('IBK', 'IBK'), ('GS Caltex', 'GS칼텍스'), ('Hyundai E', '현대건설'), ('Heungkuk', '흥국생명'), ('Expressway', '도로공사'), ('Gimcheon', '도로공사'), ('Red Sparks', '정관장'), ('JKJ', '정관장'), ('Daejeon', '정관장'), ('Hwaseong', 'IBK'), ('Incheon', '흥국생명'), ('Suwon Hyundai', '현대건설'), ('Gwangju', '페퍼'), ('Pepper', '페퍼')],
  'baseball': [('Samsung', '삼성'), ('KT Wiz', 'KT'), ('LG', 'LG'), ('Doosan', '두산'), ('SSG', 'SSG'), ('Kiwoom', '키움'), ('Hanwha', '한화'), ('Lotte', '롯데'), ('NC', 'NC'), ('Kia', 'KIA')]}
 def kr(sport, name):
     for k, v in KR[sport]:
@@ -247,6 +259,7 @@ for sport in ('basketball', 'volleyball', 'baseball'):
             ts.append(t); ids.append(gid)
             st = it['status']; short = st.get('short') or ''
             g = G.get(gid) or {'id': gid, 'sp': SPK[sport], 'src': 'as', 'lg': it['league']['name'], 't': t, 'h': kr(sport, it['teams']['home']['name']), 'a': kr(sport, it['teams']['away']['name'])}
+            g['h'], g['a'] = kr(sport, it['teams']['home']['name']), kr(sport, it['teams']['away']['name'])
             ph, pa = g.get('hs'), g.get('as')
             fin = short in ('FT', 'AOT', 'AP', 'FIN', 'POST') or 'Finished' in (st.get('long') or '')
             notstarted = short in ('NS', 'TBD', 'CANC', 'PST', 'POST') and not fin

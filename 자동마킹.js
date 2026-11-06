@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R810-EXP-ALIGN";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R811-LIVE-ALL-PROTO";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4833,7 +4833,13 @@ else{try{sc=r507NameSim(state.r507Overseas,g.sp,x.m0.home,g.h)+r507NameSim(state
 if(sc>bs){bs=sc;best=x;}}if(best&&(g.src==='as'?bs>=1:bs>=.9))hit=best;}}catch(_){}
 const o={...g};delete o._per;delete o._sets;delete o._cur;delete o._curn;delete o._inn;
 if(hit){const m=hit.m0;o.bm={no:m.no,home:m.home,away:m.away,league:m.league};const mk=hit.ms.find(r804Pick);if(mk){o.pick=r804Pick(mk);o.ps=r804Status(g,o.pick);}}return o;});
-return {at:j.at||null,now:new Date(now).toISOString(),games:out,err:j.err||null};}
+/* R811 (owner 11/7 "프로토 전경기 문자중계"): the board shows proto games only — every proto game from 2 h before kick-off until it ends;
+   a proto game the live sources do not cover still gets its card ("중계 자료 없음") */
+const seen=new Set(out.filter(o=>o.bm).map(o=>String(o.bm.no)));const extra=[];
+for(const x of idx){const m=x.m0;if(seen.has(String(m.no))||x.t==null||m.resultFinal)continue;const dtm=x.t-now;if(dtm>2*3600e3||dtm<-3*3600e3)continue;
+const mk=x.ms.find(r804Pick);const o={id:'bm'+m.no,sp:m.sport,src:'bm',lg:m.league,t:x.t,h:m.home,a:m.away,bm:{no:m.no,home:m.home,away:m.away,league:m.league},live:false,fin:false,hs:null,as:null,feed:[],stx:dtm>0?'':'진행 중 · 중계 자료 없음'};if(mk)o.pick=r804Pick(mk);if(dtm<=0)o.nodata=true;extra.push(o);}
+const games=[...out.filter(o=>o.bm),...extra];
+return {at:j.at||null,now:new Date(now).toISOString(),games,err:j.err||null};}
 function r755Games(state){const T=state?.r755?.teams;if(!T)return null;const byN=new Map(Object.entries(T).map(([k,v])=>[r755Norm(k),v])),G=Object.values(state.r651Games||{}),out={};
 const nameOf=tid=>{const g=G.find(x=>x.h===tid||x.a===tid);return g?(g.h===tid?g.hn:g.an):null;};
 for(const m of state.markets||[]){if(!r644Is(m)||m.marketFamily!=='MONEYLINE'||!currentRoundMarket(m,state))continue;const ids=state.r651Ids?.[r483FixtureKey(m)];if(!ids)continue;const h=byN.get(r755Norm(nameOf(ids.home))),a=byN.get(r755Norm(nameOf(ids.away)));if(h&&a)out[String(m.gmTs)+'|'+m.home+'|'+m.away]={h,a};}
@@ -11791,7 +11797,7 @@ if(g.sp==='배구'&&g.live&&(g.per||[]).length){const c=g.per[g.per.length-1];re
 function r804PickT(P,g){const H=r560N(g.bm&&g.src!=='as'?g.bm.home:g.h),A=r560N(g.bm&&g.src!=='as'?g.bm.away:g.a);const side=P.pick==='승'?H:P.pick==='패'?A:'';
 if(P.fam==='MONEYLINE')return P.pick==='무'?'무승부':side+' 승';if(P.fam==='HANDICAP'){const l=Number(P.line);return '핸디 '+(l>0?'+':'')+l+' '+P.pick+' ('+(P.pick==='승'?H:A)+')';}if(P.fam==='TOTAL')return P.pick+' '+P.line;return P.pick;}
 function r804Card(g){const H=r560N(g.bm&&g.src!=='as'?g.bm.home:g.h),A=r560N(g.bm&&g.src!=='as'?g.bm.away:g.a),hs=g.hs,as=g.as,has=hs!=null&&as!=null;const lead=has?(hs>as?'h':as>hs?'a':''):'';
-const st=g.live?'<span class="r804L"><i></i>LIVE</span><span class="r804S">'+e(g.stx||'')+(g.clock?' · '+e(g.clock):'')+'</span>':g.fin?'<span class="r804S end">🏁 경기 종료</span>':'<span class="r804S pre">⏳ '+r804Kt(g.t)+' 시작</span>';
+const st=g.live?'<span class="r804L"><i></i>LIVE</span><span class="r804S">'+e(g.stx||'')+(g.clock?' · '+e(g.clock):'')+'</span>':g.fin?'<span class="r804S end">🏁 경기 종료</span>':g.nodata?'<span class="r804S">▶ 진행 중 · 중계 자료 없음</span>':'<span class="r804S pre">⏳ '+r804Kt(g.t)+' 시작</span>';
 const P=g.pick,S=g.ps;const pk=P?'<div class="r804P '+(S?S.s:'')+'"><span>🎯 내 마킹 <b>'+e(r804PickT(P,g))+'</b> '+(P.odds?Number(P.odds).toFixed(2)+'배':'')+' · '+e(P.grade)+'</span>'+(S?'<em>'+({ok:'✅ ',bad:'⚠️ ',hit:'🎉 ',miss:'❌ ',live:'⏳ '}[S.s]||'')+e(S.t)+'</em>':'')+'</div>':'';
 const F=(g.feed||[]).slice().reverse(),open=!!r804Open[g.id],shown=open?F:F.slice(0,6);
 const fd=F.length?'<ul class="r804F">'+shown.map(x=>'<li class="k-'+e(x.kind||'info')+'"><span class="tm">'+r804Kt(x.at)+'</span><span class="tx">'+e(x.x)+'</span></li>').join('')+'</ul>'+(F.length>6?'<button type="button" class="r804M" onclick="r804Open[\\''+e(g.id)+'\\']=!r804Open[\\''+e(g.id)+'\\'];r804Render()">'+(open?'접기 ▲':'중계 전체 보기 ('+F.length+') ▼')+'</button>':''):'<div class="r804N">'+(g.live?'아직 중계할 장면이 없습니다. 점수가 바뀌면 바로 쌓입니다.':'경기 시작 전입니다.')+'</div>';
@@ -11801,7 +11807,7 @@ r804Xtra(g)+r804Per(g)+pk+fd+'</article>';}
 function r804Render(){const el=$('r804Panel');if(!el)return;const D=r804Data;if(!D){el.innerHTML='<div class="r617Hd"><b>📡 실시간 중계</b><small>불러오는 중…</small></div>';return;}
 let L=D.games||[];const n={all:L.length,mine:L.filter(g=>g.pick).length};for(const k of ['축구','농구','배구','야구'])n[k]=L.filter(g=>g.sp===k).length;
 if(r804F==='mine')L=L.filter(g=>g.pick);else if(r804F!=='all')L=L.filter(g=>g.sp===r804F);
-const live=L.filter(g=>g.live),pre=L.filter(g=>!g.live&&!g.fin),fin=L.filter(g=>g.fin);
+const live=L.filter(g=>g.live||g.nodata),pre=L.filter(g=>!g.live&&!g.fin&&!g.nodata).sort((a,b)=>a.t-b.t),fin=L.filter(g=>g.fin);
 const chip=(k,t)=>'<button type="button" class="'+(r804F===k?'on':'')+'" onclick="r804F=\\''+k+'\\';r804Render()">'+t+' <b>'+(n[k]||0)+'</b></button>';
 const up=D.at?r804Kt(Date.parse(D.at)):'-';
 el.innerHTML='<button type="button" id="r804Btn" class="r804R'+(r804Busy?' spin':'')+'" onclick="r804Load()"><i>🔄</i> 새로고침<small>'+(r804Got?r804Kt(r804Got)+':'+String(new Date(r804Got).getSeconds()).padStart(2,'0'):'')+'</small></button><div class="r617Hd"><b>📡 실시간 중계</b><small>해외축구·K리그·NBA 1분 · 국내 농구·배구·야구 3분마다 갱신 · 마지막 갱신 '+up+' · 이 화면은 20초마다 새로고침</small></div>'+
