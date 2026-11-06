@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R796-NBA-ALL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R797-NBA-STATS";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4789,6 +4789,26 @@ const R755={url:'https://raw.githubusercontent.com/hyunduknim/proto-auto/statsha
 async function r755Refresh(state,env,options={}){const now=Date.now(),prev=state.r755Audit;if(!options.force&&now-Date.parse(prev?.at||'')<R755.tickMs)return prev;const audit=state.r755Audit={at:new Date(now).toISOString(),status:'START'};
 try{const j=await r633Json(R755.url+'?t='+Math.floor(now/R755.tickMs));if(j&&j.teams&&typeof j.teams==='object'){state.r755={at:j.at,teams:j.teams};audit.teams=Object.keys(j.teams).length;audit.status='OK';}else audit.status='EMPTY';}catch(e){audit.status='ERROR';audit.err=String(e?.message||e).slice(0,120);}return audit;}
 function r755Norm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'').replace(/^losangeles(lakers|clippers)$/,'la$1');}
+/* R797 (owner 11/6: "써서 다시 재분석해줘 안썼다는게 놀랍네"): StatsHawk team numbers now change the NBA marking itself.
+   Each team's 공격·수비 효율 and 경기 속도 (60% season, 40% last 5; shrunk toward the league average (as if 12 average games were added) while few games are played) give an
+   expected score: 홈 = 속도 × (홈 공격 + 원정 수비) / 200 + 1.5, 원정 likewise − 1.5. From it: 언오버 = chance the total clears the line (spread 18),
+   핸디/일반승 = chance the margin clears the line (spread 13). That chance is 20% of the final chance. ESPN 핵심 결장 (top scorers out):
+   −2%p per player on that side (max −6), +1%p for the other side (max +3). */
+const R797={w:.2,sdT:18,sdM:13,hca:1.5,k:12,keyEach:.02,keyMax:.06,oppEach:.01,oppMax:.03};
+function r797Phi(z){const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2),q=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-q:q;}
+function r797Ctx(state){const T=state?.r755?.teams;if(!T)return null;const V=Object.values(T).map(t=>t.all).filter(Boolean);if(!V.length)return null;const avg=k=>V.reduce((a,t)=>a+(Number(t[k])||0),0)/V.length;
+const lg={ortg:avg('ortg'),drtg:avg('drtg'),pace:avg('pace')};let G={};try{G=r755Games(state)?.games||{};}catch(_){}return {lg,G};}
+function r797Team(C,t){const a=t.all||{},l=t.last5||{},n=Number(a.n)||0,mix=k=>(Number(l.n)>=3?.6*Number(a[k])+.4*Number(l[k]):Number(a[k]));const sh=k=>(n*mix(k)+R797.k*C.lg[k])/(n+R797.k);return {o:sh('ortg'),d:sh('drtg'),pace:sh('pace'),n};}
+function r797Info(C,m){if(!C||m.league!=='NBA')return null;const g=C.G[String(m.gmTs)+'|'+m.home+'|'+m.away];if(!g||!g.h||!g.a)return null;const H=r797Team(C,g.h),A=r797Team(C,g.a);if(!(H.n>=3&&A.n>=3))return null;
+const pace=(H.pace+A.pace)/2,ph=pace*(H.o+A.d)/200+R797.hca,pa=pace*(A.o+H.d)/200-R797.hca;const k=m.r644||{};
+return {ph:Math.round(ph*10)/10,pa:Math.round(pa*10)/10,t:Math.round((ph+pa)*10)/10,mg:Math.round((ph-pa)*10)/10,n:[H.n,A.n],ko:{h:(k.home?.keyOut||[]).length,a:(k.away?.keyOut||[]).length}};}
+function r797Adj(I,fam,pick,line,p){if(!I)return {p,why:[]};let pm=null;const L=Number(line);
+if(fam==='TOTAL'&&Number.isFinite(L)){const po=1-r797Phi((L-I.t)/R797.sdT);pm=pick==='오버'?po:pick==='언더'?1-po:null;}
+else if(fam==='HANDICAP'&&Number.isFinite(L)&&(pick==='승'||pick==='패')){const ph=r797Phi((I.mg+L)/R797.sdM);pm=pick==='승'?ph:1-ph;}
+else if(fam==='MONEYLINE'&&(pick==='승'||pick==='패')){const ph=r797Phi(I.mg/R797.sdM);pm=pick==='승'?ph:1-ph;}
+const why=[];let q=p;if(pm!=null){q=p*(1-R797.w)+pm*R797.w;why.push('팀 기록 예상 '+I.ph+':'+I.pa+' (합 '+I.t+') → '+Math.round(pm*100)+'%');}
+if((fam==='MONEYLINE'||fam==='HANDICAP')&&(pick==='승'||pick==='패')){const mine=pick==='승'?I.ko.h:I.ko.a,their=pick==='승'?I.ko.a:I.ko.h;const d=-Math.min(R797.keyMax,mine*R797.keyEach)+Math.min(R797.oppMax,their*R797.oppEach);if(d){q+=d;why.push((d<0?'이쪽 핵심 결장 ':'상대 핵심 결장 ')+(d>0?'+':'')+Math.round(d*1000)/10+'%p');}}
+return {p:clamp(q,.01,.99),why,pm};}
 function r755Games(state){const T=state?.r755?.teams;if(!T)return null;const byN=new Map(Object.entries(T).map(([k,v])=>[r755Norm(k),v])),G=Object.values(state.r651Games||{}),out={};
 const nameOf=tid=>{const g=G.find(x=>x.h===tid||x.a===tid);return g?(g.h===tid?g.hn:g.an):null;};
 for(const m of state.markets||[]){if(!r644Is(m)||m.marketFamily!=='MONEYLINE'||!currentRoundMarket(m,state))continue;const ids=state.r651Ids?.[r483FixtureKey(m)];if(!ids)continue;const h=byN.get(r755Norm(nameOf(ids.home))),a=byN.get(r755Norm(nameOf(ids.away)));if(h&&a)out[String(m.gmTs)+'|'+m.home+'|'+m.away]={h,a};}
@@ -4936,14 +4956,15 @@ return {p:clamp(q,.01,.99),why};}
    per-game ranking, so the chosen side is the one both sources back. The 57.5% bar stays. */
 function r792Set(state){const g=Number(state?.gmTs||0)>=260132;R771.rec=g?.63:.64;R771.best=g?.70:.71;R771.pinW=g?.6:.5;R771.agreeB=g?.01:0;}
 function r771Pick(state,now=Date.now()){let n=0,hid=0;r792Set(state);const hp771=[];const L=r771Learn(state);const pin=new Map();try{for(const c of r760Cands(state,now))pin.set(c.gmTs+':'+c.no+':'+c.pick,c.p);}catch(_){}
+/* R797: owner 11/6 15:33 "지금분석말고 내일아침 7시에 예약해줘" → the StatsHawk model switches on at 11/7 07:00 KST */let C797=null;try{if(now>=Date.parse('2026-11-06T22:00:00Z'))C797=r797Ctx(state);}catch(_){}
 for(const ms of groupMarkets((state.markets||[]).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs||0)>=R771.from)).values()){
 if(ms.some(m=>m.r619Lock||m.manualOverride||m.manualReview||m.resultFinal)||started(ms[0]))continue;
-let best=null;const all771=[];let I778=null,L780=null;if(ms[0].sport==='축구'){try{I778=r778Info(state,ms[0]);}catch(_){}try{const f=state.r643?.[r483FixtureKey(ms[0])];if(f&&f.home&&f.away)L780={h:Number(f.home.miss)||0,a:Number(f.away.miss)||0};}catch(_){}}for(const x of ms){if(!['MONEYLINE','HANDICAP','TOTAL'].includes(x.marketFamily))continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}
+let best=null;const all771=[];let I778=null,L780=null,I797=null;try{I797=r797Info(C797,ms[0]);}catch(_){}if(ms[0].sport==='축구'){try{I778=r778Info(state,ms[0]);}catch(_){}try{const f=state.r643?.[r483FixtureKey(ms[0])];if(f&&f.home&&f.away)L780={h:Number(f.home.miss)||0,a:Number(f.away.miss)||0};}catch(_){}}for(const x of ms){if(!['MONEYLINE','HANDICAP','TOTAL'].includes(x.marketFamily))continue;let rows=[];try{rows=analyzeChoiceRows(x)||[];}catch(_){}
 for(const q of rows){const odds=Number(q.odds),p0=Number(q.calibratedP??q.decisionProbability);if(!(odds>=R771.minOdds)||!Number.isFinite(p0)||q.pick==='무'||r695Blocked(x,q.pick))continue;
 const pseudo={...x,finalPick:q.pick,finalOdds:odds};let a={adj:0};try{a=r554Adj(pseudo)||{adj:0};}catch(_){}try{if(r530Against(pseudo))continue;}catch(_){}
 const vc=validChoices(x),inv=vc.reduce((t,c)=>t+1/Number(c.odds),0),impl=inv>0?(1/odds)/inv:.5;/* R771d: never trust a chance far above what the prices say (KT 4.5 오버 1.73 showed 81%) */
 const site=Math.min(clamp(p0+(Number(a.adj)||0),.01,.99),impl+.10),pp=pin.get(String(x.gmTs)+':'+Number(x.no)+':'+q.pick);const blend=Math.min(pp!=null?site*(1-R771.pinW)+pp*R771.pinW:site,(pp!=null?Math.max(pp,impl):impl)+.08);
-const kd=r771Kind({marketFamily:x.marketFamily,pick:q.pick,odds,line:x.line}),la=r771Adj(L,x.league,x.marketFamily,kd);let p=clamp(blend+la.adj,.01,.99),w778=[];if(I778){const z=r778Adj(I778,x.marketFamily,q.pick,x.line,p);p=z.p;w778=z.why;}
+const kd=r771Kind({marketFamily:x.marketFamily,pick:q.pick,odds,line:x.line}),la=r771Adj(L,x.league,x.marketFamily,kd);let p=clamp(blend+la.adj,.01,.99),w778=[];if(I778){const z=r778Adj(I778,x.marketFamily,q.pick,x.line,p);p=z.p;w778=z.why;}if(I797){const z=r797Adj(I797,x.marketFamily,q.pick,x.line,p);p=z.p;w778=z.why;}
 /* R780 (owner: "주전 대거 빠진 팀한테 플핸을 주는건지? 주전 안빠진 반대팀한테 가야"): the lineup check (ESPN, ~80 min before) — every regular a side is missing beyond the other side costs picks on that side 2.5%p (max 10%p) and helps the other side 1%p each (max 3%p) */
 if(L780&&(x.marketFamily==='MONEYLINE'||x.marketFamily==='HANDICAP')&&(q.pick==='승'||q.pick==='패')){const own=q.pick==='승'?L780.h:L780.a,opp=q.pick==='승'?L780.a:L780.h,net=own-opp;const d=net>0?-Math.min(.10,net*.025):Math.min(.03,-net*.01);if(d){p=clamp(p+d,.01,.99);w778=[...w778,(d<0?'선발: 이쪽 주전 '+own+'명 빠짐 (상대 '+opp+'명)':'선발: 상대 주전 '+opp+'명 빠짐 (이쪽 '+own+'명)')+' '+(d>0?'+':'')+Math.round(d*1000)/10+'%p'];}}
 const sc=p-(kd==='플핸'?R771.plusPen:0)+(pp!=null&&Math.abs(site-pp)<.05?(R771.agreeB||0):0);const cand={x,pick:q.pick,odds,p,sc,site,pin:pp??null,learn:la,kind:kd,af:w778};all771.push(cand);if(!best||sc>best.sc)best=cand;}}
@@ -5064,7 +5085,7 @@ for(const ms0 of groupMarkets((state.markets||[]).filter(m=>String(m.gmTs)===Str
 const rep=ms.find(x=>x.marked&&x.representativeSelected),k=r483FixtureKey(m);
 out.push({d:m.date,t:m.time,sp:m.sport,lg:m.league,h:m.home,a:m.away,site:rep?{no:rep.no,fam:rep.marketFamily,line:rep.line??null,pick:rep.finalPick||null,grade:rep.displayGrade||null,odds:rep.finalOdds??null,ps:rep.r554?.ps??null}:null,
 mk:ms.map(x=>[x.no,x.marketFamily,x.line??null,(x.choices||[]).filter(c=>Number(c.odds)>1).map(c=>[c.label,Number(c.odds)]),x.r507Overseas?.probs||null,x.r507Overseas?.line??null]),
-form:(()=>{try{const d=r482TeamData(state,m);const f=t=>t&&t.n?[t.wins,t.draws||0,t.losses,t.n,t.avgGF,t.avgGA,t.ha?.home?[t.ha.home.w,t.ha.home.d,t.ha.home.l]:null,t.ha?.away?[t.ha.away.w,t.ha.away.d,t.ha.away.l]:null]:null;return d?{h:f(d.home),a:f(d.away)}:null;}catch(_){return null;}})(),stats:state.r663?null:(ms.find(x=>x.r663)?.r663||null),rest:state.r649?.[k]||null,inj:state.r644?.[k]?{h:state.r644[k].home?.keyOut||[],a:state.r644[k].away?.keyOut||[],hq:state.r644[k].home?.keyQ||[],aq:state.r644[k].away?.keyQ||[]}:null,rot:state.r643?.[k]?{h:state.r643[k].home?.miss??null,a:state.r643[k].away?.miss??null}:null,af:(()=>{try{const x=r768Info(state,m);if(!x)return null;const I=(()=>{try{return r778Info(state,m);}catch(_){return null;}})();const f=state.r643?.[k];return {h:x.inj.h.map(y=>y.n+(y.q?'?':'')+'('+y.w+')'),a:x.inj.a.map(y=>y.n+(y.q?'?':'')+'('+y.w+')'),xi:!!x.lu,keyOut:I?I.out:null,pred:I?.pred||null,xg:I?.xg||null,form:I?.form||null,lineupMiss:f&&f.home&&f.away?{h:f.home.miss??null,a:f.away.miss??null}:null};}catch(_){return null;}})()});}
+form:(()=>{try{const d=r482TeamData(state,m);const f=t=>t&&t.n?[t.wins,t.draws||0,t.losses,t.n,t.avgGF,t.avgGA,t.ha?.home?[t.ha.home.w,t.ha.home.d,t.ha.home.l]:null,t.ha?.away?[t.ha.away.w,t.ha.away.d,t.ha.away.l]:null]:null;return d?{h:f(d.home),a:f(d.away)}:null;}catch(_){return null;}})(),stats:state.r663?null:(ms.find(x=>x.r663)?.r663||null),/* R797: StatsHawk expected score for NBA games (ph:pa, total t, margin mg = home − away) */sh:(()=>{try{return r797Info(r797Ctx(state),ms[0]);}catch(_){return null;}})(),rest:state.r649?.[k]||null,inj:state.r644?.[k]?{h:state.r644[k].home?.keyOut||[],a:state.r644[k].away?.keyOut||[],hq:state.r644[k].home?.keyQ||[],aq:state.r644[k].away?.keyQ||[]}:null,rot:state.r643?.[k]?{h:state.r643[k].home?.miss??null,a:state.r643[k].away?.miss??null}:null,af:(()=>{try{const x=r768Info(state,m);if(!x)return null;const I=(()=>{try{return r778Info(state,m);}catch(_){return null;}})();const f=state.r643?.[k];return {h:x.inj.h.map(y=>y.n+(y.q?'?':'')+'('+y.w+')'),a:x.inj.a.map(y=>y.n+(y.q?'?':'')+'('+y.w+')'),xi:!!x.lu,keyOut:I?I.out:null,pred:I?.pred||null,xg:I?.xg||null,form:I?.form||null,lineupMiss:f&&f.home&&f.away?{h:f.home.miss??null,a:f.away.miss??null}:null};}catch(_){return null;}})()});}
 return out.sort((a,b)=>(a.d+a.t).localeCompare(b.d+b.t));}
 /* R676: 🏆 오늘의 베스트 (owner chose it for the last menu slot). For every upcoming current-round game, four independent views
    vote on a direction (홈 / 원정 / 무 / 오버 / 언더):

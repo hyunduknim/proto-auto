@@ -127,6 +127,11 @@ he saw no early-morning NBA games and moved the run to 07:00 ("NBA 새벽시간�
    - the ESPN predictor;
    - absences;
    - for totals, the site's efficiency projection (pace × ORtg/DRtg, shown as "효율 기준 예상" on the card).
+   - **StatsHawk team numbers, every game (owner 11/6: "써서 다시 재분석해줘 안썼다는게 놀랍네"):** the slate `sh` field gives the
+     expected score from StatsHawk 공격·수비 효율 and 경기 속도 (`ph`:`pa`, total `t`, margin `mg` = home − away, `n` = games
+     played, `ko` = key players out). Compare `t` with the 언오버 line and `mg` with the 핸디 line for every game, and quote it in
+     the 근거 (e.g. "스탯호크 예상 113:110, 합 223 → 언더 231.5 쪽"). With `sh` null (team not matched), say "팀 기록 없음".
+     The site's own marking blends the same projection in at 20%.
 
    **Read every candidate game's ESPN injuries first.** Never back a side whose key player is Out. (On 10/24 #92
    골든스테이트 승 was picked although Butler, Porzingis and Moody were Out.)
