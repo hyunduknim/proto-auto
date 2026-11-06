@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R804-LIVE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R804b-LIVE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11747,14 +11747,14 @@ const R804E={'축구':'⚽','농구':'🏀','배구':'🏐','야구':'⚾'};
 function r804Kt(ms){const d=new Date(Number(ms)+9*3600000);return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');}
 function r804Per(g){const P=g.per||[];if(!P.length)return '';const sp=g.sp;let hd=[];
 if(sp==='농구')hd=P.map((_,i)=>i<4?(i+1)+'Q':'OT');else if(sp==='배구')hd=P.map((_,i)=>(i+1)+'세트');else if(sp==='야구')hd=P.map((_,i)=>String(i+1));else hd=['전반'];
-const H=e(r560N(g.bm?g.bm.home:g.h)),A=e(r560N(g.bm?g.bm.away:g.a));const c=v=>v==null?'-':v;
+const H=e(r560N(g.bm&&g.src!=='as'?g.bm.home:g.h)),A=e(r560N(g.bm&&g.src!=='as'?g.bm.away:g.a));const c=v=>v==null?'-':v;
 const cell=(r,i,side)=>{const v=r[side],o=r[1-side];const w=(sp==='배구'&&v!=null&&o!=null&&(i<P.length-1||g.fin)&&v>o)||(sp!=='배구'&&v!=null&&o!=null&&v>o);return '<td'+(w?' class="w"':'')+'>'+c(v)+'</td>';};
 let x='<table class="r804T"><tr><th></th>'+hd.map(h=>'<th>'+h+'</th>').join('')+(sp==='야구'?'<th>R</th><th>H</th>':'')+'</tr>';
 x+='<tr><td class="n">'+H+'</td>'+P.map((r,i)=>cell(r,i,0)).join('')+(sp==='야구'?'<td class="t">'+c(g.hs)+'</td><td>'+c((g.hits||[])[0])+'</td>':'')+'</tr>';
 x+='<tr><td class="n">'+A+'</td>'+P.map((r,i)=>cell(r,i,1)).join('')+(sp==='야구'?'<td class="t">'+c(g.as)+'</td><td>'+c((g.hits||[])[1])+'</td>':'')+'</tr></table>';return x;}
-function r804PickT(P,g){const H=r560N(g.bm?g.bm.home:g.h),A=r560N(g.bm?g.bm.away:g.a);const side=P.pick==='승'?H:P.pick==='패'?A:'';
+function r804PickT(P,g){const H=r560N(g.bm&&g.src!=='as'?g.bm.home:g.h),A=r560N(g.bm&&g.src!=='as'?g.bm.away:g.a);const side=P.pick==='승'?H:P.pick==='패'?A:'';
 if(P.fam==='MONEYLINE')return P.pick==='무'?'무승부':side+' 승';if(P.fam==='HANDICAP'){const l=Number(P.line);return '핸디 '+(l>0?'+':'')+l+' '+P.pick+' ('+(P.pick==='승'?H:A)+')';}if(P.fam==='TOTAL')return P.pick+' '+P.line;return P.pick;}
-function r804Card(g){const H=r560N(g.bm?g.bm.home:g.h),A=r560N(g.bm?g.bm.away:g.a),hs=g.hs,as=g.as,has=hs!=null&&as!=null;const lead=has?(hs>as?'h':as>hs?'a':''):'';
+function r804Card(g){const H=r560N(g.bm&&g.src!=='as'?g.bm.home:g.h),A=r560N(g.bm&&g.src!=='as'?g.bm.away:g.a),hs=g.hs,as=g.as,has=hs!=null&&as!=null;const lead=has?(hs>as?'h':as>hs?'a':''):'';
 const st=g.live?'<span class="r804L"><i></i>LIVE</span><span class="r804S">'+e(g.stx||'')+(g.clock?' · '+e(g.clock):'')+'</span>':g.fin?'<span class="r804S end">🏁 경기 종료</span>':'<span class="r804S pre">⏳ '+r804Kt(g.t)+' 시작</span>';
 const P=g.pick,S=g.ps;const pk=P?'<div class="r804P '+(S?S.s:'')+'"><span>🎯 내 마킹 <b>'+e(r804PickT(P,g))+'</b> '+(P.odds?Number(P.odds).toFixed(2)+'배':'')+' · '+e(P.grade)+'</span>'+(S?'<em>'+({ok:'✅ ',bad:'⚠️ ',hit:'🎉 ',miss:'❌ ',live:'⏳ '}[S.s]||'')+e(S.t)+'</em>':'')+'</div>':'';
 const F=(g.feed||[]).slice().reverse(),open=!!r804Open[g.id],shown=open?F:F.slice(0,6);
