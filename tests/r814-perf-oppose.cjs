@@ -1,0 +1,11 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+assert.equal(run("r814Opp('TOTAL',211.5,'언더','TOTAL',211.5,'오버','농구')"),true,'same line over vs under');
+assert.equal(run("r814Opp('TOTAL',3.5,'언더','TOTAL',2.5,'오버','축구')"),false,'3 goals satisfies both');
+assert.equal(run("r814Opp('MONEYLINE',null,'승','HANDICAP',-2,'패','축구')"),false,'Leipzig wins by 1 satisfies both');
+assert.equal(run("r814Opp('MONEYLINE',null,'패','HANDICAP',3.5,'승','농구')"),false,'away wins by 1-3 satisfies both');
+assert.equal(run("r814Opp('MONEYLINE',null,'승','MONEYLINE',null,'패','축구')"),true);
+assert.equal(run("r814Opp('HANDICAP',-1,'승','HANDICAP',1,'패','축구')"),true,'home by 2+ vs away by 2+');
+assert.equal(run("r814Opp('TOTAL',2.5,'언더','MONEYLINE',null,'승','축구')"),false,'different kind');
+console.log('r814 ok');
