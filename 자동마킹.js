@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R812-LIVE-2H";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R813-LEARN-LABEL";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5028,8 +5028,8 @@ const x=best.x,p=Math.round(best.p*1000)/1000;let grade=r782Grade(best)||'일반
 /* R773 ① 🤝: site and Pinnacle agree (within 5%p) → badge; far apart → one grade lower (the game stays) */const agree=best.pin!=null&&Math.abs(best.site-best.pin)<.05,split=best.pin!=null&&Math.abs(best.site-best.pin)>=.05;if(split)grade=down(grade);
 /* R773 ②: a league under 50% (15+ settled picks) → one grade lower with a warning */const lgr=L.lgAll.get(String(x.league));const weak=lgr&&lgr.n>=15&&lgr.hit/lgr.n<.5?{n:lgr.n,rate:Math.round(lgr.hit/lgr.n*1000)/1000}:null;if(weak)grade=down(grade);
 for(const y of ms)if(y!==x){if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;}y.finalPick=null;y.finalOdds=null;if(y.displayGrade!=='일반')y.displayGrade='일반';delete y.r771Hide;}
-{const np=all771.filter(c=>c.kind!=='플핸'&&c.p>=R771.show).sort((a,b)=>b.sc-a.sc)[0];x.r781Alt=np?{no:np.x.no,gmTs:np.x.gmTs,pick:np.pick,odds:np.odds,p:np.p,kind:np.kind}:null;}
-delete x.r771Hide;delete x.r771Ana;x.r779Alt=alt779?{no:alt779.x.no,gmTs:alt779.x.gmTs,pick:alt779.pick,odds:alt779.odds,p:alt779.p}:null;x.marked=true;x.representativeSelected=true;x.finalPick=best.pick;x.finalOdds=best.odds;x.hitProbability=p;x.calibratedProbability=p;x.displayGrade=grade;
+{const np=all771.filter(c=>c.kind!=='플핸'&&c.p>=R771.show).sort((a,b)=>b.sc-a.sc)[0];x.r781Alt=np?{no:np.x.no,gmTs:np.x.gmTs,pick:np.pick,odds:np.odds,p:np.p,kind:np.kind,learn:np.learn,site:np.site,pin:np.pin??null}:null;}
+delete x.r771Hide;delete x.r771Ana;x.r779Alt=alt779?{no:alt779.x.no,gmTs:alt779.x.gmTs,pick:alt779.pick,odds:alt779.odds,p:alt779.p,kind:alt779.kind,learn:alt779.learn}:null;x.marked=true;x.representativeSelected=true;x.finalPick=best.pick;x.finalOdds=best.odds;x.hitProbability=p;x.calibratedProbability=p;x.displayGrade=grade;
 x.r554={...(x.r554||{}),ps:p,selected:grade!=='일반',why:null};x.r771={at,p,site:Math.round(best.site*1000)/1000,pin:best.pin==null?null:Math.round(best.pin*1000)/1000,learn:best.learn,kind:best.kind,agree,split,weak,swap:swap773,mix:mix779,cands:cands792,af:best.af||[],ai:I778?{out:I778.out,pred:I778.pred,xg:I778.xg,form:I778.form}:null};
 if(grade!=='일반'){if(!x.r577Rec||x.r577Rec.pick!==x.finalPick)x.r577Rec={at,pick:x.finalPick,odds:x.finalOdds,ps:p};else delete x.r577Rec.off;}n++;}
 /* R779b: per day, basketball marks should not lean more than half on one type — the closest calls of the leading type switch to their
@@ -5041,14 +5041,14 @@ const cands=ms2.filter(m=>fam(m.marketFamily)===lead&&m.r779Alt&&(m.r779Alt.p>=R
 for(const m of cands){const A=m.r779Alt,y=(state.markets||[]).find(z=>String(z.gmTs)===String(A.gmTs)&&Number(z.no)===Number(A.no));if(!y)continue;const at=nowIso(),pp=Math.round(A.p*1000)/1000,g=r771Grade(A.p)||'일반';
 const fp779=m.finalPick;m.marked=false;m.representativeSelected=false;m.finalPick=null;m.finalOdds=null;m.displayGrade='일반';
 y.marked=true;y.representativeSelected=true;y.finalPick=A.pick;y.finalOdds=A.odds;y.hitProbability=pp;y.calibratedProbability=pp;y.displayGrade=g;y.r554={...(y.r554||{}),ps:pp,selected:g!=='일반',why:null};
-y.r771={...m.r771,at,p:pp,balance:{from:m.marketFamily,fromPick:fp779,fromP:m.r771.p}};delete m.r771;y.r779Alt=null;}}}catch(_){}
+y.r771={...m.r771,at,p:pp,kind:m.r779Alt?.kind||m.r771.kind,learn:m.r779Alt?.learn||m.r771.learn,balance:{from:m.marketFamily,fromPick:fp779,fromP:m.r771.p}};delete m.r771;y.r779Alt=null;}}}catch(_){}
 /* R781 (owner 11/5: "다음회차부터 플핸 또 제한" → 하루 3경기): from round 132 at most 3 플핸 marks per day, 일반 included. Extra ones (lowest chance
    first) switch to the same game's best non-플핸 pick that clears 57.5%; with none, the game is not marked. Locked/started ones count. */
 try{const all=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs||0)>=260132&&m.marked&&m.representativeSelected&&!m.resultFinal&&r611Plus(m));const byDay=new Map();for(const m of all){if(!byDay.has(m.date))byDay.set(m.date,[]);byDay.get(m.date).push(m);}
 for(const ms2 of byDay.values()){const extra=ms2.length-3;if(extra<=0)continue;const free=ms2.filter(m=>!m.r619Lock&&!started(m)&&!m.manualOverride&&!m.manualReview).sort((a,b)=>(Number(a.r771?.p)||0)-(Number(b.r771?.p)||0)).slice(0,extra);
 for(const m of free){const A=m.r781Alt,at=nowIso();const y=A?(state.markets||[]).find(z=>String(z.gmTs)===String(A.gmTs)&&Number(z.no)===Number(A.no)):null;const prev=m.r771;
 m.marked=false;m.representativeSelected=false;m.finalPick=null;m.finalOdds=null;m.displayGrade='일반';m.r781Cut={at};
-if(y){const pp=Math.round(A.p*1000)/1000,g=r771Grade(A.p)||'일반';y.marked=true;y.representativeSelected=true;y.finalPick=A.pick;y.finalOdds=A.odds;y.hitProbability=pp;y.calibratedProbability=pp;y.displayGrade=g;y.r554={...(y.r554||{}),ps:pp,selected:g!=='일반',why:null};y.r771={...(prev||{}),at,p:pp,kind:A.kind,plusCap:true};}
+if(y){const pp=Math.round(A.p*1000)/1000,g=r771Grade(A.p)||'일반';y.marked=true;y.representativeSelected=true;y.finalPick=A.pick;y.finalOdds=A.odds;y.hitProbability=pp;y.calibratedProbability=pp;y.displayGrade=g;y.r554={...(y.r554||{}),ps:pp,selected:g!=='일반',why:null};/* R813: the switched pick shows its own 복기 보정 (learn) — it was showing the 플핸 one */y.r771={...(prev||{}),at,p:pp,kind:A.kind,learn:A.learn||prev?.learn,site:A.site!=null?Math.round(A.site*1000)/1000:prev?.site,pin:A.pin!=null?Math.round(A.pin*1000)/1000:null,plusCap:true};}
 delete m.r771;}}}catch(_){}
 state.r771Audit={at:nowIso(),b779:state.r779Dbg||null,marked:n,hidden:hid,mid:Math.round((L.mid??0)*1000)/1000,hp:hp771.sort((a,b)=>b-a).slice(0,40)};return n;}
 /* R771 ③ (owner: "무승부후보도 너무 많이보지말고 클로드 or 피나클 추천만 무승부후보로 (3~4개 정도)"): 3–4 soccer games with the highest
