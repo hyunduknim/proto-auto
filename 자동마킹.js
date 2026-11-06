@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R793-PERF-RANK";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R795-NBA-MIX";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4950,8 +4950,11 @@ const sc=p-(kd==='플핸'?R771.plusPen:0)+(pp!=null&&Math.abs(site-pp)<.05?(R771
 /* R773 ③ (owner 11/4 "4번빼고 다 넣어줘"): a soccer 일반승 in a draw-prone game becomes the same side's "지지만 않으면" handicap (+1 for that team) when that line clears the bar */
 /* R779b (owner: "균형있게 가야지 하나만 자꾸 갈라하니"): basketball weighs 일반승 against 핸디·언오버 — a 핸디/언오버 within 3%p of the
    일반승 chance is taken (it pays more); the best non-일반승 option is kept so the day can be rebalanced below. */let mix779=null,alt779=null;
-if(best&&best.x.sport==='농구'){const alt=all771.filter(c=>c.x.marketFamily!==best.x.marketFamily&&r782Ok(c)).sort((a,b)=>b.p-a.p);
-if(best.x.marketFamily==='MONEYLINE'){const nm=alt.find(c=>c.x.marketFamily!=='MONEYLINE');if(nm&&nm.p>=best.p-.03){mix779={from:best.pick,fromOdds:best.odds,fromP:Math.round(best.p*1000)/1000};best=nm;}else if(nm)alt779=nm;}
+/* R795 (owner 11/6: "NBA 일반승 위주 하지말라니깐 또 했네"): NBA 핸디/언오버 sit near 52–54% at ~1.75, so they never reached 55% and the day stayed
+   all 일반승. The day-balance switch below now accepts a 핸디/언오버 from 52% with chance×odds ≥ 0.90 within 12%p of the 일반승. */
+const r795Ok=c=>r782Ok(c)||(c.p>=.52&&c.p*c.odds>=.90);
+if(best&&best.x.sport==='농구'){const alt=all771.filter(c=>c.x.marketFamily!==best.x.marketFamily&&r795Ok(c)).sort((a,b)=>b.p-a.p);
+if(best.x.marketFamily==='MONEYLINE'){const nm=alt.find(c=>c.x.marketFamily!=='MONEYLINE');if(nm&&nm.p>=best.p-.03&&r782Ok(nm)){mix779={from:best.pick,fromOdds:best.odds,fromP:Math.round(best.p*1000)/1000};best=nm;}else if(nm)alt779=nm;}
 else{const ml=alt.find(c=>c.x.marketFamily==='MONEYLINE');if(ml)alt779=ml;}}
 let swap773=null;if(best&&best.x.sport==='축구'&&best.x.marketFamily==='MONEYLINE'&&(best.pick==='승'||best.pick==='패')){const bk=state?.r507Overseas?.books?.[gameSeed(best.x)],pr=bk&&(bk.ml||[]).find(r=>r[0]==='pinnacle');let pd=Number(best.x.r645?.p)||0;if(pr){const v=[1/pr[1],1/pr[2],1/pr[3]];pd=Math.max(pd,v[1]/(v[0]+v[1]+v[2]));}
 if(pd>=.27){const alt=all771.filter(c=>c.x.marketFamily==='HANDICAP'&&((best.pick==='승'&&c.pick==='승'&&Number(c.x.line)===1)||(best.pick==='패'&&c.pick==='패'&&Number(c.x.line)===-1))&&c.p>=R771.show).sort((a,b)=>b.p-a.p)[0];if(alt){swap773={from:best.pick,fromOdds:best.odds,draw:Math.round(pd*1000)/1000};best=alt;}}}
@@ -4974,7 +4977,7 @@ if(grade!=='일반'){if(!x.r577Rec||x.r577Rec.pick!==x.finalPick)x.r577Rec={at,p
 try{const bb=(state.markets||[]).filter(m=>currentRoundMarket(m,state)&&Number(m.gmTs||0)>=R771.from&&m.sport==='농구'&&m.marked&&m.representativeSelected&&m.r771&&!m.r619Lock&&!m.resultFinal&&!started(m));
 const byDay=new Map();for(const m of bb){if(!byDay.has(m.date))byDay.set(m.date,[]);byDay.get(m.date).push(m);}
 const dbg779=[];state.r779Dbg=dbg779;for(const ms2 of byDay.values()){dbg779.push({n:ms2.length,alts:ms2.map(m=>m.r779Alt?Math.round((m.r771.p-m.r779Alt.p)*1000)/1000:null)});if(ms2.length<4)continue;const fam=f=>f==='MONEYLINE'?'ML':'X';const cnt={ML:0,X:0};for(const m of ms2)cnt[fam(m.marketFamily)]++;const lead=cnt.ML>cnt.X?'ML':'X',over=Math.max(0,cnt[lead]-Math.ceil(ms2.length/2));if(!over)continue;
-const cands=ms2.filter(m=>fam(m.marketFamily)===lead&&m.r779Alt&&(m.r779Alt.p>=R771.show||(m.r779Alt.p>=.55&&m.r779Alt.p*m.r779Alt.odds>=.96))&&m.r771.p-m.r779Alt.p<=.08).sort((a,b)=>(a.r771.p-a.r779Alt.p)-(b.r771.p-b.r779Alt.p)).slice(0,over);
+const cands=ms2.filter(m=>fam(m.marketFamily)===lead&&m.r779Alt&&(m.r779Alt.p>=R771.show||(m.r779Alt.p>=.52&&m.r779Alt.p*m.r779Alt.odds>=.90))&&m.r771.p-m.r779Alt.p<=.12).sort((a,b)=>(a.r771.p-a.r779Alt.p)-(b.r771.p-b.r779Alt.p)).slice(0,over);
 for(const m of cands){const A=m.r779Alt,y=(state.markets||[]).find(z=>String(z.gmTs)===String(A.gmTs)&&Number(z.no)===Number(A.no));if(!y)continue;const at=nowIso(),pp=Math.round(A.p*1000)/1000,g=r771Grade(A.p)||'일반';
 const fp779=m.finalPick;m.marked=false;m.representativeSelected=false;m.finalPick=null;m.finalOdds=null;m.displayGrade='일반';
 y.marked=true;y.representativeSelected=true;y.finalPick=A.pick;y.finalOdds=A.odds;y.hitProbability=pp;y.calibratedProbability=pp;y.displayGrade=g;y.r554={...(y.r554||{}),ps:pp,selected:g!=='일반',why:null};
