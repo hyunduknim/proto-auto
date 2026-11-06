@@ -31,9 +31,15 @@ calls = prev.get('calls') if (prev.get('calls') or {}).get('day') == UTCDAY else
 last = prev.get('last') or {}
 log = []
 
+DAY0 = dt.datetime.fromtimestamp(NOW, KST).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
 def keep(g):
-    """games stay on the board until 3 h after they finish"""
+    """games stay on the board until 3 h after they finish; at KST midnight the board is cleared
+    (owner 11/6 "실시간중계도 자정시간되면 초기화해줘") — only games still in play carry over"""
     if g.get('fin') and NOW - g.get('finAt', NOW) > 3 * 3600:
+        return False
+    if g.get('fin') and g.get('finAt', NOW) < DAY0:
+        return False
+    if not g.get('live') and not g.get('fin') and g.get('t', 0) / 1000 < DAY0:
         return False
     return NOW - g.get('t', NOW) / 1000 < 8 * 3600
 
