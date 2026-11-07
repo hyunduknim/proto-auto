@@ -88,10 +88,11 @@ def main():
                 for x in last.get(lt, []):
                     pl = x.get('player') or {}
                     if (pl.get('reason') or '') in ("Coach's decision", 'Rest', 'Red Card'): continue
+                    if any(r[3] == pl.get('id') for r in keep): continue
                     keep.append([pl.get('name'), 'Carried', pl.get('reason'), pl.get('id')])
                 e = tinj[k] = {'at': now, 'lt': lt, 'rows': keep}
             if e['rows'] and now - e['lt'] < 21 * 86400:
-                g['inj'][side] = [list(r) for r in e['rows']]; g.setdefault('injFrom', {})[side] = 'last'
+                seen = set(); g['inj'][side] = [list(r) for r in e['rows'] if not (r[3] in seen or seen.add(r[3]))]; g.setdefault('injFrom', {})[side] = 'last'
     cache['tinj'] = {k: v for k, v in tinj.items() if now - v.get('at', 0) < 48 * 3600}
     # starting XI for games within 75 minutes (cached once published)
     for fid, g in fx.items():
