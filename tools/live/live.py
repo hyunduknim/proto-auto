@@ -208,7 +208,8 @@ def nba_kr(text):
         return '경기 종료'
     return None
 try:
-    for d in sorted({dt.datetime.utcfromtimestamp(NOW - 6 * 3600).strftime('%Y%m%d'), dt.datetime.utcfromtimestamp(NOW).strftime('%Y%m%d')}):
+    # R828: ESPN files games under the US date, so a noon-KST game sits on the previous UTC day; look back 14h so it gets its final score
+    for d in sorted({dt.datetime.utcfromtimestamp(NOW - h * 3600).strftime('%Y%m%d') for h in (14, 6, 0)}):
         sb = get(f'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={d}')
         for ev in sb.get('events', []):
             c = ev['competitions'][0]; stt = c['status']['type']
@@ -241,6 +242,10 @@ try:
             G[gid] = g
 except Exception as e:
     log.append('nba ' + str(e)[:120])
+# R828 (owner: "문자중계 종료된경기가 아직도 진행 나오는게 있네"): an NBA game ESPN stopped reporting while 'live' is closed after 25 min without an update
+for g in G.values():
+    if g.get('src') == 'espn' and g.get('live') and not g.get('fin') and NOW * 1000 - (g.get('up') or 0) > 25 * 60 * 1000:
+        g.update({'live': False, 'fin': True, 'finAt': NOW, 'stx': '경기 종료'})
 
 # ---------------- 국내 (API-Sports free: basketball / volleyball / baseball) ----------------
 KR = {
