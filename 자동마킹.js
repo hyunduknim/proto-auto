@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R826-NBA59";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R827-LIVE-WAKE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11858,7 +11858,7 @@ return '<div class="r645Hd"><b>🤝 무승부 후보</b><small>피나클 배당 
 /* R804 client: 📡 실시간 중계 tab — refreshes every 20 s while open */
 let r804Data=null,r804Timer=null,r804F='all',r804Open={},r822T='live';
 let r804Busy=false,r804Got=0;async function r804Load(){r804Busy=true;const b=$('r804Btn');if(b)b.classList.add('spin');try{const r=await fetch('/api/live?t='+Date.now(),{cache:'no-store'});r804Data=await r.json();r804Got=Date.now();}catch(_){}r804Busy=false;if(activeView==='live')r804Render();}
-function r804Start(){r804Load();if(!r804Timer)r804Timer=setInterval(()=>{if(activeView==='live')r804Load();else{clearInterval(r804Timer);r804Timer=null;}},20000);}
+function r804Start(){r804Load();if(!r804Timer)r804Timer=setInterval(()=>{if(activeView==='live')r804Load();else{clearInterval(r804Timer);r804Timer=null;}},20000);/* R827 (owner: "실시간 문자중계 2분마다 새로고침 안되나?"): phones pause timers while the screen is off or the app is in the background, so coming back reloads at once */if(!window.r827Vis){window.r827Vis=1;try{document.addEventListener('visibilitychange',()=>{if(!document.hidden&&activeView==='live')r804Load();});window.addEventListener('focus',()=>{if(activeView==='live')r804Load();});window.addEventListener('pageshow',()=>{if(activeView==='live')r804Load();});}catch(_){}}}
 const R804E={'축구':'⚽','농구':'🏀','배구':'🏐','야구':'⚾'};
 function r804Kt(ms){const d=new Date(Number(ms)+9*3600000);return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');}
 function r804Per(g){const P=g.per||[];if(!P.length)return '';const sp=g.sp;let hd=[];
