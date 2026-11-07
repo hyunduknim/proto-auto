@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R833-LIVE-MATCH";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R833c-LIVE-MATCH";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4836,6 +4836,7 @@ const o={...g};delete o._per;delete o._sets;delete o._cur;delete o._curn;delete 
 if(hit){const m=hit.m0;o.bm={no:m.no,home:m.home,away:m.away,league:m.league};const mk=hit.ms.find(r804Pick);if(mk){o.pick=r804Pick(mk);o.ps=r804Status(g,o.pick);}}return o;});
 /* R811 (owner 11/7 "프로토 전경기 문자중계"): the board shows proto games only — every proto game from 2 h before kick-off until it ends;
    a proto game the live sources do not cover still gets its card ("중계 자료 없음") */
+/* R833c: when names cannot be matched (no overseas data for the game), pair the one unmatched proto soccer game with the one unmatched live soccer game kicking off at the same time */{const used=new Set(out.filter(o=>o.bm).map(o=>String(o.bm.no)));const freeG=out.filter(o=>!o.bm&&o.sp==='축구'&&o.af);for(const o of freeG){const px=idx.filter(x=>x.m0.sport==='축구'&&!used.has(String(x.m0.no))&&x.t!=null&&Math.abs(x.t-o.t)<=5*60e3);const gx=freeG.filter(z=>!z.bm&&Math.abs(z.t-o.t)<=5*60e3);if(px.length===1&&gx.length===1){const x=px[0],m=x.m0;o.bm={no:m.no,home:m.home,away:m.away,league:m.league};used.add(String(m.no));const mk=x.ms.find(r804Pick);if(mk){o.pick=r804Pick(mk);o.ps=r804Status(o,o.pick);}}}}
 const seen=new Set(out.filter(o=>o.bm).map(o=>String(o.bm.no)));const extra=[];
 for(const x of idx){const m=x.m0;if(seen.has(String(m.no))||x.t==null||m.resultFinal)continue;const dtm=x.t-now;/* R820 (owner: "더비카운티 볼턴 중계 삭제해줘"): a started game with no live source is not shown */if(dtm>3600e3||dtm<=0)continue;
 const mk=x.ms.find(r804Pick);const o={id:'bm'+m.no,sp:m.sport,src:'bm',lg:m.league,t:x.t,h:m.home,a:m.away,bm:{no:m.no,home:m.home,away:m.away,league:m.league},live:false,fin:false,hs:null,as:null,feed:[],stx:dtm>0?'':'진행 중 · 중계 자료 없음'};if(mk)o.pick=r804Pick(mk);if(dtm<=0)o.nodata=true;extra.push(o);}
