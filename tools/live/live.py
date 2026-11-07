@@ -203,14 +203,40 @@ def _same(a, b):
     if A[0] == B[0] and len(A[0]) >= 4 and (len(A) == 1 or len(B) == 1 or A[1][:3] == B[1][:3]): return True
     return difflib.SequenceMatcher(None, a, b).ratio() >= .82
 try:
-    # R840c: while API-Football is down, games that kicked off since then are added from the fixture list so ESPN can follow them
+    # R840c: while API-Football is down (its fixture list is empty too), games that kick off are taken straight from ESPN's scoreboards
     if globals().get('AF_DOWN'):
-        for fid, x in fx.items():
-            gid = f'fb{fid}'
-            if gid in G or not (NOW * 1000 - 150 * 60 * 1000 < x.get('t', 0) <= NOW * 1000 + 60 * 1000):
-                continue
-            G[gid] = {'id': gid, 'sp': '축구', 'src': 'af', 'af': fid, 't': x['t'], 'lg': x.get('lg'), 'h': x.get('h'), 'a': x.get('a'), 'hid': x.get('hid'), 'aid': x.get('aid'),
-                      'hs': 0, 'as': 0, 'live': True, 'fin': False, 'stx': '진행 중 (점수 확인 중)', 'clock': '', 'up': 0}
+        _code2lg = {}
+        for _lg, _cs in ESPN_SOC.items():
+            for _c in _cs: _code2lg.setdefault(_c, _lg)
+        for code in ('eng.1', 'eng.2', 'esp.1', 'esp.2', 'ger.1', 'ger.2', 'ita.1', 'ita.2', 'fra.1', 'fra.2', 'ned.1', 'por.1', 'bel.1', 'sco.1', 'tur.1', 'usa.1', 'jpn.1', 'aus.1', 'uefa.champions', 'uefa.europa'):
+            try:
+                evs = []
+                for d in sorted({dt.datetime.utcfromtimestamp(NOW - h * 3600).strftime('%Y%m%d') for h in (8, 0)}):
+                    evs += get(f'https://site.api.espn.com/apis/site/v2/sports/soccer/{code}/scoreboard?dates={d}').get('events', [])
+            except Exception as e:
+                log.append('espn seed ' + code + ' ' + str(e)[:50]); continue
+            for ev in evs:
+                stt = (ev.get('status') or {}).get('type') or {}
+                t = int(dt.datetime.fromisoformat(ev['date'].replace('Z', '+00:00')).timestamp() * 1000)
+                if stt.get('state') == 'pre' or NOW * 1000 - t > 170 * 60 * 1000:
+                    continue
+                cs = ((ev.get('competitions') or [{}])[0]).get('competitors') or []
+                hc = next((c for c in cs if c.get('homeAway') == 'home'), None); ac = next((c for c in cs if c.get('homeAway') == 'away'), None)
+                if not hc or not ac: continue
+                hn, an = hc['team'].get('displayName'), ac['team'].get('displayName')
+                if any(g.get('sp') == '축구' and g.get('id') != 'es' + str(ev['id']) and _same(g.get('h'), hn) and _same(g.get('a'), an) and abs(g.get('t', 0) - t) < 3 * 3600 * 1000 for g in G.values()):
+                    continue  # already followed (API-Football game)
+                gid = 'es' + str(ev['id']); g = G.get(gid) or {'id': gid, 'sp': '축구', 'src': 'af', 't': t, 'lg': _code2lg.get(code, code), 'h': hn, 'a': an}
+                hs, as_ = int(hc.get('score') or 0), int(ac.get('score') or 0)
+                if g.get('hs') is not None and (hs, as_) != (g.get('hs'), g.get('as')):
+                    feed_add(g, f"⚽ 득점 {hs}:{as_}", 'goal', key=f'espn-{hs}-{as_}')
+                g.update({'hs': hs, 'as': as_, 'up': int(NOW * 1000), 'via': 'espn'})
+                if stt.get('state') == 'post' or stt.get('completed'):
+                    if not g.get('fin'):
+                        g.update({'live': False, 'fin': True, 'finAt': NOW, 'stx': '경기 종료', 'clock': ''}); feed_add(g, f"🏁 경기 종료 {hs}:{as_}", 'end', key='FT')
+                else:
+                    g.update({'live': True, 'fin': False, 'clock': (ev.get('status') or {}).get('displayClock') or '', 'stx': '하프타임' if str(stt.get('name')) == 'STATUS_HALFTIME' else ('후반' if (ev.get('status') or {}).get('period') == 2 else '전반')})
+                G[gid] = g
     stale = [g for g in G.values() if g.get('src') == 'af' and g.get('live') and not g.get('fin') and NOW * 1000 - (g.get('up') or 0) > 4 * 60 * 1000]
     if stale:
         boards = {}

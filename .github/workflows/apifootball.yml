@@ -30,7 +30,8 @@ jobs:
           end=$(( $(date +%s) + 5*3600 + 45*60 ))
           while :; do
             python3 tools/apifootball/af_soccer.py afcache/cache.json out/af_soccer.json || true
-            if [ -s out/af_soccer.json ]; then
+            # R840c: never replace a good summary with an empty one (11/8: the daily API limit emptied the fixture list)
+            if [ -s out/af_soccer.json ] && python3 -c "import json,sys;sys.exit(0 if json.load(open('out/af_soccer.json')).get('fx') else 1)"; then
               ( cd out && rm -rf .git && git init -q -b apifootball && git config user.name "apifootball-bot" && git config user.email "apifootball-bot@users.noreply.github.com" \
                 && git add af_soccer.json && git commit -qm "soccer summary" && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" apifootball ) || true
             fi
