@@ -101,6 +101,7 @@ def ev_line(e, g):
 if win and KEY:
     try:
         j = get('https://v3.football.api-sports.io/fixtures?live=all', key=True)
+        AF_DOWN = bool(j.get('errors'))  # R840c: daily limit reached → ESPN takes over below
         calls['fb'] = calls.get('fb', 0) + 1
         live_ids = set()
         for it in j.get('response', []):
@@ -202,6 +203,14 @@ def _same(a, b):
     if A[0] == B[0] and len(A[0]) >= 4 and (len(A) == 1 or len(B) == 1 or A[1][:3] == B[1][:3]): return True
     return difflib.SequenceMatcher(None, a, b).ratio() >= .82
 try:
+    # R840c: while API-Football is down, games that kicked off since then are added from the fixture list so ESPN can follow them
+    if globals().get('AF_DOWN'):
+        for fid, x in fx.items():
+            gid = f'fb{fid}'
+            if gid in G or not (NOW * 1000 - 150 * 60 * 1000 < x.get('t', 0) <= NOW * 1000 + 60 * 1000):
+                continue
+            G[gid] = {'id': gid, 'sp': '축구', 'src': 'af', 'af': fid, 't': x['t'], 'lg': x.get('lg'), 'h': x.get('h'), 'a': x.get('a'), 'hid': x.get('hid'), 'aid': x.get('aid'),
+                      'hs': 0, 'as': 0, 'live': True, 'fin': False, 'stx': '진행 중 (점수 확인 중)', 'clock': '', 'up': 0}
     stale = [g for g in G.values() if g.get('src') == 'af' and g.get('live') and not g.get('fin') and NOW * 1000 - (g.get('up') or 0) > 4 * 60 * 1000]
     if stale:
         boards = {}
