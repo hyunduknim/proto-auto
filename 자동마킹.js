@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R841-NHL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R842-NHL-MIX";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5142,11 +5142,11 @@ async function r841Refresh(state,env){const now=Date.now(),k=new Date(now+9*3600
 const P=state.r841Posts||(state.r841Posts=[]),A={at:new Date(now).toISOString(),status:'IDLE'};try{A.settled=await r841Settle(state,now);}catch(e){A.settleErr=String(e?.message||e).slice(0,80);}
 if(hr>=R841.hour&&hr<R841.lastHour&&!P.some(p=>p.id==='nhl-'+day)&&state.r841Skip!==day){const o=r507Opts(env);if(!o.key)A.status='NO_KEY';else{
 const {data,usage}=await r507Get(o.key,'/v4/sports/'+R841.sport+'/odds',{bookmakers:'pinnacle',regions:'eu',markets:'h2h,spreads,totals',oddsFormat:'decimal',dateFormat:'iso'});A.remaining=usage?.remaining??null;
-const t0=Date.parse(day+'T07:15:00+09:00'),t1=Date.parse(day+'T14:00:00+09:00'),picks=[];let games=0,plus=0;
+const t0=Date.parse(day+'T07:15:00+09:00'),t1=Date.parse(day+'T14:00:00+09:00'),picks=[],used={};let games=0,plus=0;
 for(const ev of (Array.isArray(data)?data:[]).sort((a,b)=>Date.parse(a.commence_time)-Date.parse(b.commence_time))){const t=Date.parse(ev.commence_time);if(!(t>=t0&&t<=t1))continue;games++;const bk=(ev.bookmakers||[]).find(b=>b.key==='pinnacle');if(!bk)continue;const C=[];
 for(const m of bk.markets||[]){const oc=m.outcomes||[];if(oc.length!==2||oc.some(x=>!(x.price>1)))continue;const inv=oc.map(x=>1/x.price),s=inv[0]+inv[1];oc.forEach((x,i)=>{const p=inv[i]/s,side=x.name===ev.home_team?'h':'a';
 if(m.key==='h2h')C.push({fam:'MONEYLINE',side,pick:side==='h'?'홈승':'원정승',line:null,odds:x.price,p});else if(m.key==='spreads')C.push({fam:'HANDICAP',side,pick:(side==='h'?'홈 ':'원정 ')+(x.point>0?'+':'')+x.point,line:x.point,odds:x.price,p});else if(m.key==='totals')C.push({fam:'TOTAL',side:null,pick:x.name==='Over'?'오버':'언더',line:x.point,odds:x.price,p});});}
-const ok=C.filter(c=>c.p>=R841.minP-1e-9&&c.odds>=1.31&&!(c.fam==='HANDICAP'&&c.line>0&&plus>=R841.plusMax)).sort((a,b)=>b.p*b.odds-a.p*a.odds);if(!ok.length)continue;const c=ok[0];if(c.fam==='HANDICAP'&&c.line>0)plus++;
+/* R842 (owner 11/8 "NHL 일반승 핸디캡 언오버 섞어서 줘봐"): a type already used today counts a little less, so the day mixes 승패·핸디·언오버 */const ok=C.filter(c=>c.p>=R841.minP-1e-9&&c.odds>=1.31&&!(c.fam==='HANDICAP'&&c.line>0&&plus>=R841.plusMax)).sort((a,b)=>(b.p*b.odds-.07*(used[b.fam]||0))-(a.p*a.odds-.07*(used[a.fam]||0)));if(!ok.length)continue;const c=ok[0];used[c.fam]=(used[c.fam]||0)+1;if(c.fam==='HANDICAP'&&c.line>0)plus++;
 picks.push({eid:ev.id,t,home:ev.home_team,away:ev.away_team,hk:R841KR[ev.home_team]||ev.home_team,ak:R841KR[ev.away_team]||ev.away_team,fam:c.fam,side:c.side,pick:c.pick,line:c.line,odds:c.odds,p:Math.round(c.p*1000)/1000});}
 A.games=games;if(picks.length){P.unshift({id:'nhl-'+day,day,at:new Date(now).toISOString(),games,picks});if(P.length>R841.keep)P.length=R841.keep;A.status='POSTED';A.n=picks.length;}else if(hr>=8||games){state.r841Skip=day;A.status='SKIP';}}}
 state.r841Audit=A;return A;}
