@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R834-ALLTIME";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R835-LIVE-SETTLE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4822,7 +4822,7 @@ else if(P.fam==='HANDICAP'){if(g.sp==='배구')return {s:fin?'?':'live',t:'세�
 else if(P.fam==='TOTAL'){if(g.sp==='배구')return {s:fin?'?':'live',t:'세트 점수로는 언오버 판정 불가'};const t=h+a;if(P.pick==='오버'){r=t>L;lock=r;}else{r=t<L;lock=!r;}}
 else return null;
 if(fin)return {s:r?'hit':'miss',t:r?'적중':'낙첨'};if(lock)return {s:r?'hit':'miss',t:r?'이미 적중 확정':'이미 낙첨 확정'};return {s:r?'ok':'bad',t:r?'지금 적중 중':'지금 빗나가는 중'};}
-async function r804Live(state){const j=await r804Feed();const now=Date.now();const groups=[...groupMarkets((state?.markets||[]).filter(m=>{const t=gameTimeMs(m);return t!=null&&Math.abs(t-now)<14*3600e3;})).values()];
+async function r804Live(state){const j=await r804Feed();const now=Date.now();const groups=[...groupMarkets((state?.markets||[]).filter(m=>{const t=gameTimeMs(m);return t!=null&&Math.abs(t-now)<30*3600e3;})).values()];
 const idx=groups.map(ms=>({ms,m0:ms[0],t:gameTimeMs(ms[0]),seed:gameSeed(ms[0])}));const rev={};for(const [k,v] of Object.entries(state?.r768Map||{}))rev[v]=k;
 const kr=s=>String(s||'').replace(/\s+/g,'');
 const out=(j.games||[]).map(g=>{let hit=null;try{
@@ -4871,7 +4871,7 @@ async function r662Refresh(state,env,options={}){const now=options.nowMs??Date.n
 const audit={at:new Date(now).toISOString(),source:'CLAUDE_PICKS',status:'IDLE',posts:0,error:null};
 try{const j=await r633Json(R662.url+'?t='+Math.floor(now/R662.tickMs));/* R777 (owner: "시간되면 빨리빨리"): posts made before today (KST) are dropped by the Worker itself at midnight — the GitHub midnight job is only a backup */const today777=new Date(now+9*3600e3).toISOString().slice(0,10),day777=p=>{const t=Date.parse(p&&p.at||'');return isFinite(t)?new Date(t+9*3600e3).toISOString().slice(0,10):String(p&&p.id||'').slice(0,10);};/* R790 (owner 11/6: "오늘부터 GPT분석은 제외"): GPT posts are no longer shown */const posts=r662Clean(j).filter(p=>day777(p)>=today777&&p.by!=='gpt');try{const K=state.r834K||(state.r834K={c:{},p:{}});for(const p of r662Clean(j))if(p.by!=='gpt')for(const g of p.groups||[])for(const x of g.picks||[])K.c[r662Key(x.gmTs,x.no,x.pick)]=Number(x.odds)||1;}catch(_){}state.r662Posts=posts;state.r662Reviews=r662CleanReviews(j?.reviews);audit.posts=posts.length;audit.reviews=Object.keys(state.r662Reviews).length;audit.status='OK';}
 catch(e){audit.status='ERROR';audit.error=String(e?.message||e).slice(0,120);}
-try{r662Settle(state);}catch(_){}state.r662Audit=audit;return audit;}
+try{await r835Collect(state);}catch(_){}try{r662Settle(state);}catch(_){}state.r662Audit=audit;return audit;}
 /* R673 (owner: "클로드추천을 낙첨복기로 참고하고 분발해야될듯"): picks.json may carry reviews = {"gmTs:no:pick": "복기 한 줄"} written by the
    daily run for every miss; shown on the pick and in the 🔁 복기 tab (🤖 클로드추천). */
 function r662CleanReviews(r){const out={};if(!r||typeof r!=='object')return out;for(const [k,v] of Object.entries(r).slice(0,300)){if(/^\d{6}:\d+:(승|무|패|오버|언더)$/.test(k)&&typeof v==='string'&&v.trim())out[k]=r662Str(v,260);}return out;}
@@ -4885,6 +4885,7 @@ const cands=rows.filter(r=>!r.partial&&!(r.terminal!==true&&/예정|경기중|�
 const rr=cands.find(r=>r.specialStatus||resolveOfficialOutcome(r,m).outcome);if(!rr)continue;if(rr.specialStatus){off[k]={outcome:'void',score:rr.score||null,source,at:nowIso()};n++;continue;}
 const res=resolveOfficialOutcome(rr,m);if(!res?.outcome)continue;off[k]={outcome:res.void?'void':res.outcome,score:rr.score||null,source,at:nowIso()};n++;}
 const ks=Object.keys(off);if(ks.length>1500)for(const kk of ks.slice(0,ks.length-1500))delete off[kk];return n;}
+async function r835Collect(state){const L=await r804Live(state);const S=state.r835||(state.r835={});for(const g of L?.games||L||[]){if(!g||!g.bm||!g.fin||g.hs==null||g.as==null)continue;const m=(state.markets||[]).find(y=>Number(y.no)===Number(g.bm.no)&&y.home===g.bm.home);if(!m)continue;S[m.home+'|'+m.away+'|'+m.date]={s:Number(g.hs)+':'+Number(g.as),at:Date.now()};}for(const k of Object.keys(S))if(Date.now()-S[k].at>4*86400e3)delete S[k];return S;}
 function r662EspnNba(state,m){if(!r644Is(m))return null;const ids=state.r651Ids?.[r483FixtureKey(m)],t=gameTimeMs(m);if(!ids||t==null)return null;const g=Object.values(state.r651Games||{}).find(x=>x.h===ids.home&&x.a===ids.away&&Math.abs(x.t-t)<6*3600000);return g&&Number.isFinite(g.hs)&&Number.isFinite(g.as)?g.hs+':'+g.as:null;}
 /* R699: results the owner confirmed in chat for picks the site could not settle ("뉴욕승 낙첨 새크 언더 적중"). */
 const R699_OWNER={'260126:771:승':{st:'miss'},'260126:794:언더':{st:'hit',score:'112:123'}};
@@ -4904,7 +4905,7 @@ const o=moved?null:off[k];
 if(o){out.src='official';out.score=o.score||null;out.st=o.outcome==='void'?'void':String(o.outcome)===x.pick?'hit':'miss';}
 else if(!moved&&m.resultFinal&&m.result!=null&&String(m.result)!==''){out.src='market';out.score=m.resultScoreText||null;out.st=(m.settlementStatus==='적특'||m.settlementType==='VOID')?'void':String(m.result)===x.pick?'hit':'miss';}
 else{const sib=(state.markets||[]).filter(y=>String(y.gmTs)===String(m.gmTs)&&gameSeed(y)===gameSeed(m)&&y.resultFinal);
-let sc=sib.filter(y=>y.marketFamily!=='TOTAL'||/ESPN|ZENTOTO|SPOGOD|WISE/.test(String(y.resultSource||''))||(y.sport!=='축구'&&!/:0$/.test(String(y.resultScoreText||'')))).map(y=>y.resultScoreText).find(s=>!!resultScorePairText(s))||null;if(!sc){const es=r662EspnNba(state,m);if(es){sc=es;out.src='espn';}}else out.src='sibling';
+let sc=sib.filter(y=>y.marketFamily!=='TOTAL'||/ESPN|ZENTOTO|SPOGOD|WISE/.test(String(y.resultSource||''))||(y.sport!=='축구'&&!/:0$/.test(String(y.resultScoreText||'')))).map(y=>y.resultScoreText).find(s=>!!resultScorePairText(s))||null;if(!sc){const es=r662EspnNba(state,m);if(es){sc=es;out.src='espn';}}else out.src='sibling';/* R835 (owner 11/7 "피나클 언더오버 적중인데 모래시계 표시 잇음"): a pick on a game the site did not mark has no official result here, so the live board's final score settles it */if(!sc&&started(m)){const lv=(state.r835||{})[m.home+'|'+m.away+'|'+m.date];if(lv&&lv.s&&Date.now()-gameTimeMs(m)>100*60e3){sc=lv.s;out.src='live';}}
 if(sc){const rr=resolveOfficialOutcome({score:sc},moved?{...m,line:Number(x.line)}:m);out.score=sc;if(rr?.void||rr?.outcome==='적특')out.st='void';else if(rr?.outcome){out.st=String(rr.outcome)===x.pick?'hit':'miss';if(out.st==='miss'&&rr.outcome==='무'&&m.marketFamily==='HANDICAP'&&!(m.choices||[]).some(c=>c.label==='무'))out.st='void';}}
 else if(sib.some(y=>(y.settlementStatus==='적특'||y.settlementType==='VOID')&&y.resultSpecialStatus!=='PUSH'&&!y.resultScoreText))out.st='void';else if(started(m))out.st='live';}
 if(['hit','miss','void'].includes(out.st))out.at=nowIso();if(out.st==='miss'&&out.score&&!(/^\d+:0$/.test(String(out.score))&&m.marketFamily==='TOTAL')){try{out.alts=r653Alts(state,{...m,resultScoreText:out.score});}catch(_){}}res[k]=out;n++;}
