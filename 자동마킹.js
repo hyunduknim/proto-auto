@@ -5117,7 +5117,7 @@ if(seeds.size<R767.minGames)return {skip:'NBA '+seeds.size+'경기'};
 const used=new Set();for(const p of state.r760Posts||[])if(String(p.id).endsWith(day))for(const g of p.groups||[])for(const x of g.picks||[])used.add(String(x.gmTs)+':'+x.no);
 const C=r760Cands(state,now).filter(c=>nba(c)&&c.t>=t0&&c.t<=t1&&c.pick!=='무'&&!used.has(c.gmTs+':'+c.no));
 const sc=c=>c.p+.8*(c.ev-.9);/* R826 (owner 11/7 14:10 "NBA는 클로드 피나클 둘 다 예약분석 59까지 있는건 채우고 없으면 패스"): every pick needs 59%+; no lower fallback to reach a count */const ok=c=>c.odds>=1.31&&c.odds<=1.95&&c.ev>=.9&&c.p>=.59-1e-9;const ok2=c=>c.odds>=1.31&&c.odds<=2&&c.ev>=.88&&c.p>=(c.fam==='MONEYLINE'?.57:.52);
-const out=[],g=new Set();const take=c=>{if(g.has(c.seed))return false;g.add(c.seed);out.push(c);return true;};
+const out=[],g=new Set();const take=c=>{if(g.has(c.seed))return false;/* R830d: at most 2 언더 in the NBA Pinnacle post */if(c.pick==='언더'&&out.filter(x=>x.pick==='언더').length>=2)return false;g.add(c.seed);out.push(c);return true;};
 for(const fam of ['HANDICAP','TOTAL','MONEYLINE']){const b=C.filter(c=>c.fam===fam&&ok(c)).sort((a,b)=>sc(b)-sc(a));for(const c of b)if(take(c))break;}
 for(const c of C.filter(ok).sort((a,b)=>sc(b)-sc(a))){if(out.length>=R767.max)break;take(c);}
 if(false&&out.length<R767.min)for(const c of C.filter(ok2).sort((a,b)=>sc(b)-sc(a))){if(out.length>=R767.min)break;take(c);}
