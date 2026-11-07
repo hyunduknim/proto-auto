@@ -66,6 +66,33 @@ def main():
             tot = ((j.get('paging') or {}).get('total')) or 1
             if page >= tot: break
             page += 1
+    # R832 (owner 11/7: "주전결장있는데 왜 없다고 나오는지? 유료 API 결장자 소식 안나오나?"): API-Football fills a fixture's
+    # injury list only close to kick-off, so until then a team with an empty list takes the absentees of its latest
+    # listed game this season (injuries/illness/suspensions; not a one-off coach's decision), marked as carried over.
+    tinj = cache.get('tinj', {})
+    for g in fx.values():
+        if not (now - 3 * 3600 < g['t'] / 1000 < now + 30 * 3600) or not g.get('season'): continue
+        for side, tid in (('h', g['hid']), ('a', g['aid'])):
+            if g['inj'][side]: continue
+            k = f"{tid}:{g['season']}"
+            e = tinj.get(k)
+            if not (e and now - e.get('at', 0) < 8 * 3600):
+                rows = get('/injuries', team=tid, season=g['season']).get('response', [])
+                last = {}
+                for x in rows:
+                    fxi = x.get('fixture') or {}; ts = fxi.get('timestamp') or 0
+                    if ts >= g['t'] / 1000 - 3600: continue
+                    last.setdefault(ts, []).append(x)
+                lt = max(last) if last else 0
+                keep = []
+                for x in last.get(lt, []):
+                    pl = x.get('player') or {}
+                    if (pl.get('reason') or '') in ("Coach's decision", 'Rest', 'Red Card'): continue
+                    keep.append([pl.get('name'), 'Carried', pl.get('reason'), pl.get('id')])
+                e = tinj[k] = {'at': now, 'lt': lt, 'rows': keep}
+            if e['rows'] and now - e['lt'] < 21 * 86400:
+                g['inj'][side] = [list(r) for r in e['rows']]; g.setdefault('injFrom', {})[side] = 'last'
+    cache['tinj'] = {k: v for k, v in tinj.items() if now - v.get('at', 0) < 48 * 3600}
     # starting XI for games within 75 minutes (cached once published)
     for fid, g in fx.items():
         k = str(fid)
