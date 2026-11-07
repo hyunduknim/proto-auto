@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R832-INJ-CARRY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R833-LIVE-MATCH";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4830,7 +4830,8 @@ if(g.sp==='축구'&&g.af&&rev[g.af])hit=idx.find(x=>x.seed===rev[g.af]);
 if(!hit){const cs=idx.filter(x=>x.m0.sport===g.sp&&Math.abs(x.t-g.t)<=45*60e3);let best=null,bs=0;for(const x of cs){let sc=0;
 if(g.src==='as'){const H=kr(x.m0.home),A=kr(x.m0.away),gh=kr(g.h),ga=kr(g.a);sc=(H.includes(gh)||gh.includes(H)?1:0)+(A.includes(ga)||ga.includes(A)?1:0);}
 else{try{sc=r507NameSim(state.r507Overseas,g.sp,x.m0.home,g.h)+r507NameSim(state.r507Overseas,g.sp,x.m0.away,g.a);}catch(_){sc=0;}}
-if(sc>bs){bs=sc;best=x;}}if(best&&(g.src==='as'?bs>=1:bs>=.9))hit=best;}}catch(_){}
+if(sc>bs){bs=sc;best=x;}}if(best&&(g.src==='as'?bs>=1:bs>=.9))hit=best;
+/* R833 (owner 11/7 21:40 "문자중계 제대로 안되는것도 있는데"): a soccer game the name check missed (리즈 유나이티드 ↔ Leeds) is matched through the same API-Football fixture the 결장 lookup found */if(!hit&&g.sp==='축구'&&g.af){for(const x of cs){try{const f=r768Find(state,x.m0);if(f&&String(f.id)===String(g.af)){hit=x;break;}}catch(_){}}}}}catch(_){}
 const o={...g};delete o._per;delete o._sets;delete o._cur;delete o._curn;delete o._inn;
 if(hit){const m=hit.m0;o.bm={no:m.no,home:m.home,away:m.away,league:m.league};const mk=hit.ms.find(r804Pick);if(mk){o.pick=r804Pick(mk);o.ps=r804Status(g,o.pick);}}return o;});
 /* R811 (owner 11/7 "프로토 전경기 문자중계"): the board shows proto games only — every proto game from 2 h before kick-off until it ends;
