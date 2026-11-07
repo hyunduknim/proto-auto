@@ -191,7 +191,8 @@ def _nm(x):
     import re as _re, unicodedata as _u
     x = _u.normalize('NFKD', str(x or '')).encode('ascii', 'ignore').decode().lower()
     x = _re.sub(r'\b(fc|afc|cf|sc|ac|fk|sk|bk|club|de|the|cd|ud|sd|rc|vfb|vfl|tsg|bsc|1\.)\b', ' ', x)
-    return ' '.join(_re.sub(r'[^a-z0-9 ]', ' ', x).split())
+    x = ' '.join(_re.sub(r'[^a-z0-9 ]', ' ', x).split())
+    return {'qpr': 'queens park rangers', 'psg': 'paris saint germain', 'wolves': 'wolverhampton wanderers', 'spurs': 'tottenham hotspur', 'man utd': 'manchester united', 'man city': 'manchester city', 'nottm forest': 'nottingham forest', 'mk dons': 'milton keynes dons'}.get(x, x)
 def _same(a, b):
     import difflib
     a, b = _nm(a), _nm(b)
@@ -233,7 +234,7 @@ try:
                 g.update({'live': False, 'fin': True, 'finAt': NOW, 'stx': '경기 종료', 'clock': ''})
                 feed_add(g, f"🏁 경기 종료 {hs}:{as_}", 'end', key='FT')
             elif stt.get('state') == 'in':
-                g.update({'clock': (ev.get('status') or {}).get('displayClock') or g.get('clock', ''), 'stx': '하프타임' if 'HALF' in str(stt.get('name')) else ('후반' if (ev.get('status') or {}).get('period') == 2 else '전반')})
+                g.update({'clock': (ev.get('status') or {}).get('displayClock') or g.get('clock', ''), 'stx': '하프타임' if str(stt.get('name')) == 'STATUS_HALFTIME' else ('후반' if (ev.get('status') or {}).get('period') == 2 else '전반')})
         # nothing at all for 40 min and well past full time → close it, saying the score could not be confirmed
         for g in stale:
             if g.get('live') and NOW * 1000 - (g.get('up') or 0) > 40 * 60 * 1000 and NOW * 1000 - g.get('t', 0) > 135 * 60 * 1000:
