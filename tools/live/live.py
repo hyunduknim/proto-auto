@@ -156,7 +156,7 @@ if win and KEY:
                 log.append('fb stat ' + str(e)[:80])
         # tracked games that left the live list → fetch the final once
         for gid, g in list(G.items()):
-            if g.get('sp') == '축구' and g.get('live') and g.get('af') not in live_ids:
+            if g.get('sp') == '축구' and g.get('live') and g.get('af') and g.get('af') not in live_ids and not AF_DOWN:
                 try:
                     r = get(f"https://v3.football.api-sports.io/fixtures?id={g['af']}", key=True)
                     calls['fb'] = calls.get('fb', 0) + 1
