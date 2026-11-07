@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R825-MIN60";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R826-NBA59";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5116,11 +5116,11 @@ const nba=m=>/NBA/.test(String(m.league||''));const seeds=new Set();for(const m 
 if(seeds.size<R767.minGames)return {skip:'NBA '+seeds.size+'경기'};
 const used=new Set();for(const p of state.r760Posts||[])if(String(p.id).endsWith(day))for(const g of p.groups||[])for(const x of g.picks||[])used.add(String(x.gmTs)+':'+x.no);
 const C=r760Cands(state,now).filter(c=>nba(c)&&c.t>=t0&&c.t<=t1&&c.pick!=='무'&&!used.has(c.gmTs+':'+c.no));
-const sc=c=>c.p+.8*(c.ev-.9);const ok=c=>c.odds>=1.31&&c.odds<=1.95&&c.ev>=.9&&c.p>=(c.fam==='MONEYLINE'?.6:.55);const ok2=c=>c.odds>=1.31&&c.odds<=2&&c.ev>=.88&&c.p>=(c.fam==='MONEYLINE'?.57:.52);
+const sc=c=>c.p+.8*(c.ev-.9);/* R826 (owner 11/7 14:10 "NBA는 클로드 피나클 둘 다 예약분석 59까지 있는건 채우고 없으면 패스"): every pick needs 59%+; no lower fallback to reach a count */const ok=c=>c.odds>=1.31&&c.odds<=1.95&&c.ev>=.9&&c.p>=.59-1e-9;const ok2=c=>c.odds>=1.31&&c.odds<=2&&c.ev>=.88&&c.p>=(c.fam==='MONEYLINE'?.57:.52);
 const out=[],g=new Set();const take=c=>{if(g.has(c.seed))return false;g.add(c.seed);out.push(c);return true;};
 for(const fam of ['HANDICAP','TOTAL','MONEYLINE']){const b=C.filter(c=>c.fam===fam&&ok(c)).sort((a,b)=>sc(b)-sc(a));for(const c of b)if(take(c))break;}
 for(const c of C.filter(ok).sort((a,b)=>sc(b)-sc(a))){if(out.length>=R767.max)break;take(c);}
-if(out.length<R767.min)for(const c of C.filter(ok2).sort((a,b)=>sc(b)-sc(a))){if(out.length>=R767.min)break;take(c);}
+if(false&&out.length<R767.min)for(const c of C.filter(ok2).sort((a,b)=>sc(b)-sc(a))){if(out.length>=R767.min)break;take(c);}
 if(!out.length)return {skip:'조건 맞는 픽 없음'};const picks=out.sort((a,b)=>a.t-b.t);const nm={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'};
 const groups=['MONEYLINE','HANDICAP','TOTAL'].map(f=>({name:nm[f],picks:picks.filter(x=>x.fam===f).map(({seed,t,ev,...x})=>x)})).filter(g=>g.picks.length);
 return {id:'pin-nba-'+day,by:'pin',title:'🏀 '+day.slice(5).replace('-','/')+' NBA 피나클 추천픽',at:new Date(now).toISOString(),intro:'오전 7시에 오늘 NBA '+seeds.size+'경기를 피나클 배당으로 계산해서 일반승 · 핸디캡 · 언오버를 섞어 골랐습니다. 한 경기에 하나씩, 베트맨 기준점이 피나클보다 유리한 픽을 먼저 넣었습니다.',groups};}
