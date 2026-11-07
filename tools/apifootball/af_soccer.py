@@ -76,7 +76,7 @@ def main():
             if g['inj'][side]: continue
             k = f"{tid}:{g['season']}"
             e = tinj.get(k)
-            if not (e and now - e.get('at', 0) < 8 * 3600):
+            if not (e and now - e.get('at', 0) < 12 * 3600):  # R840: 12h to save the daily limit
                 rows = get('/injuries', team=tid, season=g['season']).get('response', [])
                 last = {}
                 for x in rows:

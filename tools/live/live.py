@@ -130,9 +130,9 @@ if win and KEY:
         stat_n = 0
         # corners / cards / shots every 3 min (owner: "옐로카드 레드카드 · 코너킥 표시")
         for gid, g in G.items():
-            if g.get('sp') != '축구' or not g.get('live') or g.get('af') not in live_ids or NOW - g.get('_statAt', 0) < 170:
+            if g.get('sp') != '축구' or not g.get('live') or g.get('af') not in live_ids or NOW - g.get('_statAt', 0) < 290:  # R840: every 5 min (daily API limit)
                 continue
-            if stat_n >= 6:  # at most 6 statistics calls a pass (oldest first next pass)
+            if stat_n >= 3:  # R840: at most 3 statistics calls a pass (the 7,500/day limit was hit on 11/7)
                 continue
             stat_n += 1
             try:
@@ -179,6 +179,67 @@ if win and KEY:
                     log.append('fb final ' + str(e)[:80])
     except Exception as e:
         log.append('fb ' + str(e)[:120])
+
+# R840 (owner 11/8 02:06 "문자중계 자꾸 씽크가 안맞나 경기종료 된경기가 아직도 진행중"): when API-Football stops answering
+# (daily limit), soccer scores and the final whistle come from ESPN's public scoreboards instead
+ESPN_SOC = {'Premier League': ['eng.1'], 'Championship': ['eng.2'], 'League One': ['eng.3'], 'League Two': ['eng.4'], 'La Liga': ['esp.1'],
+            'Segunda División': ['esp.2'], 'Bundesliga': ['ger.1', 'aut.1'], '2. Bundesliga': ['ger.2'], 'Serie A': ['ita.1'], 'Serie B': ['ita.2'],
+            'Ligue 1': ['fra.1'], 'Ligue 2': ['fra.2'], 'Eredivisie': ['ned.1'], 'Jupiler Pro League': ['bel.1'], 'Süper Lig': ['tur.1'],
+            'Premiership': ['sco.1'], 'Super League 1': ['gre.1'], 'Primeira Liga': ['por.1'], 'Major League Soccer': ['usa.1'], 'J1 League': ['jpn.1'],
+            'A-League': ['aus.1'], 'K League 1': ['kor.1'], 'UEFA Champions League': ['uefa.champions'], 'UEFA Europa League': ['uefa.europa']}
+def _nm(x):
+    import re as _re, unicodedata as _u
+    x = _u.normalize('NFKD', str(x or '')).encode('ascii', 'ignore').decode().lower()
+    x = _re.sub(r'\b(fc|afc|cf|sc|ac|fk|sk|bk|club|de|the|cd|ud|sd|rc|vfb|vfl|tsg|bsc|1\.)\b', ' ', x)
+    return ' '.join(_re.sub(r'[^a-z0-9 ]', ' ', x).split())
+def _same(a, b):
+    import difflib
+    a, b = _nm(a), _nm(b)
+    if not a or not b: return False
+    if a in b or b in a: return True
+    A, B = a.split(), b.split()
+    if A[0] == B[0] and len(A[0]) >= 4 and (len(A) == 1 or len(B) == 1 or A[1][:3] == B[1][:3]): return True
+    return difflib.SequenceMatcher(None, a, b).ratio() >= .82
+try:
+    stale = [g for g in G.values() if g.get('src') == 'af' and g.get('live') and not g.get('fin') and NOW * 1000 - (g.get('up') or 0) > 4 * 60 * 1000]
+    if stale:
+        boards = {}
+        for code in sorted({c for g in stale for c in ESPN_SOC.get(g.get('lg'), [])}):
+            evs = []
+            for d in sorted({dt.datetime.utcfromtimestamp(NOW - h * 3600).strftime('%Y%m%d') for h in (8, 0)}):
+                try:
+                    evs += get(f'https://site.api.espn.com/apis/site/v2/sports/soccer/{code}/scoreboard?dates={d}').get('events', [])
+                except Exception as e:
+                    log.append('espn soc ' + code + ' ' + str(e)[:60])
+            boards[code] = evs
+        for g in stale:
+            hit = None
+            for code in ESPN_SOC.get(g.get('lg'), []):
+                for ev in boards.get(code, []):
+                    cs = ((ev.get('competitions') or [{}])[0]).get('competitors') or []
+                    hc = next((c for c in cs if c.get('homeAway') == 'home'), None); ac = next((c for c in cs if c.get('homeAway') == 'away'), None)
+                    if hc and ac and _same(hc['team'].get('displayName'), g['h']) and _same(ac['team'].get('displayName'), g['a']):
+                        hit = (ev, hc, ac); break
+                if hit: break
+            if not hit:
+                continue
+            ev, hc, ac = hit
+            stt = (ev.get('status') or {}).get('type') or {}
+            hs, as_ = int(hc.get('score') or 0), int(ac.get('score') or 0)
+            if hs != g.get('hs') or as_ != g.get('as'):
+                feed_add(g, f"⚽ 득점 반영 {hs}:{as_} (ESPN)", 'goal', key=f'espn-{hs}-{as_}')
+            g.update({'hs': hs, 'as': as_, 'up': int(NOW * 1000), 'via': 'espn'})
+            if stt.get('state') == 'post' or stt.get('completed'):
+                g.update({'live': False, 'fin': True, 'finAt': NOW, 'stx': '경기 종료', 'clock': ''})
+                feed_add(g, f"🏁 경기 종료 {hs}:{as_}", 'end', key='FT')
+            elif stt.get('state') == 'in':
+                g.update({'clock': (ev.get('status') or {}).get('displayClock') or g.get('clock', ''), 'stx': '하프타임' if 'HALF' in str(stt.get('name')) else ('후반' if (ev.get('status') or {}).get('period') == 2 else '전반')})
+        # nothing at all for 40 min and well past full time → close it, saying the score could not be confirmed
+        for g in stale:
+            if g.get('live') and NOW * 1000 - (g.get('up') or 0) > 40 * 60 * 1000 and NOW * 1000 - g.get('t', 0) > 135 * 60 * 1000:
+                g.update({'live': False, 'fin': True, 'finAt': NOW, 'stx': '경기 종료 (최종 점수 확인 중)', 'clock': ''})
+except Exception as e:
+    log.append('espn soc ' + str(e)[:120])
 
 # ---------------- NBA (ESPN) ----------------
 def nba_kr(text):
