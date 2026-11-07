@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R824-NBA-SH40";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R825-MIN60";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5043,8 +5043,9 @@ const cands792=[...all771].sort((a,b)=>b.sc-a.sc).slice(0,3).map(c=>({fam:c.x.ma
 const at=nowIso();
 /* R796 (owner 11/6: "NBA는 예외로 전부 다 분석해줘 적중률 높으면 좋겠지만"): every priced NBA game is marked with its best pick, even under
    57.5% (then 일반); 추천/가장추천 still need 63%/70%. */
+/* R825 (owner 11/7 12:45 "모든 종목 59이하는 마킹 하지말자 오늘부터"): every sport — a pick under 60% (shown 59% or less) is never marked; another option of the same game at 60%+ is taken instead, otherwise the game is passed */let cut825=false;if(best&&now>=Date.parse('2026-11-07T03:45:00Z')&&best.p<.595){const o=all771.filter(c=>!c.veto&&c.p>=.595).sort((a,b)=>b.sc-a.sc)[0];if(o)best=o;else cut825=true;}
 const nba796=!!(best&&best.x.league==='NBA');
-if(!best||(!r782Ok(best)&&!nba796)){hp771.push(best?Math.round(best.p*1000)/1000:0);for(const y of ms){if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;}y.finalPick=null;y.finalOdds=null;y.displayGrade='일반';delete y.r771Ana;y.r771Hide={at,p:best?Math.round(best.p*1000)/1000:null};}
+if(!best||cut825||(!r782Ok(best)&&!nba796)){hp771.push(best?Math.round(best.p*1000)/1000:0);for(const y of ms){if(y.marked&&y.representativeSelected){y.marked=false;y.representativeSelected=false;}y.finalPick=null;y.finalOdds=null;y.displayGrade='일반';delete y.r771Ana;y.r771Hide={at,p:best?Math.round(best.p*1000)/1000:null};}
 /* R784 (owner: "배당정밀분석에 왜 배당이 안나와있지?"): a game under the bar is not marked, but its best pick stays as an analysis-only pick so 배당 정밀분석 still shows the pick, odds and chance */if(best){const pp=Math.round(best.p*1000)/1000;best.x.finalPick=best.pick;best.x.finalOdds=best.odds;best.x.r554={...(best.x.r554||{}),ps:pp,selected:false,why:'적중확률 57.5% 미만 · 분석만'};best.x.r771Ana={at,p:pp,cands:cands792};}
 hid++;continue;}
 const x=best.x,p=Math.round(best.p*1000)/1000;let grade=r782Grade(best)||'일반';if(nba796&&!r782Ok(best))x.r796={at,p};else delete x.r796;const down=g=>g==='가장추천'?'추천':'일반';
@@ -5883,6 +5884,9 @@ state.r602Audit={at:nowIso(),badLines:bad};return bad;}
    pick (an 분석만 game got marked, 일반 turned into 추천, a 핸디 became 일반승). Now the marking as it stood just before kick-off is saved
    for every game, and from kick-off to settlement exactly that marking is put back after all rules have run. */
 const R806_FIELDS=['finalPick','finalOdds','displayGrade','hitProbability','calibratedProbability','r554','r771','r771Ana','r577Rec','r796','r554Why'];
+/* R825b (owner 11/7 12:45 "지금있는것도 59이하는 다 삭제"): last pass before the freeze — any marked game not yet started whose chance is under 60% is unmarked (started games keep their pre-kick-off marking) */
+function r825Cut(state){if(Date.now()<Date.parse('2026-11-07T03:45:00Z'))return 0;let n=0;const at=nowIso();for(const m of state?.markets||[]){if(!m.marked||!m.representativeSelected||!currentRoundMarket(m,state)||m.resultFinal||m.manualOverride)continue;try{if(started(m))continue;}catch(_){continue;}const p=Number(m.r771Ana?.p);if(!Number.isFinite(p)||p>=.595)continue;
+m.marked=false;m.representativeSelected=false;m.finalPick=null;m.finalOdds=null;m.displayGrade='일반';m.r771Hide={at,p};delete m.r771Ana;n++;}state.r825Audit={at,cut:n};return n;}
 function r806Freeze(state){const S=state.r806||(state.r806={});const now=Date.now();let kept=0,fixed=0;
 for(const ms of groupMarkets((state.markets||[]).filter(m=>Number(m.gmTs||0)>=260131)).values()){if(ms.some(m=>m.manualOverride||m.manualReview))continue;const k=String(ms[0].gmTs)+'|'+ms[0].home+'|'+ms[0].away;const r806Id=m=>String(m.no)+'|'+m.marketFamily+'|'+(m.line??'');
 if(!started(ms[0])&&!ms.some(m=>m.resultFinal)){const mk=ms.find(m=>m.marked&&m.representativeSelected&&m.finalPick),an=ms.find(m=>m.r771Ana&&m.finalPick);const src=mk||an||null;
@@ -5916,6 +5920,7 @@ try{r649Apply(state);}catch(_){}
 try{r663Apply(state);}catch(_){}
 try{r651Apply(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
+try{r825Cut(state);}catch(_){}
 try{r806Freeze(state);}catch(e){state.r806Audit={at:nowIso(),err:String(e&&e.message||e).slice(0,200)};}
 }
 /* R776 (owner: "1.5오버가 전반 1.5오버 맞음?"): the backup odds source lists part-game markets (축구 전반, 야구 5이닝 …) without saying so.
