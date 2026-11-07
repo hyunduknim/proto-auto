@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R827-LIVE-WAKE";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R829-BEST-MIX";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4982,7 +4982,7 @@ function r771Adj(L,league,fam,kind){const a=fam+'|'+kind,r=L.lg.get(String(leagu
    domestic games are marked only from 58% (other games keep 57.5%). */
 const R798_KR=new Set(['KBO','KBL','WKBL','KOVO남','KOVO여','K리그1','K리그2']);
 function r782Ok(c){if(c&&c.x&&R798_KR.has(String(c.x.league))&&Date.now()>=Date.parse('2026-11-06T09:00:00Z')&&!(c.p>=.58-1e-9))return false;return !!(r771Grade(c.p)||(c.x&&c.x.sport==='농구'&&c.x.marketFamily!=='MONEYLINE'&&c.p>=.55&&c.p*c.odds>=.96));}
-function r782Grade(c){return r771Grade(c.p)||(r782Ok(c)?'일반':null);}
+function r782Grade(c){const g=r771Grade(c.p)||(r782Ok(c)?'일반':null);/* R829 (owner 11/7 20:02 "왜 가장추천은 전부 다 플핸위주인거야?"): a plus-handicap easily shows 70%+ at 1.3x odds, so it needs 75% for 가장추천; otherwise it is 추천 */if(g==='가장추천'&&c.kind==='플핸'&&Math.round(c.p*100)/100<.75)return '추천';return g;}
 function r771Grade(p){const v=Math.round(p*100)/100;return v>=R771.best?'가장추천':v>=R771.rec?'추천':p>=R771.show-1e-9?'일반':null;}
 /* R778 (owner: "유료 api 했는데 별차이를 못 느끼겠는데"): API-Football now changes the soccer marking itself, not only the text.
    ① a regular (starts in 60%+ of the team's games) who is out lowers the chance of picks on his team (-1.5%p each, max -5%p)
