@@ -12,7 +12,7 @@ for(const [idx,i] of books)run(`ST.r507Overseas.books[gameSeed(ST.markets[${idx}
 assert.equal(run('r760Update(ST,Date.parse("2099-01-02T06:50:00+09:00")).status'),'IDLE','not before 07:00');
 const r=run('r760Update(ST,NOW)');assert.equal(r.status,'POSTED_NBA');
 const p=run('ST.r760Posts[0]');assert.equal(p.id,'pin-nba-2099-01-02');const picks=p.groups.flatMap(g=>g.picks);
-assert.ok(picks.length>=3&&picks.length<=4,'3~4 picks: '+picks.length);assert.ok(new Set(picks.map(x=>x.fam)).size>=2,'mixed types');
+/* R826: every game at 59%+ is taken, nothing under 59% */assert.ok(picks.length>=1,'some picks: '+picks.length);assert.ok(picks.every(x=>x.p==null||x.p>=.59-1e-9),'all 59%+');
 assert.equal(new Set(picks.map(x=>x.home)).size,picks.length,'one per game');
 assert.equal(run('r760Update(ST,NOW+600e3).status'),'IDLE','once a day');
 // fewer than 5 games -> no post
