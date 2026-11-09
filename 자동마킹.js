@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R846-NEON-GLOW";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R847-SH-UNSQUEEZE";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -4794,7 +4794,7 @@ function r755Norm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'')
    expected score: 홈 = 속도 × (홈 공격 + 원정 수비) / 200 + 1.5, 원정 likewise − 1.5. From it: 언오버 = chance the total clears the line (spread 18),
    핸디/일반승 = chance the margin clears the line (spread 13). That chance is 20% of the final chance. ESPN 핵심 결장 (top scorers out):
    −2%p per player on that side (max −6), +1%p for the other side (max +3). */
-const R824={at:Date.parse('2026-11-07T03:30:00Z'),w:.4,veto:.5},R797={w:.2,sdT:18,sdM:13,hca:1.5,k:12,keyEach:.02,keyMax:.06,oppEach:.01,oppMax:.03};
+const R824={at:Date.parse('2026-11-07T03:30:00Z'),w:.4,veto:.5},/* R847 (owner 11/9 "죄다 플핸 언더뿐인데?"): k 12→4 — with ~10 games played the old pull toward the league average squeezed every margin and total, which made every underdog +points and every 언더 look good */R797={w:.2,sdT:18,sdM:13,hca:1.5,k:4,keyEach:.02,keyMax:.06,oppEach:.01,oppMax:.03};
 function r797Phi(z){const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2),q=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-q:q;}
 function r797Ctx(state){const T=state?.r755?.teams;if(!T)return null;const V=Object.values(T).map(t=>t.all).filter(Boolean);if(!V.length)return null;const avg=k=>V.reduce((a,t)=>a+(Number(t[k])||0),0)/V.length;
 const lg={ortg:avg('ortg'),drtg:avg('drtg'),pace:avg('pace')};let G={};try{G=r755Games(state)?.games||{};}catch(_){}return {lg,G,inj:state.r644||{}};}
