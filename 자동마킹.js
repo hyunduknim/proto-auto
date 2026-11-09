@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R851-PIN-VALUE-ALL";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R852-PIN-VALUE-BEST";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -11979,7 +11979,7 @@ if(!R.length){el.innerHTML=h+'<div class="pastEmpty">지금은 피나클 배당�
 h+='<div class="r617T r834">비교한 픽 <b>'+e(R.length)+'개</b> · 가치 있음 <b>'+e(plus.length)+'개</b></div>';
 const row=x=>{const m=x.m,pk=x.fam==='TOTAL'?x.lab+' '+x.line:x.fam==='HANDICAP'?(x.lab==='승'?m.home+' '+(Number(x.line)>0?'+':'')+x.line:m.away+' '+(-Number(x.line)>0?'+':'')+(-Number(x.line))):(x.lab==='승'?m.home+' 승':x.lab==='패'?m.away+' 승':'무승부');const vp=Math.round(x.v*1000)/10;
 return '<div class="r848R'+(x.v>0?' up':'')+'"><div class="r848G">'+e(String(m.date||'').slice(5).replace('-','/'))+' '+e(m.time)+' · '+e(m.league)+' · '+e(m.home)+' vs '+e(m.away)+'</div><div class="r848P"><b>'+e(pk)+'</b><span>베트맨 <i>'+e(x.od.toFixed(2))+'</i> · 피나클 적정 <i>'+e(x.fair.toFixed(2))+'</i> · 확률 '+e(Math.round(x.p*1000)/10)+'%'+(x.shift?' · <em>'+e(x.shift)+'</em>':'')+'</span></div><div class="r848V">'+(vp>0?'+':'')+e(vp)+'%</div></div>';};
-h+='<div class="r617Sec" style="margin:12px 0 6px;font-weight:900">✅ 가치 있는 픽 (베트맨이 더 많이 줌)</div>'+(plus.length?plus.slice(0,30).map(row).join(''):'<div class="pastEmpty">지금은 베트맨이 피나클보다 더 주는 픽이 없습니다.</div>');
+/* R852 (owner: "그렇게 해줘"): picks that are both likely (55%+) and better paid than Pinnacle's fair price come first */const best=R.filter(x=>x.v>0&&x.p>=.55);h+='<div class="r617Sec r852" style="margin:12px 0 6px;font-weight:900">⭐ 추천: 확률 55% 이상 + 가치 플러스</div>'+(best.length?best.map(row).join(''):'<div class="pastEmpty">지금은 두 조건을 다 맞는 픽이 없습니다.</div>');h+='<div class="r617Sec" style="margin:12px 0 6px;font-weight:900">✅ 가치 있는 픽 (베트맨이 더 많이 줌)</div>'+(plus.length?plus.slice(0,30).map(row).join(''):'<div class="pastEmpty">지금은 베트맨이 피나클보다 더 주는 픽이 없습니다.</div>');
 h+='<div class="r617Sec" style="margin:14px 0 6px;font-weight:900">⚠️ 가치 낮은 픽 (베트맨이 덜 줌)</div>'+R.filter(x=>x.v<=0).slice(-10).reverse().map(row).join('');
 el.innerHTML=h;}
 function r841Render(st){const el=$('r841Panel');if(!el)return;const X=st&&st.r841;const e=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
