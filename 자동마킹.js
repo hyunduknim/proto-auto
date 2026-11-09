@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R850-PIN-MOVES";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R851-PIN-VALUE-ALL";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -1922,10 +1922,10 @@ return {applied,rejected,rejects:rejects.slice(0,20)};}
 /* R750 (owner: "배당패턴삭제하고 오즈메이커 북메이커 전모델 분석메뉴" → 업체별 배당 비교표): every overseas fetch keeps each bookmaker's own
    승/무/패 and 언오버 prices for the game, so the 📚 업체별 배당 tab can lay them next to Betman. */
 const R750_NAME={pinnacle:'피나클',betfair_ex_eu:'벳페어',matchbook:'매치북',marathonbet:'마라톤벳',onexbet:'1xBet',williamhill:'윌리엄힐',betsson:'벳슨',nordicbet:'노르딕벳',unibet_se:'유니벳',tipico_de:'티피코'};
-function r750Keep(store,g,ev,now){const H=ev?.home_team,A=ev?.away_team,ml=[],tot=[];for(const b of ev?.bookmakers||[]){const h2h=(b.markets||[]).find(x=>x.key==='h2h'),t=(b.markets||[]).find(x=>x.key==='totals');
+function r750Keep(store,g,ev,now){const H=ev?.home_team,A=ev?.away_team,ml=[],tot=[],hc=[];for(const b of ev?.bookmakers||[]){const h2h=(b.markets||[]).find(x=>x.key==='h2h'),t=(b.markets||[]).find(x=>x.key==='totals'),sp=(b.markets||[]).find(x=>x.key==='spreads');/* R851: keep spreads too */if(sp){const ho=(sp.outcomes||[]).find(o=>o.name===H),ao=(sp.outcomes||[]).find(o=>o.name===A);if(ho&&ao&&Number(ho.price)>1&&Number(ao.price)>1)hc.push([b.key,Number(ho.point),Number(ho.price),Number(ao.price)]);}
 if(h2h){const get=n=>Number((h2h.outcomes||[]).find(o=>o.name===n)?.price)||null;const h=get(H),a=get(A),d=get('Draw');if(h&&a)ml.push([b.key,h,d,a]);}
 if(t){const ov=(t.outcomes||[]).find(o=>/^over$/i.test(o.name)),un=ov&&(t.outcomes||[]).find(o=>/^under$/i.test(o.name)&&Number(o.point)===Number(ov.point));if(ov&&un)tot.push([b.key,Number(ov.point),Number(un.price),Number(ov.price)]);}}
-if(!ml.length&&!tot.length)return;(store.books||(store.books={}))[g.key]={at:now,kick:g.kick,ml,tot};}
+if(!ml.length&&!tot.length&&!hc.length)return;const prev=(store.books||{})[g.key];(store.books||(store.books={}))[g.key]={at:now,kick:g.kick,ml:ml.length?ml:(prev?.ml||[]),tot:tot.length?tot:(prev?.tot||[]),hc:hc.length?hc:(prev?.hc||[])};}
 function r750Summary(state){const B=state?.r507Overseas?.books||{},now=Date.now(),out=[];
 for(const ms of groupMarkets((state?.markets||[]).filter(m=>currentRoundMarket(m,state))).values()){const m0=ms[0],k=gameSeed(m0),b=B[k];if(!b)continue;const t=gameTimeMs(m0);if(t==null||t<now||t>now+36*3600e3)continue;
 const ml=ms.find(m=>m.marketFamily==='MONEYLINE'),tl=ms.filter(m=>m.marketFamily==='TOTAL');const bo=ml?Object.fromEntries(validChoices(ml).map(c=>[c.label,Number(c.odds)])):null;
@@ -8020,7 +8020,7 @@ scope:'CONFIRMED_SOURCE_RECORDS_NOT_CALIBRATED_PREDICTION'};
 /* R758 ⑥⑩: Pinnacle's own price for the shown market (일반승 always, 언오버 when the line matches) */
 function r758Pin(state,m){const bk=m&&state?.r507Overseas?.books?.[gameSeed(m)];if(!bk)return null;const ml=bk.ml.find(x=>x[0]==='pinnacle'),out={};
 if(ml)out.ml={승:ml[1],무:ml[2],패:ml[3]};if(m.marketFamily==='TOTAL'){const t=bk.tot.find(x=>x[0]==='pinnacle'&&Number(x[1])===Number(m.line));if(t)out.tot={line:t[1],언더:t[2],오버:t[3]};else{const n=bk.tot.filter(x=>x[0]==='pinnacle').sort((a,b)=>Math.abs(a[1]-m.line)-Math.abs(b[1]-m.line))[0];if(n)out.totN={line:n[1],언더:n[2],오버:n[3]};}}
-else{const t=bk.tot.find(x=>x[0]==='pinnacle');if(t)out.totAny={line:t[1],언더:t[2],오버:t[3]};}return (out.ml||out.tot||out.totN||out.totAny)?out:null;}
+else{const t=bk.tot.find(x=>x[0]==='pinnacle');if(t)out.totAny={line:t[1],언더:t[2],오버:t[3]};}const h=(bk.hc||[]).filter(x=>x[0]==='pinnacle');if(h.length)out.hc=h.map(x=>({pt:x[1],승:x[2],패:x[3]}));return (out.ml||out.tot||out.totN||out.totAny||out.hc)?out:null;}
 function representativeGames(state){
 const out=[];
 for(const ms of groupMarkets((state.markets||[]).filter(m=>isAfterCutoff(m)&&!isPurgedMidnightMarket(m))).values()){
@@ -11963,18 +11963,20 @@ const good=rows.filter(r=>r.odds>r.pinO&&r.odds>=1.31).sort((a,b)=>(b.odds-b.pin
 return '<article class="r817C"><div class="r817H"><b>'+e(H)+' vs '+e(A)+'</b><small>'+e(String(g.date||'').slice(5)+' '+String(g.time||'').slice(0,5)+' · '+(g.league||''))+'</small></div>'+
 (tr?'<table class="r817T"><tr><th>선택</th><th>베트맨</th><th>피나클</th><th></th></tr>'+tr+'</table>':'<div class="r816My n">피나클 배당이 아직 없습니다</div>')+
 '<div class="r817S '+(good?'g':'')+'">'+(good?'👍 베트맨이 더 주는 선택: <b>'+e(nm(good))+'</b> ('+Number(good.odds).toFixed(2)+' vs 피나클 '+Number(good.pinO).toFixed(2)+')':'이 경기는 베트맨이 모두 덜 줍니다')+'</div></article>';}
+function r848Phi(z){const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2),p=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p;}function r848Inv(p){p=Math.min(.999,Math.max(.001,p));let lo=-6,hi=6;for(let i=0;i<60;i++){const mid=(lo+hi)/2;if(r848Phi(mid)<p)lo=mid;else hi=mid;}return (lo+hi)/2;}
 function r848Render(st){const el=$('r848Panel');if(!el)return;const e=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const now=Date.now(),R=[];
-for(const m of (st&&st.markingGames)||[]){const P=m.r758Pin;if(!P||m.gameStarted||m.resultFinal)continue;const ch=((m.marketRows||[])[0]||{}).precision;const C=(ch&&ch.choices)||[];if(!C.length)continue;let pr=null;
+for(const m of (st&&st.markingGames)||[]){const P=m.r758Pin;if(!P||m.gameStarted||m.resultFinal)continue;const ch=((m.marketRows||[])[0]||{}).precision;const C=(ch&&ch.choices)||[];if(!C.length)continue;let pr=null,shift='';const bb=m.sport==='농구'||/NBA|KBL|WKBL/.test(String(m.league||''));
 if(m.marketFamily==='MONEYLINE'&&P.ml){const o=P.ml,ks=['승','무','패'].filter(k=>Number(o[k])>1),inv=ks.map(k=>1/Number(o[k])),sm=inv.reduce((a,b)=>a+b,0);pr={};ks.forEach((k,i)=>pr[k]=inv[i]/sm);}
-else if(m.marketFamily==='TOTAL'&&P.tot&&Number(P.tot.line)===Number(m.line)){const u=1/Number(P.tot['언더']),o=1/Number(P.tot['오버']);pr={'언더':u/(u+o),'오버':o/(u+o)};}
-if(!pr)continue;for(const c of C){const p=pr[c.label],od=Number(c.currentOdds);if(!(p>0)||!(od>1))continue;R.push({m,lab:c.label,od,p,fair:1/p,v:od*p-1});}}
+else if(m.marketFamily==='TOTAL'){const T=P.tot||P.totN;if(T){const u=1/Number(T['언더']),o=1/Number(T['오버']),q=o/(u+o),L=Number(m.line),T0=Number(T.line);if(L===T0)pr={'언더':1-q,'오버':q};else if(bb&&Math.abs(L-T0)<=8){const mu=T0-18*r848Inv(1-q),qo=1-r848Phi((L-mu)/18);pr={'언더':1-qo,'오버':qo};shift='피나클 '+T0+' 기준 환산';}}}
+else if(m.marketFamily==='HANDICAP'&&P.hc&&P.hc.length){const L=Number(m.line);const H=P.hc.slice().sort((a,b)=>Math.abs(a.pt-L)-Math.abs(b.pt-L))[0];const a=1/H['승'],b=1/H['패'],q=a/(a+b);if(H.pt===L)pr={'승':q,'패':1-q};else if(bb&&Math.abs(H.pt-L)<=6){const mu=-H.pt-13*r848Inv(1-q),qh=1-r848Phi((-L-mu)/13);pr={'승':qh,'패':1-qh};shift='피나클 '+(H.pt>0?'+':'')+H.pt+' 기준 환산';}}
+if(!pr)continue;for(const c of C){const p=pr[c.label],od=Number(c.currentOdds);if(!(p>0)||!(od>1))continue;R.push({m,lab:c.label,od,p,fair:1/p,v:od*p-1,shift});}}
 R.sort((a,b)=>b.v-a.v);const plus=R.filter(x=>x.v>0);
-let h='<div class="r617Hd"><b>💎 피나클 배당가치</b><small>같은 픽을 피나클(세계에서 가장 정확하다는 배당)과 비교합니다. 베트맨 배당이 피나클 기준 적정 배당보다 높으면 "가치 있음"입니다. 가치가 높다고 꼭 맞는 건 아니고, 같은 돈을 오래 걸면 유리한 쪽이라는 뜻입니다.</small></div>';
+let h='<div class="r617Hd"><b>💎 피나클 배당가치</b><small>같은 픽을 피나클(세계에서 가장 정확하다는 배당)과 비교합니다(일반승·핸디·언오버). 농구는 기준점이 달라도 환산해서 비교합니다. 베트맨 배당이 피나클 기준 적정 배당보다 높으면 "가치 있음"입니다. 가치가 높다고 꼭 맞는 건 아니고, 같은 돈을 오래 걸면 유리한 쪽이라는 뜻입니다.</small></div>';
 if(!R.length){el.innerHTML=h+'<div class="pastEmpty">지금은 피나클 배당이 들어온 경기가 없습니다. 보통 경기 하루 전쯤부터 들어옵니다.</div>';return;}
 h+='<div class="r617T r834">비교한 픽 <b>'+e(R.length)+'개</b> · 가치 있음 <b>'+e(plus.length)+'개</b></div>';
-const row=x=>{const m=x.m,pk=m.marketFamily==='TOTAL'?x.lab+' '+m.line:(x.lab==='승'?m.home+' 승':x.lab==='패'?m.away+' 승':'무승부');const vp=Math.round(x.v*1000)/10;
-return '<div class="r848R'+(x.v>0?' up':'')+'"><div class="r848G">'+e(String(m.date||'').slice(5).replace('-','/'))+' '+e(m.time)+' · '+e(m.league)+' · '+e(m.home)+' vs '+e(m.away)+'</div><div class="r848P"><b>'+e(pk)+'</b><span>베트맨 <i>'+e(x.od.toFixed(2))+'</i> · 피나클 적정 <i>'+e(x.fair.toFixed(2))+'</i> · 확률 '+e(Math.round(x.p*1000)/10)+'%</span></div><div class="r848V">'+(vp>0?'+':'')+e(vp)+'%</div></div>';};
+const row=x=>{const m=x.m,pk=m.marketFamily==='TOTAL'?x.lab+' '+m.line:m.marketFamily==='HANDICAP'?(x.lab==='승'?m.home+' '+(Number(m.line)>0?'+':'')+m.line:m.away+' '+(-Number(m.line)>0?'+':'')+(-Number(m.line))):(x.lab==='승'?m.home+' 승':x.lab==='패'?m.away+' 승':'무승부');const vp=Math.round(x.v*1000)/10;
+return '<div class="r848R'+(x.v>0?' up':'')+'"><div class="r848G">'+e(String(m.date||'').slice(5).replace('-','/'))+' '+e(m.time)+' · '+e(m.league)+' · '+e(m.home)+' vs '+e(m.away)+'</div><div class="r848P"><b>'+e(pk)+'</b><span>베트맨 <i>'+e(x.od.toFixed(2))+'</i> · 피나클 적정 <i>'+e(x.fair.toFixed(2))+'</i> · 확률 '+e(Math.round(x.p*1000)/10)+'%'+(x.shift?' · <em>'+e(x.shift)+'</em>':'')+'</span></div><div class="r848V">'+(vp>0?'+':'')+e(vp)+'%</div></div>';};
 h+='<div class="r617Sec" style="margin:12px 0 6px;font-weight:900">✅ 가치 있는 픽 (베트맨이 더 많이 줌)</div>'+(plus.length?plus.slice(0,30).map(row).join(''):'<div class="pastEmpty">지금은 베트맨이 피나클보다 더 주는 픽이 없습니다.</div>');
 h+='<div class="r617Sec" style="margin:14px 0 6px;font-weight:900">⚠️ 가치 낮은 픽 (베트맨이 덜 줌)</div>'+R.filter(x=>x.v<=0).slice(-10).reverse().map(row).join('');
 el.innerHTML=h;}
