@@ -98,6 +98,31 @@ def ev_line(e, g):
     if t == 'Var':
         return mm + f' 📺 VAR · {d} ({tn})', 'var'
     return None, None
+# R860 (owner 11/10 "모든 종목 다 선수별로 득점나오게"): soccer goal scorers per team, from API-Football events or ESPN details
+def sc_af(g, evs):
+    sc = {'h': [], 'a': []}
+    for e in evs or []:
+        if e.get('type') != 'Goal' or 'Missed' in (e.get('detail') or ''):
+            continue
+        nm = (e.get('player') or {}).get('name') or ''
+        if not nm: continue
+        d = e.get('detail') or ''; own = 'Own' in d
+        side = 'h' if (e.get('team') or {}).get('id') == g.get('hid') else 'a'  # the goal counts for this team
+        m = (e.get('time') or {}).get('elapsed'); ex = (e.get('time') or {}).get('extra')
+        sc[side].append([f"{m}'" + (f"+{ex}" if ex else ''), nm, 'PK' if 'Penalty' in d else '자책' if own else ''])
+    if sc['h'] or sc['a']: g['sc'] = sc
+def sc_espn(g, ev, hc):
+    try:
+        sc = {'h': [], 'a': []}
+        for d in ((ev.get('competitions') or [{}])[0]).get('details') or []:
+            if not d.get('scoringPlay'): continue
+            ath = (d.get('athletesInvolved') or [{}])[0]; nm = ath.get('shortName') or ath.get('displayName') or ''
+            if not nm: continue
+            own = bool(d.get('ownGoal')); side = 'h' if str((d.get('team') or {}).get('id')) == str(hc['team'].get('id')) else 'a'
+            sc[side].append([(d.get('clock') or {}).get('displayValue') or '', nm, 'PK' if d.get('penaltyKick') else '자책' if own else ''])
+        if sc['h'] or sc['a']: g['sc'] = sc
+    except Exception as e:
+        log.append('espn sc ' + str(e)[:50])
 if win and KEY:
     try:
         j = get('https://v3.football.api-sports.io/fixtures?live=all', key=True)
@@ -125,6 +150,7 @@ if win and KEY:
                 _n[e.get('type')] = _n.get(e.get('type'), 0) + 1
                 if line:
                     feed_add(g, line, kind, key=f"ev-{e.get('type')}-{_n[e.get('type')]}", replace=True)
+            if it.get('events'): sc_af(g, it['events'])
             if st.get('short') == 'HT':
                 feed_add(g, f'⏸ 전반 종료 {hs}:{as_}', 'period', key='HT')
             G[gid] = g
@@ -173,6 +199,7 @@ if win and KEY:
                             _n[e.get('type')] = _n.get(e.get('type'), 0) + 1
                             if line:
                                 feed_add(g, line, kind, key=f"ev-{e.get('type')}-{_n[e.get('type')]}", replace=True)
+                        if it.get('events'): sc_af(g, it['events'])
                         if st in ('FT', 'AET', 'PEN'):
                             g.update({'live': False, 'fin': True, 'finAt': NOW, 'st': st, 'stx': '경기 종료', 'clock': ''})
                             feed_add(g, f"🏁 경기 종료 {g['hs']}:{g['as']}", 'end', key='FT')
@@ -230,6 +257,7 @@ try:
                 hs, as_ = int(hc.get('score') or 0), int(ac.get('score') or 0)
                 if g.get('hs') is not None and (hs, as_) != (g.get('hs'), g.get('as')):
                     feed_add(g, f"⚽ 득점 {hs}:{as_}", 'goal', key=f'espn-{hs}-{as_}')
+                sc_espn(g, ev, hc)
                 g.update({'hs': hs, 'as': as_, 'up': int(NOW * 1000), 'via': 'espn'})
                 if stt.get('state') == 'post' or stt.get('completed'):
                     if not g.get('fin'):
@@ -264,6 +292,7 @@ try:
             hs, as_ = int(hc.get('score') or 0), int(ac.get('score') or 0)
             if hs != g.get('hs') or as_ != g.get('as'):
                 feed_add(g, f"⚽ 득점 반영 {hs}:{as_} (ESPN)", 'goal', key=f'espn-{hs}-{as_}')
+            sc_espn(g, ev, hc)
             g.update({'hs': hs, 'as': as_, 'up': int(NOW * 1000), 'via': 'espn'})
             if stt.get('state') == 'post' or stt.get('completed'):
                 g.update({'live': False, 'fin': True, 'finAt': NOW, 'stx': '경기 종료', 'clock': ''})
