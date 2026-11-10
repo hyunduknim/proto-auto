@@ -325,6 +325,26 @@ try:
                 g['finAt'] = NOW; g['stx'] = '경기 종료'
             try:
                 sm = get(f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event={ev['id']}")
+                # R859 (owner 11/10 "NBA 선수별로 득점나오게 할수없나?"): top scorers of each team from the box score
+                try:
+                    bx = {}
+                    for tm in ((sm.get('boxscore') or {}).get('players') or []):
+                        side = 'h' if str((tm.get('team') or {}).get('id')) == str(H['team'].get('id')) else 'a'
+                        st0 = (tm.get('statistics') or [{}])[0]; lab = st0.get('labels') or st0.get('names') or []
+                        ix = {k: lab.index(k) for k in ('PTS', 'REB', 'AST', 'MIN') if k in lab}
+                        if 'PTS' not in ix: continue
+                        rows = []
+                        for at in st0.get('athletes') or []:
+                            sv = at.get('stats') or []
+                            if len(sv) <= ix['PTS']: continue
+                            def num(k):
+                                try: return int(sv[ix[k]])
+                                except Exception: return 0
+                            rows.append([(at.get('athlete') or {}).get('shortName') or (at.get('athlete') or {}).get('displayName') or '', num('PTS'), num('REB') if 'REB' in ix else 0, num('AST') if 'AST' in ix else 0])
+                        rows.sort(key=lambda r: -r[1]); bx[side] = [r for r in rows if r[1] > 0][:6]
+                    if bx.get('h') or bx.get('a'): g['bx'] = bx
+                except Exception as e:
+                    log.append('nba box ' + str(e)[:60])
                 for p in (sm.get('plays') or [])[-120:]:
                     if not (p.get('scoringPlay') or re.match(r'End of', p.get('text') or '')):
                         continue
