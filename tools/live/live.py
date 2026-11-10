@@ -413,7 +413,7 @@ def dom_due(sport):
         return True  # first look of the day
     ts = sch.get('t') or []
     on = any(t / 1000 - 10 * 60 <= NOW <= t / 1000 + 4 * 3600 for t in ts) and any(not G.get(i, {}).get('fin') for i in sch.get('ids', [])) if ts else False
-    left = 92 - calls.get(sport, 0)
+    left = (74 if sport == 'basketball' else 92) - calls.get(sport, 0)  # R861: basketball keeps ~22 calls a day for player records
     if not on or left <= 0:
         return False
     span = (max(ts) / 1000 + (3.6 if sport == 'baseball' else 2.4) * 3600) - NOW  # until the last game should end
@@ -435,6 +435,7 @@ for sport in ('basketball', 'volleyball', 'baseball'):
             st = it['status']; short = st.get('short') or ''
             g = G.get(gid) or {'id': gid, 'sp': SPK[sport], 'src': 'as', 'lg': it['league']['name'], 't': t, 'h': kr(sport, it['teams']['home']['name']), 'a': kr(sport, it['teams']['away']['name'])}
             g['h'], g['a'] = kr(sport, it['teams']['home']['name']), kr(sport, it['teams']['away']['name'])
+            g['hid'] = it['teams']['home'].get('id')
             ph, pa = g.get('hs'), g.get('as')
             fin = short in ('FT', 'AOT', 'AP', 'FIN', 'POST') or 'Finished' in (st.get('long') or '')
             notstarted = short in ('NS', 'TBD', 'CANC', 'PST', 'POST') and not fin
@@ -514,6 +515,33 @@ for sport in ('basketball', 'volleyball', 'baseball'):
         sched[sport] = {'day': TODAY, 't': ts, 'ids': ids}
     except Exception as e:
         log.append(sport + ' ' + str(e)[:120])
+
+# R861 (owner 11/10 "공식사이트 안되면 타분석 사이트는 안되나?"): KBL·WKBL player records from the same licensed API
+# (API-Sports basketball /games/statistics/players) — every 10 min per live game, once more at the final, max 3 a pass
+if KEY:
+    _bn = 0
+    for gid, g in G.items():
+        if g.get('src') != 'as' or g.get('sp') != '농구' or not g.get('hid') or g.get('hs') is None or _bn >= 3 or calls.get('basketball', 0) >= 97:
+            continue
+        need = (g.get('live') and NOW - g.get('_bxAt', 0) >= 600) or (g.get('fin') and not g.get('_bxFin'))
+        if not need:
+            continue
+        _bn += 1
+        try:
+            r = get(f"https://{HOST['basketball']}/games/statistics/players?id={gid[2:]}", key=True)
+            calls['basketball'] = calls.get('basketball', 0) + 1; g['_bxAt'] = NOW
+            if g.get('fin'): g['_bxFin'] = 1
+            bx = {'h': [], 'a': []}
+            for x in r.get('response') or []:
+                side = 'h' if (x.get('team') or {}).get('id') == g.get('hid') else 'a'
+                pts = int(x.get('points') or 0)
+                if pts <= 0: continue
+                bx[side].append([(x.get('player') or {}).get('name') or '', pts, int((x.get('rebounds') or {}).get('total') or 0), int(x.get('assists') or 0)])
+            for k in bx:
+                bx[k] = sorted(bx[k], key=lambda r: -r[1])[:6]
+            if bx['h'] or bx['a']: g['bx'] = bx
+        except Exception as e:
+            log.append('kbl box ' + str(e)[:60])
 
 LGK = {'Volleyball League': 'V리그 남자', 'Volleyball League Women': 'V리그 여자', 'WKBL W': 'WKBL', 'KBL': 'KBL', 'KBO': 'KBO'}
 for g in G.values():
