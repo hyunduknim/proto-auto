@@ -40,5 +40,5 @@ run('ST.markets.forEach(m=>{if(m.sport==="축구")m.league="K리그1"})');assert
 run('ST.markets.forEach(m=>{if(m.sport==="축구"){m.league="MLS";m.resultFinal=false}});ST.r881Fix=0;ST.r770Day="2026-11-02";ST.r760Posts=[{id:"pin-2026-11-02",title:"old",groups:[{name:"일반승",picks:[{gmTs:"260129",no:2035,pick:"승",odds:1.4}]},{name:"핸디캡",picks:[{gmTs:"260129",no:2028,pick:"패",odds:1.38}]}]}]');
 assert.equal(run('r881Fix(ST,NOW)'),1);assert.equal(run('ST.r760Posts[0].groups.length'),1);assert.equal(run('ST.r760Posts[0].groups[0].picks[0].no'),2028);assert.ok(run('ST.r760Posts[0].title').includes('해외축구'));
 assert.equal(run('r881Fix(ST,NOW)'),0,'only once');
-const ix2=vm.runInContext('INDEX',c);assert.ok(ix2.includes('function r881Nhl')&&ix2.includes('아침 7시 NBA와 NHL'));
+const ix2=vm.runInContext('INDEX',c);/* R882: NHL stays in its own menu */assert.ok(!ix2.includes('r881Nhl')&&ix2.includes('아침 7시 NBA ·')&&ix2.includes('🏒 NHL 피나클 추천'));
 console.log('r881 ok');
