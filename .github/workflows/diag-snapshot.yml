@@ -35,7 +35,7 @@ jobs:
         run: |
           set -e
           mkdir out && cd out
-          case "$Q" in api/live*) curl -sS -m 60 "https://protonumber.mystyle276.workers.dev/${Q}" -o check.json;; *) curl -sS -m 60 "https://protonumber.mystyle276.workers.dev/check?${Q}" -o check.json;; esac
+          case "$Q" in api/live*|api/search*) curl -sS -m 60 "https://protonumber.mystyle276.workers.dev/${Q}" -o check.json;; *) curl -sS -m 60 "https://protonumber.mystyle276.workers.dev/check?${Q}" -o check.json;; esac
           if [ -n "$E" ]; then
             i=0
             IFS='|' read -ra PARTS <<< "$E"
