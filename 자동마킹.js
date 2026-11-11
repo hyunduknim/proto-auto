@@ -10330,6 +10330,9 @@ body .app .r804R small{font:600 10.5px/1 "Outfit",sans-serif;color:#e7eaff;opaci
 /* R807 */
 body .app .r807X{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 12px;margin:0 0 8px;font-size:12.5px;color:#c9d3ee}body .app .r807X b{font-family:"Outfit",sans-serif;color:#fff;font-weight:800}body .app .r807X.v .big b{font-size:20px;color:#ffd36b}
 body .app .r804B .tm small{font-size:11.5px!important;color:#9fb0d6!important}
+.r804B{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)!important}.r804B .tm{min-width:0;overflow-wrap:anywhere}.r804B .tm.l{font-size:clamp(14px,3.7vw,17px)!important}.r804B .tm.xl{font-size:clamp(13px,3.3vw,16px)!important}
+@media(max-width:420px){.r804B{gap:6px!important}.r804B .sc b{font-size:clamp(30px,9vw,40px)!important;min-width:0!important}}
+.r859T{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 body .app .r804F li.k-corner .tx{color:#9ff0ff}
 /* R810 (owner 11/6 "배당정밀분석 글씨가 안맞는다"): columns line up — fixed columns for the 팀 성적 rows, no letter-by-letter wrapping, wider team boxes */
 body .app .hRow{display:grid!important;grid-template-columns:38px 80px minmax(0,1fr) 30px;gap:4px 5px;align-items:center}body .app .hAvg{font-size:12px;gap:0 6px!important}
@@ -12023,8 +12026,10 @@ const P=g.pick,S=g.ps;const pk=P?'<div class="r804P '+(S?S.s:'')+'"><span>🎯 �
 const F=(g.feed||[]).slice().reverse(),open=!!r804Open[g.id],shown=open?F:F.slice(0,6);
 const fd=F.length?'<ul class="r804F">'+shown.map(x=>'<li class="k-'+e(x.kind||'info')+'"><span class="tm">'+r804Kt(x.at)+'</span><span class="tx">'+e(x.x)+'</span></li>').join('')+'</ul>'+(F.length>6?'<button type="button" class="r804M" onclick="r804Open[\\''+e(g.id)+'\\']=!r804Open[\\''+e(g.id)+'\\'];r804Render()">'+(open?'접기 ▲':'중계 전체 보기 ('+F.length+') ▼')+'</button>':''):'<div class="r804N">'+(g.live?'아직 중계할 장면이 없습니다. 점수가 바뀌면 바로 쌓입니다.':'경기 시작 전입니다.')+'</div>';
 return '<article class="r804C'+(g.live?' live':'')+(g.fin?' fin':'')+(P?' mine':'')+'"><div class="r804H"><span class="lg">'+(R804E[g.sp]||'')+' '+e(g.bm?g.bm.league||g.lg:g.lg)+(g.bm?' · #'+e(g.bm.no):'')+'</span>'+st+'</div>'+
-'<div class="r804B"><div class="tm h'+(lead==='h'?' lead':'')+'">'+e(H)+'<small>🏠 홈</small></div><div class="sc">'+(has?'<b class="'+(lead==='h'?'lead':'')+'">'+hs+'</b><i>:</i><b class="'+(lead==='a'?'lead':'')+'">'+as+'</b>':'<b class="vs">VS</b>')+'</div><div class="tm a'+(lead==='a'?' lead':'')+'">'+e(A)+'<small>✈️ 원정</small></div></div>'+
+'<div class="r804B"><div class="tm h'+(lead==='h'?' lead':'')+r870L(H)+'">'+e(H)+'<small>🏠 홈</small></div><div class="sc">'+(has?'<b class="'+(lead==='h'?'lead':'')+'">'+hs+'</b><i>:</i><b class="'+(lead==='a'?'lead':'')+'">'+as+'</b>':'<b class="vs">VS</b>')+'</div><div class="tm a'+(lead==='a'?' lead':'')+r870L(A)+'">'+e(A)+'<small>✈️ 원정</small></div></div>'+
 r804Xtra(g)+r860Sc(g)+r804Per(g)+pk+fd+'</article>';}
+/* R870 (owner 11/11 "팀이름이 길면 저렇게 막 튀어나가네"): long team names step down in size and wrap inside the card */
+function r870L(n){const L=String(n||'').replace(/\\s/g,'').length;return L>=12?' xl':L>=8?' l':'';}
 /* R860: soccer goal scorers per team */
 function r860Sc(g){const S=g.sp==='축구'&&g.sc;if(!S||!((S.h||[]).length||(S.a||[]).length))return '';const H=r560N(g.bm&&g.src!=='as'?g.bm.home:g.h),A=r560N(g.bm&&g.src!=='as'?g.bm.away:g.a);const col=(L,nm)=>'<div class="r859C"><div class="r859T">'+e(nm)+'</div>'+((L||[]).length?(L||[]).map(r=>'<div class="r859R"><span>'+e(r[1])+(r[2]?' ('+e(r[2])+')':'')+'</span><b>'+e(r[0])+'</b></div>').join(''):'<div class="r859R"><span>-</span></div>')+'</div>';return '<div class="r859"><div class="r859H">⚽ 골 넣은 선수</div><div class="r859G">'+col(S.h,H)+col(S.a,A)+'</div></div>';}
 function r804Render(){const el=$('r804Panel');if(!el)return;const D=r804Data;if(!D){el.innerHTML='<div class="r617Hd"><b>📡 실시간 중계</b><small>불러오는 중…</small></div>';return;}
