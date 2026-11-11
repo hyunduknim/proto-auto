@@ -4701,7 +4701,7 @@ function r712Cross(state,ml){const lh=r712Lg(state,ml.sport,ml.home),la=r712Lg(s
 /* R712b: same-league games add each team's Elo (built from all its results, so it knows who the opponents were) */
 function r712EloOf(state,ml){try{const t=state?.performanceModel?.teams||{},h=t[perfTeamKey(ml.sport,ml.league,ml.home)],a=t[perfTeamKey(ml.sport,ml.league,ml.away)];if(!h||!a||(h.games||0)<5||(a.games||0)<5||!isFinite(h.elo)||!isFinite(a.elo))return null;return {h:Math.round(h.elo),a:Math.round(a.elo),d:h.elo-a.elo};}catch(_){return null;}}
 function r704Model(state,ms){const ml=ms.find(x=>x.marketFamily==='MONEYLINE')||ms[0];if(!ml)return null;let td=null;try{td=r482TeamData(state,ml);}catch(_){}
-if(td&&(!td.home||td.home.n<3)){const x=r707Any(state,ml,ml.home);if(x&&x.n>(td.home?.n||0))td={...td,home:x};}if(td&&(!td.away||td.away.n<3)){const x=r707Any(state,ml,ml.away);if(x&&x.n>(td.away?.n||0))td={...td,away:x};}
+if(td&&(!td.home||td.home.n<3)){const x=r871Season(ml,r707Any(state,ml,ml.home),state,gameTimeMs(ml));if(x&&x.n>(td.home?.n||0))td={...td,home:x};}if(td&&(!td.away||td.away.n<3)){const x=r871Season(ml,r707Any(state,ml,ml.away),state,gameTimeMs(ml));if(x&&x.n>(td.away?.n||0))td={...td,away:x};}
 const H=r704Side(td?.home,true),A=r704Side(td?.away,false),sp=ml.sport,nba=r644Is(ml);if(!H||!A||H.n<1||A.n<1){if(!(nba&&ms.some(x=>x.r663?.home&&x.r663?.away))){const mk=r707Market(ms),mlr=mk.find(x=>x.fam==='MONEYLINE');if(!mlr)return {few:true,hn:H?.n||0,an:A?.n||0};const g=l=>mlr.rows.find(r=>r.l===l)?.mp??0;let top=[...mlr.rows].sort((a,b)=>b.mp-a.mp)[0];
 return {sp,mkOnly:true,hn:H?.n||0,an:A?.n||0,exp:null,top:null,p3:[g('승'),g('무'),g('패')],mk,ml:(()=>{let b=null;for(const x of mk)for(const r of x.rows){if(r.o<1.31||r.l==='무')continue;if(!b||r.mp>b.mp)b={no:x.no,fam:x.fam,line:x.line,l:r.l,o:r.o,p:r.mp,pm:null,mp:r.mp};}return b||{no:mlr.no,fam:'MONEYLINE',line:null,l:top.l,o:top.o,p:top.mp,pm:null,mp:top.mp};})(),best:null,draw:null,conf:'하',n:0,why:['팀 기록이 아직 없어 베트맨 배당 확률만 표시 (경기력 계산은 기록이 들어오면 자동)'],agree:null};}}
 let elo=null;try{elo=r712Cross(state,ml)?null:r712EloOf(state,ml);}catch(_){}const Hs={...(H||{n:0}),eloD:elo?elo.d:null},As=A||{n:0};let mod=null;try{mod=sp==='축구'?r704Soccer(state,ms,Hs,As):sp==='농구'?r704Basket(state,ms,Hs,As,nba):sp==='야구'?(H&&A?r704Base(state,ms,Hs,As):null):sp==='배구'?(H&&A?r704Volley(state,ms,Hs,As):null):null;}catch(_){mod=null;}if(!mod)return null;
@@ -4885,7 +4885,7 @@ const cands=rows.filter(r=>!r.partial&&!(r.terminal!==true&&/예정|경기중|�
 const rr=cands.find(r=>r.specialStatus||resolveOfficialOutcome(r,m).outcome);if(!rr)continue;if(rr.specialStatus){off[k]={outcome:'void',score:rr.score||null,source,at:nowIso()};n++;continue;}
 const res=resolveOfficialOutcome(rr,m);if(!res?.outcome)continue;off[k]={outcome:res.void?'void':res.outcome,score:rr.score||null,source,at:nowIso()};n++;}
 const ks=Object.keys(off);if(ks.length>1500)for(const kk of ks.slice(0,ks.length-1500))delete off[kk];return n;}
-async function r835Collect(state){const L=await r804Live(state);const S=state.r835||(state.r835={});for(const g of L?.games||L||[]){if(!g||!g.bm||!g.fin||g.hs==null||g.as==null)continue;const m=(state.markets||[]).find(y=>Number(y.no)===Number(g.bm.no)&&y.home===g.bm.home);if(!m)continue;S[m.home+'|'+m.away+'|'+m.date]={s:Number(g.hs)+':'+Number(g.as),at:Date.now()};}for(const k of Object.keys(S))if(Date.now()-S[k].at>4*86400e3)delete S[k];return S;}
+async function r835Collect(state){const L=await r804Live(state);const S=state.r835||(state.r835={});for(const g of L?.games||L||[]){if(!g||!g.bm||!g.fin||g.hs==null||g.as==null)continue;const m=(state.markets||[]).find(y=>Number(y.no)===Number(g.bm.no)&&y.home===g.bm.home);if(!m)continue;S[m.home+'|'+m.away+'|'+m.date]={s:Number(g.hs)+':'+Number(g.as),at:Date.now()};if(R871[String(m.league||'')]){const LG=state.r871Log||(state.r871Log={});LG[m.league+'|'+m.home+'|'+m.away+'|'+m.date]={lg:m.league,h:m.home,a:m.away,d:m.date,hs:Number(g.hs),as:Number(g.as)};}}for(const k of Object.keys(S))if(Date.now()-S[k].at>4*86400e3)delete S[k];return S;}
 function r662EspnNba(state,m){if(!r644Is(m))return null;const ids=state.r651Ids?.[r483FixtureKey(m)],t=gameTimeMs(m);if(!ids||t==null)return null;const g=Object.values(state.r651Games||{}).find(x=>x.h===ids.home&&x.a===ids.away&&Math.abs(x.t-t)<6*3600000);return g&&Number.isFinite(g.hs)&&Number.isFinite(g.as)?g.hs+':'+g.as:null;}
 /* R699: results the owner confirmed in chat for picks the site could not settle ("뉴욕승 낙첨 새크 언더 적중"). */
 const R699_OWNER={'260126:771:승':{st:'miss'},'260126:794:언더':{st:'hit',score:'112:123'}};
@@ -8036,6 +8036,21 @@ totalLine:line,totalSamples:totalRows.length,over:typeof line==='number'?totalRo
 under:typeof line==='number'?totalRows.filter(r=>total(r)<line).length:null,
 push:typeof line==='number'?totalRows.filter(r=>total(r)===line).length:null};
 }
+/* R871 (owner 11/11 "국내배구 여자농구 지금 시작한지 얼마 안되서 현재 승패로 반영해줘"): new-season domestic leagues
+   (V-리그 남녀 · WKBL · KBL) count only this season's games — last season's March/April rows were mixing in. Rows from every
+   source we already hold for the team (the chosen form source + our own stored official results) are merged, de-duplicated,
+   and all the totals (승패, 득실, 홈/원정) are recomputed from those rows, so the numbers always agree with each other. */
+const R871={'KOVO남':'2026-10-15','KOVO여':'2026-10-15','WKBL':'2026-10-20','KBL':'2026-10-01'};
+function r871Season(m,t,state,k){const from=R871[String(m?.league||'')];if(!from||!t)return t;try{
+const nm=t.name||'',prof=state?.performanceModel?.teams?.[perfTeamKey(m.sport,m.league,nm)];
+const lg0=String(m?.league||''),log=Object.values(state?.r871Log||{}).filter(x=>x.lg===lg0&&x.d>=from&&(x.h===nm||x.a===nm)&&Date.parse(x.d+'T23:59:59+09:00')<=k+864e5&&x.d<kstDateFromMs(k)).map(x=>x.h===nm?{date:x.d,home:true,opponent:x.a,gf:x.hs,ga:x.as}:{date:x.d,home:false,opponent:x.h,gf:x.as,ga:x.hs});
+const own=(prof?.recent||[]).filter(r=>typeof r.at==='number'&&r.at<k&&r.gf!=null&&r.ga!=null).map(r=>({date:kstDateFromMs(r.at),home:r.home,opponent:r.opp,gf:r.gf,ga:r.ga}));
+const seen=new Set(),rows=[];for(const r of [...log,...(t.matches||[]),...own]){if(!r||!r.date||String(r.date)<from||r.gf==null||r.ga==null)continue;const kk=r.date+'|'+norm(r.opponent||'').slice(0,2);if(seen.has(kk))continue;seen.add(kk);rows.push({...r,outcome:r.gf>r.ga?'승':r.gf<r.ga?'패':'무'});}
+rows.sort((a,b)=>String(b.date).localeCompare(String(a.date)));const R=rows.slice(0,10),agg=L=>{const o={n:L.length,w:0,d:0,l:0,gf:0,ga:0};for(const r of L){o.gf+=Number(r.gf);o.ga+=Number(r.ga);if(r.gf>r.ga)o.w++;else if(r.gf<r.ga)o.l++;else o.d++;}return o;};
+const A=agg(R),H=agg(R.filter(r=>r.home===true)),W=agg(R.filter(r=>r.home===false)),tl=Number(t.totalLine);
+const ov=Number.isFinite(tl)&&t.scoreUnit==='POINTS'?R.filter(r=>r.gf+r.ga>tl).length:null,un=Number.isFinite(tl)&&t.scoreUnit==='POINTS'?R.filter(r=>r.gf+r.ga<tl).length:null;
+return {...t,matches:R,source:'이번 시즌 경기 기록',scope:'R871_THIS_SEASON',seasonFrom:from,n:A.n,wins:A.w,draws:A.d,losses:A.l,gf:A.gf,ga:A.ga,avgGF:A.n?Math.round(A.gf/A.n*1000)/1000:null,avgGA:A.n?Math.round(A.ga/A.n*1000)/1000:null,
+home:{n:H.n,wins:H.w,draws:H.d,losses:H.l},away:{n:W.n,wins:W.w,draws:W.d,losses:W.l},ha:{depth:R.length,each:true,home:H,away:W},complete:R.length>=5,totalSamples:A.n,over:ov,under:un,push:ov==null?null:A.n-ov-un,cleanSheets:t.scoreUnit==='SETS'?R.filter(r=>r.ga===0).length:0};}catch(_){return t;}}
 function r482TeamData(state,m){
 const k=gameTimeMs(m);if(k==null||k<R482_TEAM_START)return null;
 const seed=R482_FORM_SEEDS.find(x=>String(x.gmTs)===String(m.gmTs)&&x.date===m.date&&
@@ -8051,7 +8066,7 @@ const profile=state.performanceModel?.teams?.[perfTeamKey(m.sport,m.league,name)
 return r483SelectForm(state,context,name,{name,matches:rows,source:'저장된 공식 결과',sourceUrl:null,
 sourceDateBasis:'KST_DATE',scope:'RECORDED_SAME_LEAGUE_ONLY',observedAt:profile?.updatedAt||null},external);
 };
-const home=team(m.home),away=team(m.away),h2h=[...home.matches.filter(r=>norm(r.opponent)===norm(m.away)),
+const home=r871Season(m,team(m.home),state,k),away=r871Season(m,team(m.away),state,k),h2h=[...home.matches.filter(r=>norm(r.opponent)===norm(m.away)),
 ...away.matches.filter(r=>norm(r.opponent)===norm(m.home)).map(r=>({...r,gf:r.ga,ga:r.gf,home:!r.home}))]
 .filter((r,i,x)=>x.findIndex(q=>q.date===r.date&&q.gf===r.gf&&q.ga===r.ga)===i);
 return {version:'R482_TEAM_FORM',home,away,h2h:h2h.slice(0,5),descriptiveOnly:true,
