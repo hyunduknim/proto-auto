@@ -20,7 +20,7 @@ assert.ok(Math.abs(f(2025,'승').p-.556)<.02,'ML matches pinnacle');
 assert.ok(f(2028,'패').why.includes('2골 차 이상으로는 못 이기면'),f(2028,'패').why);
 assert.ok(f(2026,'패').why.includes('못 이기면 적중 (비기거나 지면)'));
 assert.ok(f(2035,'승').p>.6&&f(2035,'승').p<.65);assert.ok(f(2036,'승').p>.4&&f(2036,'승').p<.6);
-const post=run('r760Build(ST,NOW)');const n=post.groups.reduce((a,g)=>a+g.picks.length,0);assert.ok(n>=2,'picks '+n);assert.equal(post.by,'pin');
+const post=run('r760Build(ST,NOW)');const n=post.groups.reduce((a,g)=>a+g.picks.length,0);/* R881: the 01:00 post is foreign soccer only */assert.ok(n>=1,'picks '+n);assert.equal(post.by,'pin');assert.ok(post.groups.every(g=>g.picks.every(x=>x.no<2035)),'no basketball in the 01:00 post');assert.ok(post.title.includes('해외축구'));
 // timing: 00:30 does nothing, 01:05 posts once
 assert.equal(run('r760Update(ST,NOW-35*60e3).status'),'IDLE');assert.equal(run('r760Update(ST,NOW).status'),'POSTED');assert.equal(run('r760Update(ST,NOW+600e3).status'),'IDLE');
 // settles through the 클로드추천 settler
@@ -34,3 +34,11 @@ run('r760Update(ST,Date.parse("2026-11-03T00:05:00+09:00"))');assert.equal(run('
 run('ST.r760Posts.push({id:"x",groups:[]});r760Update(ST,Date.parse("2026-11-03T00:20:00+09:00"))');assert.equal(run('ST.r760Posts.length'),1,'once a day');
 run('r760Update(ST,Date.parse("2026-11-04T00:01:00+09:00"))');assert.equal(run('ST.r760Posts.length'),0,'and again the next day');
 console.log('r770 ok');
+
+// R881: K리그 never enters the 01:00 post; the one-time fix takes not-started non-soccer picks out of a post made by the old rule
+run('ST.markets.forEach(m=>{if(m.sport==="축구")m.league="K리그1"})');assert.equal(run('r760Build(ST,NOW).groups.length'),0,'K리그 is not 해외축구');
+run('ST.markets.forEach(m=>{if(m.sport==="축구"){m.league="MLS";m.resultFinal=false}});ST.r881Fix=0;ST.r770Day="2026-11-02";ST.r760Posts=[{id:"pin-2026-11-02",title:"old",groups:[{name:"일반승",picks:[{gmTs:"260129",no:2035,pick:"승",odds:1.4}]},{name:"핸디캡",picks:[{gmTs:"260129",no:2028,pick:"패",odds:1.38}]}]}]');
+assert.equal(run('r881Fix(ST,NOW)'),1);assert.equal(run('ST.r760Posts[0].groups.length'),1);assert.equal(run('ST.r760Posts[0].groups[0].picks[0].no'),2028);assert.ok(run('ST.r760Posts[0].title').includes('해외축구'));
+assert.equal(run('r881Fix(ST,NOW)'),0,'only once');
+const ix2=vm.runInContext('INDEX',c);assert.ok(ix2.includes('function r881Nhl')&&ix2.includes('아침 7시 NBA와 NHL'));
+console.log('r881 ok');
