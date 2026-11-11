@@ -3,7 +3,8 @@ One pass: reads the previous live.json, refreshes what is live, writes live.json
   해외축구·K리그  API-Football Pro  /fixtures?live=all (events included), only fixtures in af_soccer.json   every pass (60 s)
   NBA             ESPN scoreboard + summary plays (scoring plays, period ends)                              every pass
   KBL·WKBL / V리그 / KBO   API-Sports basketball / volleyball / baseball  /games?date=  (free plan, 100 a day each)
-                  every 3 min while a Korean game is on, capped at 90 calls a day per sport; the play-by-play text
+                  every 3 min while a Korean game is on, capped at 90 calls a day per sport (10 held back for games that run long, and a
+                  stuck live game is re-asked by id every 10 min); the play-by-play text
                   is written from the score changes between passes.
 Keys come from the environment only and are never printed."""
 import json, os, re, sys, time, urllib.request, datetime as dt
@@ -51,6 +52,9 @@ def keep(g):
     if not g.get('live') and g.get('t', 0) / 1000 < min(DAY0, NOW - 8 * 3600):
         return False
     if g.get('live') and g.get('t', 0) / 1000 < RESET - 6 * 3600:
+        return False
+    # R883: a Korean game that has had no score update for 3 hours is not live any more (the final could not be fetched)
+    if g.get('live') and g.get('src') == 'as' and g.get('up') and NOW - g['up'] / 1000 > 3 * 3600:
         return False
     return NOW - g.get('t', NOW) / 1000 < 10 * 3600
 
@@ -417,21 +421,46 @@ def dom_due(sport):
     if not on or left <= 0:
         return False
     span = (max(ts) / 1000 + (3.6 if sport == 'baseball' else 2.4) * 3600) - NOW  # until the last game should end
-    gap = min(300, max(60, span / left))
+    # R883 (owner 11/12 "배구중계 뭐지? 끝난지가 언젠데"): a five-set match ran past the expected end, the day's calls ran out at
+    # 5세트 12:10 and the card stayed "live" for hours. Ten calls are now held back for games that run long (one every 4 min).
+    gap = min(300, max(60, span / max(1, left - 10))) if span > 0 else 240
     return NOW - last.get(sport, 0) >= gap - 5
 sched = prev.get('sched') or {}
 for sport in ('basketball', 'volleyball', 'baseball'):
-    if not KEY or not dom_due(sport):
+    if not KEY:
+        continue
+    listed = dom_due(sport)
+    # R883: a game still marked live with no update for 10+ minutes (calls ran out, or the day changed so the date list no
+    # longer has it) is asked for by its own id every 10 minutes, from the calls kept above the daily pacing (up to 98)
+    _sch = (prev.get('sched') or {}).get(sport) or {}
+    _today = set(_sch.get('ids', [])) if _sch.get('day') == TODAY else set()
+    stale = [g for g in G.values() if g.get('src') == 'as' and g.get('sp') == SPK[sport] and g.get('live') and NOW - (g.get('up') or 0) / 1000 > 600
+             and NOW - g.get('_chk', 0) >= 600 and not (listed and g['id'] in _today)][:2]
+    if not listed and not stale:
         continue
     try:
-        j = get(f'https://{HOST[sport]}/games?date={TODAY}&timezone=Asia/Seoul', key=True)
-        calls[sport] = calls.get(sport, 0) + 1; last[sport] = NOW
+        items = []
+        if listed:
+            j = get(f'https://{HOST[sport]}/games?date={TODAY}&timezone=Asia/Seoul', key=True)
+            calls[sport] = calls.get(sport, 0) + 1; last[sport] = NOW
+            items = [(it, True) for it in j.get('response', [])]
+        for g0 in stale:
+            if calls.get(sport, 0) >= 98:
+                break
+            g0['_chk'] = NOW
+            try:
+                j = get(f"https://{HOST[sport]}/games?id={g0['id'][2:]}&timezone=Asia/Seoul", key=True)
+                calls[sport] = calls.get(sport, 0) + 1
+                items += [(it, False) for it in j.get('response', [])]
+            except Exception as e:
+                log.append(sport + ' recheck ' + str(e)[:80])
         ts, ids = [], []
-        for it in j.get('response', []):
+        for it, in_list in items:
             if 'Korea' not in json.dumps(it.get('country') or {}):
                 continue
             gid = f"{sport[:2]}{it['id']}"; t = int(it['timestamp']) * 1000
-            ts.append(t); ids.append(gid)
+            if in_list:
+                ts.append(t); ids.append(gid)
             st = it['status']; short = st.get('short') or ''
             g = G.get(gid) or {'id': gid, 'sp': SPK[sport], 'src': 'as', 'lg': it['league']['name'], 't': t, 'h': kr(sport, it['teams']['home']['name']), 'a': kr(sport, it['teams']['away']['name'])}
             g['h'], g['a'] = kr(sport, it['teams']['home']['name']), kr(sport, it['teams']['away']['name'])
@@ -508,11 +537,13 @@ for sport in ('basketball', 'volleyball', 'baseball'):
                 g['_inn'] = per
             if fin:
                 if not g.get('finAt'):
-                    g['finAt'] = NOW
+                    # R883: a final found late by the recheck is dated when the game really ended (about 3 h after the start), so yesterday's game clears with yesterday's
+                    g['finAt'] = NOW if in_list else min(NOW, g.get('t', NOW * 1000) / 1000 + 3 * 3600)
                 g['stx'] = '경기 종료'; g['clock'] = ''
                 feed_add(g, f'🏁 경기 종료 · {H} {hs}:{as_} {A}', 'end', key='end')
             G[gid] = g
-        sched[sport] = {'day': TODAY, 't': ts, 'ids': ids}
+        if listed:
+            sched[sport] = {'day': TODAY, 't': ts, 'ids': ids}
     except Exception as e:
         log.append(sport + ' ' + str(e)[:120])
 
