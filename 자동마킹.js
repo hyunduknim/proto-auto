@@ -5986,7 +5986,8 @@ const R570_OWNER_SCORES=[{gmTs:"260123",date:"2026-10-18",home:/베이징|궈안
 {gmTs:"260125",date:"2026-10-21",home:/니가타/,away:/사간|도스/,score:"2:1",families:["MONEYLINE","HANDICAP","TOTAL"],note:"9615 알비렉스 니가타 2:1 사간 도스 (site showed 0:0) J2 (owner flashscore)"},
 {gmTs:"260125",date:"2026-10-21",home:/도쿠시마/,away:/하치노헤|반라우레/,score:"0:1",families:["MONEYLINE","HANDICAP","TOTAL"],note:"9624 도쿠시마 0:1 반라우레 하치노헤 (site showed 0:0) J2 (owner flashscore)"},
 {gmTs:"260125",date:"2026-10-21",home:/쇼난/,away:/이와키/,score:"1:1",families:["MONEYLINE","HANDICAP","TOTAL"],note:"9607 쇼난 벨마레 1:1 이와키FC (site showed 3:1) J2 (owner flashscore)"},
-{gmTs:"260125",date:"2026-10-22",home:/브뤼허|브뤼헤|브루게/,away:/랑스/,score:"3:0",families:["MONEYLINE","HANDICAP","TOTAL"],note:"9724 클뤼프 브뤼허 3:0 RC랑스 UCL (site showed 199:0; verified sportytrader)"}];
+{gmTs:"260125",date:"2026-10-22",home:/브뤼허|브뤼헤|브루게/,away:/랑스/,score:"3:0",families:["MONEYLINE","HANDICAP","TOTAL"],note:"9724 클뤼프 브뤼허 3:0 RC랑스 UCL (site showed 199:0; verified sportytrader)"},
+{gmTs:"260134",date:"2026-11-13",home:/체코/,away:/스페인/,score:"0:2",families:["MONEYLINE","HANDICAP","TOTAL"],note:"3842 체코 0:2 스페인 U네이션 (site showed 1:2; owner 11/13 \"스페인 1마핸 적중인데 왜 낙첨\"; Yahoo/AFP: Baena pen 39', Pubill 90+)"}];
 function r570OwnerScores(state){if(!state)return 0;let n=0;const at=nowIso(),lr=state.r556LegResults||(state.r556LegResults={});
 for(const fx of R570_OWNER_SCORES)for(const m of state.markets||[]){if((fx.gmTs&&String(m.gmTs||"")!==fx.gmTs)||(fx.families&&!fx.families.includes(m.marketFamily))||(fx.dates?!fx.dates.includes(String(m.date||"")):String(m.date||"")!==fx.date)||!fx.home.test(String(m.home||""))||!fx.away.test(String(m.away||"")))continue;
 const rr={no:m.no,family:m.marketFamily,score:fx.score,terminal:true,outcome:null};let res;try{res=resolveOfficialOutcome(rr,m);}catch(_){res=null;}if(!res||!res.outcome)continue;
