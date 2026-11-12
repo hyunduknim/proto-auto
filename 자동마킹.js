@@ -4757,7 +4757,7 @@ function r704Box(state){const games={};for(const [k,ms] of r704Games(state)){con
    (overseas odds, prediction sites, fixture congestion, absences) is written to picks.json on the repo's claude-picks branch by a
    daily scheduled session; the Worker reads it every 5 minutes, shows it on the 클로드추천 tab and settles every pick from the
    game's official score (any settled market of the same game), so the record is automatic. Text is shown escaped. */
-const R662={url:'https://raw.githubusercontent.com/hyunduknim/proto-auto/claude-picks/picks.json',tickMs:5*60000,maxPosts:40};
+/* R890 (owner 11/13 "제시간에 정확한시간에 올려주도록 · 안올라오니 불안"): 클로드추천 file re-read every minute (was 5 min) with a per-minute cache buster, so a new post shows within about a minute */const R662={url:'https://raw.githubusercontent.com/hyunduknim/proto-auto/claude-picks/picks.json',tickMs:60000,maxPosts:40};
 function r662Str(x,n){return String(x==null?'':x).replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,n);}
 function r662Clean(j){const arr=(x,n)=>Array.isArray(x)?x.slice(0,n):[];
 return arr(j?.posts,R662.maxPosts).map(p=>({id:r662Str(p?.id,40),by:p?.by==='gpt'?'gpt':'',kind:r662Str(p?.kind,12),archived:p?.archived===true,title:r662Str(p?.title,120),at:r662Str(p?.at,40),intro:r662Str(p?.intro,800),
