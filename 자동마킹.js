@@ -6067,7 +6067,19 @@ try{r651Apply(state);}catch(_){}
 try{r611CapPlus(state);}catch(_){}
 try{r825Cut(state);}catch(_){}
 try{r806Freeze(state);}catch(e){state.r806Audit={at:nowIso(),err:String(e&&e.message||e).slice(0,200)};}
+try{r887Manual(state);}catch(e){state.r887Audit={at:nowIso(),err:String(e&&e.message||e).slice(0,200)};}
 }
+/* R887 (owner 11/12 23:56 "수동마킹이 했는데 시간되면 예전처럼 다시 되돌아가는데"): the owner's manual picks were being replaced by the
+   automatic pick a few minutes later (체코–스페인, 잉글랜드–크로아티아 on 11/12). The manual-pick log is the source of truth: as the very
+   last step of every analysis pass, the latest manual pick of each game that has not started is put back exactly as chosen. */
+function r887Manual(state){const now=Date.now(),last=new Map();let fixed=0,held=0;
+for(const h of state.manualPickHistory||[]){if(!h||h.source!=='USER_MANUAL_CHOICE'||!h.to||!h.marketId)continue;if(now-Date.parse(h.at||0)>4*864e5)continue;const tgt=(state.markets||[]).find(m=>String(m.gmTs)===String(h.gmTs)&&Number(m.no)===Number(h.to.no)&&marketIdentity(m)===h.marketId);if(!tgt)continue;last.set(String(h.gmTs)+'|'+gameSeed(tgt),{h,tgt});}
+for(const {h,tgt} of last.values()){const peers=(state.markets||[]).filter(m=>String(m.gmTs)===String(tgt.gmTs)&&gameSeed(m)===gameSeed(tgt));const t=gameTimeMs(tgt);if(peers.some(m=>m.resultFinal)||t==null||t<=now)continue;
+const ch=validChoices(tgt).find(c=>c.label===h.to.pick);if(!ch||!(Number(ch.odds)>1))continue;held++;
+const ok=tgt.manualOverride&&tgt.marked&&tgt.representativeSelected&&tgt.finalPick===h.to.pick&&!peers.some(m=>m!==tgt&&(m.marked||m.representativeSelected));if(ok)continue;
+for(const m of peers){if(m===tgt)continue;if(m.marked||m.representativeSelected||m.manualOverride){m.marked=false;m.representativeSelected=false;m.officialMarked=false;m.finalPick=null;m.finalOdds=null;m.manualOverride=false;delete m.r843Lock;m.selectionStatus='같은 경기의 다른 수동픽 선택';}}
+tgt.marked=true;tgt.representativeSelected=true;tgt.officialMarked=true;tgt.finalPick=h.to.pick;tgt.finalOdds=Number(ch.odds);tgt.displayGrade=h.to.grade||tgt.displayGrade||'일반';tgt.manualOverride=true;tgt.manualOverrideAt=h.at;tgt.selectionMode='MANUAL_USER_PICK';tgt.selectionStatus='수동 재마킹 · 자동변경 잠금';tgt.analysisEngine='USER_MANUAL_CHOICE';tgt.gradeEvidenceQualified=false;tgt.gradeEvidenceTier='USER_MANUAL_NOT_MODEL_RECOMMENDATION';delete tgt.r843Lock;fixed++;}
+state.r887Audit={at:nowIso(),held,fixed,total:(state.r887Audit?.total||0)+fixed};return fixed;}
 /* R776 (owner: "1.5오버가 전반 1.5오버 맞음?"): the backup odds source lists part-game markets (축구 전반, 야구 5이닝 …) without saying so.
    Betman numbers a game's full-time markets first and ends them with 언오버 then 홀짝, so anything numbered after 언오버+1 in the same game
    is a part-game market. Those are dropped (unless already marked/locked/settled) so they are never analysed or marked as full-time. */
