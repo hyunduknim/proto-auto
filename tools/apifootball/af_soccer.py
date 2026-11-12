@@ -50,6 +50,23 @@ def main():
                                       'hid': f['teams']['home']['id'], 'aid': f['teams']['away']['id'],
                                       'st': f['fixture'].get('status', {}).get('short'), 'inj': {'h': [], 'a': []}, 'lu': None,
                                       'season': lg.get('season')}
+    # R888 (owner 11/13 "해외축구 결장자가 있는걸로 아는데 왜 사이트엔 없다고 나오는지"): API-Football does not publish injury
+    # lists for every competition (Nations League, friendlies, Segunda, J2 … have coverage.injuries = false). Those fixtures
+    # are marked injNA so the site says "결장 정보 없음" instead of "결장 없음". Coverage is cached for 7 days per league/season.
+    cov = cache.get('cov', {})
+    for key in {(g['lgid'], g['season']) for g in fx.values() if g.get('lgid') and g.get('season')}:
+        k = f"{key[0]}:{key[1]}"
+        if not (cov.get(k) and now - cov[k].get('at', 0) < 7 * 86400):
+            r = get('/leagues', id=key[0], season=key[1]).get('response', [])
+            inj = None
+            for x in r[:1]:
+                for se in x.get('seasons') or []:
+                    if se.get('year') == key[1]: inj = bool((se.get('coverage') or {}).get('injuries'))
+            cov[k] = {'at': now, 'inj': inj}
+    cache['cov'] = cov
+    for g in fx.values():
+        c = cov.get(f"{g.get('lgid')}:{g.get('season')}")
+        if c and c.get('inj') is False: g['injNA'] = True
     # injuries by date (paged)
     for d in dates:
         page = 1
