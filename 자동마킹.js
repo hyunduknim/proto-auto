@@ -4803,15 +4803,19 @@ const lg={ortg:avg('ortg'),drtg:avg('drtg'),pace:avg('pace')};let G={};try{G=r75
    so on every high line (239.5 …) it sat 5-9 points under the market and read as a strong 언더 — an artifact, not an edge.
    The usual relation between projection and line (a straight-line fit over the recent games, kept in state) is now removed:
    only what is left over — a game projecting higher or lower than the line would normally imply — leans 오버 or 언더. */
-try{const by=new Map();for(const m of state.markets||[]){if(m.league!=='NBA'||m.marketFamily!=='TOTAL'||!Number.isFinite(Number(m.line)))continue;const k=String(m.gmTs)+'|'+m.home+'|'+m.away;if(!by.has(k))by.set(k,{m,L:[]});by.get(k).L.push(Number(m.line));}
+try{const by=new Map();for(const m of state.markets||[]){if(m.league!=='NBA'||m.marketFamily!=='TOTAL'||!(Number(m.line)>150))continue;/* R894: a total not posted yet reads as line 0 */const k=String(m.gmTs)+'|'+m.home+'|'+m.away;if(!by.has(k))by.set(k,{m,L:[]});by.get(k).L.push(Number(m.line));}
 const PR=state.r885P||(state.r885P={});for(const [k,{m,L}] of by){const I=r797Info(C,m);if(!I)continue;L.sort((a,b)=>a-b);PR[k]={t:I.t,l:L[L.length>>1],at:PR[k]?.at||Date.now()};}
+/* R894 (owner 11/13 "8언더는 쫌 심한데? … 어제 언더위주분석 안한다 하지 않았나?"): games whose total was not posted yet were kept with line 0,
+   which bent the fit (a=193, b=.2) so every game on a normal line read as 10-17 points under → all 8 NBA games 언더 at 59-61%. Line-0 rows are dropped. */
+for(const k of Object.keys(PR))if(!(Number(PR[k].l)>150))delete PR[k];
 const ks=Object.keys(PR).sort((a,b)=>PR[a].at-PR[b].at);while(ks.length>80)delete PR[ks.shift()];const V=Object.values(PR);
 if(V.length>=5){const n=V.length,mx=V.reduce((a,v)=>a+v.l,0)/n,mt=V.reduce((a,v)=>a+v.t,0)/n,sxx=V.reduce((a,v)=>a+(v.l-mx)**2,0),sxt=V.reduce((a,v)=>a+(v.l-mx)*(v.t-mt),0);const b=sxx>1?Math.max(.2,Math.min(1,sxt/sxx)):1;C.fit={a:mt-b*mx,b,n};}}catch(_){}
 /* R886 (owner 11/12 "꼴찌 대 1위 경기인데 왜 마핸을 안주고 언더를 줬는지"): the same pull toward the average squeezed every expected margin
    (레이커스 by 6 against a 12.5 line), so every big favorite read as "will not cover" and its 마핸 was vetoed. The usual relation between
    the projected margin and the market handicap is removed the same way; 일반승 uses the market margin plus what is left over. */
-try{const by=new Map();for(const m of state.markets||[]){if(m.league!=='NBA'||m.marketFamily!=='HANDICAP'||!Number.isFinite(Number(m.line)))continue;const k=String(m.gmTs)+'|'+m.home+'|'+m.away;if(!by.has(k))by.set(k,{m,L:[]});by.get(k).L.push(Number(m.line));}
+try{const by=new Map();for(const m of state.markets||[]){if(m.league!=='NBA'||m.marketFamily!=='HANDICAP'||!Number.isFinite(Number(m.line))||!Number(m.line))continue;/* R894: line 0 = not posted yet */const k=String(m.gmTs)+'|'+m.home+'|'+m.away;if(!by.has(k))by.set(k,{m,L:[]});by.get(k).L.push(Number(m.line));}
 const PR=state.r886P||(state.r886P={});C.HL={};for(const [k,{m,L}] of by){L.sort((a,b)=>a-b);const mm=-L[L.length>>1];C.HL[k]=mm;const I=r797Info(C,m);if(!I)continue;PR[k]={g:I.mg,m:mm,at:PR[k]?.at||Date.now()};}
+for(const k of Object.keys(PR))if(!Number(PR[k].m))delete PR[k];
 const ks=Object.keys(PR).sort((a,b)=>PR[a].at-PR[b].at);while(ks.length>80)delete PR[ks.shift()];const V=Object.values(PR);
 if(V.length>=5){const n=V.length,mx=V.reduce((a,v)=>a+v.m,0)/n,mt=V.reduce((a,v)=>a+v.g,0)/n,sxx=V.reduce((a,v)=>a+(v.m-mx)**2,0),sxt=V.reduce((a,v)=>a+(v.m-mx)*(v.g-mt),0);const b=sxx>1?Math.max(.2,Math.min(1,sxt/sxx)):1;C.fitM={a:mt-b*mx,b,n};}}catch(_){}
 return C;}
