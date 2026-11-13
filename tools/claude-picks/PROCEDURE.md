@@ -52,16 +52,23 @@ Pick independently; a game GPT also picked is fine (the site marks agreement wit
    - baseball: KBO, NPB, MLB.
 
    Domestic games (KBL/WKBL/KOVO/K리그/KBO) usually have no overseas probability. Use these instead:
-   - Betman's implied probability;
    - `form` in the slate: `[w, d, l, n, avgGF, avgGA, homeRecord, awayRecord]` per team;
    - rest days and the site's pick;
    - WebSearch team news (foreign players, injuries). Don't scrape the KBL/KOVO/Naver pages.
 
    Pick a domestic game only when the form gap is clear (for example 4-1 vs 1-4 with a goal/point gap) and the price is
    fair. One or two good domestic picks are better than none, but never pad.
-4. Evidence per candidate game:
-   - Compare the overseas probability with the Betman implied probability. The overround is about 1.08–1.12, so EV is
-     usually below 1.
+4. OWN ANALYSIS FIRST (owner 11/12 and again 11/13: "클로드추천은 적중률 배당 말고 클로드자체분석으로 픽을 주는걸로 해줘").
+   🤖 클로드추천 is Claude's own read of the game, not a copy of the odds or of the site's 적중률:
+   - First judge each game WITHOUT any odds, odds-implied probability, Pinnacle number or the site's 적중률/marking:
+     season record and standing, recent form, home/away, scoring and conceding, pace, head-to-head, rest and travel,
+     injuries and lineups, motivation, matchup. Write down your own chance (%) per market and 2–3 game reasons.
+   - Only then open the Betman odds, for three things only: the 1.31 minimum, which line is on offer, and a sanity
+     check (15+ points away from the odds → re-check for something missed, then explain the disagreement or pass).
+   - Never pick a side because it is the short-priced favorite, because Pinnacle/overseas odds lean that way, or because
+     the site marked it. `why` must give game reasons ("최근 5경기 4승, 상대 주전 센터 결장"), never "해외 68%" or
+     "피나클 …" or "사이트 적중률 …". The 확률 in each pick is Claude's own number.
+   Evidence sources (game facts, not prices):
    - Forebet league pages via WebFetch.
    - NBA: the ESPN summary `predictor` (BPI) and injuries. Find the event id with
      `snap.sh "no=1" "site/v2/sports/basketball/nba/scoreboard?dates=YYYYMMDD" . >/dev/null` (writes `espn_0.json`; read it with `zcat -f`), then
@@ -92,7 +99,7 @@ Pick independently; a game GPT also picked is fine (the site marks agreement wit
 6. Write the post (`post.json`) in Korean:
    ```json
    {"id":"YYYY-MM-DD-x-topic","title":"10/25 축구·NBA","at":"<ISO KST>","intro":"one or two sentences",
-    "groups":[{"name":"안정형","note":"확률 우선","picks":[{"gmTs":"260127","no":123,"pick":"승","label":"라치오 승","odds":1.31,"why":"해외 68%, Forebet 67%"}]}],
+    "groups":[{"name":"안정형","note":"확률 우선","picks":[{"gmTs":"260127","no":123,"pick":"승","label":"라치오 승","odds":1.31,"why":"최근 5경기 4승 1패, 상대 주전 공격수 2명 결장"}]}],
     "combos":[{"name":"안정","gmTs":"260127","nos":[123,456],"odds":1.85}],
     "cautions":["..."],"passes":["..."]}
    ```
