@@ -2,7 +2,7 @@
 const assert=require("node:assert/strict");
 const fs=require("node:fs"),path=require("node:path");
 const snapshot=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-const original=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8");
+const original=fs.readFileSync(path.join(__dirname,"..","..","자동마킹.js"),"utf8");
 const extract=text=>text.replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
   .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const baselineSource=original.replace(

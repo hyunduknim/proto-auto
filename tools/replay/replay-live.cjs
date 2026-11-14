@@ -3,7 +3,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const path=require("node:path");
 const snapshot=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
+const source=fs.readFileSync(path.join(__dirname,"..","..","자동마킹.js"),"utf8")
  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const model=new Function("structuredClone","URL",source+"\nreturn {createState,markState,assignGrades,analyzeChoiceRows,currentRoundMarket,started,groupMarkets,validChoices,representativeMarketEligible,r360OddsAnomalyReason,r360FutureEligible,gradeScore,relativeChoiceValue,getTeamProfile,r343DrawCandidate,soccerDrawEvidenceQualified,publicState};")(structuredClone,URL);

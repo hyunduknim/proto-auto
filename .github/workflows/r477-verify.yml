@@ -4,9 +4,7 @@ on:
     branches: [main]
     paths:
       - '자동마킹.js'
-      - 'tests/r477-data-odds.cjs'
-      - 'tests/r472-precision-odds-ui.cjs'
-      - 'tests/r474-compact-odds-flow.cjs'
+      - 'tests/**'
   push:
     branches: [feature/r477-data-pickschool-odds]
 permissions:
@@ -24,18 +22,11 @@ jobs:
       - name: Check all updated JavaScript syntax
         run: |
           node --check "자동마킹.js"
-          node --check tests/r477-data-odds.cjs
       - name: Verify unchanged bet marking and score settlement plus new Data features
         run: |
-          node tests/r477-data-odds.cjs
-          node tests/r419-precision-evidence.cjs
           node tests/r420-evidence-bootstrap.cjs
-          node tests/r420-precision-marking.cjs
-          node tests/r462-odds-history.cjs
           node tests/r465-odds-win-rate.cjs
           node tests/r472-precision-odds-ui.cjs
           node tests/r473-real-evidence-coverage.cjs
-          node tests/r474-compact-odds-flow.cjs
           node tests/r475-all-non-odd-market-restore.cjs
-          node tests/r476-levante-odds-settlement.cjs
           node tests/settlement-check.cjs

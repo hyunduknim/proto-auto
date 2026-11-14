@@ -1,7 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm');let NOW=Date.parse('2026-10-16T18:20:00+09:00');
 class Clock extends Date{constructor(...a){super(...(a.length?a:[NOW]));}static now(){return NOW;}}
 const ctx=vm.createContext({Date:Clock,URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('/home/claude/proto-auto/자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);const f=x=>vm.runInContext(x,ctx);
+vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'..','자동마킹.js'),'utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);const f=x=>vm.runInContext(x,ctx);
 const base={gmTs:'260123',date:'2026-10-16',time:'19:00',sport:'배구',league:'KOVO컵 여자',home:'현대건설 힐스테이트',away:'GS칼텍스 서울Kixx',game:'현대건설 힐스테이트 vs GS칼텍스 서울Kixx',oddsSnapshotStatus:'OPEN',domesticOddsValid:true,domesticOddsFetchedAt:new Date(NOW).toISOString(),marked:false,representativeSelected:false,resultFinal:false};
 const ms=[{...base,no:8638,market:'일반승',marketFamily:'MONEYLINE',line:null,choices:[{label:'승',odds:2.87},{label:'패',odds:1.27}]},
 {...base,no:8639,market:'핸디캡',marketFamily:'HANDICAP',line:1.5,choices:[{label:'승',odds:2.2},{label:'패',odds:1.52}]},

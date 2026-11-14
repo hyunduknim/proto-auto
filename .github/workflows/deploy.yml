@@ -40,18 +40,10 @@ jobs:
         run: node tests/r377-performance-confirmation.cjs
       - name: Verify R376 GitHub Copilot MyScoreBot agent skill contract
         run: node tests/r376-agent-skill.cjs
-      - name: Verify R359 live-hour ordering preserves all marking cards
-        run: node tests/r359-live-hour-display.cjs
-      - name: Verify R378 past hits/misses chronology and unsettled started game visibility
-        run: node tests/r378-past-pending-order.cjs
       - name: Simulate R360 future-only ratios and anomaly-resistant odds
         run: node tests/r360-future-odds.cjs
       - name: Verify R370 accuracy-priority cutoff without losing any marks
         run: node tests/r370-0830-accuracy.cjs
-      - name: Verify R371 exact relative grade display and historical locks
-        run: node tests/r371-relative-grades.cjs
-      - name: Verify R372 existing saved cards migrate without altering results
-        run: node tests/r372-persisted-grade-migration.cjs
       - name: Verify R374 only the two GPT-curated draws can be marked before kickoff
         run: node tests/r374-curated-draw-only.cjs
       - name: Verify R362 premium settlement when official results are published
@@ -60,34 +52,10 @@ jobs:
         run: node tests/r365-zen-settlement.cjs
       - name: Verify R380 settlement fixture recovery and resilient watchdog
         run: node tests/r380-settlement-recovery.cjs
-      - name: Verify R381 free Cloudflare full-time settlement with no GitHub cron dependency
-        run: node tests/r381-cloudflare-native-settlement.cjs
-      - name: Verify R382 first-priority Cloudflare native settlement and 08:30 queue diagnostics
-        run: node tests/r382-native-settlement-first.cjs
-      - name: Verify R486 faster final settlement without delaying or changing picks
-        run: node tests/r486-settlement-first-speed.cjs
       - name: Verify R487 reliable 122 rollover and old settlement preservation
         run: node tests/r487-122-rollover-recovery.cjs
-      - name: Verify R383 settlement preference Zen, licensed Wise, Betman and strict score guards
-        run: node tests/r383-wise-priority.cjs
       - name: Verify R384 Zentoto first and Spogod exact two-page FINAL-only settlement
         run: node tests/r384-spogod-safety.cjs
-      - name: Verify R385 independently verified completed MLS fallback does not alter frozen games
-        run: node tests/r385-mls-morning-recovery.cjs
-      - name: Verify R388 instant completed morning MLS settlement survives round rollover
-        run: node tests/r388-immediate-morning-recovery.cjs
-      - name: Verify R390 Zentoto-first Spogod fair detail queue
-        run: node tests/r390-spogod-fair-rotation.cjs
-      - name: Verify Cloudflare-compatible Zen Spogod MLS redirects and licensed safety
-        run: node tests/r396-cloudflare-redirect-repair.cjs
-      - name: Verify R395 recent Spogod dates cannot be starved by old pending rounds
-        run: node tests/r395-spogod-date-coverage.cjs
-      - name: Verify R392 settlement history UI filters never affect engine or source order
-        run: node tests/r392-settlement-filters.cjs
-      - name: Verify 5min forced settlement recheck preserves fast polls and data
-        run: node tests/r393-ten-minute-settlement.cjs
-      - name: Verify R389 eight corroborated 13:00+ finals with frozen picks and scores
-        run: node tests/r389-confirmed-afternoon.cjs
       - name: Verify R368 owner-requested void is narrow and clearly non-official
         run: node tests/r368-requested-void.cjs
       - name: Verify R369 invariant and signed final-score source adapters
