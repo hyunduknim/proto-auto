@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R859-NBA-SCORERS";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R911-PIN-NBA-TOP5";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5221,9 +5221,11 @@ const out=[],g=new Set();const take=c=>{if(g.has(c.seed))return false;/* R830d: 
 for(const fam of ['HANDICAP','TOTAL','MONEYLINE']){const b=C.filter(c=>c.fam===fam&&ok(c)).sort((a,b)=>sc(b)-sc(a));for(const c of b)if(take(c))break;}
 for(const c of C.filter(ok).sort((a,b)=>sc(b)-sc(a))){if(out.length>=R767.max)break;take(c);}
 if(false&&out.length<R767.min)for(const c of C.filter(ok2).sort((a,b)=>sc(b)-sc(a))){if(out.length>=R767.min)break;take(c);}
+/* R911 (owner 11/15 "피나클 NBA도 해당될수있나? … 오늘아침부터"): the NHL rule (R891) also for the NBA Pinnacle post —
+   only the highest-chance picks are kept: 5 when 6+ games, otherwise one fewer than the games (5 → 4, 3 → 2, 1 → 1) */const cap=r891Cap(seeds.size);if(out.length>cap){out.sort((a,b)=>b.p-a.p);out.length=cap;}
 if(!out.length)return {skip:'조건 맞는 픽 없음'};const picks=out.sort((a,b)=>a.t-b.t);const nm={MONEYLINE:'일반승',HANDICAP:'핸디캡',TOTAL:'언더오버'};
 const groups=['MONEYLINE','HANDICAP','TOTAL'].map(f=>({name:nm[f],picks:picks.filter(x=>x.fam===f).map(({seed,t,ev,...x})=>x)})).filter(g=>g.picks.length);
-return {id:'pin-nba-'+day,by:'pin',title:'🏀 '+day.slice(5).replace('-','/')+' NBA 피나클 추천픽',at:new Date(now).toISOString(),intro:'오전 7시에 오늘 NBA '+seeds.size+'경기를 피나클 배당으로 계산해서 일반승 · 핸디캡 · 언오버를 섞어 골랐습니다. 한 경기에 하나씩, 베트맨 기준점이 피나클보다 유리한 픽을 먼저 넣었습니다.',groups};}
+return {id:'pin-nba-'+day,by:'pin',title:'🏀 '+day.slice(5).replace('-','/')+' NBA 피나클 추천픽',at:new Date(now).toISOString(),intro:'오전 7시에 오늘 NBA '+seeds.size+'경기를 피나클 배당으로 계산해서 일반승 · 핸디캡 · 언오버를 섞어 골랐습니다. 한 경기에 하나씩, 확률이 제일 높은 '+cap+'픽까지만 올립니다.',groups};}
 
 /* R841 (owner 11/8 02:32 "NHL메뉴 따로 만들어서" → "그냥 추천픽 같은것도 안되나?" → 아침 7시, 59% 이상): NHL is not on Betman, so this is a
    Pinnacle-only recommendation post — every NHL game from 07:15 to 14:00 KST, the best pick at 59%+ (no-vig Pinnacle chance), settled from ESPN */
