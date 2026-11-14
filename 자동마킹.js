@@ -1,4 +1,4 @@
-const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R912-NBA-NHL-WAY";
+const APP_VERSION = "PROTO-BETMAN-CORE-2026.10.23-R913-NBA-NHL-WAY-TODAY";
 const BUILD_ID = "proto-r527-20261015-odds-flow-chart";
 const R360_EFFECTIVE_FROM_MS=Date.parse("2026-10-11T03:07:44+09:00");
 const R360_POLICY_ID="R360_FUTURE_ONLY_20261011_030744_KST";
@@ -5268,8 +5268,8 @@ for(const p of P)for(const x of p.picks||[]){if(x.st==='hit'||x.st==='miss'){T.n
    every NBA game from 07:15 to 14:00 KST that Pinnacle prices (on Betman or not), Pinnacle's own lines and prices (main + other lines),
    59%+ (언오버 55%+), odds 1.31+, one pick per game, types mixed, 플핸 at most 2, the highest-chance 5 kept (one fewer than the games
    when 5 or fewer, R891), settled from ESPN. Shown in the new 🏀 NBA추천 menu with its own record, and as the 07:00 🏀 NBA post of
-   📌 피나클추천 (it replaces the Betman-line post of r767). Starts 11/16. */
-const R912={sport:'basketball_nba',espn:'basketball/nba',hour:7,lastHour:12,minP:.59,totP:.55,keep:40,plusMax:2,start:'2026-11-16'};
+   📌 피나클추천 (it replaces the Betman-line post of r767). Starts 11/15 (R913). */
+const R912={sport:'basketball_nba',espn:'basketball/nba',hour:7,lastHour:12,minP:.59,totP:.55,keep:40,plusMax:2,start:'2026-11-15'/* R913 (owner 11/15 03:19 "오늘아침 아니고?"): starts this morning */};
 const R912KR={'Atlanta Hawks':'애틀랜타 호크스','Boston Celtics':'보스턴 셀틱스','Brooklyn Nets':'브루클린 네츠','Charlotte Hornets':'샬럿 호네츠','Chicago Bulls':'시카고 불스','Cleveland Cavaliers':'클리블랜드 캐벌리어스','Dallas Mavericks':'댈러스 매버릭스','Denver Nuggets':'덴버 너게츠','Detroit Pistons':'디트로이트 피스톤스','Golden State Warriors':'골든스테이트 워리어스','Houston Rockets':'휴스턴 로케츠','Indiana Pacers':'인디애나 페이서스','Los Angeles Clippers':'엘에이 클리퍼스','Los Angeles Lakers':'엘에이 레이커스','Memphis Grizzlies':'멤피스 그리즐리스','Miami Heat':'마이애미 히트','Milwaukee Bucks':'밀워키 벅스','Minnesota Timberwolves':'미네소타 팀버울브스','New Orleans Pelicans':'뉴올리언스 펠리컨스','New York Knicks':'뉴욕 닉스','Oklahoma City Thunder':'오클라호마시티 썬더','Orlando Magic':'올랜도 매직','Philadelphia 76ers':'필라델피아 세븐티식서스','Phoenix Suns':'피닉스 선즈','Portland Trail Blazers':'포틀랜드 트레일블레이저스','Sacramento Kings':'새크라멘토 킹스','San Antonio Spurs':'샌안토니오 스퍼스','Toronto Raptors':'토론토 랩터스','Utah Jazz':'유타 재즈','Washington Wizards':'워싱턴 위저즈'};
 function r912N(x){const t=r841N(x);return t==='la clippers'?'los angeles clippers':t;}
 function r912On(day){return String(day)>=R912.start;}
