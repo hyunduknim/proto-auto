@@ -5281,6 +5281,16 @@ if(state.r878Bf!==1){state.r878Bf=1;try{for(const [key,p] of Object.entries(stat
 const ks=Object.keys(H);if(ks.length>4000){ks.sort((a,b)=>String(H[a].d).localeCompare(String(H[b].d)));for(const k of ks.slice(0,ks.length-4000))delete H[k];}return {status:add?'UPDATED':'IDLE',add,n:Object.keys(H).length};}
 /* R880 (owner 11/12 00:49 "지난경기 검색 안되는데?"): fill the search archive with earlier rounds' official Betman results
    (proto number, teams, score), two rounds per tick going back 20 rounds, and mark the 🤖 클로드추천 picks made on them. */
+/* R908 (owner 11/14 "경기종료후 정산은 제대로 되고있는지도 확인 좀"): 22 picks were never settled — 클로드추천/피나클추천 picks whose game had dropped out
+   of the market list (older rounds) and picks on games the site did not mark (no score came in: A매치, APBC, 배구 언오버). They sat at ⏳ and were
+   left out of the record. Now, every 10 minutes, the official Betman result page of the rounds with such picks is read and they are settled by the
+   official outcome of their own proto number. */
+async function r908Official(state){const res=state.r662Res||(state.r662Res={}),K=state.r834K||{},now=Date.now();const C=state.r908C||(state.r908C={});
+if(C.at&&now-C.at<10*60e3)return {status:'WAIT'};C.at=now;const mk=new Map();for(const m of state.markets||[])mk.set(String(m.gmTs)+':'+Number(m.no),m);
+const want=new Map();for(const w of ['c','p','a','u'])for(const k of Object.keys(K[w]||{})){const r=res[k];if(r&&['hit','miss','void'].includes(r.st))continue;const q=k.split(':');if(q.length<3)continue;const m=mk.get(q[0]+':'+q[1]);const t=m?gameTimeMs(m):(r&&r.date?Date.parse(r.date+'T'+String(r.time||'12:00').slice(0,5)+':00+09:00'):null);if(t&&now-t<150*60e3)continue;if(!want.has(q[0]))want.set(q[0],[]);want.get(q[0]).push(k);}
+let fixed=0;const rounds=[...want.keys()].sort().slice(-3);for(const ts of rounds){let rows=[];try{rows=parseBetmanResultRows(await fetchResultInfo(String(ts)),String(ts));}catch(e){continue;}const byNo=new Map();for(const r of rows)if(r.no&&(r.outcome||r.specialStatus)&&(r.terminal!==false))byNo.set(Number(r.no),r);
+for(const k of want.get(ts)){const q=k.split(':'),no=Number(q[1]),pick=q.slice(2).join(':');const r=byNo.get(no);if(!r)continue;const cur=res[k]||{};res[k]={...cur,st:r.specialStatus?'void':String(r.outcome)===pick?'hit':'miss',score:r.score||cur.score||null,home:cur.home||r.home||null,away:cur.away||r.away||null,date:cur.date||r.date||null,src:'betman-official',at:nowIso()};fixed++;}}
+state.r908Audit={at:nowIso(),rounds,fixed,left:[...want.values()].reduce((a,v)=>a+v.length,0)-fixed};return {status:fixed?'SETTLED':'IDLE',fixed};}
 async function r880Back(state){const H=state.r878Hist||(state.r878Hist={}),D=state.r880Done||(state.r880Done={});const cur=Number(state.gmTs)||Math.max(0,...(state.markets||[]).map(m=>Number(m.gmTs)||0));if(!cur)return {status:'NO_ROUND'};
 const todo=[];for(let ts=cur-1;ts>=cur-20&&todo.length<2;ts--)if(!D[ts])todo.push(ts);if(!todo.length)return {status:'DONE'};
 const cp=new Map();for(const p of state.r662Posts||[])for(const g of p.groups||[])for(const x of g.picks||[])cp.set(String(x.gmTs)+':'+Number(x.no),x);
@@ -14791,7 +14801,7 @@ await settlementCheck('PINNACLE_PICKS',()=>r760Update(cur));
 await settlementCheck('NHL_PICKS',()=>r841Refresh(cur,env));
 await settlementCheck('TOP_PICKS',()=>r867Update(cur));
 await settlementCheck('SEARCH_HIST',()=>r878Upd(cur));
-await settlementCheck('SEARCH_BACKFILL',()=>r880Back(cur));
+await settlementCheck('SEARCH_BACKFILL',()=>r880Back(cur));await settlementCheck('PICK_OFFICIAL',()=>r908Official(cur));
 await settlementCheck('STATSHAWK_NBA',()=>r755Refresh(cur,env));
 await settlementCheck('API_FOOTBALL',()=>r768Refresh(cur,env));
 cur=MEM.state||cur;
