@@ -5302,7 +5302,7 @@ picks.push({eid:ev.id,t,home:ev.home_team,away:ev.away_team,hk:R912KR[ev.home_te
 /* R891 count rule */{const cap=r891Cap(games);if(picks.length>cap){const keep=new Set(picks.slice().sort((a,b)=>b.p-a.p).slice(0,cap));for(let i=picks.length-1;i>=0;i--)if(!keep.has(picks[i]))picks.splice(i,1);}}
 return {games,picks};}
 async function r912Refresh(state,env){const now=Date.now(),k=new Date(now+9*3600e3),hr=k.getUTCHours(),mi=k.getUTCMinutes(),day=k.toISOString().slice(0,10),prev=state.r912Audit;if(now-Date.parse(prev?.at||'')<60000)return prev;
-const P=state.r912Posts||(state.r912Posts=[]),A={at:new Date(now).toISOString(),status:r912On(day)?'IDLE':'WAIT'};try{A.settled=await r912Settle(state,now);}catch(e){A.settleErr=String(e?.message||e).slice(0,80);}
+const P=state.r912Posts||(state.r912Posts=[]),A={at:new Date(now).toISOString(),status:r912On(day)?'IDLE':'WAIT'};/* R918c: a pick for a game that had already started when the post was made is dropped */for(const p of P){const at=Date.parse(p.at);if(at&&Array.isArray(p.picks))p.picks=p.picks.filter(x=>!(x.t<=at));}try{A.settled=await r912Settle(state,now);}catch(e){A.settleErr=String(e?.message||e).slice(0,80);}
 /* from 07:02, so it never shares a tick with the 07:00 NHL run */
 if(r912On(day)&&hr>=R912.hour&&hr<R912.lastHour&&(hr>R912.hour||mi>=2)&&!P.some(p=>p.id==='nba-'+day)&&state.r912Skip!==day){const o=r507Opts(env);if(!o.key)A.status='NO_KEY';else{
 const {games,picks}=await r912Build(o.key,day,A);A.games=games;if(picks.length){P.unshift({id:'nba-'+day,day,at:new Date(now).toISOString(),games,picks});if(P.length>R912.keep)P.length=R912.keep;A.status='POSTED';A.n=picks.length;}else if(hr>=8||games){state.r912Skip=day;A.status='SKIP';}}}
