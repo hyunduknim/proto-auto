@@ -33,8 +33,7 @@ Owner 11/16: "클로드분석은 클로드자체분석인데 좀 다르게 분�
 5. `why` gives the numbers, in plain words, e.g. "숫자 계산: 예상 스코어 1.7 : 0.9 · 오버 2.5 57% (배당 기준 52%, +5%p) · 최근 5경기 30% 반영".
    Each m entry's `p` is the model chance. Balance comes from the numbers; do not tilt 언더 or 오버 by feel.
 
-## 💎 제미나이추천 posts (R915, owner 11/16)
-Posts with `"by":"gemini"` are Gemini's picks that 형님 pasted in chat; Claude maps them to Betman numbers (same post.json format, add `"by":"gemini"`, id like `YYYY-MM-DD-gem-1`, put Gemini's own % in each pick's `why` as `제미나이 NN%`). They have their own 💎 menu and record. They are NOT 클로드추천: the scheduled 클로드추천 runs ignore them for "already picked" and pick counts.
+Posts with `"by":"gemini"` are old Gemini picks (the 💎 menu was removed 11/16, owner "아예빼도록"); ignore them. Do not make new ones.
 
 Posts with `"by":"gpt"` in picks.json are ChatGPT's picks that 형님 pasted in chat; Claude only mapped them to Betman numbers.
 When mapping a GPT 저녁 분석 (17:00 run), only enter games that start by 05:00 KST the next morning; later games are left out (owner, 10/30).
