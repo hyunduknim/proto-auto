@@ -5307,7 +5307,8 @@ const P=state.r912Posts||(state.r912Posts=[]),A={at:new Date(now).toISOString(),
 if(r912On(day)&&hr>=R912.hour&&hr<R912.lastHour&&(hr>R912.hour||mi>=2)&&!P.some(p=>p.id==='nba-'+day)&&state.r912Skip!==day){const o=r507Opts(env);if(!o.key)A.status='NO_KEY';else{
 const {games,picks}=await r912Build(o.key,day,A);A.games=games;if(picks.length){P.unshift({id:'nba-'+day,day,at:new Date(now).toISOString(),games,picks});if(P.length>R912.keep)P.length=R912.keep;A.status='POSTED';A.n=picks.length;}else if(hr>=8||games){state.r912Skip=day;A.status='SKIP';}}}
 state.r912Audit=A;return A;}
-function r912Rec(state){const T={n:0,hit:0,miss:0,void:0,ret:0};for(const p of state?.r912Posts||[])for(const x of p.picks||[]){if(x.st==='hit'||x.st==='miss'){T.n++;T[x.st]++;if(x.st==='hit')T.ret+=Number(x.odds)||0;}else if(x.st==='void')T.void++;}return T;}
+function r912Late(state){for(const p of state?.r912Posts||[]){const at=Date.parse(p.at);if(at&&Array.isArray(p.picks))p.picks=p.picks.filter(x=>!(x.t<=at));}}
+function r912Rec(state){const T={n:0,hit:0,miss:0,void:0,ret:0};try{r912Late(state);}catch(_){}for(const p of state?.r912Posts||[])for(const x of p.picks||[]){if(x.st==='hit'||x.st==='miss'){T.n++;T[x.st]++;if(x.st==='hit')T.ret+=Number(x.odds)||0;}else if(x.st==='void')T.void++;}return T;}
 function r912Summary(state){const P=state?.r912Posts||[],T=r912Rec(state),day=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
 return {posts:P.filter(p=>p.day===day).slice(0,1),days:P.length,start:R912.start,all:{n:T.n,hit:T.hit,miss:T.miss,void:T.void,roi:T.n?Math.round((T.ret-T.n)/T.n*1000)/10:null},audit:state?.r912Audit||null};}
 /* R912: the 📌 피나클추천 07:00 NBA post, built from today's 🏀 NBA추천 picks */
