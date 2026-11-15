@@ -13,6 +13,26 @@ automatic marking. Hit rate comes first. The Worker (R662) reads `picks.json` fr
 - No Telegram messages for 클로드추천.
 
 ## 🧠 GPT추천 posts (R698)
+## 🤖 클로드 분석 (purple, ana.json) — 숫자 계산 방식 (R916, owner 11/16)
+Owner 11/16: "클로드분석은 클로드자체분석인데 좀 다르게 분석을 해줬으면 하는데 이때까지는 똑같이 분석하는듯한데? 쫌 다른방식으로 분석해보고 추천픽 만들어줘".
+🤖 클로드추천 is a judgement read (news, form, matchup, hit-rate first). 🤖 클로드 분석 must be built a DIFFERENT way — from numbers only:
+1. Expected score from the season numbers, 70% season + 30% last 5 games, home edge included:
+   - soccer: home goals = (home team's goals scored per game at home) × (away team's goals conceded per game away) ÷ league average; away likewise
+     (use all games when a side has fewer than 4 home/away games). Turn the two expected goals into a Poisson score grid → 승·무·패, each
+     handicap line, each 언오버 line.
+   - basketball: expected points = pace × (own offence + opponent defence) ÷ 200 per side (slate `sh`/`form`, or points for/against per game);
+     margin spread 12 (NBA) / 11 (KBL·WKBL), total spread 18 / 15 → 일반승, 핸디, 언오버 by the normal curve.
+   - volleyball: each side's set-win rate this season (home +4%p) → match result and set handicap by counting 3-0/3-1/3-2 outcomes; point totals
+     from average points per set × expected sets.
+   - baseball: runs for/against per game → Poisson.
+2. Only hard facts move the numbers: a confirmed absence of one of a team's top two players → that side −8% expected score (soccer: −0.15 goals).
+   No story-telling about motivation or "분위기".
+3. Then the Betman price: implied chance = (1/odds) ÷ (sum of 1/odds of that market). Edge = model chance − implied chance.
+4. Best market (`b`) = the highest model chance among markets with edge ≥ +3%p and odds ≥ 1.31. If none has +3%p, take the highest model chance and
+   start `why` with "가치 없음 ·".
+5. `why` gives the numbers, in plain words, e.g. "숫자 계산: 예상 스코어 1.7 : 0.9 · 오버 2.5 57% (배당 기준 52%, +5%p) · 최근 5경기 30% 반영".
+   Each m entry's `p` is the model chance. Balance comes from the numbers; do not tilt 언더 or 오버 by feel.
+
 ## 💎 제미나이추천 posts (R915, owner 11/16)
 Posts with `"by":"gemini"` are Gemini's picks that 형님 pasted in chat; Claude maps them to Betman numbers (same post.json format, add `"by":"gemini"`, id like `YYYY-MM-DD-gem-1`, put Gemini's own % in each pick's `why` as `제미나이 NN%`). They have their own 💎 menu and record. They are NOT 클로드추천: the scheduled 클로드추천 runs ignore them for "already picked" and pick counts.
 
