@@ -5028,7 +5028,7 @@ return out;}
    the Pinnacle bell-curve model of 📌 피나클추천 (R760) scores 일반승 · 핸디 · 언오버 together; when Betman's line is softer than
    Pinnacle's the best one becomes the game's 추천 (핸디/언오버 57%+, 일반승 64%+) or 가장추천 (62%+ / 70%+). A game the site
    already rates 추천 or higher is left alone. 핸디/언오버 are allowed up to odds 1.85 (the 1.65 cap is for the other sports). */
-const R766={hcRec:.57,hcBest:.62,mlRec:.64,mlBest:.70,minOdds:1.31,maxOdds:1.85,bestPerDay:2,famBonus:.02,shrink:.9};
+const R766={hcRec:.62,hcBest:.67,mlRec:.62,mlBest:.67,/* R927: same steps as the main marking */minOdds:1.31,maxOdds:1.85,bestPerDay:2,famBonus:.02,shrink:.9};
 function r766Nba(state,now=Date.now()){let n=0;const C=r760Cands(state,now).filter(c=>c.league==='NBA'||/NBA/.test(String(c.league||'')));if(!C.length)return 0;
 const by=new Map();for(const c of C){if(!by.has(c.seed))by.set(c.seed,[]);by.get(c.seed).push(c);}
 const bestDay={};for(const m of state.markets||[])if(m.marked&&m.representativeSelected&&m.displayGrade==='가장추천'&&/NBA/.test(String(m.league||''))&&!m.resultFinal)bestDay[m.date]=(bestDay[m.date]||0)+1;
@@ -5086,7 +5086,7 @@ return {p:clamp(q,.01,.99),why};}
 /* R792 ①② (owner 11/6 "132회 추가기능 ①적중확률 소폭상승 ②가장추천 추천 소폭상승"): from round 132 추천 63%+ (was 64) and 가장추천 70%+ (was 71);
    Pinnacle (the sharpest book) counts 60% of the blend instead of 50%, and when site and Pinnacle agree within 5%p that pick gets +1%p in the
    per-game ranking, so the chosen side is the one both sources back. The 57.5% bar stays. */
-function r792Set(state){const g=Number(state?.gmTs||0)>=260132;R771.rec=g?.63:.64;R771.best=g?.70:.71;R771.pinW=g?.6:.5;R771.agreeB=g?.01:0;}
+function r792Set(state){const g=Number(state?.gmTs||0)>=260132;R771.rec=g?.62:.64;R771.best=g?.67:.71;R771.show=g?.57:.575;/* R927 (owner 11/17 06:37 "67이상 가장추천 66~62 추천 57~61 일반") */R771.pinW=g?.6:.5;R771.agreeB=g?.01:0;}
 function r814Opp(f1,l1,p1,f2,l2,p2,sp){const tot=f=>f==='TOTAL';if(tot(f1)!==tot(f2))return false;
 const ok=(f,l,p,v)=>{l=Number(l);if(f==='TOTAL')return p==='오버'?v>l:p==='언더'?v<l:false;if(f==='MONEYLINE')return p==='승'?v>0:p==='패'?v<0:v===0;if(f==='HANDICAP')return p==='승'?v+l>0:p==='패'?v+l<0:v+l===0;return false;};
 const big=sp==='농구'?60:sp==='야구'?25:12;const lo=tot(f1)?0:-big,hi=tot(f1)?(sp==='농구'?330:sp==='야구'?40:12):big;
