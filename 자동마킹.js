@@ -4863,7 +4863,7 @@ for(const x of idx){const m=x.m0;if(seen.has(String(m.no))||x.t==null||m.resultF
 const mk=x.ms.find(r804Pick);const o={id:'bm'+m.no,sp:m.sport,src:'bm',lg:m.league,t:x.t,h:m.home,a:m.away,bm:{no:m.no,home:m.home,away:m.away,league:m.league},live:false,fin:false,hs:null,as:null,feed:[],stx:dtm>0?'':'진행 중 · 중계 자료 없음'};if(mk)o.pick=r804Pick(mk);if(dtm<=0)o.nodata=true;extra.push(o);}
 /* R812 (owner: "14시 껄로 지금 나와있는데?"): games not yet started appear only from 2 h before kick-off */
 const soon=o=>o.live||o.fin||o.nodata||(o.t!=null&&o.t-now<=3600e3);/* R822: 경기 시작 전 = from 1 h before */
-const games=[...out.filter(o=>o.bm),...extra].filter(soon);
+/* R921 (owner 11/16 11:50 "오늘 원래 NBA9경기인데 왜 문자중계는 3경기밖에 안나오지?"): a game that is no longer in the current Betman list (earlier games drop out of it) still shows when the live feed has it, for leagues Betman lists (NBA, KBL, WKBL, V-리그 …) — kicked off today (KST) or still live */const lgs=new Set((state?.markets||[]).map(m=>String(m.league||'')).concat(['NBA','KBL','WKBL','NHL']));const day0=Date.parse(new Date(now+9*3600e3).toISOString().slice(0,10)+'T00:00:00+09:00');const keepX=out.filter(o=>!o.bm&&o.sp!=='축구'&&lgs.has(String(o.lg||''))&&(o.live||(o.t!=null&&o.t>=day0)));const games=[...out.filter(o=>o.bm),...keepX,...extra].filter(soon);
 return {at:j.at||null,now:new Date(now).toISOString(),games,err:j.err||null};}
 /* R815 (owner 11/7 "경기력비교있으니 배당비교도 만들어줘"): per game, Betman's odds next to Pinnacle and the other overseas books.
    For every 일반승 · 핸디 · 언오버 choice: 베트맨 배당, 베트맨 확률 (margin removed), 피나클 확률 (Pinnacle's line converted to Betman's),
