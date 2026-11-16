@@ -30,7 +30,7 @@ calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filte
 run('for(const v of Object.values(MEM.r569Sent.cand||{}))v.at-=200000');
 const first=calls.slice();calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');calls.unshift(...first);assert.equal(r.status,'OK',JSON.stringify(r));
 const texts=calls.filter(x=>x.m==='sendMessage').map(x=>x.body.text).join('\n---\n');
-assert.equal(/새 가장추천/.test(texts),false,'no early 가장추천 alert');assert.equal((texts.match(/아스널 vs 첼시/g)||[]).length,1,'one alert per game');assert.match(texts,/🔥 <b>/);assert.match(texts,/1시간 안에 시작/);assert.match(texts,/⭕ 적중 #3 C vs D/);assert.match(texts,/124회 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.equal(/A vs B/.test(texts),false,'일반 never alerted');
+assert.equal(/새 가장추천/.test(texts),false,'no early 가장추천 alert');assert.equal((texts.match(/아스널 vs 첼시/g)||[]).length,1,'one alert per game');assert.match(texts,/🔥 <b>/);assert.match(texts,/1시간 안에 시작/);assert.match(texts,/⭕ 적중 #3 C vs D/);assert.match(texts,/124회 누적: ⭕ 1적중 · ❌ 0낙첨 \(100%\)/);assert.equal(/A vs B/.test(texts),true,'R920: 일반 alerted too');
 calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');assert.equal(calls.filter(x=>x.m==='sendMessage').length,0,'no duplicates');
 // R658: pick changed after the 1-hour alert -> one correction
 run('MS[0].finalPick="패";MS[0].finalOdds=4.2');calls.length=0;r=await run('MEM.r569At=0;r569Tick({})');

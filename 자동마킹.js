@@ -15300,7 +15300,7 @@ function r569Esc(t){return String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt
 function r569Pick(m){const pk=String(m.finalPick||m.pick||""),l=Number(m.line);if(m.marketFamily==="HANDICAP"){const x=handicapEffectiveLine(m,pk);if(Number.isFinite(x))return (x>0?"플핸 +":"마핸 ")+x+" · "+pk;return "핸디 "+(l>0?"+":"")+(Number.isFinite(l)?l:"")+" "+pk;}if(m.marketFamily==="TOTAL")return pk+" "+(Number.isFinite(l)?l:"");return pk||"-";}
 function r569Grade(m){return m.manualOverride?"수동":(m.displayGrade||"일반");}
 function r569Line(m){const ps=Number(m.r554?.ps),dd=String(m.date||""),t=(/^\d{4}-\d{2}-\d{2}$/.test(dd)?Number(dd.slice(5,7))+"/"+Number(dd.slice(8,10))+" ":"")+String(m.time||"").slice(0,5),g=r569Grade(m);
-return (g==="가장추천"?"🔥":g==="수동"?"✏️":"⭐")+" <b>#"+r569Esc(m.no)+"</b> <b>"+r569Esc(t)+"</b> "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+"\n   → <b>"+r569Esc(r569Pick(m))+"</b> "+(Number(m.finalOdds||m.odds)>1?Number(m.finalOdds||m.odds).toFixed(2)+"배":"")+(ps>0?" · "+(ps*100).toFixed(0)+"%":"")+" ("+g+")";}
+return (g==="가장추천"?"🔥":g==="수동"?"✏️":g==="일반"?"🔹":"⭐")+" <b>#"+r569Esc(m.no)+"</b> <b>"+r569Esc(t)+"</b> "+r569Esc(r569N(m.home))+" vs "+r569Esc(r569N(m.away))+"\n   → <b>"+r569Esc(r569Pick(m))+"</b> "+(Number(m.finalOdds||m.odds)>1?Number(m.finalOdds||m.odds).toFixed(2)+"배":"")+(ps>0?" · "+(ps*100).toFixed(0)+"%":"")+" ("+g+")";}
 async function r569Link(cfg){const ups=await r569Call(cfg.token,"getUpdates",{limit:50,timeout:0,allowed_updates:["message"]});
 const msgs=(ups||[]).map(u=>u.message).filter(x=>x&&x.chat&&x.chat.type==="private"&&Number(x.date)*1000>=Number(cfg.setAt)-60000);
 const last=msgs[msgs.length-1];if(!last)return null;cfg.chatId=last.chat.id;cfg.chatName=String(last.chat.first_name||last.chat.username||"");cfg.linkUntil=0;
@@ -15311,7 +15311,7 @@ let R728_TG_OFF=false;/* R919b (owner 11/16 11:32 "아니 계속 켜"): alerts s
 async function r569Tick(env){if(R728_TG_OFF)return {status:"OFF_BY_OWNER"};const cfg=await r569Cfg();if(!cfg||!cfg.token)return {status:"OFF"};const now=Date.now();if(now-Number(MEM.r569At||0)<R569.gapMs)return {status:"WAIT"};MEM.r569At=now;
 try{if(!cfg.chatId){if(Number(cfg.linkUntil)>now)await r569Link(cfg);return {status:cfg.chatId?"LINKED":"WAITING_FOR_CHAT"};}
 const st=MEM.state;if(!st)return {status:"NO_STATE"};const ds=doStorage();const sent=MEM.r569Sent||(MEM.r569Sent=(ds?await ds.get("r569:sent"):null)||{best:{},pre:{},res:{}});
-const reps=(st.markets||[]).filter(m=>currentRoundMarket(m,st)&&m.marked&&m.representativeSelected&&["추천","가장추천","수동"].includes(r569Grade(m)));
+const reps=(st.markets||[]).filter(m=>currentRoundMarket(m,st)&&m.marked&&m.representativeSelected&&["일반","추천","가장추천","수동"].includes(r569Grade(m)));/* R920 (owner 11/16 11:34 "일반 추천 다 나오게 해줘 전 종목 다 포함"): 일반 picks of every sport are alerted too */
 /* R658: owner "픽 알람이 가끔 잘못 온다": the early "새 가장추천" alert went out hours before the pick was fixed (grades move until
    the 1-hour lock) and alerts were keyed per market, so a switched pick alerted twice. Now one alert per game at the 1-hour mark
    (가장추천 shown with 🔥), and if that game's pick is changed or withdrawn before kick-off a single correction follows. */
