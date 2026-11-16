@@ -36,6 +36,8 @@ jobs:
             [ -s keep/live.json ] && cp keep/live.json prev/live.json
             curl -sf "https://raw.githubusercontent.com/$REPO/main/tools/live/reset_at.txt?t=$t0" -o reset_at.txt || true
             curl -sf "https://raw.githubusercontent.com/$REPO/apifootball/af_soccer.json?t=$t0" -o af/af_soccer.json || true
+            # R922: each pass uses the newest live.py on main, so a fix reaches the running board without a restart
+            curl -sf "https://raw.githubusercontent.com/$REPO/main/tools/live/live.py?t=$t0" -o live_new.py && python3 -c "import ast,sys;ast.parse(open('live_new.py').read())" && cp live_new.py tools/live/live.py || true
             python3 tools/live/live.py || true
             if [ -s out/live.json ]; then
               cp out/live.json keep/live.json
