@@ -12385,10 +12385,10 @@ return '<div class="r645Hd"><b>🤝 무승부 후보</b><small>피나클 배당 
 let r804Data=null,r804Timer=null,r804F='all',r804Open={},r822T='live';
 let r804Busy=false,r804Got=0;async function r804Load(){r804Busy=true;const b=$('r804Btn');if(b)b.classList.add('spin');try{const r=await fetch('/api/live?t='+Date.now(),{cache:'no-store'});r804Data=await r.json();r804Got=Date.now();}catch(_){}r804Busy=false;if(activeView==='live')r804Render();}
 function r804Start(){r804Load();if(!r804Timer)r804Timer=setInterval(()=>{if(activeView==='live')r804Load();else{clearInterval(r804Timer);r804Timer=null;}},20000);/* R827 (owner: "실시간 문자중계 2분마다 새로고침 안되나?"): phones pause timers while the screen is off or the app is in the background, so coming back reloads at once */if(!window.r827Vis){window.r827Vis=1;try{document.addEventListener('visibilitychange',()=>{if(!document.hidden&&activeView==='live')r804Load();});window.addEventListener('focus',()=>{if(activeView==='live')r804Load();});window.addEventListener('pageshow',()=>{if(activeView==='live')r804Load();});}catch(_){}}}
-const R804E={'축구':'⚽','농구':'🏀','배구':'🏐','야구':'⚾'};
+const R804E={'축구':'⚽','농구':'🏀','배구':'🏐','야구':'⚾','하키':'🏒'};
 function r804Kt(ms){const d=new Date(Number(ms)+9*3600000);return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');}
 function r804Per(g){const P=g.per||[];if(!P.length)return '';const sp=g.sp;let hd=[];
-if(sp==='농구')hd=P.map((_,i)=>i<4?(i+1)+'Q':'OT');else if(sp==='배구')hd=P.map((_,i)=>(i+1)+'세트');else if(sp==='야구')hd=P.map((_,i)=>String(i+1));else hd=['전반'];
+if(sp==='농구')hd=P.map((_,i)=>i<4?(i+1)+'Q':'OT');else if(sp==='배구')hd=P.map((_,i)=>(i+1)+'세트');else if(sp==='야구')hd=P.map((_,i)=>String(i+1));else if(sp==='하키')hd=P.map((_,i)=>i<3?(i+1)+'P':i===3?'OT':'SO');else hd=['전반'];
 const H=e(r560N(g.bm&&g.src!=='as'?g.bm.home:g.h)),A=e(r560N(g.bm&&g.src!=='as'?g.bm.away:g.a));const c=v=>v==null?'-':v;
 const cell=(r,i,side)=>{const v=r[side],o=r[1-side];const w=(sp==='배구'&&v!=null&&o!=null&&(i<P.length-1||g.fin)&&v>o)||(sp!=='배구'&&v!=null&&o!=null&&v>o);return '<td'+(w?' class="w"':'')+'>'+c(v)+'</td>';};
 let x='<table class="r804T"><tr><th></th>'+hd.map(h=>'<th>'+h+'</th>').join('')+(sp==='야구'?'<th>R</th><th>H</th>':'')+'</tr>';
@@ -12415,14 +12415,14 @@ function r870L(n){const L=String(n||'').replace(/\\s/g,'').length;return L>=12?'
 /* R860: soccer goal scorers per team */
 function r860Sc(g){const S=g.sp==='축구'&&g.sc;if(!S||!((S.h||[]).length||(S.a||[]).length))return '';const H=r560N(g.bm&&g.src!=='as'?g.bm.home:g.h),A=r560N(g.bm&&g.src!=='as'?g.bm.away:g.a);const col=(L,nm)=>'<div class="r859C"><div class="r859T">'+e(nm)+'</div>'+((L||[]).length?(L||[]).map(r=>'<div class="r859R"><span>'+e(r[1])+(r[2]?' ('+e(r[2])+')':'')+'</span><b>'+e(r[0])+'</b></div>').join(''):'<div class="r859R"><span>-</span></div>')+'</div>';return '<div class="r859"><div class="r859H">⚽ 골 넣은 선수</div><div class="r859G">'+col(S.h,H)+col(S.a,A)+'</div></div>';}
 function r804Render(){const el=$('r804Panel');if(!el)return;const D=r804Data;if(!D){el.innerHTML='<div class="r617Hd"><b>📡 실시간 중계</b><small>불러오는 중…</small></div>';return;}
-let L=D.games||[];const n={all:L.length,mine:L.filter(g=>g.pick).length};for(const k of ['축구','농구','배구','야구'])n[k]=L.filter(g=>g.sp===k).length;
+let L=D.games||[];const n={all:L.length,mine:L.filter(g=>g.pick).length};for(const k of ['축구','농구','배구','야구','하키'])n[k]=L.filter(g=>g.sp===k).length;
 if(r804F==='mine')L=L.filter(g=>g.pick);else if(r804F!=='all')L=L.filter(g=>g.sp===r804F);
 const live=L.filter(g=>g.live||g.nodata),pre=L.filter(g=>!g.live&&!g.fin&&!g.nodata).sort((a,b)=>a.t-b.t),fin=L.filter(g=>g.fin).sort((a,b)=>(b.finAt||0)-(a.finAt||0)||b.t-a.t);
 const T3=(k,t,n,c)=>'<button type="button" class="'+c+(r822T===k?' on':'')+'" onclick="r822T=\\''+k+'\\';r804Render()">'+t+' <b>'+n+'</b></button>';const cur=r822T==='pre'?pre:r822T==='fin'?fin:live;
 const chip=(k,t)=>'<button type="button" class="'+(r804F===k?'on':'')+'" onclick="r804F=\\''+k+'\\';r804Render()">'+t+' <b>'+(n[k]||0)+'</b></button>';
 const up=D.at?r804Kt(Date.parse(D.at)):'-';
 el.innerHTML='<button type="button" id="r804Btn" class="r804R'+(r804Busy?' spin':'')+'" onclick="r804Load()"><i>🔄</i> 새로고침<small>'+(r804Got?r804Kt(r804Got)+':'+String(new Date(r804Got).getSeconds()).padStart(2,'0'):'')+'</small></button><div class="r617Hd"><b>📡 실시간 중계</b><small>해외축구·K리그·NBA 1분 · 국내 농구·배구·야구 3분마다 갱신 · 마지막 갱신 '+up+' · 이 화면은 20초마다 새로고침</small></div>'+
-'<div class="r804Fl">'+chip('all','전체')+chip('mine','🎯 내 마킹')+chip('축구','⚽ 축구')+chip('농구','🏀 농구')+chip('배구','🏐 배구')+chip('야구','⚾ 야구')+'</div>'+
+'<div class="r804Fl">'+chip('all','전체')+chip('mine','🎯 내 마킹')+chip('축구','⚽ 축구')+chip('농구','🏀 농구')+chip('배구','🏐 배구')+chip('야구','⚾ 야구')+chip('하키','🏒 NHL')+'</div>'+
 '<div class="r822M">'+T3('pre','⏳ 경기 시작 전',pre.length,'p')+T3('live','🔴 경기 중',live.length,'l')+T3('fin','🏁 경기 종료',fin.length,'f')+'</div>'+
 (cur.length?cur.map(r804Card).join(''):'<div class="pastEmpty">'+(r822T==='pre'?'1시간 안에 시작하는 경기가 없습니다.':r822T==='fin'?'끝난 경기가 없습니다.':'지금 진행 중인 경기가 없습니다.')+'</div>')+
 '<div class="ccNote">국내 농구·배구·야구 중계 문장은 점수 변화를 보고 자동으로 씁니다 (장면 설명 자료 없음). 해외축구는 골·카드·교체·VAR, NBA는 득점 장면이 실제 기록 그대로 나옵니다.</div>';}

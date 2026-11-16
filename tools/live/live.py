@@ -392,6 +392,42 @@ try:
             G[gid] = g
 except Exception as e:
     log.append('nba ' + str(e)[:120])
+# R922 (owner 11/16 "NHL도 문자중계 해줘"): NHL from ESPN's public scoreboard + summary (goals and period ends as the 문자중계)
+try:
+    for d in sorted({dt.datetime.utcfromtimestamp(NOW - h * 3600).strftime('%Y%m%d') for h in (14, 6, 0)}):
+        sb = get(f'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates={d}')
+        for ev in sb.get('events', []):
+            c = ev['competitions'][0]; stt = c['status']['type']
+            if stt['state'] == 'pre':
+                continue
+            gid = f"nhl{ev['id']}"
+            g = G.get(gid)
+            if stt['state'] == 'post' and (not g or g.get('fin')):
+                continue
+            H = next(x for x in c['competitors'] if x['homeAway'] == 'home'); A = next(x for x in c['competitors'] if x['homeAway'] == 'away')
+            g = g or {'id': gid, 'sp': '하키', 'src': 'espn', 'lg': 'NHL', 't': int(dt.datetime.fromisoformat(ev['date'].replace('Z', '+00:00')).timestamp() * 1000), 'h': H['team']['displayName'], 'a': A['team']['displayName']}
+            per = [[int(x.get('value') or 0) for x in (H.get('linescores') or [])], [int(x.get('value') or 0) for x in (A.get('linescores') or [])]]
+            g.update({'hs': int(H.get('score') or 0), 'as': int(A.get('score') or 0), 'per': list(map(list, zip(*per))) if per[0] else [],
+                      'clock': c['status'].get('displayClock') or '', 'q': c['status'].get('period'), 'stx': stt.get('shortDetail') or '', 'live': stt['state'] == 'in', 'fin': stt['state'] == 'post', 'up': int(NOW * 1000)})
+            if g['fin'] and not g.get('finAt'):
+                g['finAt'] = NOW; g['stx'] = '경기 종료'
+            try:
+                sm = get(f"https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event={ev['id']}")
+                hid = str(H['team'].get('id'))
+                for p in (sm.get('plays') or [])[-200:]:
+                    txt = p.get('text') or ''
+                    pn = (p.get('period') or {}).get('number'); clk = (p.get('clock') or {}).get('displayValue') or ''
+                    if p.get('scoringPlay'):
+                        side = '홈' if str((p.get('team') or {}).get('id')) == hid else '원정'
+                        who = re.split(r' \(|,', txt)[0].strip()
+                        feed_add(g, f"{pn}P {clk} 🚨 골! {who} ({side})" + (f" · {p.get('homeScore')}:{p.get('awayScore')}" if p.get('homeScore') is not None else ''), 'score', key='h' + str(p.get('id')))
+                    elif re.match(r'End of', txt):
+                        feed_add(g, f"⏸ {pn}피리어드 종료", 'period', key='h' + str(p.get('id')))
+            except Exception as e:
+                log.append('nhl sum ' + str(e)[:80])
+            G[gid] = g
+except Exception as e:
+    log.append('nhl ' + str(e)[:120])
 # R828 (owner: "문자중계 종료된경기가 아직도 진행 나오는게 있네"): an NBA game ESPN stopped reporting while 'live' is closed after 25 min without an update
 for g in G.values():
     if g.get('src') == 'espn' and g.get('live') and not g.get('fin') and NOW * 1000 - (g.get('up') or 0) > 25 * 60 * 1000:
