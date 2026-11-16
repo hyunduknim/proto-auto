@@ -409,6 +409,10 @@ try:
             per = [[int(x.get('value') or 0) for x in (H.get('linescores') or [])], [int(x.get('value') or 0) for x in (A.get('linescores') or [])]]
             g.update({'hs': int(H.get('score') or 0), 'as': int(A.get('score') or 0), 'per': list(map(list, zip(*per))) if per[0] else [],
                       'clock': c['status'].get('displayClock') or '', 'q': c['status'].get('period'), 'stx': stt.get('shortDetail') or '', 'live': stt['state'] == 'in', 'fin': stt['state'] == 'post', 'up': int(NOW * 1000)})
+            if g['live']:
+                pq = c['status'].get('period') or 0; sd = stt.get('shortDetail') or ''
+                pname = f'{pq}피리어드' if pq <= 3 else ('연장' if pq == 4 else '승부치기')
+                g['stx'] = (pname + ' 종료' if sd.startswith('End') else '피리어드 휴식' if 'Intermission' in sd else f"{pname} {g['clock']}")
             if g['fin'] and not g.get('finAt'):
                 g['finAt'] = NOW; g['stx'] = '경기 종료'
             try:
@@ -419,7 +423,7 @@ try:
                     pn = (p.get('period') or {}).get('number'); clk = (p.get('clock') or {}).get('displayValue') or ''
                     if p.get('scoringPlay'):
                         side = '홈' if str((p.get('team') or {}).get('id')) == hid else '원정'
-                        who = re.split(r' \(|,', txt)[0].strip()
+                        who = re.split(r' \(|,', txt)[0].strip(); who = re.sub(r'\s+Goal$', '', who)
                         feed_add(g, f"{pn}P {clk} 🚨 골! {who} ({side})" + (f" · {p.get('homeScore')}:{p.get('awayScore')}" if p.get('homeScore') is not None else ''), 'score', key='h' + str(p.get('id')))
                     elif re.match(r'End of', txt):
                         feed_add(g, f"⏸ {pn}피리어드 종료", 'period', key='h' + str(p.get('id')))
