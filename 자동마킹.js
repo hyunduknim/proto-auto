@@ -7451,8 +7451,9 @@ if(m?.marketFamily==="TOTAL"&&line>=20&&(sc.home+sc.away)<line*.25)return true;
 if(m?.marketFamily==="HANDICAP"&&setScoreLike(m,sc)&&Math.abs(line)>3)return true;
 return false;
 }
+const R930_RAW={'260136|4430':[0,7]}/* R930c: games whose real score is known (싱가포르 0:7 브라질) — a handicap score shown as real+line is read as already adjusted */;
 function deriveOutcomeFromOfficialScore(rr,m){
-const sc=resultScorePairText(rr?.score);if(!sc)return null;if(scoreUnitMismatch(m,sc))return null;
+const sc=resultScorePairText(rr?.score);if(!sc)return null;if(scoreUnitMismatch(m,sc))return null;if(m?.marketFamily==="HANDICAP"){const raw=R930_RAW[String(m?.gmTs)+'|'+Number(m?.no)],L=num(m?.line);if(raw&&L!=null&&sc.home===raw[0]+L&&sc.away===raw[1]){const z=sc.home-sc.away;return z>0?"승":z<0?"패":"무";}}
 if(m?.marketFamily==="MONEYLINE")return sc.home>sc.away?"승":sc.home<sc.away?"패":"무";
 if(m?.marketFamily==="HANDICAP"){
 const line=num(m?.line);if(line==null)return null;
