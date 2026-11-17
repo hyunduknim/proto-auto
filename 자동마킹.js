@@ -7480,8 +7480,9 @@ if(usableCode){outcome=usableCode;source="RESULT_CODE";}
 else if(scoreOutcome){outcome=scoreOutcome;source="SCORE_FALLBACK";}
 }
 return {outcome,source,codeOutcome,scoreOutcome,mismatch:!!(codeOutcome&&scoreOutcome&&String(codeOutcome)!==String(scoreOutcome))};}
+function r930Fix(state){/* R930 (owner 11/17 23:39 "4430번 낙첨인데 왜 적중으로"): Betman sometimes prints an integer handicap row's score with the line already added (싱가포르 +5: real 0:7 shown 5:7), so adding the line again flipped 패 into 승. When the same game's 일반승 row shows the real score and the handicap score equals it plus the line, the handicap is settled on the shown score as is. */const M=state?.markets||[];for(const m of M){if(m.marketFamily!=='HANDICAP'||!m.resultFinal||m.settlementStatus==='적특')continue;const line=Number(m.line);if(!Number.isFinite(line)||line===0||line!==Math.round(line))continue;const sc=resultScorePairText(m.score);if(!sc)continue;const ml=M.find(z=>z!==m&&z.marketFamily==='MONEYLINE'&&String(z.gmTs)===String(m.gmTs)&&gameSeed(z)===gameSeed(m)&&z.resultFinal);const s0=ml&&resultScorePairText(ml.score);if(!s0||!(sc.home===s0.home+line&&sc.away===s0.away))continue;const z=sc.home-sc.away,out=z>0?'승':z<0?'패':'무';if(String(m.result)===out)continue;const pk=String(m.finalPick||m.pick||'');m.r930={at:nowIso(),was:m.result,shown:m.score};m.result=out;m.score=s0.home+':'+s0.away;if(pk){m.hit=pk===out;m.settlementStatus=m.hit?'적중':'낙첨';}}}
 function applyR249SettlementCorrection(state){
-let checked=0,corrected=0;const items=[];
+try{r930Fix(state);}catch(_){}let checked=0,corrected=0;const items=[];
 const repairCompact=row=>{
 if(!row||row.settlementStatus==="적특"||row.marketFamily!=="HANDICAP"||!scoreHasFraction(row.score))return false;
 const sc=resultScorePairText(row.score);if(!sc)return false;
