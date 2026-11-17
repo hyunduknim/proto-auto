@@ -1861,7 +1861,7 @@ return rows;}
 /* R564: owner moved to a paid The Odds API plan (20K/month). With a big balance, refresh more often and look further ahead. */
 function r564Rich(store){return Number(store?.budget?.remaining)>2000;}
 function r507GameFresh(store,g,now){/* R522: free plan ~16 credits/day. Re-check 2h apart, 60min within 3h, 30min within 90min of kickoff */
-const rich=r564Rich(store),left=g.kick-now,maxAge=rich?(left<=90*60000?15*60000:left<=3*3600000?30*60000:90*60000):(left<=90*60000?30*60000:left<=3*3600000?R507.refetchMs:2*3600000);
+const rich=r564Rich(store),left=g.kick-now,maxAge=rich?(left<=90*60000?10*60000:left<=3*3600000?20*60000:60*60000)/* R931 (owner 11/18 "유료 api 한달 더 했으니 맘대로 써도 된다"): fresher on the paid plan */:(left<=90*60000?30*60000:left<=3*3600000?R507.refetchMs:2*3600000);
 return g.markets.some(m=>{const e=store.markets[`${m.gmTs}:${m.no}`];return e&&now-Number(e.at)<maxAge&&Number(e.kick)===g.kick;});}
 function r507DueLeague(store,matches,now,o){const byKey=new Map();
 for(const x of matches){if(!x.match)continue;const k=x.match.sportKey;
