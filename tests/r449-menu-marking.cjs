@@ -16,7 +16,7 @@ assert.match(nodes.list.innerHTML,/적중/);
 const before=JSON.stringify(ctx.fixture);vm.runInContext("setMarkMenu('best');setMarkMenu('rec')",ctx);assert.equal(JSON.stringify(ctx.fixture),before,'filters cannot mutate settlement or picks');
 assert.doesNotMatch(html,/<button[^>]*id="(?:refresh|results|reanalyze)"/);
 assert.doesNotMatch(html,/<button[^>]*data-mode="(?:date|time|marked)"/);
-assert.match(html,/id="tabPast"[^>]*>정산확인</);
+assert.match(html,/id="tabPast"[^>]*><i>[^<]*<\/i><span>정산확인</);
 ctx.hours={hourlyMarking:[{date:'2026-10-13',hour:'01',games:2,marked:2,priced:2}]};vm.runInContext('renderHourly(hours)',ctx);assert.match(nodes.hourlyBar.innerHTML,/<button[^>]*data-hour="01"/);
 ctx.fixture.markingGames=[{...card,resultFinal:false,date:'2026-10-13',time:'01:30'}, {...card,no:8000,resultFinal:false,date:'2026-10-13',time:'03:00'}];
 vm.runInContext("state=fixture;setHourFilter('2026-10-13','01')",ctx);assert.match(nodes.list.innerHTML,/#7785/);assert.doesNotMatch(nodes.list.innerHTML,/#8000/);
