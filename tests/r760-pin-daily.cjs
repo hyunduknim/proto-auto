@@ -26,7 +26,7 @@ assert.equal(run('r760Update(ST,NOW-35*60e3).status'),'IDLE');assert.equal(run('
 // settles through the 클로드추천 settler
 const p0=run('ST.r760Posts[0].groups[0].picks[0]');run(`ST.markets.forEach(m=>{if(m.no===${p0.no}){m.resultFinal=true;m.result=${JSON.stringify(p0.pick)};m.resultScoreText="2:1"}});r662Settle(ST)`);
 const sm=run('r760Summary(ST)');assert.equal(sm.sum.hit,1);assert.equal(sm.posts[0].groups[0].picks[0].st,'hit');
-const ix=vm.runInContext('INDEX',c);assert.ok(ix.includes('📌 피나클추천')&&ix.includes('function r760Html'));
+const ix=vm.runInContext('INDEX',c);assert.ok(ix.includes('⚽ 해외축구추천')&&ix.includes('function r760Html'));
 console.log('r760 ok',n,post.groups.map(g=>g.name+':'+g.picks.map(x=>x.label+' '+x.odds+' '+x.p).join('|')).join(' / '));
 // R770: posts are cleared at the first tick of every KST day, then the 01:00 post is made
 run('ST.r760Posts=[{id:"pin-2026-11-02",groups:[]}];ST.r770Day="2026-11-02"');assert.equal(run('r760Update(ST,Date.parse("2026-11-02T23:00:00+09:00")).status'),'IDLE');assert.equal(run('ST.r760Posts.length'),1);
