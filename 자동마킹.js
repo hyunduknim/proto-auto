@@ -1979,7 +1979,7 @@ store.matches=Object.fromEntries(matches.filter(x=>x.match).map(x=>[x.game.key,{
 /* R528: overseas numbers saved under a wrong match are removed once the game is re-matched elsewhere or is definitely unmatched */
 for(const x of matches){const id=x.match?.id||null;if(!id&&!x.complete)continue;for(const m of x.game.markets){const k=`${m.gmTs}:${m.no}`,e=store.markets[k];if(e&&e.eventId!==id)delete store.markets[k];}}
 store.unmatched=matches.filter(x=>!x.match).slice(0,30).map(x=>({betman:`${x.game.home} vs ${x.game.away}`,kick:x.game.kick,sport:x.game.sport,candidates:x.candidates,bestScore:x.bestScore}));
-const o2=r564Rich(store)?{...o,windowMs:Math.max(o.windowMs,12*3600000)}:o;let due=r507DueLeague(store,matches,now,o2);
+const o2=r564Rich(store)?{...o,windowMs:Math.max(o.windowMs,36*3600000)/* R940c: paid plan — odds from 36h before kickoff (MLS/J리그 next-day games) */}:o;let due=r507DueLeague(store,matches,now,o2);
 const budget=r507Budget(store,now,o);audit.budget={day:budget.day,daily:budget.daily,spent:budget.spent,remaining:budget.remaining};
 if(!due)due=r528PrecisionBoost(store,matches,now,o2,budget);
 if(!due){r507Prune(store,now);return {status:"OK",matched:audit.matched};}
