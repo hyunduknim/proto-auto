@@ -10,7 +10,10 @@ c.ST={gmTs:'260130',markets:mk,r507Overseas:{books:{}},r760Posts:[{id:'pin-2099-
 const ml=[[1.55,2.58],[1.3,3.6],[1.75,2.1],[1.5,2.7],[1.45,2.9]],tl=[224.5,232,228.5,226,230];
 for(const [idx,i] of books)run(`ST.r507Overseas.books[gameSeed(ST.markets[${idx}])]={ml:[["pinnacle",${ml[i][0]},0,${ml[i][1]}]],tot:[["pinnacle",${tl[i]},1.92,1.92]]}`);
 assert.equal(run('r760Update(ST,Date.parse("2099-01-02T06:50:00+09:00")).status'),'IDLE','not before 07:00');
-/* R918: Pinnacle NBA is back, made the R912 (NHL) way — the old r767 post stays off because R912 replaced it */
-assert.ok(run('r912On("2099-01-02")'),'R912 NBA on');
-assert.notEqual(run('r760Update(ST,NOW)').status,'POSTED_NBA','old r767 NBA post replaced by R912');
-console.log('r767 ok (NBA via R912)');
+/* R914 (owner 11/15 "피나클농구추천은 빼는게 좋겟다"): the Pinnacle NBA post is switched off — no pin-nba post is made, and a leftover one is removed */
+assert.equal(run('r760Update(ST,Date.parse("2099-01-02T06:50:00+09:00")).status'),'IDLE','not before 07:00');
+const r=run('r760Update(ST,NOW)');assert.notEqual(r.status,'POSTED_NBA','no NBA post any more');
+assert.ok(!run('ST.r760Posts').some(p=>String(p.id).startsWith('pin-nba-')),'no pin-nba post');
+run('ST.r760Posts.unshift({id:"pin-nba-2099-01-02",groups:[]})');run('r760Update(ST,NOW+600e3)');
+assert.ok(!run('ST.r760Posts').some(p=>String(p.id).startsWith('pin-nba-')),'leftover pin-nba post removed');
+console.log('r767 ok (NBA Pinnacle post off)');
