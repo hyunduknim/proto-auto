@@ -179,3 +179,11 @@ he saw no early-morning NBA games and moved the run to 07:00 ("NBA 새벽시간�
 5. Publish with `publish.sh post.json slate.json`. A notes-only post (no picks) is allowed.
 6. Send 형님 a short SendUserMessage: the key absences, any affected 클로드추천 picks, new picks, and a pointer to the
    🤖 클로드추천 tab.
+
+## 🎲 역배후보 (R951, owner 11/20 21:19 "역배후보 만들어봐 · 모든종목 다 포함")
+Every Claude run (새벽 해외축구, 아침 NBA, 평일·주말 국내경기) ends with this step, for the games in that run's own window (the 아침 NBA run also looks at NHL games in its window).
+- Underdog = the side Betman prices at 2.20 or more on 일반승 (or a 플핸 at 2.00+ that only needs the underdog not to lose by much). One pick per run at most; none is normal. Never pad.
+- Own chance first: from the game reasons only (결장 on the favourite, back-to-back or fixture congestion, motivation gap, the underdog's recent form and home record, matchup), write your own chance for the underdog WITHOUT looking at odds.
+- Then compare with the odds: implied = 1 / Betman odds. Pick only when own chance − implied ≥ 5%p AND there is at least one concrete game reason (a named absent player, rest-day gap, etc.). "Odds look high" is never a reason.
+- The underdog pick may be in a game already picked in the main post (validate.cjs only warns).
+- Post: id "YYYY-MM-DD-upset-<slot>" with slot n (해외축구), a (NBA/NHL), k (평일 국내), b (주말 국내); title "M/D 🎲 역배후보"; one group "역배"; 확률 = own chance; why = "클로드 NN% vs 배당 NN% (+N%p) · " + the concrete reasons. Publish with tools/claude-picks/publish.sh like any post. It shows on the site's 🎲 역배후보 tab with its own record (kept out of the main Claude record) and gets Telegram alerts.
