@@ -15467,8 +15467,8 @@ const s=await loadState(env);return jsonDownload(buildAnalysisExport(s),exportFi
 if(u.pathname==="/api/state"&&req.method==="GET"){
 // Public reads use the initialized snapshot. Historical repair and external
 // collection belong to the serialized maintenance tick, never the screen read.
-const s=MEM.state||await loadState(env);
-const response=r501FastStateResponse(req,s);
+const t0=Date.now(),cold=!MEM.state;const s=MEM.state||await loadState(env);const t1=Date.now();
+const response=r501FastStateResponse(req,s);try{response.headers.set('server-timing','load;dur='+(t1-t0)+',build;dur='+(Date.now()-t1)+(cold?',cold':''));}catch(_){}
 queueStateMaintenance(env,ctx);
 return response;
 }

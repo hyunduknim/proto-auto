@@ -13,7 +13,7 @@ jobs:
           B=https://protonumber.mystyle276.workers.dev
           for i in 1 2 3; do
             for P in "/" "/api/state" "/api/live"; do
-              curl -sS -m 60 --compressed -o /tmp/o -w "$P  code=%{http_code} first_byte=%{time_starttransfer}s total=%{time_total}s size=%{size_download}\n" "$B$P" || echo "$P failed"
+              curl -sS -m 60 --compressed -o /tmp/o -D /tmp/h -w "$P  code=%{http_code} first_byte=%{time_starttransfer}s total=%{time_total}s size=%{size_download}\n" "$B$P" || echo "$P failed"; grep -i server-timing /tmp/h || true
             done
             sleep 10
           done
