@@ -17558,10 +17558,10 @@ if(req.method==='POST'&&u.pathname==='/put'){const at=Number(req.headers.get('x-
 let c=this.m[p];if(!c){try{c=await this.st.storage.get('c:'+p);if(c)this.m[p]=c;}catch(_){}}if(!c)return new Response('none',{status:404});return new Response(c.body,{headers:{'etag':c.etag,'x-at':String(c.at),'content-type':c.ct}});}}
 async function r958Cached(req,env,ctx,stub,path){const fresh=path==='/api/state'?10000:5000,maxAge=path==='/api/state'?900000:120000;let c=R958[path];const now=Date.now();
 const bg=()=>{if(c&&c.busy)return;if(c)c.busy=1;const w=r958Refresh(env,stub,path,req.url).catch(()=>{if(c)c.busy=0;});if(ctx?.waitUntil)ctx.waitUntil(w);};
-if(!(c&&now-c.at<maxAge)){const b=await r958BoxGet(env,path);if(b&&now-b.at<maxAge){c=R958[path]=b;}}
+let src='mem';if(!(c&&now-c.at<maxAge)){const b=await r958BoxGet(env,path);src=b?'box':'box-miss';if(b&&now-b.at<maxAge){c=R958[path]=b;}else if(b)src='box-old';}
 if(c&&now-c.at<maxAge){if(now-c.at>fresh)bg();}
-else{try{c=await r958Refresh(env,stub,path,req.url);}catch(_){return stub.fetch(r564Fwd(req,env));}}
-const h={'cache-control':'no-store','etag':c.etag,'x-r958-age':String(Math.round((Date.now()-c.at)/1000))};
+else{src+='+pull';try{c=await r958Refresh(env,stub,path,req.url);}catch(_){return stub.fetch(r564Fwd(req,env));}}
+const h={'cache-control':'no-store','etag':c.etag,'x-r958-age':String(Math.round((Date.now()-c.at)/1000)),'x-r958-src':src};
 if(req.headers.get('if-none-match')===c.etag)return new Response(null,{status:304,headers:h});
 return new Response(c.body,{status:200,headers:{...h,'content-type':c.ct}});}
 /* R564F: pass the Worker's current odds key to the Durable Object on internal calls only (any client-sent copy is dropped) */
