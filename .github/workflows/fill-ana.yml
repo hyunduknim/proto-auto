@@ -1,0 +1,40 @@
+name: Fill 클로드 분석 for passed games
+
+# R952 (owner 11/20 21:29 "경기분석에는 자동마킹 없는경기엔 클로드자체분석 전부 다 넣어줘"):
+# every 2 hours, every upcoming game the site passes on (and Claude has not picked or analysed) gets the numbers-only
+# 🤖 클로드 분석 (tools/claude-picks/fill_ana.cjs) written to picks.json "ana" on the claude-picks branch. Never touches main.
+on:
+  schedule:
+    - cron: "17 */2 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fill-ana
+  cancel-in-progress: false
+
+jobs:
+  fill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/claude-picks
+      - name: Fetch slate, fill and push
+        run: |
+          set -e
+          curl -sS -m 180 "https://protonumber.mystyle276.workers.dev/check?slate&h=40" -o /tmp/slate.json
+          node -e 'const s=require("/tmp/slate.json");if(!Array.isArray(s.slate))process.exit(1)'
+          git config --global user.name "Claude"
+          git config --global user.email "noreply@anthropic.com"
+          for i in 1 2 3; do
+            rm -rf b && git clone -q --depth 1 -b claude-picks "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" b
+            out=$(node tools/claude-picks/fill_ana.cjs /tmp/slate.json b/picks.json); echo "$out"
+            cd b; if git diff --quiet; then echo "nothing new"; exit 0; fi
+            git add picks.json && git commit -qm "클로드 분석 자동 채움 (패스 경기)" && if git push -q origin claude-picks; then exit 0; fi
+            cd ..; sleep 5
+          done
+          exit 1

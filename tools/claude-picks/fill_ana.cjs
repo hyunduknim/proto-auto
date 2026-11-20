@@ -1,0 +1,120 @@
+// R952 (owner 11/20 21:29 "경기분석에는 자동마킹 없는경기엔 클로드자체분석 전부 다 넣어줘")
+// usage: node fill_ana.cjs <slate.json> <picks.json>
+// Fills picks.json "ana" (🤖 클로드 분석 · 숫자 계산) for EVERY upcoming game the site passes on (no site pick or under its bar)
+// that has no Claude pick and no analysis yet, using the numbers-only method in PROCEDURE.md (expected score → Poisson /
+// normal curve → edge vs Betman). Entries written by a Claude run are never overwritten. Prints how many it added.
+const fs = require('fs');
+const [sf, pf] = process.argv.slice(2);
+const S = JSON.parse(fs.readFileSync(sf, 'utf8'));
+const C = JSON.parse(fs.readFileSync(pf, 'utf8'));
+const ana = C.ana || (C.ana = {});
+const gm = String(S.gmTs);
+const picked = new Set();
+for (const p of C.posts || []) if (p.by !== 'gpt' && p.by !== 'gemini') for (const g of p.groups || []) for (const x of g.picks || []) picked.add(String(x.gmTs) + ':' + Number(x.no));
+const nowMs = Date.parse(S.now || new Date().toISOString());
+const kst = (d, t) => Date.parse(d + 'T' + (t || '00:00') + ':00+09:00');
+
+const fact = [1]; for (let i = 1; i < 15; i++) fact[i] = fact[i - 1] * i;
+const pois = (l, k) => Math.exp(-l) * Math.pow(l, k) / fact[k];
+const ncdf = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)); const d = 0.3989423 * Math.exp(-z * z / 2); const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; };
+const r2 = v => Math.round(v * 100) / 100, pc = v => Math.round(v * 100);
+const fmtL = l => (l > 0 ? '+' : '') + l;
+
+function soccerModel(x) {
+  const fh = x.form && x.form.h, fa = x.form && x.form.a; if (!fh || !fa) return null;
+  let lh = (fh[4] + fa[5]) / 2 + 0.15, la = (fa[4] + fh[5]) / 2 - 0.1;
+  const xg = x.af && x.af.xg; if (xg && xg.h != null && xg.a != null) { lh = 0.5 * lh + 0.5 * xg.h; la = 0.5 * la + 0.5 * xg.a; }
+  const ko = x.af && x.af.keyOut; if (ko) { lh -= 0.15 * Math.min(2, (ko.h || []).length); la -= 0.15 * Math.min(2, (ko.a || []).length); }
+  lh = Math.max(0.25, Math.min(4, lh)); la = Math.max(0.2, Math.min(3.5, la));
+  const grid = []; for (let i = 0; i < 11; i++) for (let j = 0; j < 11; j++) grid.push([i, j, pois(lh, i) * pois(la, j)]);
+  const tot = grid.reduce((s, g) => s + g[2], 0);
+  const P = f => grid.reduce((s, g) => s + (f(g[0], g[1]) ? g[2] : 0), 0) / tot;
+  return {
+    txt: '예상 스코어 ' + lh.toFixed(1) + ' : ' + la.toFixed(1),
+    ml: { 승: P((i, j) => i > j), 무: P((i, j) => i === j), 패: P((i, j) => i < j) },
+    hc: l => Number.isInteger(l) ? { 승: P((i, j) => i - j + l > 0), 무: P((i, j) => i - j + l === 0), 패: P((i, j) => i - j + l < 0) } : { 승: P((i, j) => i - j + l > 0), 패: P((i, j) => i - j + l < 0) },
+    tt: l => ({ 오버: P((i, j) => i + j > l), 언더: P((i, j) => i + j < l) })
+  };
+}
+function bballModel(x) {
+  let ph, pa;
+  const pj = x.stats && x.stats.proj, sh = x.sh;
+  if (pj && pj.h) { ph = pj.h; pa = pj.a; if (sh && sh.ph) { ph = (ph + sh.ph) / 2; pa = (pa + sh.pa) / 2; } }
+  else if (sh && sh.ph) { ph = sh.ph; pa = sh.pa; }
+  else { const fh = x.form && x.form.h, fa = x.form && x.form.a; if (!fh || !fa) return null; ph = (fh[4] + fa[5]) / 2 + 1.5; pa = (fa[4] + fh[5]) / 2 - 1.5; }
+  const nba = /NBA/.test(x.lg), sdM = nba ? 12 : 11, sdT = nba ? 18 : 15, mar = ph - pa, T = ph + pa;
+  const pW = ncdf(mar / sdM);
+  return {
+    txt: '예상 점수 ' + ph.toFixed(0) + ' : ' + pa.toFixed(0),
+    ml: { 승: pW, 패: 1 - pW },
+    hc: l => { const p = ncdf((mar + l) / sdM); return { 승: p, 패: 1 - p }; },
+    tt: l => { const p = 1 - ncdf((l - T) / sdT); return { 오버: p, 언더: 1 - p }; }
+  };
+}
+function vbModel(x) {
+  const fh = x.form && x.form.h, fa = x.form && x.form.a; if (!fh || !fa || !fh[3] || !fa[3]) return null;
+  const wr = f => (f[0] + 1) / (f[3] + 2);
+  let pm = Math.max(0.1, Math.min(0.9, 0.5 + (wr(fh) - wr(fa)) / 2 + 0.04));
+  // per-set chance q that gives match chance pm
+  const match = q => q ** 3 * (1 + 3 * (1 - q) + 6 * (1 - q) ** 2);
+  let lo = 0.05, hi = 0.95; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (match(m) < pm) lo = m; else hi = m; }
+  const q = (lo + hi) / 2, r = 1 - q;
+  const out = { '3-0': q ** 3, '3-1': 3 * q ** 3 * r, '3-2': 6 * q ** 3 * r * r, '0-3': r ** 3, '1-3': 3 * r ** 3 * q, '2-3': 6 * r ** 3 * q * q };
+  const sets = Object.entries(out).reduce((s, [k, v]) => s + v * k.split('-').reduce((a, b) => a + Number(b), 0), 0);
+  const T = sets * 45;
+  return {
+    txt: '세트 이길 확률 ' + pc(q) + '% · 예상 ' + sets.toFixed(1) + '세트',
+    ml: { 승: pm, 패: 1 - pm },
+    hc: l => { let p = 0; for (const [k, v] of Object.entries(out)) { const [a, b] = k.split('-').map(Number); if (a - b + l > 0) p += v; } return { 승: p, 패: 1 - p }; },
+    tt: l => { const p = 1 - ncdf((l - T) / 14); return { 오버: p, 언더: 1 - p }; }
+  };
+}
+const nm = s => String(s || '').replace(/\s+(FC|SC|CF)$/i, '');
+let added = 0; const skipped = [];
+for (const x of S.slate || []) {
+  if (!x.mk || !x.mk.length) continue;
+  if (kst(x.d, x.t) <= nowMs + 5 * 60000) continue;
+  const site = x.site; const bar = /NBA/.test(x.lg) ? 0.55 : 0.58;
+  if (site && site.ps != null && site.ps >= bar) continue; // site has a real pick → card shows it
+  const nos = x.mk.map(m => Number(m[0]));
+  if (nos.some(n => picked.has(gm + ':' + n))) continue; // Claude already picked this game
+  const ml = x.mk.find(m => m[1] === 'MONEYLINE') || x.mk[0];
+  const key = gm + ':' + ml[0];
+  if (nos.some(n => ana[gm + ':' + n])) continue; // already analysed (Claude run or earlier fill)
+  if (!x.mk.some(m => m[3] && m[3].length)) { skipped.push(x.h + ' (배당 없음)'); continue; }
+  const M = x.sp === '축구' ? soccerModel(x) : x.sp === '농구' ? bballModel(x) : x.sp === '배구' ? vbModel(x) : null;
+  if (!M) { skipped.push(x.h + ' (기록 없음)'); continue; }
+  const fams = { MONEYLINE: [], HANDICAP: [], TOTAL: [] };
+  for (const m of x.mk) {
+    const [no, f, line, ch, ov] = m; if (!ch || !ch.length || !fams[f]) continue;
+    const mp = f === 'MONEYLINE' ? M.ml : f === 'HANDICAP' ? (line == null ? null : M.hc(Number(line))) : (line == null ? null : M.tt(Number(line)));
+    if (!mp) continue;
+    const sumInv = ch.reduce((s, c) => s + 1 / c[1], 0);
+    for (const [pick, o] of ch) {
+      const pm = mp[pick]; if (pm == null || !(o >= 1.31)) continue;
+      const imp = (1 / o) / sumInv;
+      // 60% overseas price (Betman's own when none) + 40% the numbers model: last-5 samples are small, so the model alone overshoots
+      const base = ov && ov[pick] != null ? Number(ov[pick]) : imp, p = 0.6 * base + 0.4 * pm;
+      const lab = f === 'MONEYLINE' ? (pick === '승' ? nm(x.h) + ' 승' : pick === '패' ? nm(x.a) + ' 승' : '무승부')
+        : f === 'HANDICAP' ? nm(x.h) + ' ' + fmtL(Number(line)) + ' ' + pick : pick + ' ' + line;
+      fams[f].push({ f, line: line == null ? null : Number(line), pick, lab, p: Math.min(0.97, Math.max(0.03, r2(p))), o, edge: p - imp, imp, pm, ovq: !!(ov && ov[pick] != null) });
+    }
+  }
+  const m = [];
+  for (const f of ['MONEYLINE', 'HANDICAP', 'TOTAL']) {
+    const L = fams[f]; if (!L.length) continue;
+    L.sort((a, b) => ((b.edge >= 0.03) - (a.edge >= 0.03)) || (b.p - a.p));
+    m.push(L[0]);
+  }
+  if (!m.length) { skipped.push(x.h + ' (1.31 이상 없음)'); continue; }
+  let b = -1; m.forEach((v, i) => { if (v.edge >= 0.03 && (b < 0 || v.p > m[b].p)) b = i; });
+  const value = b >= 0; if (!value) m.forEach((v, i) => { if (b < 0 || v.p > m[b].p) b = i; });
+  const B = m[b];
+  const why = (value ? '' : '가치 없음 · ') + '숫자 계산: ' + M.txt + ' · ' + B.lab + ' 계산 ' + pc(B.pm) + '% · ' + (B.ovq ? '해외 배당' : '베트맨 배당') + '과 합쳐 ' + pc(B.p) + '% (베트맨 기준 ' + pc(B.imp) + '%, ' + (B.edge >= 0 ? '+' : '') + pc(B.edge) + '%p) · 최근 5경기' + (x.af && x.af.xg ? '·xG' : '') + ' 기준';
+  ana[key] = { nos, d: x.d, m: m.map(({ f, line, pick, lab, p, o }) => ({ f, line, pick, lab, p, o })), b, why, auto: 1, at: new Date().toISOString() };
+  added++;
+}
+const y = new Date(Date.now() + 9 * 3600e3 - 86400e3).toISOString().slice(0, 10);
+for (const k of Object.keys(ana)) if (ana[k].d && ana[k].d < y) delete ana[k];
+if (added) { C.updatedAt = new Date().toISOString(); fs.writeFileSync(pf, JSON.stringify(C, null, 1) + '\n'); }
+console.log('added ' + added + (skipped.length ? ' · skipped ' + skipped.length + ': ' + skipped.slice(0, 20).join(', ') : ''));
