@@ -17554,8 +17554,8 @@ async function r958BoxPut(env,path,c){const b=r958Box(env);if(!b||!c)return;try{
 async function r958Refresh(env,stub,path,base){const c=await r958Pull(env,stub,path,base);await r958BoxPut(env,path,c);return c;}
 export class R958Cache{constructor(state){this.st=state;this.m={};}
 async fetch(req){const u=new URL(req.url),p=u.searchParams.get('p')||'';
-if(req.method==='POST'&&u.pathname==='/put'){const at=Number(req.headers.get('x-at'))||Date.now();const o=this.m[p];if(o&&o.at>at)return new Response('old');this.m[p]={body:await req.text(),etag:req.headers.get('etag')||'',at,ct:req.headers.get('content-type')||'application/json; charset=utf-8'};return new Response('ok');}
-const c=this.m[p];if(!c)return new Response('none',{status:404});return new Response(c.body,{headers:{'etag':c.etag,'x-at':String(c.at),'content-type':c.ct}});}}
+if(req.method==='POST'&&u.pathname==='/put'){const at=Number(req.headers.get('x-at'))||Date.now();const o=this.m[p];if(o&&o.at>at)return new Response('old');this.m[p]={body:await req.text(),etag:req.headers.get('etag')||'',at,ct:req.headers.get('content-type')||'application/json; charset=utf-8'};try{await this.st.storage.put('c:'+p,this.m[p]);}catch(_){}return new Response('ok');}
+let c=this.m[p];if(!c){try{c=await this.st.storage.get('c:'+p);if(c)this.m[p]=c;}catch(_){}}if(!c)return new Response('none',{status:404});return new Response(c.body,{headers:{'etag':c.etag,'x-at':String(c.at),'content-type':c.ct}});}}
 async function r958Cached(req,env,ctx,stub,path){const fresh=path==='/api/state'?10000:5000,maxAge=path==='/api/state'?180000:30000;let c=R958[path];const now=Date.now();
 const bg=()=>{if(c&&c.busy)return;if(c)c.busy=1;const w=r958Refresh(env,stub,path,req.url).catch(()=>{if(c)c.busy=0;});if(ctx?.waitUntil)ctx.waitUntil(w);};
 if(!(c&&now-c.at<maxAge)){const b=await r958BoxGet(env,path);if(b&&now-b.at<maxAge){c=R958[path]=b;}}
