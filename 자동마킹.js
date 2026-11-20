@@ -17536,6 +17536,17 @@ async function r509Initialize(env){
  catch{current.r509RecoveryStatus={status:'ATOMIC_RECOVERY_FAILED'};return current;}
 }
 
+/* R958 (owner 11/21 08:27 "사이트에 딜레이가 심한데?"): the Durable Object answers one thing at a time, so while a long background
+   update runs a page read could wait 9-14 s. The Worker now keeps the last /api/state and /api/live answer in memory, hands it out
+   at once and refreshes it in the background (state: fresh for 10 s, served up to 3 min old while a refresh runs). */
+const R958={};
+async function r958Pull(env,stub,path,base){const res=await stub.fetch(r564Fwd(new Request(new URL(path,base),{method:'GET'}),env));if(!res.ok)throw Error('R958_'+res.status);const body=await res.text();const c={body,etag:res.headers.get('etag')||('"r958-'+body.length+'-'+Date.now()+'"'),at:Date.now(),ct:res.headers.get('content-type')||'application/json; charset=utf-8'};R958[path]=c;return c;}
+async function r958Cached(req,env,ctx,stub,path){const fresh=path==='/api/state'?10000:5000,maxAge=path==='/api/state'?180000:30000;let c=R958[path];const now=Date.now();
+if(c&&now-c.at<maxAge){if(now-c.at>fresh&&!c.busy){c.busy=1;const w=r958Pull(env,stub,path,req.url).catch(()=>{c.busy=0;});if(ctx?.waitUntil)ctx.waitUntil(w);}}
+else{try{c=await r958Pull(env,stub,path,req.url);}catch(_){return stub.fetch(r564Fwd(req,env));}}
+const h={'cache-control':'no-store','etag':c.etag,'x-r958-age':String(Math.round((Date.now()-c.at)/1000))};
+if(req.headers.get('if-none-match')===c.etag)return new Response(null,{status:304,headers:h});
+return new Response(c.body,{status:200,headers:{...h,'content-type':c.ct}});}
 /* R564F: pass the Worker's current odds key to the Durable Object on internal calls only (any client-sent copy is dropped) */
 function r564Fwd(req,env){const h=new Headers(req.headers);h.delete('x-r564-k');const k=String(env?.ODDS_PAID_KEY||env?.THE_ODDS_API_KEY||'').trim();if(k)h.set('x-r564-k',k);return new Request(req,{headers:h});}
 export default {
@@ -17556,6 +17567,7 @@ return g.marketRows.map(r=>({gmTs:g.gmTs,date:g.date,time:g.time,home:g.home,awa
 return {gmTs:view.gmTs,markets};
 });}catch{return json({error:'HISTORY_STATE_UNAVAILABLE'},503);}
 }
+if(stub&&req.method==='GET'&&(u.pathname==='/api/state'||u.pathname==='/api/live')&&!u.search)return r958Cached(req,env,ctx,stub,u.pathname);
 if(stub&&u.pathname!=="/")return stub.fetch(r564Fwd(req,env));
 if(u.pathname.startsWith("/api/admin/"))return await r398HandleProtocolAdmin(req,env)||await r398HandleOperational(req,env);
 return handleApp(req,env,ctx);
