@@ -70,7 +70,8 @@ function vbModel(x) {
   };
 }
 const nm = s => String(s || '').replace(/\s+(FC|SC|CF)$/i, '');
-let added = 0; const skipped = [];
+let added = 0, fixed = 0; const skipped = [];
+const norm955=v=>{if(!v||!Array.isArray(v.m))return false;const bx=Number.isInteger(v.b)?v.m[v.b]:null;const ok=v.m.filter(x=>Number(x.o)>1.31);if(!bx||!(Number(bx.o)>1.31))return false;const seen={},m=[];for(const x of ok.slice().sort((a,b)=>((b===bx)-(a===bx))||(b.p-a.p))){if(seen[x.f])continue;seen[x.f]=1;m.push(x);}const ord=["MONEYLINE","HANDICAP","TOTAL"];m.sort((a,b)=>ord.indexOf(a.f)-ord.indexOf(b.f));v.m=m;v.b=m.indexOf(bx);return true;};
 for (const x of S.slate || []) {
   if (!x.mk || !x.mk.length) continue;
   if (kst(x.d, x.t) <= nowMs + 5 * 60000) continue;
@@ -80,6 +81,8 @@ for (const x of S.slate || []) {
   if (nos.some(n => picked.has(gm + ':' + n))) continue; // Claude already picked this game
   const ml = x.mk.find(m => m[1] === 'MONEYLINE') || x.mk[0];
   const key = gm + ':' + ml[0];
+  // R955: an entry with a 1.31-or-less option or several sides of one market is broken → redo it
+  for (const n of nos) { const v = ana[gm + ':' + n]; if (!v) continue; const before = JSON.stringify(v.m); if (!norm955(v)) delete ana[gm + ':' + n]; else if (JSON.stringify(v.m) !== before) fixed++; }
   if (nos.some(n => ana[gm + ':' + n])) continue; // already analysed (Claude run or earlier fill)
   if (!x.mk.some(m => m[3] && m[3].length)) { skipped.push(x.h + ' (배당 없음)'); continue; }
   const M = x.sp === '축구' ? soccerModel(x) : x.sp === '농구' ? bballModel(x) : x.sp === '배구' ? vbModel(x) : null;
@@ -116,5 +119,5 @@ for (const x of S.slate || []) {
 }
 const y = new Date(Date.now() + 9 * 3600e3 - 86400e3).toISOString().slice(0, 10);
 for (const k of Object.keys(ana)) if (ana[k].d && ana[k].d < y) delete ana[k];
-if (added) { C.updatedAt = new Date().toISOString(); fs.writeFileSync(pf, JSON.stringify(C, null, 1) + '\n'); }
-console.log('added ' + added + (skipped.length ? ' · skipped ' + skipped.length + ': ' + skipped.slice(0, 20).join(', ') : ''));
+if (added || fixed) { C.updatedAt = new Date().toISOString(); fs.writeFileSync(pf, JSON.stringify(C, null, 1) + '\n'); }
+console.log('added ' + added + ' · fixed ' + fixed + (skipped.length ? ' · skipped ' + skipped.length + ': ' + skipped.slice(0, 20).join(', ') : ''));
