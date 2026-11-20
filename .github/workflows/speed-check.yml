@@ -1,0 +1,19 @@
+name: Speed check (read-only)
+# R958: measures how long the live site takes to answer (page, state, live board). Read-only.
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - run: |
+          B=https://protonumber.mystyle276.workers.dev
+          for i in 1 2 3; do
+            for P in "/" "/api/state" "/api/live"; do
+              curl -sS -m 60 --compressed -o /tmp/o -w "$P  code=%{http_code} first_byte=%{time_starttransfer}s total=%{time_total}s size=%{size_download}\n" "$B$P" || echo "$P failed"
+            done
+            sleep 10
+          done
