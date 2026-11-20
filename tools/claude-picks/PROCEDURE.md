@@ -187,3 +187,6 @@ Every Claude run (새벽 해외축구, 아침 NBA, 평일·주말 국내경기) 
 - Then compare with the odds: implied = 1 / Betman odds. Pick only when own chance − implied ≥ 5%p AND there is at least one concrete game reason (a named absent player, rest-day gap, etc.). "Odds look high" is never a reason.
 - The underdog pick may be in a game already picked in the main post (validate.cjs only warns).
 - Post: id "YYYY-MM-DD-upset-<slot>" with slot n (해외축구), a (NBA/NHL), k (평일 국내), b (주말 국내); title "M/D 🎲 역배후보"; one group "역배"; 확률 = own chance; why = "클로드 NN% vs 배당 NN% (+N%p) · " + the concrete reasons. Publish with tools/claude-picks/publish.sh like any post. It shows on the site's 🎲 역배후보 tab with its own record (kept out of the main Claude record) and gets Telegram alerts.
+
+## 핸디캡 이름 쓰는 법 (R957, owner 11/21 02:05 "핸디캡에 마이너스 패는 상대팀 플핸으로 고쳐 헷깔리게 하지말고")
+Write every handicap label from the side that WINS the bet: "<home> -3 패" is written "<away> +3 승", "<home> +1 패" is written "<away> -1 승". Keep "pick" and "line" exactly as Betman has them (pick "패", the home line) — only the label text changes. The site also rewrites old labels this way.

@@ -99,7 +99,7 @@ for (const x of S.slate || []) {
       // 60% overseas price (Betman's own when none) + 40% the numbers model: last-5 samples are small, so the model alone overshoots
       const base = ov && ov[pick] != null ? Number(ov[pick]) : imp, p = 0.6 * base + 0.4 * pm;
       const lab = f === 'MONEYLINE' ? (pick === '승' ? nm(x.h) + ' 승' : pick === '패' ? nm(x.a) + ' 승' : '무승부')
-        : f === 'HANDICAP' ? nm(x.h) + ' ' + fmtL(Number(line)) + ' ' + pick : pick + ' ' + line;
+        : f === 'HANDICAP' ? (pick === '패' ? nm(x.a) + ' ' + fmtL(-Number(line)) + ' 승' : pick === '무' ? '핸디 무 (' + nm(x.h) + ' ' + fmtL(Number(line)) + ')' : nm(x.h) + ' ' + fmtL(Number(line)) + ' 승') : pick + ' ' + line;
       fams[f].push({ f, line: line == null ? null : Number(line), pick, lab, p: Math.min(0.97, Math.max(0.03, r2(p))), o, edge: p - imp, imp, pm, ovq: !!(ov && ov[pick] != null) });
     }
   }
