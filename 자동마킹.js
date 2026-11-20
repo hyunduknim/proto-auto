@@ -10324,7 +10324,7 @@ const INDEX=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta na
 .a97Bar{height:7px;border-radius:99px;background:#c2475a33;overflow:hidden;margin-top:5px}.a97Bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#4f8cff,#7ee0a8)}
 .a97P3{display:flex;justify-content:space-between;margin-top:6px;font-size:11.5px;color:#d3d9f2}.a97P3 b{color:#eef1ff}
 .a97Sub{margin-top:8px;font-size:11.5px;color:#d3d9f2}
-.a97Ms{margin-top:10px;border-top:1px solid #222944}.a97M{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #1d2340;font-size:13px}.a97M em{font-style:normal;font-size:11px;color:#c6cdea;text-align:center;white-space:nowrap}.a97M span{color:#dde2f7;font-weight:700}.a97M span:last-child{text-align:right}.a97M span.win{color:#7ee0a8}
+.a97Ms{margin-top:10px;border-top:1px solid #222944}.r953{margin-top:10px;padding:10px 12px;border-radius:12px;background:#121a33;border:1px solid #26305a}.r953H{font-weight:800;font-size:13px;color:#cfd8ff;margin-bottom:6px}.r953R{display:flex;gap:8px;padding:5px 0;border-top:1px dashed #26305a;font-size:12.5px;line-height:1.55}.r953R:first-of-type{border-top:0}.r953R em{flex:0 0 74px;font-style:normal;color:#9fb0e8;font-weight:700}.r953R p{margin:0;color:#e6ebff}.r953R b{color:#fff}.r953R u{text-decoration:none;color:#ff9d9d}.a97M{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #1d2340;font-size:13px}.a97M em{font-style:normal;font-size:11px;color:#c6cdea;text-align:center;white-space:nowrap}.a97M span{color:#dde2f7;font-weight:700}.a97M span:last-child{text-align:right}.a97M span.win{color:#7ee0a8}
 .a97D summary{list-style:none;cursor:pointer;text-align:center;font-size:12px;font-weight:800;color:#d3d9f2;padding:8px 0 2px}.a97D summary::-webkit-details-marker{display:none}.a97D summary::after{content:' ▾'}.a97D[open] summary::after{content:' ▴'}
 .a97Cat{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.a97Cat span{font-size:11.5px;background:#1a2038;border:1px solid #262d4c;border-radius:999px;padding:4px 9px;color:#dde2f7}.a97Cat b{color:#e8ecff}
 .a97Go{display:block;width:100%;margin:10px 0 4px;border:1px solid #2c3560;background:#1d2440;color:#eef1ff;font-weight:800;font-size:13px;border-radius:10px;padding:10px;cursor:pointer}
@@ -12225,6 +12225,40 @@ h+='<article class="a97C"><div class="a97Top"><span class="a97T">'+e(p.title||''
 for(const x of r895S(L)){const t=(String(x.date||'').slice(5)+' '+String(x.time||'').slice(0,5)).trim();h+='<div class="a97P '+(x.st==='hit'?'rec':x.st==='miss'?'pass':'norm')+'" style="margin-top:8px"><div class="a97PL"><i>'+e(stt[x.st]||'대기')+'</i><b>'+e(x.label||'')+'</b><small>'+e(t)+(x.league?' · '+e(x.league):'')+(x.score?' · '+e(x.score):'')+'</small></div><div class="a97PR">'+(x.p!=null?'<strong>'+Math.round(x.p*100)+'<u>%</u></strong>':'')+(x.odds?'<em>'+Number(x.odds).toFixed(2)+'배</em>':'')+'</div></div>'+(x.why?'<div class="a97ClW">'+e(x.why)+'</div>':'');}
 h+='</article>';}
 el.innerHTML=h;}
+/* R953 (owner 11/21 00:37 "경기분석에 왜 경기력분석 글이 없지? 자세히 만들어줘"): a written 경기력 분석 on every card — form, home/away, rest, absences, attack/defence, conclusion — built from the team data already on the card */
+function r953Story(m,cx,P){try{
+const H=r560N(m.home),A=r560N(m.away),soc=m.sport==='축구',bb=m.sport==='농구',vb=m.sport==='배구',u=soc?'골':bb?'점':'세트';
+const td=m.teamData||{},mh=((td.home&&td.home.matches)||[]).slice(),ma=((td.away&&td.away.matches)||[]).slice();
+const srt=a=>a.sort((x,y)=>(Number(y.at)||Date.parse(y.date))-(Number(x.at)||Date.parse(x.date)));srt(mh);srt(ma);
+const rec=L=>{const r={n:L.length,w:0,d:0,l:0,gf:0,ga:0};for(const x of L){if(x.outcome==='승')r.w++;else if(x.outcome==='무')r.d++;else r.l++;r.gf+=Number(x.gf)||0;r.ga+=Number(x.ga)||0;}return r;};
+const wdl=r=>r.w+'승'+(soc||r.d?r.d+'무':'')+r.l+'패';
+const av=(v,n)=>n?(bb?(v/n).toFixed(1):(v/n).toFixed(1)):'-';
+const streak=L=>{if(!L.length)return '';const k=L[0].outcome;let n=0;for(const x of L){if(x.outcome===k)n++;else break;}return n>=2?(n+'연'+(k==='승'?'승':k==='패'?'패':'속 무')):'';};
+const out=[];
+const S=m.r555||{};
+const line1=(nm,L,s)=>{if(L.length>=3){const r=rec(L.slice(0,5)),st=streak(L);return '<b>'+e(nm)+'</b> 최근 '+r.n+'경기 '+wdl(r)+(st?' ('+st+')':'')+' · 경기당 '+av(r.gf,r.n)+u+' 넣고 '+av(r.ga,r.n)+u+' 내줌';}if(s&&s.n){return '<b>'+e(nm)+'</b> 최근 '+s.n+'경기 '+wdl(s)+(s.st?' ('+e(s.st)+')':'')+' · 경기당 '+av(s.gf,s.n)+u+' 넣고 '+av(s.ga,s.n)+u+' 내줌';}return '';};
+const a1=line1(H,mh,S.home),a2=line1(A,ma,S.away);if(a1||a2)out.push(['📈 최근 흐름',[a1,a2].filter(Boolean).join('<br>')]);
+const hh=mh.filter(x=>x.home===true).slice(0,5),aa=ma.filter(x=>x.home===false).slice(0,5);
+if(hh.length>=2||aa.length>=2){const rh=rec(hh),ra=rec(aa),t=[];if(hh.length>=2)t.push('<b>'+e(H)+'</b> 홈 '+rh.n+'경기 '+wdl(rh)+' ('+av(rh.gf,rh.n)+':'+av(rh.ga,rh.n)+')');if(aa.length>=2)t.push('<b>'+e(A)+'</b> 원정 '+ra.n+'경기 '+wdl(ra)+' ('+av(ra.gf,ra.n)+':'+av(ra.ga,ra.n)+')');
+let c='';const hr=rh.n?rh.w/rh.n:null,ar=ra.n?ra.w/ra.n:null;if(hr!=null&&hr>=0.7)c+=' → '+e(H)+' 홈에서 강함';if(ar!=null&&ar<=0.2&&ra.n>=3)c+=(c?',':' →')+' '+e(A)+' 원정에서 약함';else if(ar!=null&&ar>=0.6&&ra.n>=3)c+=(c?',':' →')+' '+e(A)+' 원정에서도 잘함';out.push(['🏟 홈·원정',t.join('<br>')+e(c)]);}
+const gd=Date.parse(m.date);const rest=L=>{if(!L.length||!L[0].date)return null;const t=Date.parse(L[0].date);if(!t||!gd)return null;return Math.round((gd-t)/86400000)-1;};
+const r1=rest(mh),r2=rest(ma);if(r1!=null&&r2!=null&&r1>=9&&r2>=9&&soc)out.push(['🗓 일정','두 팀 모두 '+(r1===r2?r1:Math.min(r1,r2)+'~'+Math.max(r1,r2))+'일 쉬고 나옴 (A매치 휴식기) → 체력 차이 없음 · 휴식 뒤 첫 경기라 변수 조금 있음']);else if(r1!=null||r2!=null){const tx=(nm,r)=>r==null?'':(r<=0?'<b>'+e(nm)+'</b> 연전'+(bb?'(백투백)':'')+' · 체력 부담':r>=9?'<b>'+e(nm)+'</b> '+r+'일 휴식 (긴 휴식 뒤 첫 경기)':'<b>'+e(nm)+'</b> '+r+'일 휴식');let c='';if(r1!=null&&r2!=null){if(r1-r2>=2)c=' → '+e(H)+' 체력 유리';else if(r2-r1>=2)c=' → '+e(A)+' 체력 유리';}out.push(['🗓 일정',[tx(H,r1),tx(A,r2)].filter(Boolean).join(' · ')+e(c)]);}
+const inj=(m.r768&&m.r768.inj)||null,o778=(m.r778&&m.r778.out)||null;const nm=x=>typeof x==='string'?x:(x&&x.n?x.n+(x.q?'(출전 불투명)':''):'');
+const ih=(inj&&inj.h||[]).map(nm).filter(Boolean),ia=(inj&&inj.a||[]).map(nm).filter(Boolean),kh=(o778&&o778.h)||[],ka=(o778&&o778.a)||[];
+if(ih.length||ia.length||kh.length||ka.length){const f=(n,L,K)=>'<b>'+e(n)+'</b> '+(L.length?e(L.slice(0,5).join(', '))+(L.length>5?' 외 '+(L.length-5)+'명':''):'없음')+(K.length?' · <u>핵심 '+e(K.join(', '))+'</u>':'');let c='';if(kh.length>ka.length)c=' → '+e(H)+' 쪽 전력 손실이 더 큼';else if(ka.length>kh.length)c=' → '+e(A)+' 쪽 전력 손실이 더 큼';out.push(['🚑 결장',f(H,ih,kh)+'<br>'+f(A,ia,ka)+e(c)]);}
+else if(soc&&m.r768&&m.r768.injNA)out.push(['🚑 결장','이 대회는 결장 명단이 안 나옴 · 경기 전 뉴스 확인']);
+const g=m.r663;if(bb&&g&&g.home&&g.away){const h=g.home,a=g.away,t=[];t.push('공격 효율 '+e(H)+' <b>'+h.ortg+'</b> vs <b>'+a.ortg+'</b> '+e(A));t.push('실점 효율 '+e(H)+' <b>'+h.drtg+'</b> vs <b>'+a.drtg+'</b> '+e(A)+' (낮을수록 수비 좋음)');t.push('경기 속도 '+h.pace+' vs '+a.pace+' · 득실 마진 '+(h.net>0?'+':'')+h.net+' vs '+(a.net>0?'+':'')+a.net);if(g.proj)t.push('→ 예상 점수 <b>'+Math.round(g.proj.h)+' : '+Math.round(g.proj.a)+'</b> (합 '+Math.round(g.proj.tot)+'점, '+(g.proj.mar>0?e(H)+' '+Math.abs(g.proj.mar).toFixed(1)+'점 우세':e(A)+' '+Math.abs(g.proj.mar).toFixed(1)+'점 우세')+')');out.push(['🏀 공격·수비',t.join('<br>')]);}
+const q=m.r651;if(bb&&q&&q.home&&q.away&&q.home.h2f!=null){const d1=(q.home.h2f-q.home.h2a)-(q.home.h1f-q.home.h1a),d2=(q.away.h2f-q.away.h2a)-(q.away.h1f-q.away.h1a);const t=[];if(Math.abs(d1)>=3)t.push(e(H)+(d1>0?' 후반에 강함':' 후반에 처짐'));if(Math.abs(d2)>=3)t.push(e(A)+(d2>0?' 후반에 강함':' 후반에 처짐'));if(t.length)out.push(['⏱ 경기 흐름',t.join(' · ')]);}
+if(soc){const t=[];const xg=m.r778&&m.r778.xg;if(xg&&xg.h!=null)t.push('기대득점(xG) '+e(H)+' <b>'+xg.h+'</b> vs <b>'+xg.a+'</b> '+e(A));const fit=m.r648Fit||m.r648;if(fit&&fit.lh)t.push('예상 스코어 <b>'+Number(fit.lh).toFixed(1)+' : '+Number(fit.la).toFixed(1)+'</b>');
+const half=L=>{let a=0,b=0,n=0;for(const x of L.slice(0,5))if(x.h1&&x.h2){a+=x.h1[0];b+=x.h2[0];n++;}return n>=3?[a/n,b/n]:null;};const x1=half(mh),x2=half(ma);if(x1&&x1[1]-x1[0]>=0.6)t.push(e(H)+' 후반 득점이 많음');if(x2&&x2[1]-x2[0]>=0.6)t.push(e(A)+' 후반 득점이 많음');
+const r5=L=>{const r=rec(L.slice(0,5));return r.n?(r.gf+r.ga)/r.n:null;};const th=r5(mh),ta=r5(ma);if(th!=null&&ta!=null){const tt=(th+ta)/2;t.push('최근 경기 평균 총 득점 '+tt.toFixed(1)+'골'+(tt>=3.2?' → 골이 많이 나는 편':tt<=2.0?' → 골이 적게 나는 편':''));}
+if(P&&P.p3&&P.p3.length===3&&P.p3[1]>=0.28)t.push('무승부 가능성 '+Math.round(P.p3[1]*100)+'% → 일반승보다 무승부를 피하는 픽이 안전');if(t.length)out.push(['⚽ 공격·수비',t.join('<br>')]);}
+let c='';const sc=cx&&cx.score;if(sc){const s=Number(sc[0]);if(s>=62)c=e(H)+' 경기력이 확실히 앞섬 ('+s+':'+(100-s)+')';else if(s>=54)c=e(H)+' 약간 우세 ('+s+':'+(100-s)+')';else if(s<=38)c=e(A)+' 경기력이 확실히 앞섬 ('+(100-s)+':'+s+')';else if(s<=46)c=e(A)+' 약간 우세 ('+(100-s)+':'+s+')';else c='두 팀 경기력 비슷 ('+s+':'+(100-s)+') → 일반승보다 핸디·언오버가 나음';
+const pin=m.r758Pin&&m.r758Pin.ml;if(pin&&pin['승']&&pin['패']){const iv=[1/pin['승'],pin['무']?1/pin['무']:0,1/pin['패']],sm=iv[0]+iv[1]+iv[2],ph=iv[0]/sm,pa=iv[2]/sm;const fav=ph>pa?H:A,fp=Math.round(Math.max(ph,pa)*100);const same=(s>=54&&ph>pa)||(s<=46&&pa>ph);const opp=(s>=54&&pa>ph)||(s<=46&&ph>pa);c+=' · 해외 배당은 '+e(fav)+' '+fp+'%'+(same?' → 같은 방향':opp?' → 반대 방향이라 조심':'');}}
+if(c)out.push(['✅ 결론',c]);
+if(!out.length)return '';
+return '<div class="r953"><div class="r953H">📝 경기력 분석</div>'+out.map(x=>'<div class="r953R"><em>'+x[0]+'</em><p>'+x[1]+'</p></div>').join('')+'</div>';
+}catch(_){return '';}}
 function r898Of(st,m){const AN=(st&&st.r898)||{};for(const n of [m.no,...((m.marketRows||[]).map(r=>r.no))]){if(n&&AN[String(m.gmTs)+':'+n])return AN[String(m.gmTs)+':'+n];}return null;}
 function r897Card(st,m){const e=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));const key=expKey(m),td=m.teamData||{},f=m.r555||{};
 const H=r897Side(td.home,f.home),A=r897Side(td.away,f.away),pk=r897Pick(m),P=r704Of(st,m),cx=P&&P.cx;
@@ -12242,7 +12276,7 @@ h+='</div>';}
 if(subs.length)h+='<div class="a97Sub">'+subs.map(e).join(' · ')+'</div>';try{h+=r902Line(st,m,pk.cls);}catch(_){}
 const M=(cx&&cx.metrics)||[];const row=x=>{const s=Number(x.sh),hw=x.low?s<.5:s>.5,aw=x.low?s>.5:s<.5,eq=!isFinite(s)||Math.abs(s-.5)<.02;return '<div class="a97M"><span class="'+(!eq&&(x.low?s>.5:s>.5)?'win':'')+'">'+e(x.ht)+'</span><em>'+e(x.name)+'</em><span class="'+(!eq&&(x.low?s<.5:s<.5)?'win':'')+'">'+e(x.at)+'</span></div>';};
 if(M.length)h+='<div class="a97Ms">'+M.slice(0,4).map(row).join('')+'</div>';
-const open=!!r897Open[key];
+h+=r953Story(m,cx,P);const open=!!r897Open[key];
 h+='<details class="a97D" data-k="'+e(key)+'"'+(open?' open':'')+'><summary>자세히</summary>'+(M.length>4?'<div class="a97Ms">'+M.slice(4).map(row).join('')+'</div>':'')+(cx&&cx.cats&&cx.cats.length?'<div class="a97Cat">'+cx.cats.map(c=>'<span>'+e(c.c)+' <b>'+e(c.h)+'</b>:<b>'+e(c.a)+'</b></span>').join('')+'</div>':'')+'<button type="button" class="a97Go" onclick="r897Exp(this.dataset.k)" data-k="'+e(key)+'">배당·확률 전체 분석 보기 ›</button></details>';
 return h+'</article>';}
 function r897Render(st){const el=$('r897Panel');if(!el||!st)return;const all=orderCurrentRows(st.markingGames||[]).filter(m=>{if(m.gameStarted||m.resultFinal)return false;const k=liveGameStartMs(m);return !(isFinite(k)&&Date.now()>=k);});
