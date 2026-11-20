@@ -1,6 +1,6 @@
 "use strict";
 const assert=require('node:assert/strict'),fs=require('node:fs');
-const src=fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace(/export default \{[\s\S]*$/,'');
+const src=fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace(/export default \{[\s\S]*$/,'');
 const a=new Function('structuredClone','URL',src+'\nreturn {r460Reconcile7845,r443ShowAppliedManual,r398CurrentSummary,gameSeed,marketIdentity};')(structuredClone,URL);
 const now=Date.parse('2026-10-13T05:30:00+09:00');
 function make(){const m={gmTs:'260121',no:7845,date:'2026-10-13',time:'01:00',home:'알와슬',away:'알아흘리 사우디',sport:'축구',marketFamily:'TOTAL',line:2.5,period:'FULL',marked:true,representativeSelected:true,finalPick:'오버',finalOdds:1.49,displayGrade:'추천',resultFinal:true,result:'언더',hit:false,settlementStatus:'낙첨',resultScoreText:'0:0',choices:[{label:'오버',odds:1.49},{label:'언더',odds:2.15}]};return {round:121,gmTs:'260121',markets:[m],settlementLedger:[{gmTs:'260121',no:7845,date:m.date,time:m.time,home:m.home,away:m.away,sport:'축구',marketFamily:'TOTAL',line:2.5,pick:'오버',odds:1.49,resultFinal:true,result:'언더',hit:false,settlementStatus:'낙첨',score:'0:0'}],settledCards:{gmTs:'260121',rows:[{gmTs:'260121',no:7845,date:m.date,time:m.time,home:m.home,away:m.away,sport:'축구',marketFamily:'TOTAL',line:2.5,pick:'오버',odds:1.49,resultFinal:true,result:'언더',hit:false,settlementStatus:'낙첨',score:'0:0'}]}}}

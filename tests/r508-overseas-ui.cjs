@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const WORKER_DEFAULT = {'),c);
 const run=s=>vm.runInContext(s,c),now=Date.now(),kick=now+2*3600000;
 const kt=new Date(kick+9*3600000).toISOString();
 c.G={gmTs:'260122',no:8174,date:kt.slice(0,10),time:kt.slice(11,16),sport:'야구',league:'MLB',home:'LA 다저스',away:'밀워키 브루어스',marketFamily:'MONEYLINE',period:'FULL',source:'betman_official',choices:[{label:'승',odds:1.8},{label:'패',odds:1.9}],domesticOddsFetchedAt:new Date(now).toISOString()};

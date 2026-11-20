@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 // power shift for a favourite is positive and close to the backtest (65.4 -> 71.1 domestic only)
 const d=run('r572PowerDelta({marketFamily:"HANDICAP",line:2,finalPick:"승",choices:[{label:"승",odds:1.33},{label:"무",odds:4.95},{label:"패",odds:5.10}]})');
 assert.ok(d>0.05&&d<0.06,'domestic power shift '+d);

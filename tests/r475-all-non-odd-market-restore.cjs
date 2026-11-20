@@ -2,7 +2,7 @@
 const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
 const source=fs.readFileSync("자동마킹.js","utf8");
 const w=vm.createContext({URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(source.replace("export class ProtoStateDO","class ProtoStateDO").replace("export default {","const WORKER_DEFAULT = {"),w);
+vm.runInContext(source.replace("export class ProtoStateDO","class ProtoStateDO").replace("export class R958Cache","class R958Cache").replace("export default {","const WORKER_DEFAULT = {"),w);
 const html=vm.runInContext("INDEX",w),script=html.split("<script>")[1].split("</script>")[0];new vm.Script(script);
 const nodes={};const ui=vm.createContext({Date,Number,Math,JSON,Intl,console,document:{getElementById:id=>nodes[id]??={textContent:"",classList:{toggle(){}}}},localStorage:{setItem(){}},setInterval(){}});
 vm.runInContext(script.slice(0,script.indexOf("function bindActionButton")),ui);

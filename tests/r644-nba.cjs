@@ -7,7 +7,7 @@ leaders:[L('2',[['pointsPerGame','10','Jayson Tatum'],['assistsPerGame','11','De
 injuries:[{team:{id:'2'},injuries:[{status:'Out',athlete:{id:'10',displayName:'Jayson Tatum'}},{status:'Out',athlete:{id:'99',displayName:'Bench Guy'}}]},{team:{id:'18'},injuries:[{status:'Day-To-Day',athlete:{id:'20',displayName:'Jalen Brunson'}}]}]};
 const fetchMock=async u=>{const s=String(u);return new Response(JSON.stringify(s.includes('scoreboard')?sb:s.includes('summary')?sum:{}),{status:200});};
 const c=vm.createContext({Date,URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto,fetch:fetchMock});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const b={gmTs:'260125',sport:'농구',league:'NBA',date:'2026-10-24',time:'08:00',home:'보스턴 셀틱스',away:'뉴욕 닉스'};
 c.ST={gmTs:'260125',markets:[{...b,no:1,marketFamily:'MONEYLINE',finalPick:'승',finalOdds:1.4,displayGrade:'추천',marked:true,representativeSelected:true,r554:{ps:.7,selected:true},r577Rec:{pick:'승'}}]};
 (async()=>{

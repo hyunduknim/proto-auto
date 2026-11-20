@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`analyzeChoiceRows=function(x){return (x.choices||[]).map(c=>({pick:c.label,odds:c.odds,calibratedP:c.p}))};
 mk=(gm,games)=>{const S=createState();S.round=Number(gm.slice(3));S.gmTs=gm;S.markets=[];games.forEach((g,i)=>{b0={gmTs:gm,sourceRound:S.round,date:"2099-01-0"+1,time:String(10+i)+":00"},b={...b0,sport:"축구",league:"L"+i,home:"H"+i,away:"A"+i};
 S.markets.push({...b,no:i*10+1,marketFamily:"HANDICAP",line:1,choices:[{label:"승",odds:1.45,p:g.h},{label:"패",odds:2.4,p:1-g.h}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.45,hitProbability:g.h});

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const context=vm.createContext({URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),context);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const WORKER_DEFAULT = {'),context);
 vm.runInContext("const saved=createState();saved.gmTs='260121';saved.round=121;MEM.state=saved;loadState=async()=>saved;OPERATION_QUEUE=new Promise(()=>{});",context);
 (async()=>{
  const reply=await Promise.race([vm.runInContext("handleApp(new Request('https://example.test/api/export-json'),{}, {waitUntil(){}})",context),new Promise(resolve=>setTimeout(()=>resolve(null),250))]);

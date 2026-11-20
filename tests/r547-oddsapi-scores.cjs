@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`Date.now=()=>Date.parse('2026-10-15T21:15:00Z');CALLS=[];
 SCORES=[{id:"ev1",sport_key:"soccer_uefa_europa_conference_league",commence_time:"2026-10-15T16:45:00Z",completed:true,home_team:"KAA Gent",away_team:"AGF",scores:[{name:"KAA Gent",score:"2"},{name:"AGF",score:"1"}]},
 {id:"ev2",sport_key:"soccer_uefa_europa_conference_league",commence_time:"2026-10-15T16:45:00Z",completed:false,home_team:"FC Lugano",away_team:"Red Star Belgrade",scores:null}];

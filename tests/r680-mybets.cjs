@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 assert.equal(run('JSON.stringify(r680Parse("22승 245패 250승 118오버 7u"))'),JSON.stringify([{no:22,pick:'승'},{no:245,pick:'패'},{no:250,pick:'승'},{no:118,pick:'오버'},{no:7,pick:'언더'}]));
 const g=(no,h,a,extra)=>({gmTs:'260126',no,date:'2099-01-01',time:'16:30',sport:'농구',league:'KBL',home:h,away:a,...extra});
 c.ST={gmTs:'260126',markets:[g(245,'현대모비스','삼성',{marketFamily:'MONEYLINE',choices:[{label:'승',odds:2.52},{label:'패',odds:1.33}]}),g(250,'소노','KCC',{marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.32},{label:'패',odds:2.55}]}),

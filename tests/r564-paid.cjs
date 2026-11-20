@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 c.NOW=Date.parse('2026-10-18T00:30:00+09:00');
 run(`G={kick:NOW+2*3600000,markets:[{gmTs:"260123",no:1}]};FREE={budget:{remaining:227},markets:{"260123:1":{at:NOW-40*60000,kick:NOW+2*3600000}}};PAID={budget:{remaining:19950},markets:{"260123:1":{at:NOW-40*60000,kick:NOW+2*3600000}}};`);
 assert.equal(run('r507GameFresh(FREE,G,NOW)'),true,'free plan: 40-min-old odds still fresh 2h out');

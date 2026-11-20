@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`G={gmTs:"260123",date:"2026-10-16",time:"19:00",sport:"농구",home:"고양소노",away:"울산현대모비스"};
 ML={...G,no:8633,marketFamily:"MONEYLINE",line:null,marked:false};TT={...G,no:8635,marketFamily:"TOTAL",line:155.5,marked:true,representativeSelected:true,manualOverride:true,finalPick:"오버"};
 S={gmTs:"260123",markets:[ML,TT],manualPickHistory:[{at:"2026-10-16T09:00:00Z",gmTs:"260123",no:8635,source:"USER_MANUAL_CHOICE",from:{no:8633,pick:"승",odds:1.44},to:{no:8635,pick:"오버",odds:1.85}}]};`);

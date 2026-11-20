@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const b={sport:'축구',date:'2099-01-01',time:'04:00',marked:true,representativeSelected:true,r554:{ps:.7,selected:true},r577Rec:{pick:'x'}};
 c.ST={gmTs:'260126',markets:[{...b,gmTs:'260126',no:1,league:'UEFA 유로파리그',home:'A',away:'B',marketFamily:'MONEYLINE',finalPick:'승',finalOdds:1.4,displayGrade:'추천'},
 {...b,gmTs:'260126',no:3,league:'J1리그',home:'E',away:'F',marketFamily:'TOTAL',line:1.5,finalPick:'언더',finalOdds:1.7,displayGrade:'추천'}]};

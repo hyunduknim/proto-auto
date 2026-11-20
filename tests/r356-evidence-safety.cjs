@@ -1,7 +1,7 @@
 "use strict";
 const fs=require("node:fs"),path=require("node:path"),assert=require("node:assert/strict");
 const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
-  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
+  .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO").replace("export class R958Cache","class R958Cache")
   .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const api=new Function("structuredClone","URL",source+
   "\nreturn {r356PremiumValueSafety,r355ApplyQualityPriority,createState,buildFiveApkAudit};")(structuredClone,URL);

@@ -2,7 +2,7 @@
 const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
 const source=fs.readFileSync("자동마킹.js","utf8");
 const ctx=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(source.replace("export class ProtoStateDO","class ProtoStateDO").replace("export default {","const WORKER_DEFAULT = {"),ctx);
+vm.runInContext(source.replace("export class ProtoStateDO","class ProtoStateDO").replace("export class R958Cache","class R958Cache").replace("export default {","const WORKER_DEFAULT = {"),ctx);
 const fn=n=>vm.runInContext(n,ctx),reconcile=fn("r478Reconcile7883Over"),stats=fn("r398CurrentSummary");
 const proto=change=>({
  gmTs:"260121",no:7883,date:"2026-10-13",time:"04:00",

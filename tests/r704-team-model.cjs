@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const team=(gf,ga,home)=>{const matches=gf.map((g,i)=>({date:'2026-10-2'+i,home:i%2===0,opponent:'x'+i,gf:g,ga:ga[i]}));const w=matches.filter(r=>r.gf>r.ga).length,d=matches.filter(r=>r.gf===r.ga).length;
 return {n:matches.length,wins:w,draws:d,losses:matches.length-w-d,matches,ha:{home:{n:3,w:2,d:1,l:0,gf:6,ga:2},away:{n:3,w:1,d:1,l:1,gf:3,ga:4}}};};
 c.TD={home:team([3,2,2,1,2],[0,1,0,1,1]),away:team([0,1,1,0,1],[2,2,1,3,2])};

@@ -7,7 +7,7 @@ const sbs={'20261022':{events:[ev('1','2026-10-22T23:00Z',BOS,X,120,100,[30,30,3
 '20261023':{events:[{id:'9',date:'2026-10-23T23:00Z',status:{type:{completed:false}},competitions:[{competitors:[{homeAway:'home',team:{id:'2',displayName:'Boston Celtics'}},{homeAway:'away',team:{id:'18',displayName:'New York Knicks'}}]}]}]}};
 const fetchMock=async u=>{const d=(String(u).match(/dates=(\d+)/)||[])[1];return new Response(JSON.stringify(sbs[d]||{events:[]}),{status:200});};
 const c=vm.createContext({Date,URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto,fetch:fetchMock});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 vm.runInContext("{const N=Date.parse('2026-10-23T12:00:00Z');Date.now=()=>N;}",c);/* fixed clock: the fixture games are on 2026-10-24 */
 const b={gmTs:'260126',sport:'농구',league:'NBA',date:'2026-10-24',time:'08:00',home:'보스턴 셀틱스',away:'뉴욕 닉스'};
 c.ST={gmTs:'260126',markets:[{...b,no:56,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.45},{label:'패',odds:2.7}]},

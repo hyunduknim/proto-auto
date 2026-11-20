@@ -7,7 +7,7 @@ const ev=(a,b,ida,idb)=>({header:{competitions:[{competitors:[{team:{id:ida},lin
 const map={'scoreboard':sb,'event=900':pre,'event=11':ev([0,1],[0,0],'597','1'),'event=12':ev([0,0],[0,0],'13083','597'),'event=21':ev([1,1],[0,2],'147','9'),'event=22':ev([1,0],[0,1],'147','8')};
 let calls=0;const fetchMock=async u=>{calls++;const k=Object.keys(map).find(k=>String(u).includes(k));return new Response(JSON.stringify(k?map[k]:{}),{status:k?200:404});};
 const c=vm.createContext({Date,URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto,fetch:fetchMock});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 c.ST={gmTs:'260125',markets:[{gmTs:'260125',no:9872,sport:'축구',league:'UEFA 유로파리그',date:'2026-10-23',time:'01:45',home:'GNK디나모 자그레브',away:'NEC네이메헌',marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.4},{label:'무',odds:4},{label:'패',odds:5.4}],representativeSelected:true}],
 r507Overseas:{aliases:{}}};
 (async()=>{

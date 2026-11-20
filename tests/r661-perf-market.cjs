@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const T=(w,d,l,gf,ga)=>({n:5,wins:w,draws:d,losses:l,avgGF:gf,avgGA:ga,cleanSheets:1,ha:{home:{n:3,w:w>2?2:0,d:0,l:w>2?1:3},away:{n:3,w:w>2?2:0,d:0,l:w>2?1:3}}});
 c.TD={home:T(1,0,4,92,112),away:T(4,0,1,119,110)};run('r482TeamData=()=>TD');
 const b={gmTs:'260126',sport:'농구',league:'NBA',date:'2099-01-01',time:'08:00',home:'밀워키',away:'시카고'};

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const now=Date.now(),kick=now+7200000,kt=new Date(kick+9*3600000).toISOString();
 c.G={gmTs:'260122',no:8347,date:kt.slice(0,10),time:kt.slice(11,16),sport:'축구',league:'MLS',home:'LAFC',away:'오스틴FC',marketFamily:'MONEYLINE',period:'FULL',choices:[{label:'승',odds:1.37},{label:'무',odds:4.1},{label:'패',odds:5.7}],domesticOddsFetchedAt:new Date(now).toISOString()};
 // Official /sports/{sport}/odds schema: last_update is on the bookmaker, not each market.

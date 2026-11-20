@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`T=Date.parse('2026-10-16T00:00:00Z');Date.now=()=>T;N=0;MODE="ok";
 fetch=async(u,o)=>{N++;if(MODE==="timeout"){await new Promise((_,rej)=>{o.signal.addEventListener('abort',()=>rej(new Error('aborted')));});}
 return {ok:true,status:200,text:async()=>JSON.stringify({n:N})};};`);

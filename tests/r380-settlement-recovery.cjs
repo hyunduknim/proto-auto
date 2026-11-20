@@ -1,7 +1,7 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
 const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
- .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
+ .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO").replace("export class R958Cache","class R958Cache")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const lib=new Function("structuredClone","URL",source+
  "\nreturn {r380ApplyZentotoFixtureFinals,r365ApplyZentotoResults,CFG};")(structuredClone,URL);

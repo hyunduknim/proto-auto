@@ -1,7 +1,7 @@
 "use strict";
 const fs=require("node:fs"),assert=require("node:assert/strict");
 const source=fs.readFileSync(require("node:path").join(__dirname,"..","자동마킹.js"),"utf8")
- .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
+ .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO").replace("export class R958Cache","class R958Cache")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const payloads=[];
 const fetchMock=async(url,options)=>{

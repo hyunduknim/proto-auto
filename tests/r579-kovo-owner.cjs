@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`const b={gmTs:"260124",date:"2026-10-19",sport:"배구",league:"KOVO컵남",marked:true,representativeSelected:true,resultFinal:false};
 ST={markets:[
 {...b,no:9331,time:"13:00",home:"OK저축은행",away:"현대캐피탈",marketFamily:"MONEYLINE",choices:[{label:"승",odds:2.77},{label:"패",odds:1.29}],finalPick:"패"},

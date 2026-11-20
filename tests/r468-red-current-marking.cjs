@@ -1,7 +1,7 @@
 "use strict";
 const fs=require("node:fs"),assert=require("node:assert/strict");
 const worker=fs.readFileSync("자동마킹.js","utf8");
-const compiled=worker.replace("export class ProtoStateDO","class ProtoStateDO").replace(/export default \{[\s\S]*$/,"");
+const compiled=worker.replace("export class ProtoStateDO","class ProtoStateDO").replace("export class R958Cache","class R958Cache").replace(/export default \{[\s\S]*$/,"");
 const html=new Function("URL","structuredClone",compiled+"\nreturn INDEX;")(undefined,structuredClone);
 const js=html.split("<script>")[1].split("</script>")[0];new Function(js);
 const extract=js.slice(js.indexOf("function r465OddsWinRateData(r){"),js.indexOf("async function expLoadHistory(panel,change){"));

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const blk=(no,lg,home,away,score,odds,state='경기종료')=>`<div class="game row col-xs-12"><span>${lg}</span><p class="proto_uid">${no}</p><p class="game_state state_finish">${state}</p><div class="col-xs-5 date tar">2026-10-10(토) 19:00</div><p class="home">${home}</p><p class="vs">${score}</p><p class="away">${away}</p><div>배당율 ${odds.join(' ')} 배당승률 40 30 30</div></div>`;
 const page=r=>`<html><head><title>프로토 승부식 ${r}회차</title></head><body>${'x'.repeat(6000)}`+
  blk(8101,'KBO','LG','두산','5:3',['1.45','-','2.40'])+blk(8102,'KBO','LG<span>(H-1.5)</span>','두산','3.5:3',['1.95','-','1.65'])+

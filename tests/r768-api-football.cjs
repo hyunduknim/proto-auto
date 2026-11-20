@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const t=Date.parse('2099-01-01T05:00:00+09:00');
 c.ST={r507Overseas:{},r768:{fx:[{id:1,t,lg:'UEFA Champions League',h:'Barcelona',a:'Aston Villa',inj:{h:[['P. One','Missing Fixture','Knee Injury'],['P. Two','Questionable','Illness']],a:[['Q. Red','Missing Fixture','Red Card']]},lu:{h:{f:'4-3-3',xi:Array(11).fill('x')},a:{f:'4-2-3-1',xi:Array(11).fill('y')}}},
  {id:2,t,lg:'UEFA Champions League',h:'Villarreal',a:'Paris Saint Germain',inj:{h:[],a:[]},lu:null}]}};

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`const r=(g,no,hit,gr,st)=>({gmTs:g,no,date:"2026-10-14",time:"19:00",home:"H",away:"A",league:"EPL",marketFamily:"MONEYLINE",pick:"승",odds:1.5,displayGrade:gr||"일반",hit,settlementStatus:st||(hit?"적중":"낙첨"),resultFinal:true});
 ST={gmTs:"260124",markets:[],settlementLedger:[r("260121",1,true),r("260122",2,true,"추천"),r("260122",3,false),r("260123",4,true),r("260123",5,null,"일반","적특")],
 r557Calib:{seen:["260123:9"],prob:{"65~68%":{n:1,hits:1,sumP:.66}},grade:{"추천":{n:1,hits:1,sumP:.66}},family:{"일반승":{n:1,hits:1,sumP:.66}},voids:0,roiBack:"x",lgBack:"x"}};

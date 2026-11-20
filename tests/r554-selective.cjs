@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`currentRoundMarket=()=>true;started=()=>false;
 MEM.r553={buckets:{"축구|TOTAL|언더|<1.5":{n:196,hits:101,sumP:118.65,sumOdds:280},"축구|MONEYLINE|승|<1.4":{n:105,hits:79,sumP:68.4,sumOdds:140},"야구|MONEYLINE|승|<1.5":{n:20,hits:20,sumP:12,sumOdds:28}}};
 const base={marked:true,representativeSelected:true,gmTs:"260123",date:"2099-01-01",time:"18:00"};

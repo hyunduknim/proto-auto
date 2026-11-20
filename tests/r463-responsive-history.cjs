@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs");
-const source=fs.readFileSync("자동마킹.js","utf8").replace("export class ProtoStateDO","class ProtoStateDO").replace(/export default \{[\s\S]*$/,"");
+const source=fs.readFileSync("자동마킹.js","utf8").replace("export class ProtoStateDO","class ProtoStateDO").replace("export class R958Cache","class R958Cache").replace(/export default \{[\s\S]*$/,"");
 const INDEX=new Function("URL","structuredClone",source+"\nreturn INDEX;")(URL,structuredClone);
 const script=INDEX.split("<script>")[1].split("</script>")[0];new Function(script);
 const core=new Function("e","expKst",script.slice(script.indexOf("const expHistoryCache"),script.indexOf("function expEasyBars"))+"\nreturn {expHistoryReport,hView,hWilson};")(

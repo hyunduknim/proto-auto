@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const k=l=>run('r565Key('+JSON.stringify(l)+')');
 assert.equal(k('K리그1'),'soccer_korea_kleague1');assert.equal(k('K리그2'),'soccer_korea_kleague2');assert.equal(k('프랑스 리그1'),'soccer_france_ligue_one');
 assert.equal(k('미국 메이저리그사커'),'soccer_usa_mls');assert.equal(k('잉글랜드 챔피언십'),'soccer_efl_champ');assert.equal(k('UEFA 챔피언스리그'),'soccer_uefa_champs_league');

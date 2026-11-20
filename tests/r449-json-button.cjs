@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const source=fs.readFileSync('자동마킹.js','utf8'),worker=vm.createContext({URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),worker);
+vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const WORKER_DEFAULT = {'),worker);
 const client=vm.runInContext('INDEX',worker).match(/<script>([\s\S]*?)<\/script>/)[1];
 let downloaded=0,savedBlob;const nodes={};const ctx=vm.createContext({Blob,Date,JSON,state:{round:121,summary:{hits:6},markingGames:[{no:7785,pick:'패',hit:true}]},busy:false,$:id=>nodes[id]??={textContent:'JSON 저장'},setActionBusy(){},setTimeout(){},clearTimeout(){},AbortController,fetch:()=>new Promise(()=>{}),URL:{createObjectURL(blob){savedBlob=blob;return 'blob:test'},revokeObjectURL(){}},document:{body:{appendChild(){}},createElement(){return {click(){downloaded++},remove(){}}}}});
 vm.runInContext(client.slice(client.indexOf('async function saveAnalysisJson('),client.indexOf('function toggleManualMode(')),ctx);

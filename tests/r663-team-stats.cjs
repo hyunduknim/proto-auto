@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 c.SB=JSON.parse(fs.readFileSync('tests/fixtures/r663-soccer-box.json','utf8'));c.NB=JSON.parse(fs.readFileSync('tests/fixtures/r663-nba-box.json','utf8'));
 const s=JSON.parse(run('JSON.stringify(r663SoccerEv(SB))'));assert.deepEqual(s['367'],[16,5,65.4,4,15]);assert.deepEqual(s['388'],[12,1,34.6,4,14]);
 const n=JSON.parse(run('JSON.stringify(r663NbaEv(NB))'));assert.deepEqual(n['5'],[87,28,10,21]);assert.deepEqual(n['20'],[92,30,9,17]);

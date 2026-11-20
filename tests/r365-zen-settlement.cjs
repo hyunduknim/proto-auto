@@ -29,7 +29,7 @@ assert.equal(byNo.get(7310).marketFamily,"MONEYLINE");
 assert.equal(byNo.get(7359).marketFamily,"HANDICAP");
 assert.equal(byNo.get(7359).line,1);
 const src=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
- .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
+ .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO").replace("export class R958Cache","class R958Cache")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const lib=new Function("structuredClone","URL",src+
  "\nreturn {r365ApplyZentotoResults,r366BackfillZentotoScores,r367ApplyEspnFinishedScores};")(structuredClone,URL);

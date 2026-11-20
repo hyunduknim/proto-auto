@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const src=fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {');
+const src=fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const WORKER_DEFAULT = {');
 const NOW=Date.parse('2026-10-12T09:13:00+09:00');
 class Clock extends Date{constructor(...x){super(...(x.length?x:[NOW]));}static now(){return NOW;}}
 const ctx=vm.createContext({Date:Clock,console,URL,Response,Request,TextEncoder,TextDecoder,AbortController,Map,Set,Promise,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});

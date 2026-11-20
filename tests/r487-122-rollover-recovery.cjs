@@ -5,7 +5,7 @@ class Clock extends Date{constructor(...args){super(...(args.length?args:[NOW]))
 const context=vm.createContext({Date:Clock,URL,Response,Request,TextEncoder,TextDecoder,
   AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
 const source=fs.readFileSync('자동마킹.js','utf8');
-vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO')
+vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache')
   .replace('export default {','const TEST_WORKER_DEFAULT = {'),context);
 const f=(s)=>vm.runInContext(s,context);
 const previous={gmTs:'260121',no:7883,date:'2026-10-13',time:'18:30',home:'이전홈',

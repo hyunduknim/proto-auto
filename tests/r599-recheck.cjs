@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`const t=new Date(Date.now()-4*3600000+9*3600000).toISOString(),b={gmTs:"260124",date:t.slice(0,10),time:t.slice(11,16),sport:"농구",league:"KBL",home:"원주DB",away:"가스공사",marked:true,representativeSelected:true,resultFinal:true,displayGrade:"추천",r554:{ps:.66}};
 ST={markets:[{...b,no:1,marketFamily:"MONEYLINE",choices:[{label:"승",odds:1.5},{label:"패",odds:2.4}],finalPick:"승",finalOdds:1.5,result:"패",hit:false,settlementStatus:"낙첨",resultSource:"SPOGOD_X",resultScoreText:"78:104"},
 {...b,no:2,marketFamily:"TOTAL",line:172.5,choices:[{label:"언더",odds:1.8},{label:"오버",odds:1.8}],finalPick:"오버",finalOdds:1.8,result:"오버",hit:true,settlementStatus:"적중",resultSource:"ZENTOTO_X",resultScoreText:"104:78"},

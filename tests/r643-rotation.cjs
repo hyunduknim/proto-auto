@@ -9,7 +9,7 @@ const past=(tid,ids)=>({rosters:[xi(tid,ids)]});
 const map={'scoreboard':sb,'event=900':pre,'event=31':past('331',reg),'event=32':past('331',reg),'event=33':past('331',[1,2,3,4,5,6,7,8,9,10,12]),'event=51':past('50',homeXi),'event=52':past('50',homeXi)};
 const fetchMock=async u=>{const k=Object.keys(map).find(k=>String(u).includes(k));return new Response(JSON.stringify(k?map[k]:{}),{status:k?200:404});};
 const c=vm.createContext({Date,URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto,fetch:fetchMock});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const b={gmTs:'260125',sport:'축구',league:'UEFA 컨퍼런스리그',date:'2026-10-23',time:'01:45',home:'야블로네츠',away:'브라이턴&호브 앨비언'};
 c.ST={gmTs:'260125',markets:[{...b,no:9836,marketFamily:'HANDICAP',line:1,finalPick:'패',finalOdds:1.53,displayGrade:'추천',marked:true,representativeSelected:true,r554:{ps:.66,selected:true},r577Rec:{pick:'패'},r619Lock:{at:'x',pick:'패',odds:1.53,grade:'추천'}},{...b,no:9835,marketFamily:'MONEYLINE',choices:[]}]};
 (async()=>{

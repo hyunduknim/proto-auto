@@ -2,7 +2,7 @@
 const fs=require("node:fs"),assert=require("node:assert/strict"),vm=require("node:vm");
 const source=fs.readFileSync("자동마킹.js","utf8");
 const ctx=vm.createContext({URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(source.replace("export class ProtoStateDO","class ProtoStateDO").replace("export default {","const __worker = {"),ctx);
+vm.runInContext(source.replace("export class ProtoStateDO","class ProtoStateDO").replace("export class R958Cache","class R958Cache").replace("export default {","const __worker = {"),ctx);
 const fn=n=>vm.runInContext(n,ctx),pick=fn("r430ManualSettlement"),identity=fn("marketIdentity");
 const fixture={gmTs:"260121",date:"2026-10-13",time:"04:00",sport:"축구",league:"스페인 라리가",home:"레반테",away:"세비야"};
 const total={...fixture,no:7883,market:"언더오버",marketFamily:"TOTAL",line:2.5,marked:false,representativeSelected:false,choices:[{label:"언더",odds:1.67},{label:"오버",odds:1.86}]};

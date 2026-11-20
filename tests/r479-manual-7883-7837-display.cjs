@@ -2,7 +2,7 @@
 const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
 const src=fs.readFileSync("자동마킹.js","utf8");
 const scope=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(src.replace("export class ProtoStateDO","class ProtoStateDO").replace("export default {","const WORKER_DEFAULT = {"),scope);
+vm.runInContext(src.replace("export class ProtoStateDO","class ProtoStateDO").replace("export class R958Cache","class R958Cache").replace("export default {","const WORKER_DEFAULT = {"),scope);
 const fn=n=>vm.runInContext(n,scope);
 const total={gmTs:"260121",no:7883,date:"2026-10-13",time:"04:00",sport:"축구",league:"스페인 라리가",home:"레반테",away:"세비야",market:"언더오버",marketFamily:"TOTAL",line:2.5,choices:[{label:"언더",odds:1.67},{label:"오버",odds:1.86}],marked:false,representativeSelected:false};
 const orig={...total,no:7881,marketFamily:"MONEYLINE",market:"승무패",line:null,marked:true,representativeSelected:true,finalPick:"승",finalOdds:2.65,choices:[{label:"승",odds:2.65},{label:"무",odds:2.9},{label:"패",odds:2.34}]};

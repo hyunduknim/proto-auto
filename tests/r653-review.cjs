@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const b={gmTs:'260125',sport:'축구',league:'UEL',date:'2026-10-23',time:'01:45',home:'유벤투스',away:'스타드 렌'};
 c.ST={gmTs:'260126',settlementLedger:[],markets:[
 {...b,no:9857,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.33},{label:'무',odds:4.35},{label:'패',odds:6}],marked:true,representativeSelected:true,finalPick:'승',finalOdds:1.33,displayGrade:'추천',resultFinal:true,hit:false,result:'무',settlementStatus:'낙첨',resultScoreText:'2:2',r554:{ps:.67},r645:{p:.24}},

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const b={gmTs:'260126',sport:'축구',league:'K리그1',date:'2099-01-01',time:'19:00',home:'A',away:'B'};
 c.ST={gmTs:'260126',markets:[{...b,no:1,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.55},{label:'무',odds:3.9},{label:'패',odds:5.2}]},
 {...b,no:2,marketFamily:'TOTAL',line:2.5,choices:[{label:'오버',odds:1.95},{label:'언더',odds:1.75}]},

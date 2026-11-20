@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);
 const ix=vm.runInContext('INDEX',c);const i=ix.indexOf('let r697Gone=0;'),j=ix.indexOf('\n',ix.indexOf('function r697Trim',i)+10);
 const j2=ix.indexOf('combos:(p.combos',i);const end=ix.indexOf('}\n',j2)+1;const src=ix.slice(i,end);
 const k=vm.createContext({Date:class extends Date{static now(){return Date.parse('2026-10-26T01:00:00Z')}},Set,Object,String,isFinite});

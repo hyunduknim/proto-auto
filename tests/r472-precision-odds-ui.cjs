@@ -2,7 +2,7 @@
 const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
 const source=fs.readFileSync("자동마킹.js","utf8");
 const worker=vm.createContext({URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(source.replace("export class ProtoStateDO","class ProtoStateDO").replace("export default {","const WORKER_DEFAULT = {"),worker);
+vm.runInContext(source.replace("export class ProtoStateDO","class ProtoStateDO").replace("export class R958Cache","class R958Cache").replace("export default {","const WORKER_DEFAULT = {"),worker);
 const html=vm.runInContext("INDEX",worker),client=html.split("<script>")[1].split("</script>")[0];
 new vm.Script(client);
 const nodes={};

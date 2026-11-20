@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const now=Date.parse('2026-10-22T10:00:00Z'),H=3600000;c.NOW=now;c.H=H;
 run(`ST={};MEM2={events:{basketball_nba:{list:[{id:'y1',t:NOW-14*H,h:'Los Angeles Lakers',a:'Boston Celtics'},{id:'t1',t:NOW+9*H,h:'Los Angeles Lakers',a:'Denver Nuggets'}]}}};
 MT=[{game:{key:'g1'},match:{sportKey:'basketball_nba',h:'Los Angeles Lakers',a:'Denver Nuggets',t:NOW+9*H}}];r568Note(ST,MEM2,MT,NOW);`);

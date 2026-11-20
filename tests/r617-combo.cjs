@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`const mk=(no,fam,ps,h)=>({gmTs:"260125",sourceRound:125,no,date:"2099-01-02",time:String(10+h).padStart(2,"0")+":00",sport:"축구",league:"L",home:"H"+no,away:"A"+no,marketFamily:fam,line:fam==="MONEYLINE"?null:1.5,marked:true,representativeSelected:true,finalPick:fam==="TOTAL"?"언더":"승",finalOdds:1.5,displayGrade:"일반",r554:{ps}});
 ST=createState();ST.round=125;ST.gmTs="260125";ST.markets=[mk(1,"HANDICAP",.72,1),mk(2,"HANDICAP",.71,2),mk(3,"MONEYLINE",.66,3),mk(4,"TOTAL",.65,4),mk(5,"MONEYLINE",.61,5),mk(6,"HANDICAP",.55,6)];
 B=r617Step(ST);`);

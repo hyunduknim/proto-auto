@@ -2,7 +2,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const store=new Map();let remFor={};
 const fakeFetch=async(u)=>{const url=new URL(String(u));const k=url.searchParams.get('apiKey');if(!(k in remFor))return new Response('{"message":"bad key"}',{status:401});return new Response('[]',{status:200,headers:{'x-requests-remaining':String(remFor[k]),'x-requests-used':'307','x-requests-last':'0'}});};
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto,fetch:fakeFetch});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 c.STORE={get:async k=>store.get(k),put:async(k,v)=>{store.set(k,v);}};
 run('MEM.doStorage=STORE;MEM.state={r507Overseas:{budget:{day:"2026-10-18",spent:0,remaining:193}}};');
 const OLD='a'.repeat(28)+'old1',FREEK='b'.repeat(28)+'fre2',PAIDK='c'.repeat(28)+'pay3';

@@ -1,6 +1,6 @@
 "use strict";
 const fs=require("node:fs"),assert=require("node:assert/strict");
-const src=fs.readFileSync("자동마킹.js","utf8").replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO").replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
+const src=fs.readFileSync("자동마킹.js","utf8").replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO").replace("export class R958Cache","class R958Cache").replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const {r365ApplyZentotoResults,r380ApplyZentotoFixtureFinals}=new Function("structuredClone","URL",src+"\nreturn {r365ApplyZentotoResults,r380ApplyZentotoFixtureFinals};")(structuredClone,URL);
 const mk=(no,home,away,family,line,pick)=>({gmTs:"260121",no,date:"2026-10-13",time:"01:00",home,away,sport:"축구",marketFamily:family,line,marked:true,representativeSelected:true,finalPick:pick,finalOdds:1.7,choices:family==="TOTAL"?[{label:"언더",odds:1.7},{label:"오버",odds:1.8}]:[{label:"승",odds:1.7},{label:"무",odds:3.1},{label:"패",odds:3.4}],resultFinal:false});
 const state=markets=>({round:121,gmTs:"260121",markets,settlementLedger:[],settledCards:{gmTs:"260121",rows:[]}});

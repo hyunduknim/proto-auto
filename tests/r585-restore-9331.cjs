@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const mk=rec=>run(`{const b={gmTs:"260124",sourceRound:124,date:"2026-10-19",time:"13:00",sport:"배구",league:"KOVO컵 남자",home:"OK저축은행 읏맨",away:"현대캐피탈 스카이워커스",period:"FULL"};
 ST=createState();ST.round=124;ST.gmTs="260124";ST.markets=[
 {...b,no:9331,marketFamily:"MONEYLINE",choices:[{label:"승",odds:2.77},{label:"패",odds:1.29}],marked:false,representativeSelected:false,displayGrade:"일반"${rec?',r577Rec:{at:"2026-10-19T03:00:00Z",pick:"패",odds:1.34,ps:.76}':''}},

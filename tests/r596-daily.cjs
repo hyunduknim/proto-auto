@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`analyzeChoiceRows=function(x){return (x.choices||[]).map(c=>({pick:c.label,odds:c.odds,calibratedP:c.p}))};
 mk=(gm,tp)=>{const S=createState();S.round=Number(gm.slice(3));S.gmTs=gm;S.markets=[];const t=new Date(Date.now()+5*3600000+9*3600000).toISOString();
 [[.66,1],[.65,2],[.55,3]].forEach(([h,i])=>{const b={gmTs:gm,sourceRound:S.round,date:t.slice(0,10),time:t.slice(11,16),sport:"축구",league:"L"+i,home:"H"+i,away:"A"+i};

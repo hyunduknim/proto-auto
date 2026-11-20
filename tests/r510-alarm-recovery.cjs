@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const ctx=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const WORKER_DEFAULT = {'),ctx);
 const run=s=>vm.runInContext(s,ctx),now=Date.now();ctx.N=now;ctx.ALARM=now-86400000;ctx.WRITES=0;
 ctx.STORAGE={getAlarm:async()=>ctx.ALARM,setAlarm:async t=>{ctx.ALARM=t;ctx.WRITES++}};
 run('Date.now=()=>N;globalThis.OWNER={env:{},state:{storage:STORAGE},alarmIntervalMs:()=>25000};');

@@ -1,7 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const source=fs.readFileSync('자동마킹.js','utf8');
 const ctx=vm.createContext({Date,URL,URLSearchParams,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);const f=x=>vm.runInContext(x,ctx),call=(n,...args)=>f(n)(...args);
+vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const WORKER_DEFAULT = {'),ctx);const f=x=>vm.runInContext(x,ctx),call=(n,...args)=>f(n)(...args);
 const fixture={gmTs:'260121',date:'2026-10-14',time:'01:00',sport:'축구',league:'ACLE',home:'알사드SC',away:'알힐랄SFC',marketFamily:'TOTAL',line:3.5,no:7979};
 const meta=call('r483ZenMetadata',fs.readFileSync('tests/fixtures/r483/al-sadd-meta.html','utf8'),fixture);
 const payload=JSON.parse(fs.readFileSync('tests/fixtures/r483/z5G66RA4.json','utf8'));

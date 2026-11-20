@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const base='gmTs:"260122",date:"2026-10-14",time:"18:00",sport:"야구",league:"NPB",home:"한신 타이거즈",away:"요코하마 DeNA베이스타스",resultFinal:true';
 // handicap-applied + totals only → real score recovered from the handicap line
 run(`S={markets:[{${base},no:8101,marketFamily:"HANDICAP",line:-2.5,resultMatchedFamily:"HANDICAP",resultScoreText:"핸디적용 2.5:3"},{${base},no:8102,marketFamily:"TOTAL",line:5.5,resultMatchedFamily:"TOTAL",resultScoreText:"합계 8점"}],settledCards:{rows:[{gmTs:"260122",no:8102,score:"합계 8점"}]}}`);

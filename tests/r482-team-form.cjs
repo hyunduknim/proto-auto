@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const ctx=vm.createContext({Date,URL,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);const f=x=>vm.runInContext(x,ctx);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const WORKER_DEFAULT = {'),ctx);const f=x=>vm.runInContext(x,ctx);
 assert.equal(typeof f('globalThis.r482TeamData'),'function');
 const m={gmTs:'260121',date:'2026-10-14',time:'01:00',sport:'축구',league:'AFC 챔피언스리그2',home:'알시브 클럽',away:'J알후세인',marketFamily:'TOTAL',line:2.5,marked:true,representativeSelected:true,finalPick:'오버',finalOdds:1.66,manualOverride:true};
 const s={markets:[m],settlementLedger:[{gmTs:'260121',no:123,hit:false}]},before=JSON.stringify(s),data=f('r482TeamData')(s,m);

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const now=Date.parse('2099-01-02T07:03:00+09:00');c.NOW=now;run('Date.now=()=>NOW');
 const mk=[];const books=[];let no=1;
 for(let i=0;i<5;i++){const b={gmTs:'260130',sport:'농구',league:'NBA',date:'2099-01-02',time:String(8+i).padStart(2,'0')+':30',home:'H'+i,away:'A'+i};

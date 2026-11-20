@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`const T=(o)=>({n:o.length,wins:o.filter(x=>x==="승").length,draws:o.filter(x=>x==="무").length,losses:o.filter(x=>x==="패").length,matches:o.map(x=>({outcome:x}))});
 TD={home:T(["패","패","승","패","승"]),away:T(["승","승","승","패","승"])};r482TeamData=()=>TD;`);
 // Hanshin(home) 2-3 on a 2-game losing run vs Yokohama 4-1 on a 3-game winning run, pick 승 -> against

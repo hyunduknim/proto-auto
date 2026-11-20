@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`const t=new Date(Date.now()+5*3600000+9*3600000).toISOString(),b={gmTs:"260125",date:t.slice(0,10),time:t.slice(11,16),sport:"농구",league:"KBL",home:"서울SK",away:"안양",choices:[{label:"승",odds:1.76},{label:"패",odds:1.76}]};
 Z={...b,no:1,marketFamily:"HANDICAP",line:1.5,source:"ZENTOTO_PUBLIC_PREGAME_HTML"};ZM={...b,no:2,marketFamily:"MONEYLINE",source:"ZENTOTO_PUBLIC_PREGAME_HTML"};BH={...b,no:3,marketFamily:"HANDICAP",line:-5.5,source:"BETMAN_OFFICIAL_JSON"};
 ST={markets:[{gmTs:"260124",no:9427,marketFamily:"HANDICAP",line:1.5,market:"플러스 핸디캡",marked:true,representativeSelected:true,finalPick:"승"}],settlementLedger:[{gmTs:"260124",no:9427}]};F=r598Fix9427(ST);`);

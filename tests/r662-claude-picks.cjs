@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const g={gmTs:'260126',sport:'축구',league:'EPL',date:'2000-01-01',time:'01:30',home:'첼시',away:'토트넘 홋스퍼'};
 c.ST={gmTs:'260126',markets:[
  {...g,no:390,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.54},{label:'무',odds:3.95},{label:'패',odds:4.05}],marked:true,representativeSelected:true,resultFinal:true,resultScoreText:'2:1'},

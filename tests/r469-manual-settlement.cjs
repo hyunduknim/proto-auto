@@ -1,7 +1,7 @@
 "use strict";
 const fs=require("node:fs"),assert=require("node:assert/strict");
 const w=fs.readFileSync("자동마킹.js","utf8");
-const core=w.replace("export class ProtoStateDO","class ProtoStateDO").replace(/export default \{[\s\S]*$/,"");
+const core=w.replace("export class ProtoStateDO","class ProtoStateDO").replace("export class R958Cache","class R958Cache").replace(/export default \{[\s\S]*$/,"");
 const api=new Function("URL","structuredClone",core+"\nreturn {r430ManualSettlement,marketIdentity,pendingSettlementMarkets,INDEX};")(undefined,structuredClone);
 new Function(api.INDEX.split("<script>")[1].split("</script>")[0]);
 const common={gmTs:"260121",date:"2026-10-13",time:"01:00",sport:"축구",league:"ACLE",home:"홈",away:"원정",game:"홈 vs 원정",period:"FULL"};

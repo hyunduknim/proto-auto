@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto,Date});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 // four recommended games; real clock is mocked through game times relative to now
 run(`const T=(h)=>{const d=new Date(Date.now()+h*3600000+9*3600000);return {date:d.toISOString().slice(0,10),time:d.toISOString().slice(11,16)}};
 MK=(no,h,odds,ps,pick)=>({gmTs:"260123",no,...T(h),home:"H"+no,away:"A"+no,marketFamily:"MONEYLINE",marked:true,representativeSelected:true,displayGrade:"추천",finalPick:pick||"승",finalOdds:odds,r554:{ps}});

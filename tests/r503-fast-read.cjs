@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const ctx=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const WORKER_DEFAULT = {'),ctx);
 const run=s=>vm.runInContext(s,ctx);
 (async()=>{
 run(`MEM.state={round:122,gmTs:'260122',markets:[],updatedAt:'test'};globalThis.reads=0;globalThis.refreshes=0;loadState=async()=>{reads++;return MEM.state};r410RefreshZenPregame=async()=>{refreshes++;return {}};queueStateMaintenance=()=>{};publicState=s=>({round:s.round,updatedAt:s.updatedAt});`);

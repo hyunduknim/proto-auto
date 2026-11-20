@@ -1,7 +1,7 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
 const source=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
- .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
+ .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO").replace("export class R958Cache","class R958Cache")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const model=new Function("structuredClone","URL",source+
  "\nreturn {R368_USER_VOID_ID,createState,r368ApplyRequestedVoid,pendingSettlementMarkets,summary,recordSettlementLedger,compactSettlementResult};"

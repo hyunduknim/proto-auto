@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const clubs=[['Man City','ENG',1980],['Arsenal','ENG',1990],['Liverpool','ENG',1960],['Chelsea','ENG',1850],['Real Madrid','ESP',1950],['Barcelona','ESP',1940],['Bayern','GER',1990],['Leverkusen','GER',1880],
 ['Inter','ITA',1920],['Milan','ITA',1820],['Juventus','ITA',1830],['Napoli','ITA',1840],['Paris SG','FRA',1940],['Lyon','FRA',1700],['Crystal Palace','ENG',1720],['Celta','ESP',1650],['Benfica','POR',1800],['Celtic','SCO',1700],['Salzburg','AUT',1680],['Ferencvaros','HUN',1600],['Plzen','CZE',1620]];
 let csv='Rank,Club,Country,Level,Elo,From,To\n';clubs.forEach((x,i)=>csv+=`${i+1},${x[0]},${x[1]},1,${x[2]},2026-10-10,2026-10-20\n`);for(let i=0;i<120;i++)csv+=`None,Filler FC ${i},XXX,2,${1300+i},2026-10-10,2026-10-20\n`;

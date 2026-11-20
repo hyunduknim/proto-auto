@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const source=fs.readFileSync('자동마킹.js','utf8'),ctx=vm.createContext({Date,URL,URLSearchParams,Response,Request,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),ctx);const f=n=>vm.runInContext(n,ctx);
+vm.runInContext(source.replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),ctx);const f=n=>vm.runInContext(n,ctx);
 assert.equal(typeof f('globalThis.r485RefreshLiveQuotes'),'function','read-only one-minute quote observer exists');
 const now=Date.parse('2026-10-14T03:00:00+09:00'),m={gmTs:'260121',no:8121,date:'2026-10-14',time:'19:00',sport:'축구',league:'AFC 챔피언스리그 엘리트',home:'가시와 레이솔',away:'포트FC',marketFamily:'MONEYLINE',market:'승무패',line:null,choices:[{label:'승',odds:1.33},{label:'무',odds:4.8},{label:'패',odds:8.5}],marked:true,representativeSelected:true,finalPick:'승',finalOdds:1.33,manualOverride:true,domesticOddsSource:'zentoto_public',domesticOddsFetchedAt:'2026-10-14T02:59:00+09:00'};
 (async()=>{

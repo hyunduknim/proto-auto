@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const T=(w,d,l,gf,ga)=>({n:5,wins:w,draws:d,losses:l,avgGF:gf,avgGA:ga,cleanSheets:w>3?3:0,matches:[0,1,2,3,4].map(i=>({date:'2026-10-2'+i,home:i%2===0,opponent:'x'+i,gf:i<w?Math.round(gf+1):i<w+d?1:0,ga:i<w?0:i<w+d?1:Math.round(ga+1)})),ha:{home:{n:5,w:w,d:d,l:l,gf:gf*5,ga:ga*5},away:{n:5,w:w,d:d,l:l,gf:gf*5,ga:ga*5}}});
 c.TD={home:T(4,1,0,2.4,0.6),away:T(0,1,4,0.6,2.2)};run('r482TeamData=()=>TD;currentRoundMarket=()=>true');
 const g={gmTs:'260126',sport:'축구',league:'EPL',date:'2099-01-01',time:'01:30',home:'첼시',away:'토트넘'};

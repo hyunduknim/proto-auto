@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs');
 const {parseZentoto}=require('../tools/zentoto-settlement.cjs');
-const source=fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace(/export default \{[\s\S]*$/,'');
+const source=fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace(/export default \{[\s\S]*$/,'');
 const api=new Function('structuredClone','URL',source+'\nreturn {applyResults,r381ParseZentoto,r365ApplyZentotoResults,r380ApplyZentotoFixtureFinals,r366BackfillZentotoScores};')(structuredClone,URL);
 const market=(family='TOTAL',line=2.5,pick='오버')=>({gmTs:'260121',no:9102,date:'2026-10-12',time:'01:00',home:'테스트홈',away:'테스트원정',sport:'축구',marketFamily:family,line,finalPick:pick,finalOdds:1.8,displayGrade:'추천',marked:true,representativeSelected:true,resultFinal:false,choices:family==='TOTAL'?[{label:'언더',odds:1.8},{label:'오버',odds:1.8}]:[{label:'승',odds:1.8},{label:'무',odds:3},{label:'패',odds:2}]});
 const state=m=>({gmTs:'260121',round:121,markets:[m],settlementLedger:[],settledCards:{gmTs:'260121',rows:[]}});

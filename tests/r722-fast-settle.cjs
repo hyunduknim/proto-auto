@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const t=Date.now()-130*60000,d=new Date(t+9*3600000).toISOString();
 const m=(no,fam,line,pick)=>({gmTs:'260128',no,sport:'축구',league:'EPL',home:'아스널',away:'첼시',date:d.slice(0,10),time:d.slice(11,16),marketFamily:fam,line,choices:[{label:'승',odds:1.8},{label:'무',odds:3.5},{label:'패',odds:4},{label:'언더',odds:1.8},{label:'오버',odds:1.9}],marked:true,representativeSelected:true,finalPick:pick,finalOdds:1.8,displayGrade:'추천'});
 c.ST={gmTs:'260128',round:128,markets:[m(1,'MONEYLINE',null,'승')],settlementLedger:[]};

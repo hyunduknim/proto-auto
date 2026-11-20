@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 c.I={out:{h:['A','B'],a:[]},pred:{h:.7,d:.2,a:.1},xg:{h:1.8,a:1.2}};
 let z=run('r778Adj(I,"MONEYLINE","승",null,.6)');assert.ok(z.p<.6+.2*.1&&z.p>.55,'regulars out lower, prediction raises: '+z.p);assert.ok(z.why.length===2);
 z=run('r778Adj(I,"HANDICAP","패",1,.6)');assert.ok(z.p>.6,'opponent regulars out helps');

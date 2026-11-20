@@ -17547,9 +17547,20 @@ async function r509Initialize(env){
    at once and refreshes it in the background (state: fresh for 10 s, served up to 3 min old while a refresh runs). */
 const R958={};
 async function r958Pull(env,stub,path,base){const res=await stub.fetch(r564Fwd(new Request(new URL(path,base),{method:'GET',headers:{'x-r958-t0':String(Date.now())}}),env));if(!res.ok)throw Error('R958_'+res.status);const body=await res.text();const c={body,etag:res.headers.get('etag')||('"r958-'+body.length+'-'+Date.now()+'"'),at:Date.now(),ct:res.headers.get('content-type')||'application/json; charset=utf-8'};R958[path]=c;return c;}
+/* R958e: a small second Durable Object keeps the latest answer for every Worker copy, so a fresh Worker copy does not have to wait for the busy main one */
+function r958Box(env){const ns=env?.R958_CACHE;if(!ns||typeof ns.idFromName!=='function')return null;return ns.get(ns.idFromName('page'));}
+async function r958BoxGet(env,path){const b=r958Box(env);if(!b)return null;try{const r=await b.fetch('https://r958.internal/get?p='+encodeURIComponent(path));if(!r.ok)return null;return {body:await r.text(),etag:r.headers.get('etag'),at:Number(r.headers.get('x-at'))||0,ct:r.headers.get('content-type')||'application/json; charset=utf-8'};}catch(_){return null;}}
+async function r958BoxPut(env,path,c){const b=r958Box(env);if(!b||!c)return;try{await b.fetch('https://r958.internal/put?p='+encodeURIComponent(path),{method:'POST',body:c.body,headers:{'etag':c.etag,'x-at':String(c.at),'content-type':c.ct}});}catch(_){}}
+async function r958Refresh(env,stub,path,base){const c=await r958Pull(env,stub,path,base);await r958BoxPut(env,path,c);return c;}
+export class R958Cache{constructor(state){this.st=state;this.m={};}
+async fetch(req){const u=new URL(req.url),p=u.searchParams.get('p')||'';
+if(req.method==='POST'&&u.pathname==='/put'){const at=Number(req.headers.get('x-at'))||Date.now();const o=this.m[p];if(o&&o.at>at)return new Response('old');this.m[p]={body:await req.text(),etag:req.headers.get('etag')||'',at,ct:req.headers.get('content-type')||'application/json; charset=utf-8'};return new Response('ok');}
+const c=this.m[p];if(!c)return new Response('none',{status:404});return new Response(c.body,{headers:{'etag':c.etag,'x-at':String(c.at),'content-type':c.ct}});}}
 async function r958Cached(req,env,ctx,stub,path){const fresh=path==='/api/state'?10000:5000,maxAge=path==='/api/state'?180000:30000;let c=R958[path];const now=Date.now();
-if(c&&now-c.at<maxAge){if(now-c.at>fresh&&!c.busy){c.busy=1;const w=r958Pull(env,stub,path,req.url).catch(()=>{c.busy=0;});if(ctx?.waitUntil)ctx.waitUntil(w);}}
-else{try{c=await r958Pull(env,stub,path,req.url);}catch(_){return stub.fetch(r564Fwd(req,env));}}
+const bg=()=>{if(c&&c.busy)return;if(c)c.busy=1;const w=r958Refresh(env,stub,path,req.url).catch(()=>{if(c)c.busy=0;});if(ctx?.waitUntil)ctx.waitUntil(w);};
+if(!(c&&now-c.at<maxAge)){const b=await r958BoxGet(env,path);if(b&&now-b.at<maxAge){c=R958[path]=b;}}
+if(c&&now-c.at<maxAge){if(now-c.at>fresh)bg();}
+else{try{c=await r958Refresh(env,stub,path,req.url);}catch(_){return stub.fetch(r564Fwd(req,env));}}
 const h={'cache-control':'no-store','etag':c.etag,'x-r958-age':String(Math.round((Date.now()-c.at)/1000))};
 if(req.headers.get('if-none-match')===c.etag)return new Response(null,{status:304,headers:h});
 return new Response(c.body,{status:200,headers:{...h,'content-type':c.ct}});}

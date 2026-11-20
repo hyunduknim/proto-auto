@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const ev=(id,h,a,hs,as,date,name='STATUS_FULL_TIME',done=true)=>({id,date,status:{type:{name,completed:done}},competitions:[{competitors:[{homeAway:'home',score:String(hs),team:{displayName:h}},{homeAway:'away',score:String(as),team:{displayName:a}}]}]});
 c.EVENTS=[ev('1','BG Pathum United','Adelaide United',1,2,'2026-10-15T12:15Z'),ev('2','BG Tampines Rovers FC','Machida Zelvia',0,1,'2026-10-15T12:15Z'),
 ev('3','Kuching City','Kitchee',1,1,'2026-10-15T12:15Z'),ev('4','Preah Khan Reach Svay Rieng FC','Shanghai Shenhua',0,0,'2026-10-15T12:15Z'),ev('5','Gangwon FC','Phnom Penh Crown',1,2,'2026-10-15T10:00Z')];

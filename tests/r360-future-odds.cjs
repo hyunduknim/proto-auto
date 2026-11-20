@@ -1,7 +1,7 @@
 "use strict";
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
 const src=fs.readFileSync(path.join(__dirname,"..","자동마킹.js"),"utf8")
- .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO")
+ .replace(/\bexport\s+class\s+ProtoStateDO\b/,"class ProtoStateDO").replace("export class R958Cache","class R958Cache")
  .replace(/\bexport\s+default\s*\{[\s\S]*$/,"");
 const a=new Function("structuredClone","URL",src+
  "\nreturn {R360_EFFECTIVE_FROM_MS,R360_POLICY_ID,r360FutureEligible,r360OddsAnomalyReason,representativeMarketEligible,candidateEligible,markState,createState,gradeCaps,targetCounts,r360MigrateFuturePolicy,publicState};"

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 const J=x=>JSON.stringify(run('r650Causes('+JSON.stringify(x)+')'));
 assert.match(J({hit:false,sport:'축구',league:'UEL',marketFamily:'MONEYLINE',finalPick:'승',resultScoreText:'2:2'}),/무승부.*유럽대항전/);
 assert.match(J({hit:false,sport:'축구',league:'K리그1',marketFamily:'HANDICAP',line:-1,finalPick:'승',result:'무',resultScoreText:'2:1'}),/핸디 무/);

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`const b={gmTs:"260124",sourceRound:124,date:"2026-10-19",time:"19:00",sport:"농구",league:"KBL",home:"원주DB 프로미",away:"대구한국가스공사 페가수스"};
 ST=createState();ST.round=124;ST.gmTs="260124";ST.markets=[
 {...b,no:9357,marketFamily:"MONEYLINE",choices:[{label:"승",odds:1.51},{label:"패",odds:2.11}],marked:true,representativeSelected:true,finalPick:"승",finalOdds:1.51,displayGrade:"일반",r554:{ps:.62},resultFinal:true,hit:false,result:"패",settlementStatus:"낙첨"},

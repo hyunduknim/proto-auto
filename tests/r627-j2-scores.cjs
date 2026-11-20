@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const c=vm.createContext({URL,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run(`const b={gmTs:"260125",date:"2026-10-21",time:"19:00",sport:"축구",league:"J2리그",marked:true,representativeSelected:true,resultFinal:true,hit:true,settlementStatus:"적중",resultSource:"X"};
 ST={markets:[{...b,no:9612,home:"반포레 고후",away:"요코하마FC",marketFamily:"TOTAL",line:2.5,choices:[{label:"언더",odds:2.1},{label:"오버",odds:1.64}],finalPick:"오버",result:"오버",resultScoreText:"0:0"},
 {...b,no:9615,home:"알비렉스 니가타",away:"사간 도스",marketFamily:"HANDICAP",line:1,choices:[{label:"승",odds:1.65},{label:"무",odds:3.5},{label:"패",odds:3.9}],finalPick:"승",result:"승",resultScoreText:"0:0"},

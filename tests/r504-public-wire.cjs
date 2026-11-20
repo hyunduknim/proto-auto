@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const ctx=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
-vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export default {','const WORKER_DEFAULT = {'),ctx);
+vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const WORKER_DEFAULT = {'),ctx);
 const row={no:8102,marketFamily:'TOTAL',precision:{history:[{at:'2026-10-14',prices:[{label:'언더',odds:1.5}]}]},choices:[{label:'언더',odds:1.5}],sharedAnalysis:{choices:['x'.repeat(100000)]},analysisLayers:{raw:'x'.repeat(100000)}};
 const card={no:8102,pick:'언더',odds:1.5,resultFinal:false,displayGrade:'일반',teamData:{verified:true},analysisLayers:{scorecenter:{probability:.6}},marketRows:[row]};
 const view={round:122,version:'test',markingGames:[card],pastPendingGames:[card],pastGames:[],markingGradeHistory:[],manualPickCatalog:[{marketRows:[{no:8102,choices:row.choices}]}]};
