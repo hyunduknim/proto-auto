@@ -31,3 +31,8 @@ c.ST3={gmTs:'260130',markets:mk,r961Nhl:nhl};run('r732Step(ST3,Date.parse("2026-
 // Saturday morning → no morning combos (평일만)
 c.ST4={gmTs:'260130',markets:mk.map(m=>({...m,date:'2026-11-07'})),r961Nhl:{...nhl,day:'2026-11-07',games:[]}};run('r732Step(ST4,Date.parse("2026-11-07T08:00:00+09:00"))');assert.equal(c.ST4.r732Combos.list.length,0);
 console.log('r732 ok',box.list.map(k=>k.legs.map(l=>l.home+':'+l.pick).join(',')+' '+k.odds));
+// R962: Saturday 20:00 → one 주말 밤 해외축구 3폴더 (21:00 EPL games), at most one 일반승
+{const g=i=>({gmTs:'260130',sport:'축구',league:'EPL',date:'2026-11-07',time:'2'+(1+i%2)+':00',home:'S'+i,away:'T'+i});const M=[];let n=900;
+for(let i=0;i<4;i++){M.push({...g(i),no:n++,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.7},{label:'무',odds:3.6},{label:'패',odds:4.5}],r507Overseas:{probs:{승:.58,무:.24,패:.18}}});M.push({...g(i),no:n++,marketFamily:'HANDICAP',line:1,choices:[{label:'승',odds:1.5},{label:'무',odds:4},{label:'패',odds:5}],r507Overseas:{probs:{승:.64,무:.2,패:.16}}});}
+c.ST5={gmTs:'260130',markets:M,r662Posts:[{id:'2026-11-07-n-soccer',groups:[]}]};run('r732Step(ST5,Date.parse("2026-11-07T20:05:00+09:00"))');const L=c.ST5.r732Combos.list.filter(k=>k.slot.endsWith('w20'));
+assert.equal(L.map(k=>k.type).join(),'wkSoc');assert.equal(new Set(L[0].legs.map(l=>l.seed)).size,3);assert.ok(L[0].legs.filter(l=>l.marketFamily==='MONEYLINE').length<=1);console.log('r962 ok');}
