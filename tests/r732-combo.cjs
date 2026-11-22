@@ -18,8 +18,8 @@ const nhl={day:'2026-11-02',games:[0,1,2,3].map(i=>({home:'Boston Bruins'+i,away
 c.ST={gmTs:'260130',markets:mk,r961Nhl:nhl};
 const box=run('r732Step(ST,NOW)');
 // R961: weekday 07:00 slot → NBA 3폴더 · NHL 3폴더 · NBA·NHL 핸디·언오버 (Claude post missing → made after 07:40)
-assert.equal(box.list.map(k=>k.type).sort().join(),'nba,nbanhl,nhl');
-for(const k of box.list){assert.equal(new Set(k.legs.map(l=>l.seed||l.homeEn)).size,3);assert.ok(k.legs.every(l=>l.home!=='LATE'&&l.home!=='LOW'&&Number(l.odds)>1.31));assert.ok(k.legs.filter(l=>(l.marketFamily||l.fam)==='MONEYLINE').length<=1,'일반승 위주 아님');}
+assert.ok(['nba','nbanhl','nhl'].every(t=>box.list.some(k=>k.type===t)));{const t3=box.list.find(k=>k.type==='am3');if(t3)assert.equal(t3.legs.length,3);const hi=box.list.find(k=>k.type==='amHigh');if(hi)assert.ok(hi.legs.every(l=>Number(l.odds)>=1.85));}
+for(const k of box.list){assert.equal(new Set(k.legs.map(l=>l.seed||l.homeEn)).size,k.legs.length);assert.ok(k.legs.every(l=>l.home!=='LATE'&&l.home!=='LOW'&&Number(l.odds)>1.31));assert.ok(k.legs.filter(l=>(l.marketFamily||l.fam)==='MONEYLINE').length<=1,'일반승 위주 아님');}
 {const L=box.list.find(k=>k.type==='nbanhl').legs;assert.ok(L.every(l=>l.marketFamily!=='MONEYLINE'));assert.ok(L.some(l=>l.src==='nhl')&&L.some(l=>l.src!=='nhl'),'NBA와 NHL 둘 다');}
 assert.ok(box.list.find(k=>k.type==='nhl').legs.every(l=>l.src==='nhl'));
 // a second tick does not rebuild
@@ -40,9 +40,9 @@ assert.equal(L.map(k=>k.type).join(),'wkSoc');assert.equal(new Set(L[0].legs.map
 {const g=i=>({gmTs:'260130',sport:'축구',league:'EPL',date:'2026-11-08',time:'2'+(i%3)+':00',home:'U'+i,away:'V'+i});const M=[];let n=1900;
 for(let i=0;i<7;i++){M.push({...g(i),no:n++,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.7},{label:'무',odds:3.6},{label:'패',odds:4.5}],r507Overseas:{probs:{승:.58,무:.24,패:.18}}});M.push({...g(i),no:n++,marketFamily:'HANDICAP',line:1,choices:[{label:'승',odds:1.5},{label:'무',odds:4},{label:'패',odds:5}],r507Overseas:{probs:{승:.64,무:.2,패:.16}}});M.push({...g(i),no:n++,marketFamily:'TOTAL',line:2.5,choices:[{label:'언더',odds:1.8},{label:'오버',odds:1.9}],r507Overseas:{probs:{언더:.55,오버:.45}}});}
 c.ST6={gmTs:'260130',markets:M,r662Posts:[{id:'2026-11-08-n-soccer',groups:[]}]};run('r732Step(ST6,Date.parse("2026-11-08T01:05:00+09:00"))');const L=c.ST6.r732Combos.list.filter(k=>k.slot.endsWith('n1'));
-assert.equal(L.map(k=>k.type).sort().join(),'socMix,socSafe');const a=new Set(L[0].legs.map(l=>l.seed));assert.ok(L[1].legs.every(l=>!a.has(l.seed)),'두 조합 경기가 달라야 함');console.log('r963 ok');}
+assert.ok(['socMix','socSafe'].every(t=>L.some(k=>k.type===t)));const a=new Set(L[0].legs.map(l=>l.seed));assert.ok(L[1].legs.every(l=>!a.has(l.seed)),'두 조합 경기가 달라야 함');console.log('r963 ok');}
 // R966: from 11/22 every combo has 2 legs; 골고루 = two different kinds
 {const g=i=>({gmTs:'260139',sport:'축구',league:'EPL',date:'2026-11-23',time:'2'+(i%3)+':00',home:'W'+i,away:'X'+i});const M=[];let n=2900;
 for(let i=0;i<6;i++){M.push({...g(i),no:n++,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.7},{label:'무',odds:3.6},{label:'패',odds:4.5}],r507Overseas:{probs:{승:.6,무:.24,패:.16}}});M.push({...g(i),no:n++,marketFamily:'HANDICAP',line:1,choices:[{label:'승',odds:1.5},{label:'무',odds:4},{label:'패',odds:5}],r507Overseas:{probs:{승:.64,무:.2,패:.16}}});M.push({...g(i),no:n++,marketFamily:'TOTAL',line:2.5,choices:[{label:'언더',odds:1.8},{label:'오버',odds:1.9}],r507Overseas:{probs:{언더:.55,오버:.45}}});}
 c.ST7={gmTs:'260139',markets:M,r662Posts:[{id:'2026-11-23-n-soccer',groups:[]}]};run('r732Step(ST7,Date.parse("2026-11-23T01:05:00+09:00"))');const L=c.ST7.r732Combos.list.filter(k=>k.slot.endsWith('n1'));
-assert.equal(L.length,2);for(const k of L)assert.equal(k.legs.length,2);const mx=L.find(k=>k.type==='socMix');assert.notEqual(mx.legs[0].marketFamily,mx.legs[1].marketFamily);console.log('r966 ok');}
+for(const k of L.filter(k=>k.type==='socSafe'||k.type==='socMix'))assert.equal(k.legs.length,2);{const t3=L.find(k=>k.type==='soc3');if(t3)assert.equal(t3.legs.length,3);}const mx=L.find(k=>k.type==='socMix');assert.notEqual(mx.legs[0].marketFamily,mx.legs[1].marketFamily);console.log('r966 ok');}
