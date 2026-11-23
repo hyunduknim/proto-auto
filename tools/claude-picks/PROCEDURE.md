@@ -198,3 +198,13 @@ Every Claude run (새벽 해외축구, 아침 NBA, 평일·주말 국내경기) 
 
 ## 핸디캡 이름 쓰는 법 (R957, owner 11/21 02:05 "핸디캡에 마이너스 패는 상대팀 플핸으로 고쳐 헷깔리게 하지말고")
 Write every handicap label from the side that WINS the bet: "<home> -3 패" is written "<away> +3 승", "<home> +1 패" is written "<away> -1 승". Keep "pick" and "line" exactly as Betman has them (pick "패", the home line) — only the label text changes. The site also rewrites old labels this way.
+
+
+## ⚽ R991 해외축구 trial 11/24–11/29 (owner 11/24 00:25 "축구도 신경 좀 써줘 NBA처럼")
+30-day foreign soccer record (site auto picks): 일반승 65% · 언더 61% · 핸디 56% · 오버 53%; worst leagues UCL 36%, 에레디비시 42%.
+- Picks go up about one hour before each kickoff (hourly runs), so use the announced starting lineups when they are out (ESPN match page / team news). A key player missing from the lineup → re-check the pick or pass.
+- 일반승 is fine when the favourite is clear and the draw risk is low; do not swap a good 일반승 for a 핸디/언오버 just to mix types.
+- 핸디 only at 58%+ own chance. 오버 at most 2 a day, only at 56%+ with both teams scoring and conceding freely in their last 5 and no attacking absences.
+- UCL and 에레디비시: pick only at 60%+; otherwise pass.
+- Each hourly run posts with the SAME daily id "YYYY-MM-DD-n-soccer" and `"merge": true` in post.json, so publish.sh adds the new picks to the day's post instead of replacing it.
+- On 11/30 compare this week's soccer hit rate by type with the numbers above.

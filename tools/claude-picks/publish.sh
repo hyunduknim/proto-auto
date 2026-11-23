@@ -12,7 +12,8 @@ node -e '
 const fs=require("fs");const [pf,cf]=process.argv.slice(1);const p=JSON.parse(fs.readFileSync(pf,"utf8"));const c=JSON.parse(fs.readFileSync(cf,"utf8"));
 /* R690: keep the handicap/total line the pick was made on */try{const sl=JSON.parse(fs.readFileSync(process.argv[3],"utf8"));const L=new Map();for(const g of sl.slate||[])for(const m of g.mk)L.set(String(sl.gmTs)+":"+m[0],m[2]);for(const g of p.groups||[])for(const x of g.picks||[])if(x.line==null&&L.has(x.gmTs+":"+x.no))x.line=L.get(x.gmTs+":"+x.no);}catch(_){}
 if(p.reviews){c.reviews=Object.assign(c.reviews||{},p.reviews);delete p.reviews;}
-if(p.id){c.posts=[p,...(c.posts||[]).filter(x=>x.id!==p.id)]}
+/* R991: "merge":true adds this run picks to the daily post with the same id (hourly soccer runs) instead of replacing it */if(p.id&&p.merge){const o=(c.posts||[]).find(x=>x.id===p.id);delete p.merge;if(o){const seen=new Set();for(const g of o.groups||[])for(const x of g.picks||[])seen.add(x.gmTs+":"+x.no);for(const g of p.groups||[]){let og=(o.groups||(o.groups=[])).find(y=>y.name===g.name);if(!og){og={...g,picks:[]};o.groups.push(og);}for(const x of g.picks||[])if(!seen.has(x.gmTs+":"+x.no)){og.picks.push(x);seen.add(x.gmTs+":"+x.no);}}for(const k of ["passes","cautions"])if(Array.isArray(p[k]))o[k]=[...(Array.isArray(o[k])?o[k]:[]),...p[k]];o.at=new Date().toISOString();p.__o=o;}}
+if(p.id){const q=p.__o||p;delete p.__o;c.posts=[q,...(c.posts||[]).filter(x=>x.id!==q.id)]}
 c.posts=(c.posts||[]).sort((a,b)=>String(b.id).localeCompare(String(a.id))).slice(0,40);c.updatedAt=new Date().toISOString();
 fs.writeFileSync(cf,JSON.stringify(c,null,1)+"\n");' "$P" "$W/b/picks.json" "$SL"
 cd "$W/b"; git add picks.json
