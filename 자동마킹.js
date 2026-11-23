@@ -5642,6 +5642,7 @@ box.slots[w.key]=mine.length;}}
 const R746_DROP=['2026-10-29'];
 function r732Step(state,now=Date.now()){if(!state)return null;let box=state.r732Combos;if(!box||!Array.isArray(box.list))box=state.r732Combos={list:[],tally:{hit:0,miss:0,void:0},slots:{}};box.slots=box.slots||{};
 /* R746 (owner: "29일 조합 삭제"): drop those combos and take them out of the tally */
+/* R995 (owner 11/24 03:50 "모든 조합 다 삭제해줘"): every combo and the combo tally wiped once (copy kept in backups/combos-2026-11-24.json); today's later slots still make new ones */if(!box.r995){box.list=[];box.tally={hit:0,miss:0,void:0};box.r995=Date.now();}
 for(const c of box.list.filter(c=>R746_DROP.includes(String(c.day)))){if(c.counted&&box.tally[c.status])box.tally[c.status]--;}box.list=box.list.filter(c=>!R746_DROP.includes(String(c.day)));if(!box.r746){box.r746=true;box.tally={hit:0,miss:0,void:0};for(const c of box.list)if(c.counted&&box.tally[c.status]!=null)box.tally[c.status]++;}
 for(const c of box.list){let hit=0,miss=0,vd=0,live=0;for(const leg of c.legs){/* R993: a finished leg keeps its result (the old round's markets disappear after the round changes) */const r=['hit','miss','void'].includes(leg.status)&&leg.src!=='nhl'?{status:leg.status,score:leg.score}:leg.src==='nhl'?{status:leg.st||(Date.now()>=leg.t?'live':'pre'),score:leg.score||null}:r554LegStatus(state,leg);leg.status=r.status;leg.score=r.score||leg.score||null;if(r.status==='hit')hit++;else if(r.status==='miss')miss++;else if(r.status==='void')vd++;else if(r.status==='live')live++;}
 const prev=c.status;c.status=miss?'miss':(hit+vd===c.legs.length?(vd===c.legs.length?'void':'hit'):(live||hit||vd?'live':'pre'));
@@ -12568,6 +12569,7 @@ let r706Open={},r706Hooked=false;
 /* R981 (owner 11/23 10:26 "조합도 수동으로 · 내가 직접 조합짤수있게" + "조합이 맘에안들으면 조합삭제도"): ✏️ 직접 조합 짜기 —
    pick any market of any upcoming game (one per game), see the 가상영수증 live, save it (kept on this phone) and it is graded
    automatically. Own combos can be deleted; auto combos can be hidden on this phone. */
+/* R995 (owner 11/24 03:50-03:51 "모든 조합 다 삭제해줘" · "내 장부도 삭제해줘"): wipe this phone's own combos, hidden list, 내 장부 and receipt stakes once */try{if(!localStorage.getItem('r995Wiped')){for(const k of ['r981My','r981Hide','r976Book','r973Bet'])localStorage.removeItem(k);localStorage.setItem('r995Wiped','1');}}catch(_){}
 let R981={open:false,games:null,at:0,sp:'전체',q:'',slip:{},res:{},resAt:0,busy:false};
 function r981My(){try{return JSON.parse(localStorage.getItem('r981My')||'[]')||[];}catch(_){return [];}}
 function r981PutMy(L){try{localStorage.setItem('r981My',JSON.stringify(L.slice(-100)));}catch(_){}}
