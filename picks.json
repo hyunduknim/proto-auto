@@ -1,6 +1,6 @@
 {
  "v": 1,
- "updatedAt": "2026-11-23T15:37:12.311Z",
+ "updatedAt": "2026-11-23T15:40:40.458Z",
  "posts": [
   {
    "id": "2026-11-24-upset-n-00",
@@ -2771,6 +2771,44 @@
    "why": "숫자 계산: 예상 스코어 1.9 : 1.5 (트락토르 득점 0.75·실점 1.25, 알와슬 득점 2.0·실점 2.67) · 트락토르 +1 승 68% (배당 기준 51%, +17%p) · 표본 3~4경기라 오차 큼",
    "at": "2026-11-23T15:33:04.003Z"
   },
+  "260139:5573": {
+   "nos": [
+    5573,
+    5574,
+    5575
+   ],
+   "d": "2026-11-25",
+   "m": [
+    {
+     "f": "MONEYLINE",
+     "line": null,
+     "pick": "승",
+     "lab": "새너제이 어스퀘이크스 승",
+     "p": 0.42,
+     "o": 2
+    },
+    {
+     "f": "HANDICAP",
+     "line": -1,
+     "pick": "패",
+     "lab": "휴스턴 다이너모FC +1 승",
+     "p": 0.58,
+     "o": 1.6
+    },
+    {
+     "f": "TOTAL",
+     "line": 2.5,
+     "pick": "오버",
+     "lab": "오버 2.5",
+     "p": 0.53,
+     "o": 1.57
+    }
+   ],
+   "b": 1,
+   "why": "숫자 계산: 예상 스코어 1.3 : 1.3 · 휴스턴 다이너모FC +1 승 계산 62% · 해외 배당과 합쳐 58% (베트맨 기준 54%, +4%p) · 최근 5경기 기준",
+   "auto": 1,
+   "at": "2026-11-23T15:37:12.311Z"
+  },
   "260139:5503": {
    "nos": [
     5503,
@@ -2809,45 +2847,51 @@
    "b": 1,
    "why": "숫자 계산: 예상 스코어 2.0 : 2.1 · PSV에인트호번 +3.5 승 계산 96% · 해외 배당과 합쳐 81% (베트맨 기준 66%, +15%p) · 최근 5경기 기준",
    "auto": 1,
-   "at": "2026-11-23T15:37:12.303Z"
-  },
-  "260139:5573": {
-   "nos": [
-    5573,
-    5574,
-    5575
-   ],
-   "d": "2026-11-25",
-   "m": [
-    {
-     "f": "MONEYLINE",
-     "line": null,
-     "pick": "승",
-     "lab": "새너제이 어스퀘이크스 승",
-     "p": 0.42,
-     "o": 2
-    },
-    {
-     "f": "HANDICAP",
-     "line": -1,
-     "pick": "패",
-     "lab": "휴스턴 다이너모FC +1 승",
-     "p": 0.58,
-     "o": 1.6
-    },
-    {
-     "f": "TOTAL",
-     "line": 2.5,
-     "pick": "오버",
-     "lab": "오버 2.5",
-     "p": 0.53,
-     "o": 1.57
-    }
-   ],
-   "b": 1,
-   "why": "숫자 계산: 예상 스코어 1.3 : 1.3 · 휴스턴 다이너모FC +1 승 계산 62% · 해외 배당과 합쳐 58% (베트맨 기준 54%, +4%p) · 최근 5경기 기준",
-   "auto": 1,
-   "at": "2026-11-23T15:37:12.311Z"
+   "at": "2026-11-23T15:40:40.336Z"
+  }
+ },
+ "nbaElo": {
+  "at": "2026-11-23T15:40:50.721Z",
+  "games": 2897,
+  "hca": 100,
+  "teams": {
+   "Boston Celtics": 1641,
+   "New York Knicks": 1702,
+   "Los Angeles Lakers": 1605,
+   "Minnesota Timberwolves": 1609,
+   "Detroit Pistons": 1638,
+   "Indiana Pacers": 1359,
+   "Atlanta Hawks": 1565,
+   "Brooklyn Nets": 1304,
+   "Miami Heat": 1556,
+   "Orlando Magic": 1503,
+   "Philadelphia 76ers": 1586,
+   "Milwaukee Bucks": 1302,
+   "Toronto Raptors": 1499,
+   "Cleveland Cavaliers": 1572,
+   "Houston Rockets": 1615,
+   "Charlotte Hornets": 1460,
+   "New Orleans Pelicans": 1349,
+   "Chicago Bulls": 1396,
+   "Utah Jazz": 1338,
+   "Memphis Grizzlies": 1488,
+   "LA Clippers": 1429,
+   "Phoenix Suns": 1533,
+   "Portland Trail Blazers": 1576,
+   "Golden State Warriors": 1476,
+   "Washington Wizards": 1345,
+   "Dallas Mavericks": 1455,
+   "San Antonio Spurs": 1719,
+   "Denver Nuggets": 1584,
+   "Oklahoma City Thunder": 1640,
+   "Sacramento Kings": 1310,
+   "Team Chuck": 1498,
+   "Team Kenny": 1501,
+   "Team Shaq": 1519,
+   "Team Candace": 1502,
+   "Team Stars": 1526,
+   "World": 1500,
+   "Team Stripes": 1489
   }
  }
 }
