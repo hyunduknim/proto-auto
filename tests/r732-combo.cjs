@@ -3,7 +3,7 @@ const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncod
 vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run('currentRoundMarket=()=>true;r704Model=()=>null');
 // now = 2026-11-02 08:00 KST
-const now=Date.parse('2026-11-02T08:00:00+09:00');c.NOW=now;vm.runInContext('Date.now=()=>NOW',c);
+const now=Date.parse('2026-11-02T08:45:00+09:00');c.NOW=now;vm.runInContext('Date.now=()=>NOW',c);
 const mk=[];let no=1;
 for(let i=0;i<7;i++){const g={gmTs:'260130',sport:'농구',league:'NBA',date:'2026-11-02',time:String(12+i)+':00',home:'H'+i,away:'A'+i};
  mk.push({...g,no:no++,marketFamily:'MONEYLINE',choices:[{label:'승',odds:1.45+i*0.02},{label:'패',odds:2.6}],r507Overseas:{probs:{승:.66-i*.01,패:.34+i*.01}}});
@@ -17,7 +17,7 @@ const T=h=>Date.parse('2026-11-02T'+h+':00+09:00');
 const nhl={day:'2026-11-02',games:[0,1,2,3].map(i=>({home:'Boston Bruins'+i,away:'Dallas Stars'+i,t:T('09:00'),C:[{fam:'MONEYLINE',side:'h',pick:'홈승',line:null,odds:1.6,p:.6-i*.01},{fam:'HANDICAP',side:'a',pick:'원정 +1.5',line:1.5,odds:1.45,p:.66-i*.01},{fam:'TOTAL',side:null,pick:'언더',line:6.5,odds:1.7,p:.56},{fam:'MONEYLINE',side:'a',pick:'원정승',line:null,odds:1.15,p:.86}]}))};
 c.ST={gmTs:'260130',markets:mk,r961Nhl:nhl};
 const box=run('r732Step(ST,NOW)');
-// R961: weekday 07:00 slot → NBA 3폴더 · NHL 3폴더 · NBA·NHL 핸디·언오버 (Claude post missing → made after 07:40)
+// R961/R989: weekday 08:00 slot → NBA 3폴더 · NHL 3폴더 · NBA·NHL 핸디·언오버 (Claude post missing → made after 08:40)
 assert.ok(['nba','nbanhl','nhl'].every(t=>box.list.some(k=>k.type===t)));{const t3=box.list.find(k=>k.type==='am3');if(t3)assert.equal(t3.legs.length,3);const hi=box.list.find(k=>k.type==='amHigh');if(hi)assert.ok(hi.legs.every(l=>Number(l.odds)>=1.85));}
 for(const k of box.list){assert.equal(new Set(k.legs.map(l=>l.seed||l.homeEn)).size,k.legs.length);assert.ok(k.legs.every(l=>l.home!=='LATE'&&l.home!=='LOW'&&Number(l.odds)>1.31));assert.ok(k.legs.filter(l=>(l.marketFamily||l.fam)==='MONEYLINE').length<=1,'일반승 위주 아님');}
 {const L=box.list.find(k=>k.type==='nbanhl').legs;assert.ok(L.every(l=>l.marketFamily!=='MONEYLINE'));assert.ok(L.some(l=>l.src==='nhl')&&L.some(l=>l.src!=='nhl'),'NBA와 NHL 둘 다');}
