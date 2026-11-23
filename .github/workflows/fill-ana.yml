@@ -18,7 +18,7 @@ concurrency:
 jobs:
   fill:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,6 +33,7 @@ jobs:
           for i in 1 2 3; do
             rm -rf b && git clone -q --depth 1 -b claude-picks "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" b
             out=$(node tools/claude-picks/fill_ana.cjs /tmp/slate.json b/picks.json); echo "$out"
+            node tools/claude-picks/nba_elo.cjs b/picks.json || true  # R992: NBA Elo (538 method) at most every 12h
             cd b; if git diff --quiet; then echo "nothing new"; exit 0; fi
             git add picks.json && git commit -qm "클로드 분석 자동 채움 (패스 경기)" && if git push -q origin claude-picks; then exit 0; fi
             cd ..; sleep 5

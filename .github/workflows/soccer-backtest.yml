@@ -1,0 +1,16 @@
+name: Soccer backtest (R992)
+# R992 (owner 11/24 "클로드가 알아서 최적화로 만들어줘"): free football-data.co.uk results + Pinnacle closing odds →
+# Dixon-Coles rho and hit rate by chance bucket. Read-only; prints a REPORT line.
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  bt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/claude-picks
+      - run: node tools/claude-picks/soccer_backtest.cjs
