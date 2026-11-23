@@ -86,6 +86,8 @@ for (const x of S.slate || []) {
   const key = gm + ':' + ml[0];
   // R955: an entry with a 1.31-or-less option or several sides of one market is broken → redo it
   for (const n of nos) { const v = ana[gm + ':' + n]; if (!v) continue; const before = JSON.stringify(v.m); if (!norm955(v)) delete ana[gm + ':' + n]; else if (JSON.stringify(v.m) !== before) fixed++; }
+  // R994: auto entries made with the old raw-chance ranking are redone once (Claude-run entries are never touched)
+  for (const n of nos) { const v = ana[gm + ':' + n]; if (v && v.auto === 1 && v.v !== 994) { delete ana[gm + ':' + n]; fixed++; } }
   if (nos.some(n => ana[gm + ':' + n])) continue; // already analysed (Claude run or earlier fill)
   if (!x.mk.some(m => m[3] && m[3].length)) { skipped.push(x.h + ' (배당 없음)'); continue; }
   const M = x.sp === '축구' ? soccerModel(x) : x.sp === '농구' ? bballModel(x) : x.sp === '배구' ? vbModel(x) : null;
@@ -95,29 +97,38 @@ for (const x of S.slate || []) {
     const [no, f, line, ch, ov] = m; if (!ch || !ch.length || !fams[f]) continue;
     const mp = f === 'MONEYLINE' ? M.ml : f === 'HANDICAP' ? (line == null ? null : M.hc(Number(line))) : (line == null ? null : M.tt(Number(line)));
     if (!mp) continue;
-    const sumInv = ch.reduce((s, c) => s + 1 / c[1], 0);
+    // R994: power de-vig (Betman loads more margin on long shots, so the plain proportional split under-rates the short side and
+    // made every short-priced 플핸/언더 look like +3%p "value"). Solve k with Σ(1/o)^k = 1.
+    let lo = 1, hi = 3; for (let it = 0; it < 40; it++) { const k = (lo + hi) / 2, sm = ch.reduce((s, c) => s + Math.pow(1 / c[1], k), 0); if (sm > 1) lo = k; else hi = k; }
+    const kPow = (lo + hi) / 2;
     for (const [pick, o] of ch) {
       const pm = mp[pick]; if (pm == null || !(o >= 1.31)) continue;
-      const imp = (1 / o) / sumInv;
+      const imp = Math.pow(1 / o, kPow);
       // 60% overseas price (Betman's own when none) + 40% the numbers model: last-5 samples are small, so the model alone overshoots
-      const base = ov && ov[pick] != null ? Number(ov[pick]) : imp, p = 0.6 * base + 0.4 * pm;
+      const ovq0 = !!(ov && ov[pick] != null), base = ovq0 ? Number(ov[pick]) : imp;
+      // R994: the last-5 projection shrinks every margin toward 0 (밀워키 +11.5 "71%"), so with an overseas price it gets only 15%
+      const p = ovq0 ? 0.85 * base + 0.15 * pm : 0.6 * base + 0.4 * pm, pinEdge = ovq0 ? base - imp : 0;
       const lab = f === 'MONEYLINE' ? (pick === '승' ? nm(x.h) + ' 승' : pick === '패' ? nm(x.a) + ' 승' : '무승부')
         : f === 'HANDICAP' ? (pick === '패' ? nm(x.a) + ' ' + fmtL(-Number(line)) + ' 승' : pick === '무' ? '핸디 무 (' + nm(x.h) + ' ' + fmtL(Number(line)) + ')' : nm(x.h) + ' ' + fmtL(Number(line)) + ' 승') : pick + ' ' + line;
-      fams[f].push({ f, line: line == null ? null : Number(line), pick, lab, p: Math.min(0.97, Math.max(0.03, r2(p))), o, edge: p - imp, imp, pm, ovq: !!(ov && ov[pick] != null) });
+      fams[f].push({ f, line: line == null ? null : Number(line), pick, lab, p: Math.min(0.97, Math.max(0.03, r2(p))), o, edge: p - imp, imp, pm, ovq: ovq0 && pinEdge >= 0.02 });
     }
   }
   const m = [];
   for (const f of ['MONEYLINE', 'HANDICAP', 'TOTAL']) {
     const L = fams[f]; if (!L.length) continue;
-    L.sort((a, b) => ((b.edge >= 0.03) - (a.edge >= 0.03)) || (b.p - a.p));
+    L.sort((a, b) => ((b.edge >= 0.03 && b.ovq) - (a.edge >= 0.03 && a.ovq)) || (b.p - a.p));
     m.push(L[0]);
   }
   if (!m.length) { skipped.push(x.h + ' (1.31 이상 없음)'); continue; }
-  let b = -1; m.forEach((v, i) => { if (v.edge >= 0.03 && (b < 0 || v.p > m[b].p)) b = i; });
-  const value = b >= 0; if (!value) m.forEach((v, i) => { if (b < 0 || v.p > m[b].p) b = i; });
+  // R994 (owner 11/24 02:32 "클로드숫자분석은 언더 플핸쪽이 많고 나머지5곳은 정배쪽 … 이게 맞음?"): picking the highest raw chance
+  // always landed on the safest-looking line (플핸·언더 sit at 60-70% but pay 1.3-1.6), and the small-sample model leans to the
+  // underdog. Now: a "value" pick needs +3%p over Betman AND the overseas (Pinnacle) price behind it; otherwise the card shows
+  // who is more likely to win (일반승), the same question the other five sources answer.
+  let b = -1; m.forEach((v, i) => { if (v.edge >= 0.03 && v.ovq && (b < 0 || v.p > m[b].p)) b = i; });
+  const value = b >= 0; if (!value) { const mi = m.findIndex(v => v.f === 'MONEYLINE'); if (mi >= 0) b = mi; else m.forEach((v, i) => { if (b < 0 || v.p > m[b].p) b = i; }); }
   const B = m[b];
   const why = (value ? '' : '가치 없음 · ') + '숫자 계산: ' + M.txt + ' · ' + B.lab + ' 계산 ' + pc(B.pm) + '% · ' + (B.ovq ? '해외 배당' : '베트맨 배당') + '과 합쳐 ' + pc(B.p) + '% (베트맨 기준 ' + pc(B.imp) + '%, ' + (B.edge >= 0 ? '+' : '') + pc(B.edge) + '%p) · 최근 5경기' + (x.af && x.af.xg ? '·xG' : '') + ' 기준';
-  ana[key] = { nos, d: x.d, m: m.map(({ f, line, pick, lab, p, o }) => ({ f, line, pick, lab, p, o })), b, why, auto: 1, at: new Date().toISOString() };
+  ana[key] = { nos, d: x.d, m: m.map(({ f, line, pick, lab, p, o }) => ({ f, line, pick, lab, p, o })), b, why, auto: 1, v: 994, at: new Date().toISOString() };
   added++;
 }
 const y = new Date(Date.now() + 9 * 3600e3 - 86400e3).toISOString().slice(0, 10);
