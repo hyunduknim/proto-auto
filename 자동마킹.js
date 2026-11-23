@@ -8103,6 +8103,7 @@ function r644Is(m){return m?.sport==='농구'&&/NBA/i.test(String(m?.league||'')
 function r644Find(m,events){const t=gameTimeMs(m);const c=events.filter(e=>Math.abs(Date.parse(e?.date||'')-t)<=30*60000).map(e=>{const cs=e?.competitions?.[0]?.competitors||[],h=cs.find(x=>x.homeAway==='home'),a=cs.find(x=>x.homeAway==='away');
 const sh=r507NameSim({},'농구',m.home,h?.team?.displayName||''),sa=r507NameSim({},'농구',m.away,a?.team?.displayName||'');return {e,h,a,sh,sa,score:(sh+sa)/2};}).sort((x,y)=>y.score-x.score);
 const b=c[0];return b&&b.score>=.7&&Math.min(b.sh,b.sa)>=.5?b:null;}
+/* R993: Betman short league names (분데스리 · 프리그1 · 에레디비 · EFL챔 · 잉리그컵 · 독일FA컵 · U네이션) added to R532_ESPN_SOCCER */
 /* R993 (owner 11/24 00:51 "조합은 채점 한것도 있고 안한것도 있네?"): combo legs whose game ended after the Betman round changed had no market left
    to grade from. Every 20 min, legs still open 2.5h+ after kickoff are graded from ESPN's public final scores (NBA and soccer). */
 async function r993Settle(state,now=Date.now()){if(now-Number(state.r993At||0)<5*60000)return {source:'R993',status:'THROTTLED'};state.r993At=now;const out=state.r993LegRes||(state.r993LegRes={});const A={source:'R993',at:new Date(now).toISOString(),need:0,graded:0};
@@ -14173,12 +14174,12 @@ return audit;
    clearly match (alias + romanised skeleton) and no other fixture at that time comes close. */
 const R532_ESPN_SOCCER={"afc.cup":["AFC 챔피언스리그2","AFC챔피언스리그2","ACL2"],"afc.champions":["AFC 챔피언스리그 엘리트","AFC챔피언스리그엘리트","ACLE"],
 "uefa.champions":["UEFA 챔피언스리그","UCL"],"uefa.europa":["UEFA 유로파리그","UEL"],"uefa.europa.conf":["UEFA 컨퍼런스리그","UECL"],
-"eng.1":["EPL","잉글랜드 프리미어리그"],"eng.2":["잉글랜드 챔피언십"],"eng.3":["잉글랜드 리그1"],"eng.4":["잉글랜드 리그2"],"eng.league_cup":["잉글랜드 리그컵","EFL컵"],"eng.fa":["잉글랜드 FA컵","FA컵"],
-"esp.1":["스페인 라리가","라리가"],"ger.1":["독일 분데스리가","분데스리가"],"ita.1":["이탈리아 세리에A","세리에A"],"fra.1":["프랑스 리그1"],
-"ned.1":["네덜란드 에레디비시","에레디비시"],"por.1":["포르투갈 프리메이라리가","포르투갈 리가"],"sco.1":["스코틀랜드 프리미어십"],"bel.1":["벨기에 프로리그"],"tur.1":["튀르키예 쉬페르리그"],
+"eng.1":["EPL","잉글랜드 프리미어리그"],"eng.2":["잉글랜드 챔피언십","EFL챔"],"eng.3":["잉글랜드 리그1"],"eng.4":["잉글랜드 리그2"],"eng.league_cup":["잉글랜드 리그컵","EFL컵","잉리그컵"],"eng.fa":["잉글랜드 FA컵","FA컵"],
+"esp.1":["스페인 라리가","라리가"],"ger.1":["독일 분데스리가","분데스리가","분데스리"],"ger.dfb_pokal":["독일FA컵","DFB포칼"],"ita.1":["이탈리아 세리에A","세리에A"],"fra.1":["프랑스 리그1","프리그1"],
+"ned.1":["네덜란드 에레디비시","에레디비시","에레디비"],"por.1":["포르투갈 프리메이라리가","포르투갈 리가"],"sco.1":["스코틀랜드 프리미어십"],"bel.1":["벨기에 프로리그"],"tur.1":["튀르키예 쉬페르리그"],
 "usa.1":["미국 메이저리그사커","MLS"],"jpn.1":["일본 J1리그","J1리그","J리그"],"kor.1":["K리그1"],"aus.1":["호주 A리그","A리그"],"chn.1":["중국 슈퍼리그"],"ksa.1":["사우디 프로리그"],
 "conmebol.libertadores":["코파 리베르타도레스","코파리베"],"conmebol.sudamericana":["코파 수다메리카나"],"bra.1":["브라질 세리에A"],"mex.1":["멕시코 리가MX"],
-"fifa.worldq.uefa":["월드컵 유럽예선"],"uefa.nations":["UEFA 네이션스리그","네이션스리그"],"fifa.friendly":["국가대표 친선경기","A매치"]};
+"fifa.worldq.uefa":["월드컵 유럽예선"],"uefa.nations":["UEFA 네이션스리그","네이션스리그","U네이션"],"fifa.friendly":["국가대표 친선경기","A매치"]};
 const R532_LEAGUE_SLUG=new Map(Object.entries(R532_ESPN_SOCCER).flatMap(([slug,names])=>names.map(n=>[r506Name(n),slug])));
 function r532Slug(m){return m?.sport==="축구"?R532_LEAGUE_SLUG.get(r506Name(m.league))||null:null;}
 function r532Pending(state,now=Date.now()){return pendingSettlementMarkets(state).filter(m=>{const t=gameTimeMs(m);return r532Slug(m)&&t!=null&&now-t>=105*60000&&now-t<=3*86400000;});}
