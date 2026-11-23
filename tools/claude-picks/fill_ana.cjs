@@ -76,7 +76,7 @@ for (const x of S.slate || []) {
   if (!x.mk || !x.mk.length) continue;
   if (kst(x.d, x.t) <= nowMs + 5 * 60000) continue;
   const site = x.site; const bar = /NBA/.test(x.lg) ? 0.55 : 0.58;
-  if (site && site.ps != null && site.ps >= bar) continue; // site has a real pick → card shows it
+  // R984 (owner 11/23 "경기분석 전 종목 다 클로드자체분석"): games with a site pick get Claude's own analysis too
   const nos = x.mk.map(m => Number(m[0]));
   if (nos.some(n => picked.has(gm + ':' + n))) continue; // Claude already picked this game
   const ml = x.mk.find(m => m[1] === 'MONEYLINE') || x.mk[0];
