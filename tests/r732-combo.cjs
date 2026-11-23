@@ -24,7 +24,7 @@ for(const k of box.list){assert.equal(new Set(k.legs.map(l=>l.seed||l.homeEn)).s
 assert.ok(box.list.find(k=>k.type==='nhl').legs.every(l=>l.src==='nhl'));
 // a second tick does not rebuild
 const ids=box.list.map(k=>k.id+JSON.stringify(k.legs.map(l=>l.no)));run('r732Step(ST,NOW+600000)');assert.equal(c.ST.r732Combos.list.map(k=>k.id+JSON.stringify(k.legs.map(l=>l.no))).join(),ids.join());
-// before 07:30 nothing is made for the day
+// before 06:00 nothing is made for the day
 c.ST2={gmTs:'260130',markets:mk};run('r732Step(ST2,Date.parse("2026-11-02T06:00:00+09:00"))');assert.equal(c.ST2.r732Combos.list.length,0);
 // 07:20 with no Claude NBA post yet → still waiting
 c.ST3={gmTs:'260130',markets:mk,r961Nhl:nhl};run('r732Step(ST3,Date.parse("2026-11-02T07:20:00+09:00"))');assert.equal(c.ST3.r732Combos.list.length,0);
