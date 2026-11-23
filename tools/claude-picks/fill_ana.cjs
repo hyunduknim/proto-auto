@@ -26,7 +26,10 @@ function soccerModel(x) {
   const xg = x.af && x.af.xg; if (xg && xg.h != null && xg.a != null) { lh = 0.5 * lh + 0.5 * xg.h; la = 0.5 * la + 0.5 * xg.a; }
   const ko = x.af && x.af.keyOut; if (ko) { lh -= 0.15 * Math.min(2, (ko.h || []).length); la -= 0.15 * Math.min(2, (ko.a || []).length); }
   lh = Math.max(0.25, Math.min(4, lh)); la = Math.max(0.2, Math.min(3.5, la));
-  const grid = []; for (let i = 0; i < 11; i++) for (let j = 0; j < 11; j++) grid.push([i, j, pois(lh, i) * pois(la, j)]);
+  // R992: Dixon-Coles low-score correction (rho fitted on 7,253 European games with Pinnacle closing odds,
+  // tools/claude-picks/soccer_backtest.cjs → -0.075; draw chance 23.2% → 24.8%, Pinnacle 24.8%, actual 25.7%)
+  const RHO = -0.075, tau = (i, j) => i === 0 && j === 0 ? 1 - lh * la * RHO : i === 0 && j === 1 ? 1 + lh * RHO : i === 1 && j === 0 ? 1 + la * RHO : i === 1 && j === 1 ? 1 - RHO : 1;
+  const grid = []; for (let i = 0; i < 11; i++) for (let j = 0; j < 11; j++) grid.push([i, j, pois(lh, i) * pois(la, j) * tau(i, j)]);
   const tot = grid.reduce((s, g) => s + g[2], 0);
   const P = f => grid.reduce((s, g) => s + (f(g[0], g[1]) ? g[2] : 0), 0) / tot;
   return {

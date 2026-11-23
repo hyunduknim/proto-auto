@@ -11,8 +11,8 @@ if (old && Date.now() - Date.parse(old.at || 0) < 12 * 3600e3 && !process.env.FO
 const K = 20, HCA = 100, MEAN = 1505, CARRY = 0.75;
 const seasons = [['20241022', '20250620'], ['20251021', '20260620'], ['20261020', '20270620']];
 const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
-async function getRange(a, b) {
-  const u = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?limit=1000&dates=' + a + '-' + b;
+async function getDay(a) {
+  const u = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + a;
   for (let i = 0; i < 3; i++) {
     try { const r = await fetch(u, { headers: { accept: 'application/json' } }); if (r.ok) return (await r.json()).events || []; } catch (_) {}
     await new Promise(r => setTimeout(r, 1500));
@@ -27,26 +27,23 @@ async function getRange(a, b) {
     if (s0 > ymd(today)) break;
     if (prevSeason >= 0) for (const k of Object.keys(elo)) elo[k] = CARRY * elo[k] + (1 - CARRY) * MEAN;
     prevSeason = si;
-    // month chunks
-    let d = new Date(Date.UTC(+s0.slice(0, 4), +s0.slice(4, 6) - 1, +s0.slice(6, 8)));
-    const end = new Date(Math.min(Date.UTC(+s1.slice(0, 4), +s1.slice(4, 6) - 1, +s1.slice(6, 8)), today.getTime()));
-    while (d <= end) {
-      const e = new Date(Math.min(d.getTime() + 27 * 86400e3, end.getTime()));
-      const evs = (await getRange(ymd(d), ymd(e))).filter(ev => ev?.status?.type?.completed && ev?.season?.type !== 1)
-        .sort((x, y) => Date.parse(x.date) - Date.parse(y.date));
-      for (const ev of evs) {
-        const cs = ev.competitions?.[0]?.competitors || [], H = cs.find(c => c.homeAway === 'home'), A = cs.find(c => c.homeAway === 'away');
-        if (!H || !A) continue; const hn = H.team?.displayName, an = A.team?.displayName, hs = +H.score, as = +A.score;
-        if (!hn || !an || !Number.isFinite(hs) || !Number.isFinite(as) || hs === as) continue;
-        if (ev.competitions?.[0]?.neutralSite) { /* no home edge */ }
-        const eh = elo[hn] ?? MEAN, ea = elo[an] ?? MEAN, hca = ev.competitions?.[0]?.neutralSite ? 0 : HCA;
-        const pH = 1 / (1 + Math.pow(10, -(eh + hca - ea) / 400));
-        const homeWon = hs > as, mov = Math.abs(hs - as), diffW = homeWon ? (eh + hca - ea) : (ea - eh - hca);
-        const mult = Math.pow(mov + 3, 0.8) / (7.5 + 0.006 * diffW);
-        const shift = K * mult * ((homeWon ? 1 : 0) - pH);
-        elo[hn] = eh + shift; elo[an] = ea - shift; games++;
-      }
-      d = new Date(e.getTime() + 86400e3);
+    // ESPN no longer answers date ranges → one call per day, 8 at a time
+    const days = []; let d = new Date(Date.UTC(+s0.slice(0, 4), +s0.slice(4, 6) - 1, +s0.slice(6, 8)));
+    const end = new Date(Math.min(Date.UTC(+s1.slice(0, 4), +s1.slice(4, 6) - 1, +s1.slice(6, 8)), today.getTime() - 86400e3));
+    for (; d <= end; d = new Date(d.getTime() + 86400e3)) days.push(ymd(d));
+    const all = [];
+    for (let i = 0; i < days.length; i += 8) { const got = await Promise.all(days.slice(i, i + 8).map(x => getDay(x))); for (const g of got) all.push(...g); }
+    const evs = [...new Map(all.filter(ev => ev?.status?.type?.completed && ev?.season?.type !== 1).map(ev => [ev.id, ev])).values()].sort((x, y) => Date.parse(x.date) - Date.parse(y.date));
+    for (const ev of evs) {
+      const cs = ev.competitions?.[0]?.competitors || [], H = cs.find(c => c.homeAway === 'home'), A = cs.find(c => c.homeAway === 'away');
+      if (!H || !A) continue; const hn = H.team?.displayName, an = A.team?.displayName, hs = +H.score, as = +A.score;
+      if (!hn || !an || !Number.isFinite(hs) || !Number.isFinite(as) || hs === as) continue;
+      const eh = elo[hn] ?? MEAN, ea = elo[an] ?? MEAN, hca = ev.competitions?.[0]?.neutralSite ? 0 : HCA;
+      const pH = 1 / (1 + Math.pow(10, -(eh + hca - ea) / 400));
+      const homeWon = hs > as, mov = Math.abs(hs - as), diffW = homeWon ? (eh + hca - ea) : (ea - eh - hca);
+      const mult = Math.pow(mov + 3, 0.8) / (7.5 + 0.006 * diffW);
+      const shift = K * mult * ((homeWon ? 1 : 0) - pH);
+      elo[hn] = eh + shift; elo[an] = ea - shift; games++;
     }
   }
   if (games < 200) { console.log('too few games', games); process.exit(0); }
