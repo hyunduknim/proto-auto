@@ -1,6 +1,6 @@
 {
  "v": 1,
- "updatedAt": "2026-11-24T02:01:35+00:00",
+ "updatedAt": "2026-11-24T04:48:11.787Z",
  "posts": [
   {
    "id": "2026-11-24-upset-n-04",
@@ -3303,42 +3303,198 @@
    "auto": 1,
    "v": 994,
    "at": "2026-11-23T20:12:59.894Z"
+  },
+  "260139:5417": {
+   "nos": [
+    5417,
+    5418,
+    5419
+   ],
+   "d": "2026-11-24",
+   "m": [
+    {
+     "f": "MONEYLINE",
+     "line": null,
+     "pick": "승",
+     "lab": "OK저축은행 읏맨 승",
+     "p": 0.34,
+     "o": 2.67
+    },
+    {
+     "f": "HANDICAP",
+     "line": 1.5,
+     "pick": "승",
+     "lab": "OK저축은행 읏맨 +1.5 승",
+     "p": 0.53,
+     "o": 1.84
+    },
+    {
+     "f": "TOTAL",
+     "line": 184.5,
+     "pick": "오버",
+     "lab": "오버 184.5",
+     "p": 0.51,
+     "o": 1.74
+    }
+   ],
+   "b": 0,
+   "why": "가치 없음 · 숫자 계산: 세트 이길 확률 46% · 예상 4.1세트 · OK저축은행 읏맨 승 계산 43% · 베트맨 배당과 합쳐 34% (베트맨 기준 28%, +6%p) · 최근 5경기 기준",
+   "auto": 1,
+   "v": 994,
+   "at": "2026-11-24T04:48:11.777Z"
+  },
+  "260139:5421": {
+   "nos": [
+    5421,
+    5422,
+    5423
+   ],
+   "d": "2026-11-24",
+   "m": [
+    {
+     "f": "MONEYLINE",
+     "line": null,
+     "pick": "승",
+     "lab": "정관장 레드스파크스 승",
+     "p": 0.28,
+     "o": 4.02
+    },
+    {
+     "f": "HANDICAP",
+     "line": 2.5,
+     "pick": "승",
+     "lab": "정관장 레드스파크스 +2.5 승",
+     "p": 0.74,
+     "o": 1.39
+    },
+    {
+     "f": "TOTAL",
+     "line": 175.5,
+     "pick": "오버",
+     "lab": "오버 175.5",
+     "p": 0.61,
+     "o": 1.74
+    }
+   ],
+   "b": 0,
+   "why": "가치 없음 · 숫자 계산: 세트 이길 확률 50% · 예상 4.1세트 · 정관장 레드스파크스 승 계산 49% · 베트맨 배당과 합쳐 28% (베트맨 기준 14%, +14%p) · 최근 5경기 기준",
+   "auto": 1,
+   "v": 994,
+   "at": "2026-11-24T04:48:11.783Z"
+  },
+  "260139:5437": {
+   "nos": [
+    5437,
+    5438,
+    5439
+   ],
+   "d": "2026-11-24",
+   "m": [
+    {
+     "f": "MONEYLINE",
+     "line": null,
+     "pick": "승",
+     "lab": "이스트 벵골 승",
+     "p": 0.38,
+     "o": 2.75
+    },
+    {
+     "f": "HANDICAP",
+     "line": 1,
+     "pick": "승",
+     "lab": "이스트 벵골 +1 승",
+     "p": 0.65,
+     "o": 1.55
+    },
+    {
+     "f": "TOTAL",
+     "line": 2.5,
+     "pick": "오버",
+     "lab": "오버 2.5",
+     "p": 0.59,
+     "o": 1.69
+    }
+   ],
+   "b": 0,
+   "why": "가치 없음 · 숫자 계산: 예상 스코어 2.0 : 1.5 · 이스트 벵골 승 계산 50% · 베트맨 배당과 합쳐 38% (베트맨 기준 31%, +8%p) · 최근 5경기 기준",
+   "auto": 1,
+   "v": 994,
+   "at": "2026-11-24T04:48:11.784Z"
+  },
+  "260139:5441": {
+   "nos": [
+    5441,
+    5442,
+    5443
+   ],
+   "d": "2026-11-25",
+   "m": [
+    {
+     "f": "MONEYLINE",
+     "line": null,
+     "pick": "패",
+     "lab": "알쇼르타 승",
+     "p": 0.38,
+     "o": 2.8
+    },
+    {
+     "f": "HANDICAP",
+     "line": -1,
+     "pick": "패",
+     "lab": "알쇼르타 +1 승",
+     "p": 0.69,
+     "o": 1.52
+    },
+    {
+     "f": "TOTAL",
+     "line": 2.5,
+     "pick": "언더",
+     "lab": "언더 2.5",
+     "p": 0.61,
+     "o": 1.49
+    }
+   ],
+   "b": 0,
+   "why": "가치 없음 · 숫자 계산: 예상 스코어 0.8 : 1.4 · 알쇼르타 승 계산 51% · 베트맨 배당과 합쳐 38% (베트맨 기준 30%, +8%p) · 최근 5경기 기준",
+   "auto": 1,
+   "v": 994,
+   "at": "2026-11-24T04:48:11.786Z"
   }
  },
  "nbaElo": {
-  "at": "2026-11-23T15:40:50.721Z",
-  "games": 2897,
+  "at": "2026-11-24T04:48:23.296Z",
+  "games": 2905,
   "hca": 100,
   "teams": {
    "Boston Celtics": 1641,
    "New York Knicks": 1702,
    "Los Angeles Lakers": 1605,
-   "Minnesota Timberwolves": 1609,
+   "Minnesota Timberwolves": 1611,
    "Detroit Pistons": 1638,
-   "Indiana Pacers": 1359,
+   "Indiana Pacers": 1371,
    "Atlanta Hawks": 1565,
-   "Brooklyn Nets": 1304,
+   "Brooklyn Nets": 1301,
    "Miami Heat": 1556,
    "Orlando Magic": 1503,
-   "Philadelphia 76ers": 1586,
-   "Milwaukee Bucks": 1302,
-   "Toronto Raptors": 1499,
-   "Cleveland Cavaliers": 1572,
-   "Houston Rockets": 1615,
-   "Charlotte Hornets": 1460,
-   "New Orleans Pelicans": 1349,
-   "Chicago Bulls": 1396,
+   "Philadelphia 76ers": 1565,
+   "Milwaukee Bucks": 1317,
+   "Toronto Raptors": 1484,
+   "Cleveland Cavaliers": 1556,
+   "Houston Rockets": 1618,
+   "Charlotte Hornets": 1450,
+   "New Orleans Pelicans": 1344,
+   "Chicago Bulls": 1413,
    "Utah Jazz": 1338,
-   "Memphis Grizzlies": 1488,
-   "LA Clippers": 1429,
-   "Phoenix Suns": 1533,
-   "Portland Trail Blazers": 1576,
+   "Memphis Grizzlies": 1498,
+   "LA Clippers": 1426,
+   "Phoenix Suns": 1537,
+   "Portland Trail Blazers": 1597,
    "Golden State Warriors": 1476,
    "Washington Wizards": 1345,
    "Dallas Mavericks": 1455,
    "San Antonio Spurs": 1719,
    "Denver Nuggets": 1584,
-   "Oklahoma City Thunder": 1640,
+   "Oklahoma City Thunder": 1627,
    "Sacramento Kings": 1310,
    "Team Chuck": 1498,
    "Team Kenny": 1501,
