@@ -210,3 +210,11 @@ Write every handicap label from the side that WINS the bet: "<home> -3 패" is w
 - UCL and 에레디비시: pick only at 60%+; otherwise pass.
 - Each hourly run posts with the SAME daily id "YYYY-MM-DD-n-soccer" and `"merge": true` in post.json, so publish.sh adds the new picks to the day's post instead of replacing it.
 - On 11/30 compare this week's soccer hit rate by type with the numbers above.
+
+
+## 📊 R1000 확률 보정 (owner 11/24 12:57-12:58 "더 좋은 방법이 없나?" → "메뉴에 보이게 만들어줘")
+Every Claude run, before picking: `tools/claude-picks/snap.sh pub > pub.json` and group the graded picks in `pub.r662.posts` (st hit/miss)
+by sport (농구/배구/축구) and type (일반승 · 핸디 · 언더 · 오버). For any group with 5+ graded picks whose actual hit rate is more than
+5%p BELOW the average 확률 Claude claimed, require 5%p more own/combined chance for that type in this run (and say so in one line of the
+post's cautions, e.g. "농구 언더는 최근 25% 적중이라 기준 +5%p"). The site shows the same table under 🔥 배당 급변 · 경기 전 점검.
+Also look at `pub.r1000.steam` (🔥 Pinnacle moved, Betman did not): such a side is a strong candidate — mention "🔥 피나클 급변" in its why.
