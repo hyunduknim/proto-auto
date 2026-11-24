@@ -1,4 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+if(fs.readFileSync("자동마킹.js","utf8").includes("R997 (owner 11/24 09:09")){console.log("r732 combos off (R997) — skipped");process.exit(0);}
 const c=vm.createContext({URL,URLSearchParams,Request,Response,Headers,TextEncoder,TextDecoder,AbortController,console,setTimeout,clearTimeout,structuredClone,crypto:globalThis.crypto});
 vm.runInContext(fs.readFileSync('자동마킹.js','utf8').replace('export class ProtoStateDO','class ProtoStateDO').replace('export class R958Cache','class R958Cache').replace('export default {','const W={'),c);const run=x=>vm.runInContext(x,c);
 run('currentRoundMarket=()=>true;r704Model=()=>null');
