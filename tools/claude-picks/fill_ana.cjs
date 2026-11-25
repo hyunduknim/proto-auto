@@ -37,7 +37,7 @@ function soccerModel(x) {
     ml: { 승: P((i, j) => i > j), 무: P((i, j) => i === j), 패: P((i, j) => i < j) },
     hc: l => Number.isInteger(l) ? { 승: P((i, j) => i - j + l > 0), 무: P((i, j) => i - j + l === 0), 패: P((i, j) => i - j + l < 0) } : { 승: P((i, j) => i - j + l > 0), 패: P((i, j) => i - j + l < 0) },
     tt: l => ({ 오버: P((i, j) => i + j > l), 언더: P((i, j) => i + j < l) }),
-    bt: P((i, j) => i > 0 && j > 0) // R1002: 양팀득점 (both teams score)
+    bt: 0.52 + 0.7 * (P((i, j) => i > 0 && j > 0) - 0.52) // R1002: 양팀득점 (both teams score), pulled 30% toward the usual 52% — form-based goal rates run hot
   };
 }
 function bballModel(x) {
@@ -83,7 +83,7 @@ for (const x of S.slate || []) {
   // R984 (owner 11/23 "경기분석 전 종목 다 클로드자체분석"): games with a site pick get Claude's own analysis too
   const nos = x.mk.map(m => Number(m[0]));
   // R1002 (owner 11/25 10:01 "오늘 새벽 양팀득점 안나왔는데?"): every soccer game gets a 양팀득점 chance, even ones already analysed
-  if (x.sp === '축구') { try { const Mb = soccerModel(x); if (Mb && Number.isFinite(Mb.bt)) for (const n of nos) { const v = ana[gm + ':' + n]; if (v && v.bt == null) { v.bt = Math.round(Mb.bt * 1000) / 1000; fixed++; } } } catch (_) {} }
+  if (x.sp === '축구') { try { const Mb = soccerModel(x); if (Mb && Number.isFinite(Mb.bt)) for (const n of nos) { const v = ana[gm + ':' + n]; if (v && v.btv !== 2) { v.bt = Math.round(Mb.bt * 1000) / 1000; v.btv = 2; fixed++; } } } catch (_) {} }
   if (nos.some(n => picked.has(gm + ':' + n))) continue; // Claude already picked this game
   const ml = x.mk.find(m => m[1] === 'MONEYLINE') || x.mk[0];
   const key = gm + ':' + ml[0];
@@ -131,7 +131,7 @@ for (const x of S.slate || []) {
   const value = b >= 0; if (!value) { const mi = m.findIndex(v => v.f === 'MONEYLINE'); if (mi >= 0) b = mi; else m.forEach((v, i) => { if (b < 0 || v.p > m[b].p) b = i; }); }
   const B = m[b];
   const why = (value ? '' : '가치 없음 · ') + '숫자 계산: ' + M.txt + ' · ' + B.lab + ' 계산 ' + pc(B.pm) + '% · ' + (B.ovq ? '해외 배당' : '베트맨 배당') + '과 합쳐 ' + pc(B.p) + '% (베트맨 기준 ' + pc(B.imp) + '%, ' + (B.edge >= 0 ? '+' : '') + pc(B.edge) + '%p) · 최근 5경기' + (x.af && x.af.xg ? '·xG' : '') + ' 기준';
-  ana[key] = { nos, d: x.d, m: m.map(({ f, line, pick, lab, p, o }) => ({ f, line, pick, lab, p, o })), b, why, auto: 1, v: 994, ...(x.sp === '축구' && Number.isFinite(M.bt) ? { bt: Math.round(M.bt * 1000) / 1000 } : {}), at: new Date().toISOString() };
+  ana[key] = { nos, d: x.d, m: m.map(({ f, line, pick, lab, p, o }) => ({ f, line, pick, lab, p, o })), b, why, auto: 1, v: 994, ...(x.sp === '축구' && Number.isFinite(M.bt) ? { bt: Math.round(M.bt * 1000) / 1000, btv: 2 } : {}), at: new Date().toISOString() };
   added++;
 }
 const y = new Date(Date.now() + 9 * 3600e3 - 86400e3).toISOString().slice(0, 10);
