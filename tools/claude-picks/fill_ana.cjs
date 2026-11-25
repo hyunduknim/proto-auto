@@ -40,6 +40,33 @@ function soccerModel(x) {
     bt: 0.52 + 0.7 * (P((i, j) => i > 0 && j > 0) - 0.52) // R1002: 양팀득점 (both teams score), pulled 30% toward the usual 52% — form-based goal rates run hot
   };
 }
+// R1010 (owner 11/25 21:44 "양팀득점도 하키처럼 피나클 확률로만들어줘"): 양팀득점 from Pinnacle only — find the expected goals
+// (home, away) whose Dixon-Coles score grid matches Pinnacle's 1X2 chances and its over/under chance, then read off
+// P(both teams score). No Pinnacle 1X2 → no 양팀득점 number.
+function pinBtts(x) {
+  const ml = (x.mk || []).find(m => m[1] === 'MONEYLINE'), pm = ml && ml[4];
+  if (!pm || !(pm['승'] > 0) || !(pm['패'] > 0)) return null;
+  const tt = (x.mk || []).find(m => m[1] === 'TOTAL' && m[4] && m[4]['오버'] > 0 && m[4]['언더'] > 0);
+  const tl = tt ? Number(tt[5] != null ? tt[5] : tt[2]) : null, po = tt ? tt[4]['오버'] / (tt[4]['오버'] + tt[4]['언더']) : null;
+  const RHO = -0.075;
+  const calc = (lh, la) => {
+    let w = 0, d = 0, l = 0, o = 0, b = 0, s = 0;
+    for (let i = 0; i < 11; i++) for (let j = 0; j < 11; j++) {
+      let q = pois(lh, i) * pois(la, j);
+      if (i === 0 && j === 0) q *= 1 - lh * la * RHO; else if (i === 0 && j === 1) q *= 1 + lh * RHO; else if (i === 1 && j === 0) q *= 1 + la * RHO; else if (i === 1 && j === 1) q *= 1 - RHO;
+      s += q; if (i > j) w += q; else if (i === j) d += q; else l += q; if (tl != null && i + j > tl) o += q; if (i > 0 && j > 0) b += q;
+    }
+    return { w: w / s, l: l / s, o: o / s, b: b / s };
+  };
+  const sum = pm['승'] + (pm['무'] || 0) + pm['패'], pw = pm['승'] / sum, pl = pm['패'] / sum;
+  let best = null;
+  for (let T = 1.2; T <= 5.0; T += 0.05) for (let sh = 0.1; sh <= 0.9; sh += 0.01) {
+    const lh = T * sh, la = T - lh, c = calc(lh, la);
+    const e = (c.w - pw) ** 2 + (c.l - pl) ** 2 + (po != null ? (c.o - po) ** 2 : (T - 2.7) ** 2 * 0.002);
+    if (!best || e < best.e) best = { e, c, lh, la };
+  }
+  return best ? { bt: best.c.b, lh: best.lh, la: best.la } : null;
+}
 function bballModel(x) {
   let ph, pa;
   const pj = x.stats && x.stats.proj, sh = x.sh;
@@ -83,7 +110,8 @@ for (const x of S.slate || []) {
   // R984 (owner 11/23 "경기분석 전 종목 다 클로드자체분석"): games with a site pick get Claude's own analysis too
   const nos = x.mk.map(m => Number(m[0]));
   // R1002 (owner 11/25 10:01 "오늘 새벽 양팀득점 안나왔는데?"): every soccer game gets a 양팀득점 chance, even ones already analysed
-  if (x.sp === '축구') { try { const Mb = soccerModel(x); if (Mb && Number.isFinite(Mb.bt)) for (const n of nos) { const v = ana[gm + ':' + n]; if (v && v.btv !== 2) { v.bt = Math.round(Mb.bt * 1000) / 1000; v.btv = 2; fixed++; } } } catch (_) {} }
+  // R1010: refreshed every run until kick-off from Pinnacle only (btv 3); entries without a Pinnacle 1X2 lose their 양팀득점 number
+  if (x.sp === '축구') { try { const Pb = pinBtts(x); for (const n of nos) { const v = ana[gm + ':' + n]; if (!v) continue; if (Pb) { const nb = Math.round(Pb.bt * 1000) / 1000; if (v.bt !== nb || v.btv !== 3) { v.bt = nb; v.btv = 3; fixed++; } } else if (v.bt != null) { delete v.bt; v.btv = 3; fixed++; } } } catch (_) {} }
   if (nos.some(n => picked.has(gm + ':' + n))) continue; // Claude already picked this game
   const ml = x.mk.find(m => m[1] === 'MONEYLINE') || x.mk[0];
   const key = gm + ':' + ml[0];
@@ -131,7 +159,7 @@ for (const x of S.slate || []) {
   const value = b >= 0; if (!value) { const mi = m.findIndex(v => v.f === 'MONEYLINE'); if (mi >= 0) b = mi; else m.forEach((v, i) => { if (b < 0 || v.p > m[b].p) b = i; }); }
   const B = m[b];
   const why = (value ? '' : '가치 없음 · ') + '숫자 계산: ' + M.txt + ' · ' + B.lab + ' 계산 ' + pc(B.pm) + '% · ' + (B.ovq ? '해외 배당' : '베트맨 배당') + '과 합쳐 ' + pc(B.p) + '% (베트맨 기준 ' + pc(B.imp) + '%, ' + (B.edge >= 0 ? '+' : '') + pc(B.edge) + '%p) · 최근 5경기' + (x.af && x.af.xg ? '·xG' : '') + ' 기준';
-  ana[key] = { nos, d: x.d, m: m.map(({ f, line, pick, lab, p, o }) => ({ f, line, pick, lab, p, o })), b, why, auto: 1, v: 994, ...(x.sp === '축구' && Number.isFinite(M.bt) ? { bt: Math.round(M.bt * 1000) / 1000, btv: 2 } : {}), at: new Date().toISOString() };
+  ana[key] = { nos, d: x.d, m: m.map(({ f, line, pick, lab, p, o }) => ({ f, line, pick, lab, p, o })), b, why, auto: 1, v: 994, ...(x.sp === '축구' ? (() => { const Pb = pinBtts(x); return Pb ? { bt: Math.round(Pb.bt * 1000) / 1000, btv: 3 } : {}; })() : {}), at: new Date().toISOString() };
   added++;
 }
 const y = new Date(Date.now() + 9 * 3600e3 - 86400e3).toISOString().slice(0, 10);
