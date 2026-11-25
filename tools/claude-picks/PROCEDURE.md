@@ -204,6 +204,8 @@ Write every handicap label from the side that WINS the bet: "<home> -3 패" is w
 
 
 ## ⚽ R991 해외축구 trial 11/24–11/29 (owner 11/24 00:25 "축구도 신경 좀 써줘 NBA처럼")
+
+**R1008 (owner 11/25 20:29 "해외축구도 하키처럼 피나클로 하나?" → "1,2번 섞어서 최적으로 맞춰줘 대신 경기를 너무 줄이지는 말고"):** Claude's own soccer numbers ran high (핸디 said 63% → hit 50%; 일반승 said 54% → hit 38%). From 11/26 the hourly soccer post uses combined = 60% Pinnacle + 40% Claude; pick at combined 57%+ AND Pinnacle 54%+ for the same side (핸디 Pinnacle 56%+; UCL/에레디비시 combined 60%+); opposite sides → pass; no Pinnacle number → own view 62%+. Why starts "피나클 NN% · 클로드 NN% → NN% · ".
 30-day foreign soccer record (site auto picks): 일반승 65% · 언더 61% · 핸디 56% · 오버 53%; worst leagues UCL 36%, 에레디비시 42%.
 - Picks go up about one hour before each kickoff (hourly runs), so use the announced starting lineups when they are out (ESPN match page / team news). A key player missing from the lineup → re-check the pick or pass.
 - 일반승 is fine when the favourite is clear and the draw risk is low; do not swap a good 일반승 for a 핸디/언오버 just to mix types.
