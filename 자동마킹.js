@@ -1784,13 +1784,18 @@ if(fam==="HANDICAP"){const p=r507Phi((fit.md+line)/fit.sd);return {승:p,패:1-p
 if(fam==="TOTAL"){if(fit.mt==null)return null;const p=r507Phi((fit.mt-line)/fit.st);return {오버:p,언더:1-p};}
 return null;}
 /* ---- bookmaker probabilities (no-vig) ---- */
+/* R1011 (owner 11/26 06:08–06:09 "깃허브 소스에 분석에 필요할만한게 없을까?" → "클로드가 알아서 최적값으로"): Pinnacle odds → chances with the
+   power method instead of the plain 1/odds share. Tested on 7,300 European games with Pinnacle closing odds (soccer_backtest.cjs):
+   log-loss 1X2 plain .96146 · Shin (mberk/shin) .96087 · power .96077 (best); over/under plain .6672 · Shin .6670 · power .66695 (best);
+   long shots (4.0+) plain 16.1% · power 15.6% · actual 13.7% */
+function r1011Pow(odds){const q=odds.map(o=>1/Number(o));if(q.some(x=>!(x>0)))return q;let lo=1,hi=4;for(let i=0;i<50;i++){const k=(lo+hi)/2,t=q.reduce((a,x)=>a+Math.pow(x,k),0);if(t>1)lo=k;else hi=k;}const k=(lo+hi)/2,p=q.map(x=>Math.pow(x,k)),S=p.reduce((a,b)=>a+b,0)||1;return p.map(x=>x/S);}
 function r507BookProbs(ev){
 const H=ev?.home_team,A=ev?.away_team,books=Array.isArray(ev?.bookmakers)?ev.bookmakers:[];
 const extract=b=>{const h2h=(b.markets||[]).find(x=>x.key==="h2h"),tot=(b.markets||[]).find(x=>x.key==="totals");let ml=null,total=null;
 if(h2h){const get=n=>Number((h2h.outcomes||[]).find(o=>o.name===n)?.price);const ph=get(H),pa=get(A),pd=get("Draw");
-if(ph>1&&pa>1){const ih=1/ph,ia=1/pa,id=pd>1?1/pd:0,s=ih+ia+id;ml={h:ih/s,d:id/s,a:ia/s,draw:pd>1};}}
+if(ph>1&&pa>1){const v=r1011Pow(pd>1?[ph,pd,pa]:[ph,pa]);ml=pd>1?{h:v[0],d:v[1],a:v[2],draw:true}:{h:v[0],d:0,a:v[1],draw:false};}}
 if(tot){const ov=(tot.outcomes||[]).find(o=>/^over$/i.test(o.name)),un=ov&&(tot.outcomes||[]).find(o=>/^under$/i.test(o.name)&&Number(o.point)===Number(ov.point));
-if(ov&&un&&Number(ov.price)>1&&Number(un.price)>1){const io=1/Number(ov.price),iu=1/Number(un.price);total={pt:Number(ov.point),over:io/(io+iu)};}}
+if(ov&&un&&Number(ov.price)>1&&Number(un.price)>1){total={pt:Number(ov.point),over:r1011Pow([Number(ov.price),Number(un.price)])[0]};}}
 return {ml,total,key:b.key};};
 for(const k of ["pinnacle","betfair_ex_eu","matchbook"]){const b=books.find(x=>x.key===k);if(b){const r=extract(b);if(r.ml)return {...r,src:k};}}
 const all=books.map(extract).filter(r=>r.ml);if(!all.length)return null;
