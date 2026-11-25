@@ -104,7 +104,7 @@ Pick independently; a game GPT also picked is fine (the site marks agreement wit
    - No soccer 언더 1.5 or lower. 언더 2.5 is allowed again (owner: "2.5언더 살려야되겟다 다 빼는게 아니엿네") when both teams' recent games are low-scoring and no attacking absences point the other way.
    - Minimum odds 1.31 (owner rule from round 131: no 클로드·GPT·피나클 pick below 1.31; publish.sh rejects it). Usually 4–8 picks; fewer is fine. Never pad.
    - At most one pick per game. Groups are `안정형` (확률 우선) and `가치형` (일정 피로 · 결장 · 시장 오차).
-   - NBA: mix 일반승 / 핸디 / 언오버 (compare all three per game, pick the best). Put the type in the label, e.g. "[핸디] 올랜도 +2.5 승".
+   - NBA: mix 일반승 / 핸디 / 언오버 (compare all three per game, pick the best). Put the type in the label, e.g. "[핸디] 올랜도 +2.5 플러스 핸디캡".
    - **R1007 (owner 11/25 15:04–15:09 "농구는 맨날 ❌" → "너무 다빼면 안되" → "35% 미만만 빼기"): NBA posts keep all three markets per game, but a market whose only pickable side is under 35% combined (long-shot 일반승 underdogs when the favourite is 1.31 or less) is left out. ⭐ 추천 = Pinnacle 56%+ for that exact side AND combined 56%+ (핸디 needs Pinnacle 58%+).**
    - **R999 (owner 11/24 12:36 "그대로 해봐"): NBA post groups are "⭐ 추천" (Pinnacle chance for that exact side at Betman's line ≥ 55%) and "참고 (반반)" (the rest). For 언오버 the total side is decided by Pinnacle (combined = 80% 피나클 + 20% 클로드) — StatsHawk totals are pulled to the league average and made 11/24's seven 언더 picks.**
    - **R998 (owner 11/24 09:52 "NBA추천픽 내일부터 시간순 경기순으로 · 일반승 핸디캡 언오버도 같이" → "경기마다 3개 다"): from 11/25 the 🏀 NBA추천 post gives EVERY game three picks (일반승, 핸디캡, 언오버 — the better side of each, odds over 1.31), listed in tip-off order, game by game. The R987 caps below no longer apply to that post (the site auto-marking keeps them).**
@@ -174,7 +174,7 @@ he saw no early-morning NBA games and moved the run to 07:00 ("NBA 새벽시간�
 
    **Read every candidate game's ESPN injuries first.** Never back a side whose key player is Out. (On 10/24 #92
    골든스테이트 승 was picked although Butler, Porzingis and Moody were Out.)
-   Put the type in the label: "[일반승] 골든스테이트 승", "[핸디] 올랜도 +2.5 승", "[언오버] 레이커스-클리퍼스 언더 228.5".
+   Put the type in the label: "[일반승] 골든스테이트 승", "[핸디] 올랜도 +2.5 플러스 핸디캡", "[언오버] 레이커스-클리퍼스 언더 228.5".
    3–4 NBA picks a day, all in the 07:00 run, one per game; skip games with
    no edge. Groups are 안정형 and 가치형.
 4. Write a post with `"kind":"injury"`. It uses `"id":"YYYY-MM-DD-y-nba-injury"` and
@@ -200,6 +200,7 @@ Every Claude run (새벽 해외축구, 아침 NBA, 평일·주말 국내경기) 
 - Post: id "YYYY-MM-DD-upset-<slot>" with slot n (해외축구), a (NBA/NHL), k (평일 국내), b (주말 국내); title "M/D 🎲 역배후보"; one group "역배"; 확률 = own chance; why = "클로드 NN% vs 배당 NN% (+N%p) · " + the concrete reasons. Publish with tools/claude-picks/publish.sh like any post. It shows on the site's 🎲 역배후보 tab with its own record (kept out of the main Claude record) and gets Telegram alerts.
 
 ## 핸디캡 이름 쓰는 법 (R957, owner 11/21 02:05 "핸디캡에 마이너스 패는 상대팀 플핸으로 고쳐 헷깔리게 하지말고")
+**R1014 (owner 11/26 06:36 "핸디캡을 제대로 적어줘 -1 마이너스 핸디캡 +1 플러스 핸디캡"):** write handicap labels as "[핸디] <team> -1 마이너스 핸디캡" / "[핸디] <team> +3.5 플러스 핸디캡" (never end a handicap label with 승/패; a 3-way 무 is "[핸디] <home> -1 무승부"). The site rewrites old "[핸디] X +N 승" labels the same way.
 Write every handicap label from the side that WINS the bet: "<home> -3 패" is written "<away> +3 승", "<home> +1 패" is written "<away> -1 승". Keep "pick" and "line" exactly as Betman has them (pick "패", the home line) — only the label text changes. The site also rewrites old labels this way.
 
 
