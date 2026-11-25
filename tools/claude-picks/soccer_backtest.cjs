@@ -60,7 +60,25 @@ function fitLam(pH, pO) { // find (lh, la) whose plain-Poisson grid matches Pinn
       const d = m.hg - m.ag + m.ahl; const hh = d > 0; const side = m.pah >= 0.5; add('핸디(반점)', side ? m.pah : 1 - m.pah, side ? hh : !hh);
     }
   }
-  const out = { matches: M.length, rho: bestRho, llTab, draw: { poisson: +(dP / n).toFixed(3), dixonColes: +(dDC / n).toFixed(3), pinnacle: +(dPin / n).toFixed(3), actual: +(dAct / n).toFixed(3) }, hit: {} };
+  // R1011 (owner 11/26 06:09 "클로드가 알아서 최적값으로"): which way of removing the bookmaker margin fits real results best?
+  // proportional (1/odds ÷ sum, what the site used), power, Shin (MIT mberk/shin method; 2-way = additive). Log-loss, lower = better.
+  const shin = o => { const q = o.map(x => 1 / x), B = q.reduce((a, b) => a + b, 0); if (q.length === 2) { const d = (B - 1) / 2; return q.map(x => Math.min(.999, Math.max(.001, x - d))); }
+    let lo = 0, hi = 0.4; const P = z => q.map(x => (Math.sqrt(z * z + 4 * (1 - z) * x * x / B) - z) / (2 * (1 - z)));
+    for (let i = 0; i < 60; i++) { const z = (lo + hi) / 2, s = P(z).reduce((a, b) => a + b, 0); if (s > 1) lo = z; else hi = z; } const p = P((lo + hi) / 2), S = p.reduce((a, b) => a + b, 0); return p.map(x => x / S); };
+  const pow = o => { const q = o.map(x => 1 / x); let lo = 1, hi = 4; for (let i = 0; i < 60; i++) { const k = (lo + hi) / 2, s = q.reduce((a, x) => a + Math.pow(x, k), 0); if (s > 1) lo = k; else hi = k; } const k = (lo + hi) / 2, p = q.map(x => Math.pow(x, k)), S = p.reduce((a, b) => a + b, 0); return p.map(x => x / S); };
+  const prop = o => { const q = o.map(x => 1 / x), S = q.reduce((a, b) => a + b, 0); return q.map(x => x / S); };
+  const LL = { ml: { prop: 0, pow: 0, shin: 0, n: 0 }, ou: { prop: 0, pow: 0, shin: 0, n: 0 }, fav: { prop: [0, 0], pow: [0, 0], shin: [0, 0], hit: 0, n: 0 } };
+  for (const x of rows) {
+    const H = +x.PSCH || +x.PSH, D = +x.PSCD || +x.PSD, A = +x.PSCA || +x.PSA, O = +x['PC>2.5'] || +x['P>2.5'], U = +x['PC<2.5'] || +x['P<2.5'];
+    const hg = +x.FTHG, ag = +x.FTAG; if (!Number.isFinite(hg)) continue;
+    if (H > 1 && D > 1 && A > 1) { const r = hg > ag ? 0 : hg === ag ? 1 : 2; for (const [k, f] of [['prop', prop], ['pow', pow], ['shin', shin]]) LL.ml[k] -= Math.log(Math.max(1e-6, f([H, D, A])[r])); LL.ml.n++;
+      const lng = Math.max(H, A) >= 4 ? (H > A ? 0 : 2) : -1; if (lng >= 0) { for (const [k, f] of [['prop', prop], ['pow', pow], ['shin', shin]]) LL.fav[k][0] += f([H, D, A])[lng]; LL.fav.hit += r === lng ? 1 : 0; LL.fav.n++; } }
+    if (O > 1 && U > 1) { const r = hg + ag > 2.5 ? 0 : 1; for (const [k, f] of [['prop', prop], ['pow', pow], ['shin', shin]]) LL.ou[k] -= Math.log(Math.max(1e-6, f([O, U])[r])); LL.ou.n++; }
+  }
+  const devig = { ml: {}, ou: {}, longshot: {} };
+  for (const k of ['prop', 'pow', 'shin']) { devig.ml[k] = +(LL.ml[k] / LL.ml.n).toFixed(5); devig.ou[k] = +(LL.ou[k] / LL.ou.n).toFixed(5); devig.longshot[k] = +(LL.fav[k][0] / LL.fav.n * 100).toFixed(2); }
+  devig.longshot.actual = +(LL.fav.hit / LL.fav.n * 100).toFixed(2); devig.n = { ml: LL.ml.n, ou: LL.ou.n, longshot: LL.fav.n };
+  const out = { devig, matches: M.length, rho: bestRho, llTab, draw: { poisson: +(dP / n).toFixed(3), dixonColes: +(dDC / n).toFixed(3), pinnacle: +(dPin / n).toFixed(3), actual: +(dAct / n).toFixed(3) }, hit: {} };
   for (const [k, v] of Object.entries(tab)) out.hit[k] = { n: v[1], rate: +(v[0] / v[1] * 100).toFixed(1) };
   console.log('REPORT ' + JSON.stringify(out));
 })();
