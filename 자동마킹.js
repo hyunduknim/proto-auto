@@ -8136,6 +8136,7 @@ return {at:new Date(now).toISOString(),steam:steam.slice(0,25),warn};}
 /* R993: Betman short league names (분데스리 · 프리그1 · 에레디비 · EFL챔 · 잉리그컵 · 독일FA컵 · U네이션) added to R532_ESPN_SOCCER */
 /* R993 (owner 11/24 00:51 "조합은 채점 한것도 있고 안한것도 있네?"): combo legs whose game ended after the Betman round changed had no market left
    to grade from. Every 20 min, legs still open 2.5h+ after kickoff are graded from ESPN's public final scores (NBA and soccer). */
+/* R1018 (owner 11/27 00:58): Cloudflare Workers Builds now watch only 자동마킹.js and wrangler.jsonc — pushes to data branches no longer cost build minutes */
 /* R1009d (owner 11/26 06:49 "양팀득점 채점 하고있는거지?"): Betman posts final scores late (and only settles marked games fast), so the
    양팀득점 ledger reads final scores straight from ESPN's public soccer scoreboard, the same way R532 settles picks */
 async function r1009Espn(state,now=Date.now()){if(now-Number(state.r1009At||0)<5*60000)return {source:'R1009',status:'THROTTLED'};state.r1009At=now;const L=state.r1009||{},A={source:'R1009',at:new Date(now).toISOString(),need:0,graded:0,req:0,rej:{}};
