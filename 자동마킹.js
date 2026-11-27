@@ -4801,8 +4801,8 @@ if(sp==='vb'&&((m.marketFamily==='TOTAL'&&Number(m.line)>20)||(m.marketFamily===
 const raw={gmTs:m.gmTs,no:m.no,date:m.date,time:m.time,home:m.home,away:m.away,family:'MONEYLINE',score:hs+':'+as,terminal:true,partial:false,specialStatus:null};
 const pair=resultScorePairText(raw.score);if(!pair||scoreUnitMismatch(m,pair)){fail('MARKET_SCORE_UNIT');continue;}
 const res=resolveOfficialOutcome(raw,m);if(!res?.outcome||res.void||!validChoices(m).some(x=>x.label===res.outcome)){fail('UNRESOLVED_OR_PUSH');continue;}
-audit.matched++;const n=applyResults({markets:[m]},[raw],'APS_KR_VERIFIED_FINAL');audit.settled+=n;if(audit.samples.length<12)audit.samples.push({no:m.no,game:m.home+' vs '+m.away,api:g.h+' vs '+g.a,score:raw.score,outcome:res.outcome,settled:n===1});}
-audit.status=audit.matched?'MATCHED':'NO_MATCH';if(audit.settled)markState(state);await saveState(state,env,audit.settled>0);return audit;}
+audit.matched++;const n=m.marked&&m.representativeSelected?applyResults({markets:[m]},[raw],'APS_KR_VERIFIED_FINAL'):0;let n2=0;try{n2=r662Capture(state,[raw],'APS_KR_VERIFIED_FINAL');}catch(_){}audit.settled+=n;audit.claude=(audit.claude||0)+n2;if(audit.samples.length<12)audit.samples.push({no:m.no,game:m.home+' vs '+m.away,api:g.h+' vs '+g.a,score:raw.score,outcome:res.outcome,settled:n===1});}
+audit.status=audit.matched?'MATCHED':'NO_MATCH';if(audit.settled||audit.claude)markState(state);await saveState(state,env,audit.settled>0);return audit;}
 const R768={url:'https://raw.githubusercontent.com/hyunduknim/proto-auto/apifootball/af_soccer.json',tickMs:10*60000,tolMs:25*60000};
 async function r768Refresh(state,env,options={}){const now=Date.now(),prev=state.r768Audit;if(!options.force&&now-Date.parse(prev?.at||'')<R768.tickMs)return prev;const audit=state.r768Audit={at:new Date(now).toISOString(),status:'START'};
 try{const j=await r633Json(R768.url+'?t='+Math.floor(now/R768.tickMs));if(j&&Array.isArray(j.fx)){state.r768={at:j.at,fx:j.fx.slice(0,600)};audit.fx=j.fx.length;audit.status='OK';}else audit.status='EMPTY';}catch(e){audit.status='ERROR';audit.err=String(e?.message||e).slice(0,120);}return audit;}
