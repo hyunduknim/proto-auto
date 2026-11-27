@@ -5056,7 +5056,7 @@ const k=Math.abs(L);if(pick==='승')return L>0?H+'가 '+Math.floor(k)+u+' 차 �
 function r760Cands(state,now,lead=R760.leadMs,hz=R760.horizonMs){const B=state?.r507Overseas?.books||{},out=[];
 for(const ms of groupMarkets((state?.markets||[]).filter(m=>!m.resultFinal)).values()){const m0=ms[0],b=B[gameSeed(m0)];if(!b)continue;const t=gameTimeMs(m0);if(t==null||t<now+lead||t>now+hz)continue;
 const pin=(b.ml||[]).find(r=>r[0]==='pinnacle');if(!pin)continue;const tot=(b.tot||[]).find(r=>r[0]==='pinnacle')||null;const soccer=m0.sport==='축구',bask=m0.sport==='농구';if(!soccer&&!bask)continue;
-const H=r760N(m0.home),A=r760N(m0.away);let F=null,mu=null,tm=null;
+/* R1029 (owner 11/27 21:52 브라질-미국 언더 174.5 "78% 인데 왜 일반이지?"): a Pinnacle book whose total line is far from Betman's (146 vs 174.5) is another game (women's / different event) — skip it */{const bt=ms.find(m=>m.marketFamily==='TOTAL'&&m.line!=null);if(tot&&bt&&Math.abs(Number(tot[1])-Number(bt.line))>(bask?12:1.5))continue;}const H=r760N(m0.home),A=r760N(m0.away);let F=null,mu=null,tm=null;
 if(soccer){F=r760FitSoccer(pin,tot);if(!F)continue;}else{const v=[1/pin[1],1/pin[3]],ph=v[0]/(v[0]+v[1]);mu=r760InvPhi(ph)*12;if(tot){const u=1/tot[2],o=1/tot[3];tm=Number(tot[1])+r760InvPhi(o/(u+o))*17;}}
 for(const m of ms){const ch=validChoices(m),L=m.line==null?null:Number(m.line),fam=m.marketFamily;let ps={};
 if(soccer){const G=F.G;if(fam==='MONEYLINE')ps={승:F.P[0],무:F.P[1],패:F.P[2]};
