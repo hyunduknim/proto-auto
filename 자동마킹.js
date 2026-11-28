@@ -11027,7 +11027,7 @@ html body .app .c5x{background:none!important;-webkit-background-clip:border-box
 html body .app .c5pk{background:var(--q-s2)!important;border:1px solid var(--q-ln)!important;border-radius:16px 16px 6px 6px!important;padding:12px 14px!important;box-shadow:none!important;gap:12px!important}
 html body .app .c5pk .w{flex:1;min-width:0}
 html body .app .c5pk .w b{font-size:20px!important;font-weight:800!important;color:var(--q-tx)!important;letter-spacing:-.4px!important}
-html body .app .c5pk .w small{color:var(--q-mu)!important}
+html body .app .c5pk .w small{color:var(--q-mu)!important;display:block!important}
 html body .app .c5pno{color:var(--q-mu2)!important;font-weight:700!important;font-size:12px!important}
 html body .app .c5pk .o{text-align:right}
 html body .app .c5pk .o b{color:var(--q-am)!important;font-size:26px!important;font-weight:800!important;font-variant-numeric:tabular-nums;background:none!important;-webkit-text-fill-color:currentColor!important;text-shadow:none!important}
@@ -11052,6 +11052,7 @@ html body .app .pastPanel,html body .app .r617,html body .app details.r765D{bord
 html body .app details.r765D{background:var(--q-s1)!important;border:1px solid var(--q-ln)!important}
 html body .app details.r765D>summary{color:var(--q-tx)!important;font-weight:800!important}
 html body .app button{font-family:inherit!important}
+/* R1041 (owner 11/29 00:31 "자동마킹에 승 패 언더 오버를 점수 무지개 색깔로 움직이는 네온 글씨로"): the pick word on every marking card uses the same moving rainbow neon as the clock */html body .app .nCard.c5 .c5pk .w>b{display:inline-block!important;max-width:100%;font-family:Outfit,'Space Grotesk',"Pretendard Variable",sans-serif!important;font-weight:900!important;font-size:24px!important;padding-right:3px!important;background:linear-gradient(90deg,#ff3b3b,#ff9f1a,#ffe14d,#3dff7a,#33d6ff,#6a5cff,#ff4fd8,#ff3b3b)!important;background-size:200% 100%!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;animation:r836Flow 2.5s linear infinite,r836Glow 2.4s ease-in-out infinite!important}
 /* the rainbow neon on 회차·clock·적중 stays — owner asked for it (NHL 86% look) */
 html body .app .scoreTitle{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;text-align:left!important}
 html body .app .scoreWrap .scoreTitle button.r535Json,html body .app .scoreWrap button#exportJson{position:static!important;flex:none!important;transform:none!important;top:auto!important;right:auto!important;margin:0!important}
